@@ -1,0 +1,21 @@
+# Normalise line endings. Authored on Windows, executed on Linux runners —
+# without this, LF/CRLF drift shows up as spurious diffs and as shell scripts
+# that fail in CI with unreadable errors.
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+
+# Binary — never diff, never normalise.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webm binary
+*.zip  binary
+*.pdf  binary
+
+# Keep generated docs out of diff noise while still tracking them.
+docs/generated/** linguist-generated=true

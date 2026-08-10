@@ -1,0 +1,1561 @@
+<title>Playwright MCP Test Framework — Architecture Plan</title>
+<style>
+  :root {
+    --bg: #EAEDF1;
+    --surface: #FBFCFD;
+    --surface-2: #F1F4F7;
+    --ink: #151A21;
+    --ink-2: #39424F;
+    --muted: #5F6B7C;
+    --rule: #CFD6DF;
+    --rule-strong: #AFBAC7;
+    --accent: #8A5E12;
+    --accent-ink: #6E4A0C;
+    --accent-soft: #EFE4CC;
+    --pass: #1C6B4F;
+    --pass-soft: #DCEBE3;
+    --fail: #9F2B37;
+    --fail-soft: #F3DDDF;
+    --warn: #855F0F;
+    --warn-soft: #F1E6CC;
+    --code-bg: #EEF2F6;
+    --shadow: 0 1px 2px rgba(21, 26, 33, .06), 0 8px 24px -16px rgba(21, 26, 33, .3);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10131A;
+      --surface: #171B23;
+      --surface-2: #1C212A;
+      --ink: #E6E9EE;
+      --ink-2: #C2C9D4;
+      --muted: #929CAB;
+      --rule: #272D38;
+      --rule-strong: #3A4250;
+      --accent: #D9AC57;
+      --accent-ink: #E8C382;
+      --accent-soft: #2B2417;
+      --pass: #4FB88C;
+      --pass-soft: #16281F;
+      --fail: #E4757F;
+      --fail-soft: #2C1A1D;
+      --warn: #D2A03F;
+      --warn-soft: #2A2214;
+      --code-bg: #1A1F28;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #10131A;
+    --surface: #171B23;
+    --surface-2: #1C212A;
+    --ink: #E6E9EE;
+    --ink-2: #C2C9D4;
+    --muted: #929CAB;
+    --rule: #272D38;
+    --rule-strong: #3A4250;
+    --accent: #D9AC57;
+    --accent-ink: #E8C382;
+    --accent-soft: #2B2417;
+    --pass: #4FB88C;
+    --pass-soft: #16281F;
+    --fail: #E4757F;
+    --fail-soft: #2C1A1D;
+    --warn: #D2A03F;
+    --warn-soft: #2A2214;
+    --code-bg: #1A1F28;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-sans-serif, "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .serif {
+    font-family: ui-serif, "Iowan Old Style", Georgia, "Times New Roman", serif;
+  }
+
+  code, pre, .mono {
+    font-family: ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", monospace;
+  }
+
+  .shell {
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: 0 1.5rem 6rem;
+    display: grid;
+    grid-template-columns: 14.5rem minmax(0, 1fr);
+    gap: 3.5rem;
+    align-items: start;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--rule-strong);
+    padding: 4.5rem 0 2.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .eyebrow {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 1rem;
+  }
+
+  h1 {
+    font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(2.1rem, 4.5vw, 3.1rem);
+    line-height: 1.1;
+    letter-spacing: -.015em;
+    text-wrap: balance;
+    margin: 0 0 1rem;
+    max-width: 20ch;
+  }
+
+  .standfirst {
+    font-size: 1.12rem;
+    color: var(--ink-2);
+    max-width: 62ch;
+    margin: 0 0 2rem;
+    text-wrap: pretty;
+  }
+
+  .factbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 2.5rem;
+    row-gap: 1rem;
+    padding-top: .5rem;
+    border-top: 1px solid var(--rule);
+  }
+
+  .fact { display: flex; flex-direction: column; gap: .1rem; }
+
+  .fact dt {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .fact dd { margin: 0; font-size: .95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* ---------- nav ---------- */
+  nav.toc {
+    position: sticky;
+    top: 2rem;
+    font-size: .875rem;
+    line-height: 1.45;
+  }
+
+  nav.toc p {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 .85rem;
+  }
+
+  nav.toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+
+  nav.toc a {
+    color: var(--ink-2);
+    text-decoration: none;
+    display: block;
+    border-left: 2px solid var(--rule);
+    padding-left: .75rem;
+    transition: color .15s, border-color .15s;
+  }
+
+  nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent-ink); border-left-color: var(--accent); }
+
+  /* ---------- sections ---------- */
+  main { min-width: 0; max-width: 46rem; }
+
+  section { padding-top: 3.25rem; scroll-margin-top: 1.5rem; }
+
+  h2 {
+    font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+    font-weight: 600;
+    font-size: 1.72rem;
+    line-height: 1.2;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+    margin: 0 0 .35rem;
+  }
+
+  h2 .num {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .8rem;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: .08em;
+    display: block;
+    margin-bottom: .4rem;
+  }
+
+  h3 {
+    font-size: 1.02rem;
+    font-weight: 660;
+    letter-spacing: -.005em;
+    margin: 2rem 0 .5rem;
+    color: var(--ink);
+  }
+
+  h4 {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .74rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 1.5rem 0 .5rem;
+  }
+
+  p { margin: 0 0 1rem; max-width: 68ch; text-wrap: pretty; }
+
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  ul, ol.body { margin: 0 0 1rem; padding-left: 1.15rem; max-width: 68ch; }
+  li { margin-bottom: .45rem; }
+  li::marker { color: var(--muted); }
+
+  strong { font-weight: 660; }
+
+  code {
+    font-size: .855em;
+    background: var(--code-bg);
+    padding: .1em .35em;
+    border-radius: 3px;
+    border: 1px solid var(--rule);
+  }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1rem 1.15rem;
+    overflow-x: auto;
+    font-size: .82rem;
+    line-height: 1.6;
+    margin: 0 0 1.25rem;
+  }
+
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+
+  .lede {
+    font-size: 1.02rem;
+    color: var(--ink-2);
+    border-left: 2px solid var(--accent);
+    padding-left: 1.1rem;
+    margin: 0 0 1.75rem;
+    max-width: 64ch;
+  }
+
+  /* ---------- tables ---------- */
+  .scroller { overflow-x: auto; margin: 0 0 1.5rem; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+
+  th, td { text-align: left; padding: .7rem .9rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+
+  thead th {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .68rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    background: var(--surface-2);
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  td.mono, th.mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: .8rem; white-space: nowrap; }
+
+  /* ---------- layer stack ---------- */
+  .stack { display: flex; flex-direction: column; gap: .4rem; margin: 0 0 1.5rem; }
+
+  .layer {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 5px;
+    padding: .8rem 1rem;
+    align-items: baseline;
+  }
+
+  .layer .tag {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .75rem;
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+
+  .layer .what { font-size: .9rem; }
+  .layer .what b { display: block; font-weight: 660; margin-bottom: .1rem; }
+  .layer .what span { color: var(--muted); font-size: .85rem; }
+
+  /* ---------- flow ---------- */
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: .4rem;
+    margin: 0 0 1.5rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .flow li {
+    flex: 1 1 7rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: .65rem .75rem;
+    margin: 0;
+    font-size: .8rem;
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+  }
+
+  .flow li .n {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .65rem;
+    color: var(--accent);
+    letter-spacing: .1em;
+  }
+
+  .flow li b { font-weight: 640; font-size: .84rem; }
+  .flow li span { color: var(--muted); font-size: .76rem; line-height: 1.4; }
+
+  /* ---------- decision + risk cards ---------- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1.1rem 1.25rem;
+    margin: 0 0 1rem;
+    box-shadow: var(--shadow);
+  }
+
+  .card > :last-child { margin-bottom: 0; }
+
+  .card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: .6rem;
+    flex-wrap: wrap;
+  }
+
+  .card-head h3 { margin: 0; font-size: .98rem; }
+
+  .chip {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .64rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: .18rem .5rem;
+    border-radius: 3px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+
+  .chip.high { background: var(--fail-soft); color: var(--fail); border-color: var(--fail); }
+  .chip.med { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
+  .chip.low { background: var(--surface-2); color: var(--muted); border-color: var(--rule-strong); }
+  .chip.ok { background: var(--pass-soft); color: var(--pass); border-color: var(--pass); }
+
+  .verdict {
+    font-size: .87rem;
+    color: var(--ink-2);
+    border-top: 1px solid var(--rule);
+    padding-top: .6rem;
+    margin-top: .75rem;
+  }
+
+  .verdict b {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: .15rem;
+  }
+
+  /* ---------- phases ---------- */
+  .phase {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: 1.1rem;
+    padding: 1.1rem 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .phase:last-of-type { border-bottom: 1px solid var(--rule); }
+
+  .phase .idx {
+    font-family: ui-serif, Georgia, serif;
+    font-size: 1.6rem;
+    color: var(--accent);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .phase h3 { margin: 0 0 .35rem; }
+  .phase p { margin-bottom: .5rem; font-size: .92rem; }
+
+  .exit {
+    font-size: .82rem;
+    color: var(--muted);
+    background: var(--surface-2);
+    border-radius: 4px;
+    padding: .45rem .7rem;
+    display: inline-block;
+  }
+
+  .exit b { color: var(--ink-2); font-weight: 640; }
+
+  hr.rule { border: none; border-top: 1px solid var(--rule); margin: 2.5rem 0 0; }
+
+  footer {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--rule-strong);
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    font-size: .82rem;
+    color: var(--muted);
+  }
+
+  footer a { color: var(--muted); }
+
+  @media (max-width: 62rem) {
+    .shell { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    nav.toc { position: static; margin-bottom: 1rem; border-bottom: 1px solid var(--rule); padding-bottom: 1.25rem; }
+    nav.toc ol { flex-direction: row; flex-wrap: wrap; gap: .35rem .9rem; }
+    nav.toc a { border-left: none; padding-left: 0; border-bottom: 2px solid var(--rule); }
+    main { max-width: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="eyebrow">Architecture Plan &amp; Self-Critique · Draft 5</p>
+    <h1>An AI-legible Playwright framework</h1>
+    <p class="standfirst">A test automation stack where written test cases become running Playwright specs with a human in the review seat, not the typing seat. Vault holds the secrets, a mock inbox and Vault's TOTP engine clear MFA, and results land back in PractiTest and Jira automatically.</p>
+    <dl class="factbar">
+      <div class="fact"><dt>Runner</dt><dd>Playwright 1.62.1</dd></div>
+      <div class="fact"><dt>Authoring</dt><dd>Agents + Playwright CLI</dd></div>
+      <div class="fact"><dt>CI</dt><dd>GitLab</dd></div>
+      <div class="fact"><dt>Secrets</dt><dd>Vault KV v2 + TOTP</dd></div>
+      <div class="fact"><dt>Case mgmt</dt><dd>PractiTest → Jira DC</dd></div>
+      <div class="fact"><dt>Reporting</dt><dd>Bespoke HTML + triage agent</dd></div>
+      <div class="fact"><dt>Status</dt><dd>Decisions applied</dd></div>
+    </dl>
+  </header>
+
+  <nav class="toc" aria-label="Contents">
+    <p>Contents</p>
+    <ol>
+      <li><a href="#summary">Recommendation</a></li>
+      <li><a href="#legible">What AI-legible means</a></li>
+      <li><a href="#shape">Framework shape</a></li>
+      <li><a href="#layout">Repository layout</a></li>
+      <li><a href="#contract">The agent contract</a></li>
+      <li><a href="#topology">Agent tooling: CLI vs MCP</a></li>
+      <li><a href="#pipeline">Case → script pipeline</a></li>
+      <li><a href="#vault">Vault</a></li>
+      <li><a href="#otp">MFA and OTP</a></li>
+      <li><a href="#identity">Identity &amp; sessions</a></li>
+      <li><a href="#practitest">PractiTest results</a></li>
+      <li><a href="#jira">Jira Data Center</a></li>
+      <li><a href="#ci">GitLab CI</a></li>
+      <li><a href="#network">Restricted network</a></li>
+      <li><a href="#report">The run report</a></li>
+      <li><a href="#email">Delivery by email</a></li>
+      <li><a href="#triage">Triage agent</a></li>
+      <li><a href="#phases">Delivery phases</a></li>
+      <li><a href="#critique">Self-critique</a></li>
+      <li><a href="#open">Decisions</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section id="summary">
+      <h2><span class="num">Section 01</span>The recommendation in one page</h2>
+      <p class="lede">Five decisions carry this design. Everything else follows from them.</p>
+
+      <div class="card">
+        <div class="card-head"><h3>Not classic POM — a four-layer split</h3><span class="chip ok">Decision</span></div>
+        <p>Locators, actions, fixtures, specs. Page Object Model's open-ended class surface is exactly what makes LLM output drift. A closed vocabulary of typed fixtures and named business actions turns generation into a constrained choice rather than free composition.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Playwright's own agents are the generation engine</h3><span class="chip ok">Decision</span></div>
+        <p>Playwright 1.56+ ships <code>planner</code>, <code>generator</code> and <code>healer</code> agents, installed with <code>npx playwright init-agents --loop=claude|vscode</code>. Do not hand-roll this. Drive them through <code>@playwright/cli</code> rather than the MCP server — roughly 4x fewer tokens for the same work — and wrap them with project skills that pull the test case in and push the result out.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Vault is never an MCP server</h3><span class="chip ok">Decision</span></div>
+        <p>An authoring agent with tool access to Vault can read a live credential and bake it into generated source or a chat transcript. Secrets resolve at <em>runtime</em>, inside the test process, through a fixture. The agent only ever writes the reference, never the value.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Two OTP channels, one interface</h3><span class="chip ok">Decision</span></div>
+        <p>Vault's TOTP secrets engine handles authenticator-app MFA; the mock SMTP inbox handles emailed codes. Both sit behind <code>OtpProvider</code> so a spec says <code>await otp.get()</code> and does not care which.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Reporting is best-effort, never build-blocking</h3><span class="chip ok">Decision</span></div>
+        <p>PractiTest allows 20 instances per run POST and 30 API calls per minute. A custom reporter batches and throttles inside that envelope, and a reporting failure degrades to a warning plus an artifact — it never turns a green suite red.</p>
+      </div>
+    </section>
+
+    <section id="legible">
+      <h2><span class="num">Section 02</span>What "AI-legible" actually means</h2>
+      <p class="lede">The common reading is "write good docs so Copilot understands the repo." That is the weakest version of the idea and it does not survive contact with a 400-test suite.</p>
+
+      <p>A model generating a test is doing constrained search. Legibility is whatever shrinks the search space and whatever tells the model, without a human, that it went wrong. Three properties do the work:</p>
+
+      <h3>1. A small, closed vocabulary</h3>
+      <p>If there are eight fixtures and forty named actions with typed signatures, generation is close to multiple choice. If the model can call any method on any page object, plus raw <code>page.*</code>, it will invent <code>loginPage.loginWithValidCredentials()</code> — plausible, non-existent, and only caught at runtime.</p>
+
+      <h3>2. Conventions that execute</h3>
+      <p>A markdown rule saying "prefer <code>getByRole</code>" is advisory. An ESLint rule that fails on <code>page.locator('.css-selector')</code> is a feedback signal the agent can act on by itself. Every convention worth having should be expressible as a lint rule, a type, or a failing test. Documentation is the fallback for the rest.</p>
+
+      <h3>3. Locators grounded in a real snapshot</h3>
+      <p>This is what the Playwright MCP buys. Asked to write a login test from prose alone, a model guesses selectors from its priors. Given a live accessibility snapshot of the actual page, it reads them. Locator hallucination is the single largest source of dead-on-arrival generated tests, and exploration is the only real fix.</p>
+
+      <p>Classic POM helps with none of the three. It is a code-reuse pattern from an era when a human wrote every line, and it is being carried forward on momentum.</p>
+    </section>
+
+    <section id="shape">
+      <h2><span class="num">Section 03</span>Framework shape</h2>
+      <p class="lede">Four layers, each with one job and a hard rule about what it may not do.</p>
+
+      <div class="stack">
+        <div class="layer">
+          <span class="tag">L1</span>
+          <span class="what"><b>locators/</b><span>Flat maps of named locators. <code>getByRole</code> first, then <code>getByLabel</code>, then <code>getByTestId</code>. No logic, no waits, no assertions.</span></span>
+        </div>
+        <div class="layer">
+          <span class="tag">L2</span>
+          <span class="what"><b>actions/</b><span>Business verbs — <code>submitExpenseClaim(data)</code>, <code>completeMfaChallenge()</code>. Composes L1. Returns data, not page objects. Asserts nothing except its own invariants.</span></span>
+        </div>
+        <div class="layer">
+          <span class="tag">L3</span>
+          <span class="what"><b>fixtures/</b><span>The injectable surface: <code>authedPage</code>, <code>secrets</code>, <code>otp</code>, <code>inbox</code>, <code>apiClient</code>, <code>testData</code>. Handles setup, teardown, and worker isolation.</span></span>
+        </div>
+        <div class="layer">
+          <span class="tag">L4</span>
+          <span class="what"><b>tests/</b><span>Thin specs, one per managed test case, carrying its PractiTest and Jira identifiers as annotations. All assertions live here.</span></span>
+        </div>
+      </div>
+
+      <h3>The rules that make it hold</h3>
+      <ul>
+        <li>Specs never import from <code>locators/</code> — if a spec needs an element, the missing thing is an action.</li>
+        <li>Actions never assert outcomes. Assertions in specs keep test intent readable and reviewable, which matters when a human is reviewing generated code at volume.</li>
+        <li>No <code>waitForTimeout</code>, ever. No CSS or XPath without an inline justification comment that lint recognises.</li>
+        <li>A spec body should be readable aloud to a manual tester and match their test case step for step.</li>
+      </ul>
+
+      <h4>What a generated spec looks like</h4>
+      <pre><code>test('TC-4821 · Expense claim rejected above approval limit', {
+  annotation: [
+    { type: 'practitest', description: '4821' },
+    { type: 'jira',       description: 'FIN-2210' },
+  ],
+}, async ({ authedPage, expenses, testData }) =&gt; {
+  const claim = testData.expenseClaim({ amount: 15_000 });
+
+  await expenses.submitClaim(authedPage, claim);
+
+  await expect(authedPage.getByRole('alert')).toHaveText(
+    /exceeds your approval limit/i,
+  );
+  await expect(await expenses.statusOf(claim.reference)).toBe('Rejected');
+});</code></pre>
+
+      <h4>Alternatives considered</h4>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Pattern</th><th>Why not</th></tr></thead>
+          <tbody>
+            <tr><td><b>Classic POM</b></td><td>Unbounded method surface plus inheritance. Models invent methods and mis-resolve base classes. Good human ergonomics, poor generation target.</td></tr>
+            <tr><td><b>Screenplay / actors</b></td><td>Genuinely well-factored, but heavy ceremony and thin representation in training data, so models produce a broken imitation of it.</td></tr>
+            <tr><td><b>Flat specs, no abstraction</b></td><td>Best possible generation accuracy, worst possible maintenance. One selector change breaks 60 tests and the healer has to fix each one independently.</td></tr>
+            <tr><td><b>Four-layer (chosen)</b></td><td>Keeps the closed vocabulary of an abstraction layer while staying close enough to idiomatic Playwright that model priors help rather than hurt.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="layout">
+      <h2><span class="num">Section 04</span>Repository layout</h2>
+      <pre><code>playwright-mcp-template/
+├─ .gitlab-ci.yml                  # pipeline entry point
+├─ ci/
+│  ├─ verify.yml  test.yml  publish.yml  rotate.yml
+│  └─ vault-auth.yml               # id_tokens + secrets templates
+├─ .github/
+│  └─ copilot-instructions.md      # GENERATED — path convention, not GitHub
+├─ CLAUDE.md                       # GENERATED — do not edit
+├─ AGENTS.md                       # GENERATED — do not edit
+├─ docs/
+│  ├─ CONVENTIONS.md               # ← single source of truth
+│  ├─ plan.html                    # this document
+│  └─ generated/
+│     └─ catalog.md                # auto-built inventory of fixtures + actions
+├─ specs/                          # markdown test plans (planner output)
+│  └─ expenses/TC-4821.md
+├─ tests/
+│  ├─ seed.spec.ts                 # environment bootstrap for the planner
+│  └─ expenses/TC-4821.spec.ts
+├─ src/
+│  ├─ locators/                    # L1
+│  ├─ actions/                     # L2
+│  ├─ fixtures/                    # L3 — incl. account lease + storageState
+│  ├─ integrations/
+│  │  ├─ vault/                    # OIDC/AppRole, KV v2, TOTP, account pool
+│  │  ├─ mail/                     # OTP inbox adapter
+│  │  ├─ practitest/               # client + reporter
+│  │  └─ jira/                     # defect sync
+│  └─ support/
+│     ├─ redact.ts                 # secret scrubbing for traces & logs
+│     └─ types.ts
+├─ tools/
+│  ├─ sync-instructions.ts         # CONVENTIONS.md → agent files
+│  ├─ build-catalog.ts             # ts-morph → catalog.md
+│  ├─ pull-cases.ts                # PractiTest → specs/*.md
+│  ├─ render-report.ts             # run-result.json → HTML + email digest
+│  ├─ triage.ts                    # cluster → rules → agent
+│  └─ rotate-passwords.ts          # scheduled, blackout-aware
+├─ .auth/                          # storageState — gitignored, never an artifact
+├─ eslint-rules/                   # executable conventions
+└─ playwright.config.ts</code></pre>
+      <p>The three generated instruction files are byte-derived from <code>docs/CONVENTIONS.md</code> and verified in CI. This is the only defence against Copilot and Claude Code slowly diverging into two different house styles.</p>
+    </section>
+
+    <section id="contract">
+      <h2><span class="num">Section 05</span>The agent contract</h2>
+      <p class="lede">Four artifacts that together let any competent coding agent — Copilot Chat, Claude Code, Codex — produce conforming tests without a human explaining the framework each time.</p>
+
+      <h3>Conventions, written once</h3>
+      <p><code>docs/CONVENTIONS.md</code> holds the layer rules, the locator priority order, naming, annotation format, and the "never do this" list. <code>tools/sync-instructions.ts</code> renders it into <code>CLAUDE.md</code>, <code>AGENTS.md</code> and <code>.github/copilot-instructions.md</code> with the right front-matter for each client. CI fails if any target is stale.</p>
+
+      <h3>A generated capability catalog</h3>
+      <p><code>tools/build-catalog.ts</code> walks the TypeScript AST with ts-morph and emits every exported fixture and action with its signature and doc comment. The agent is instructed to select from this file and to stop and ask if the needed action is absent. This is what stops helper-method hallucination, and it cannot go stale because it is derived from code.</p>
+
+      <h3>Executable guardrails</h3>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Rule</th><th>Enforced by</th></tr></thead>
+          <tbody>
+            <tr><td>No raw CSS/XPath locators</td><td class="mono">eslint: no-raw-locators</td></tr>
+            <tr><td>No <code>waitForTimeout</code></td><td class="mono">eslint: no-hard-waits</td></tr>
+            <tr><td>Specs may not import <code>locators/</code></td><td class="mono">eslint: layer-boundaries</td></tr>
+            <tr><td>No <code>process.env</code> for credentials</td><td class="mono">eslint: secrets-via-fixture</td></tr>
+            <tr><td>Every spec carries a PractiTest annotation</td><td class="mono">eslint: require-case-id</td></tr>
+            <tr><td>Actions and fixtures fully typed</td><td class="mono">tsc --strict</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The loop that matters: agent writes → <code>lint + tsc + playwright run</code> → structured errors → agent repairs. Anything a human has to catch by eye is a convention that has not been finished.</p>
+
+      <h3>Golden examples</h3>
+      <p>Three reference specs the agent is told to imitate — a simple CRUD flow, an MFA login, and a data-driven case. Few-shot grounding in-repo outperforms prose instructions by a wide margin, and these double as the framework's own smoke tests.</p>
+    </section>
+
+    <section id="topology">
+      <h2><span class="num">Section 06</span>Agent tooling — CLI over MCP</h2>
+      <p class="lede">Reversed from earlier drafts, and the evidence is not close. Playwright now ships a CLI built specifically for coding agents, and for this use case it beats the MCP server on the axis that matters most.</p>
+
+      <h3>Why the CLI wins here</h3>
+      <p>The two tools differ in where browser state lives. The MCP server streams the accessibility tree, console output and screenshots into the model's context on every action, and it accumulates. <code>@playwright/cli</code> writes snapshots to disk as YAML and lets the agent read what it needs, when it needs it.</p>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th></th><th>Playwright MCP</th><th>Playwright CLI</th></tr></thead>
+          <tbody>
+            <tr><td><b>Browser state</b></td><td>Streamed into context every action</td><td>Written to disk, read on demand</td></tr>
+            <tr><td><b>Tokens, typical task</b></td><td class="mono">~114,000</td><td class="mono">~27,000</td></tr>
+            <tr><td><b>Long flows (20+ steps)</b></td><td>Degrades — stale snapshots accumulate</td><td>Holds up — context stays clean</td></tr>
+            <tr><td><b>Playwright's own guidance</b></td><td>Specialised agentic loops, exploration</td><td>Coding agents: Claude Code, Copilot</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>That token figure is Microsoft's own benchmark for the same task, and the roughly 4x gap compounds across a suite of hundreds of generated tests. Three further reasons it fits this project specifically:</p>
+      <ul>
+        <li><b>It names your exact clients.</b> Playwright's documentation positions the CLI for "coding agents (Claude Code, GitHub Copilot)" — both of which you are supporting as first-class.</li>
+        <li><b>It is skills-based.</b> <code>playwright-cli install --skills</code> installs agent skills directly, which is what the original brief asked for. This is now a supported path rather than something to hand-roll.</li>
+        <li><b>Less application data leaves the building.</b> Snapshots on disk that the agent reads selectively means materially less of your app's rendered content streamed to a cloud model than the MCP's stream-everything model — a real advantage against the section 14 governance constraint.</li>
+      </ul>
+
+      <h4>Command surface</h4>
+      <pre><code>npm install -D @playwright/cli@latest
+npx playwright-cli install --skills      # agent skills
+npx playwright-cli install-browser
+
+npx playwright-cli open &lt;url&gt;            # launch
+npx playwright-cli snapshot              # YAML snapshot with element refs
+npx playwright-cli click &lt;ref&gt;           # ref-based, deterministic
+npx playwright-cli state-save auth.json  # cookies + localStorage
+npx playwright-cli state-load auth.json
+npx playwright-cli -s=&lt;name&gt; open &lt;url&gt; --persistent   # named session</code></pre>
+
+      <p><code>state-save</code> and <code>state-load</code> are worth noting — the CLI's session handling lines up directly with the storage-state strategy in section 10, so an agent can explore an authenticated area without driving a login every time.</p>
+
+      <p><b>Keep the MCP, narrowly.</b> It remains better for short exploratory debugging where rich introspection beats token economy, and it needs no filesystem. Install both; make the CLI the documented default in the conventions, and reach for the MCP when a human is interactively poking at a stubborn page.</p>
+      <p><em>Naming note:</em> the repository is currently <code>playwright-mcp-template</code>. If the CLI becomes the default path, that name will mislead people within a month. Worth renaming now while nothing depends on it.</p>
+
+      <h3>What else gets a tool surface</h3>
+      <p>The remaining rule is unchanged, and the reasoning still holds: every MCP server injects its full tool list into the agent's context, so five servers is plausibly 60+ tools, which measurably degrades tool selection. And an authoring agent that <em>can</em> read a secret eventually will, into a file or a transcript.</p>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th>System</th><th>Interface</th><th>Reasoning</th></tr></thead>
+          <tbody>
+            <tr><td><b>Playwright</b></td><td><span class="chip ok">CLI (+ MCP)</span></td><td>Grounds locators in real page structure. Authoring-time only, never in CI. CLI default, MCP for interactive debugging.</td></tr>
+            <tr><td><b>Jira DC</b></td><td><span class="chip med">REST + optional MCP</span></td><td>Data Center rules out the official server. REST v2 with a Bearer PAT is the dependable path; a read-only third-party MCP is optional convenience, not infrastructure.</td></tr>
+            <tr><td><b>PractiTest</b></td><td><span class="chip low">CLI</span></td><td>Two operations, both scripted: pull cases, push runs. A documented CLI is a cheaper and more reliable agent target than a tool schema.</td></tr>
+            <tr><td><b>Vault</b></td><td><span class="chip high">Runtime only</span></td><td>No agent access under any circumstance. Resolved inside the test process by a fixture.</td></tr>
+            <tr><td><b>Mock SMTP</b></td><td><span class="chip low">Runtime + CLI</span></td><td>Library at runtime; a small CLI for debugging. No tool surface needed.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p><strong>Confirmed: Jira is Data Center.</strong> The official Atlassian Rovo MCP server is Cloud-only and cannot connect, so the plan now treats Jira like PractiTest — a scripted REST integration, not a conversational one. See section 11 for what that costs and what replaces it.</p>
+    </section>
+
+    <section id="pipeline">
+      <h2><span class="num">Section 07</span>Test case → running script</h2>
+
+      <ol class="flow">
+        <li><span class="n">01</span><b>Pull</b><span>PractiTest case + steps → <code>specs/*.md</code></span></li>
+        <li><span class="n">02</span><b>Gate</b><span>Reject cases too vague to automate</span></li>
+        <li><span class="n">03</span><b>Explore</b><span>Playwright MCP walks the live flow</span></li>
+        <li><span class="n">04</span><b>Generate</b><span>Generator agent writes the spec</span></li>
+        <li><span class="n">05</span><b>Verify</b><span>lint + tsc + run until green</span></li>
+        <li><span class="n">06</span><b>Review</b><span>Human PR review, always</span></li>
+        <li><span class="n">07</span><b>Report</b><span>Runs to PractiTest, defects to Jira</span></li>
+      </ol>
+
+      <h3>Two generation modes</h3>
+      <p><strong>Explore-first (default).</strong> The planner drives the running application through the Playwright MCP, captures accessibility snapshots, and generates against observed structure. Slower and it needs a working environment, but locators are real. This is the mode that justifies the MCP investment.</p>
+      <p><strong>Spec-only (fallback).</strong> Generate from case text alone when no environment is available. Output is treated as a draft skeleton and marked <code>test.fixme</code> until it has been run against the app. Being explicit that this mode produces unverified code prevents a quiet flood of plausible-looking dead tests.</p>
+
+      <h3>The quality gate is not optional</h3>
+      <p>"Automatically create scripts just by looking at test cases" holds only for cases that are actually specific. A case reading <em>"Verify the report is correct"</em> cannot be automated by a human either. Step 02 scores each case on preconditions, concrete input data, an explicit expected result, and a defined starting state, and routes failures back to the case author with the specific gap named.</p>
+      <p>Expect this to reject a meaningful share of an existing legacy suite on first run. That is the system working — and it is worth saying out loud before anyone reads the rejection report as a tooling failure.</p>
+
+      <h3>The healer, on a leash</h3>
+      <p>Auto-healing is the most dangerous capability here: a healer that "fixes" a test to match newly-broken behaviour destroys the test's reason for existing. Constraints:</p>
+      <ul>
+        <li>Healing runs in its own workflow and opens a pull request. It never pushes to a protected branch.</li>
+        <li>Locator and timing repairs only. A changed assertion or expected value is escalated to a human, never healed.</li>
+        <li>Every healed test is labelled with what changed, so review is a diff read rather than an act of faith.</li>
+      </ul>
+    </section>
+
+    <section id="vault">
+      <h2><span class="num">Section 08</span>Vault</h2>
+
+      <h4>Authentication</h4>
+      <ul>
+        <li><b>CI: JWT/OIDC via GitLab <code>id_tokens</code></b> — see section 13. This supersedes AppRole and removes the bootstrap-credential problem entirely.</li>
+        <li><b>Local:</b> OIDC against the corporate IdP, falling back to AppRole or a short-lived dev token. Developers never hold a long-lived credential.</li>
+        <li>Tokens are renewed in-process for long shards and revoked in teardown.</li>
+      </ul>
+
+      <h4>Path layout</h4>
+      <pre><code>kv/data/qa/&lt;env&gt;/pools/&lt;type&gt;/&lt;role&gt;/&lt;n&gt;   # account pool — see section 10
+kv/data/qa/&lt;env&gt;/app                      # base URLs, tenant ids
+kv/data/qa/shared/integrations            # PractiTest, Jira, SMTP tokens
+totp/keys/&lt;env&gt;-&lt;account&gt;                 # MFA seeds — never readable, code-only</code></pre>
+      <p>KV v2 nests payloads under <code>data.data</code>; the adapter normalises this so callers never see the envelope. Secrets are fetched once per worker, cached in memory, and exposed only through the <code>secrets</code> fixture — never written to disk, never copied into <code>process.env</code>.</p>
+
+      <h4>Leak control</h4>
+      <p>This is the part that gets skipped and then bites. Playwright traces capture network payloads, screenshots and DOM; a login trace attached to a PractiTest run is a credential in a test management system. Mitigations: register secret values with a redaction helper at fetch time, scrub traces before attaching, keep <code>storageState</code> out of git and out of long-lived artifacts, and add a CI grep for known secret shapes over everything about to be uploaded.</p>
+    </section>
+
+    <section id="otp">
+      <h2><span class="num">Section 09</span>MFA and OTP</h2>
+      <p class="lede">One interface, two providers, and one race condition that will otherwise cost a week of intermittent failures.</p>
+
+      <pre><code>interface OtpProvider {
+  /** Watermark before the code is triggered. */
+  arm(): Promise&lt;Watermark&gt;;
+  /** Resolve a code produced after the watermark. */
+  get(mark: Watermark): Promise&lt;string&gt;;
+}</code></pre>
+
+      <h3>TOTP via Vault</h3>
+      <p>Vault's TOTP secrets engine acts as the authenticator app: seeds are stored write-only and <code>GET /v1/totp/code/&lt;name&gt;</code> returns a current code. The seed never reaches the test process, which is a real security improvement over the usual pattern of pasting seeds into CI variables.</p>
+      <p>One sharp edge: if a code is fetched with two seconds left in its window, it expires between fetch and submit. The provider checks remaining validity and waits for the next window rather than returning a code about to die.</p>
+
+      <h3>Email OTP via the mock inbox</h3>
+      <p>The failure everyone hits: trigger the send, poll the inbox, read the newest message — and get the <em>previous</em> test's code. Hence <code>arm()</code>. Record the inbox high-water mark before triggering, then accept only messages newer than it. Combine with per-worker plus-addressing (<code>qa+&lt;runId&gt;-&lt;worker&gt;@…</code>) so parallel workers cannot read each other's mail, and consume the message once read.</p>
+      <p>Polling uses <code>expect.poll</code> with a bounded timeout so a missing email fails as a clear assertion rather than a hung test.</p>
+
+      <h3>Adapting to an internal mail tool</h3>
+      <p>The mock SMTP server here is an in-house tool, so the design cannot assume a known API. The adapter must be written against whatever it exposes, and the OTP flow needs four capabilities — the first three are hard requirements:</p>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Capability</th><th>Needed for</th><th>If absent</th></tr></thead>
+          <tbody>
+            <tr><td><b>Read messages programmatically</b><br /><span class="mono">HTTP, IMAP, DB or filesystem</span></td><td>Everything</td><td>Email OTP cannot be automated at all. Fall back to TOTP-only accounts for automation.</td></tr>
+            <tr><td><b>Filter by recipient</b></td><td>Parallel worker isolation</td><td>Suite must run email-OTP tests serially, which will dominate runtime.</td></tr>
+            <tr><td><b>Stable ordering or timestamps</b></td><td>The <code>arm()</code> watermark</td><td>No defence against reading a previous test's code. Intermittent, near-undebuggable failures.</td></tr>
+            <tr><td><b>Delete or mark-read</b></td><td>Inbox hygiene</td><td>Workable — fall back to timestamp watermarking, and add a purge step between runs.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>If the internal tool exposes only SMTP with no read path, the pragmatic move is to run it alongside <a href="https://mailpit.axllent.org/docs/api-v1/">Mailpit</a> in test environments purely as the readable sink, keeping the internal tool for whatever production-like behaviour it provides. That is a smaller change than it sounds — the application's SMTP host becomes an environment variable, and nothing in the framework changes.</p>
+      <p class="exit"><b>Needed before phase 1:</b> the internal tool's read interface — an API doc, a sample response, or just the name of the endpoint that lists messages.</p>
+    </section>
+
+    <section id="identity">
+      <h2><span class="num">Section 10</span>Identity, sessions and account lifecycle</h2>
+      <p class="lede">Three coupled mechanisms: never log in through the UI unless the test is about logging in, lease accounts from a pool rather than sharing them, and rotate passwords on a schedule without breaking either of the first two.</p>
+
+      <h3>Storage state is the default; UI login is the exception</h3>
+      <p>Driving a login form before every test is slow, and worse, it makes every test in the suite fail when login breaks — one defect, four hundred red results, and a triage report that tells you nothing. Authenticate once per role, reuse the session everywhere else.</p>
+      <p>Playwright's setup-project pattern is the right mechanism: a <code>setup</code> project authenticates each required role and writes a storage state file, and the test projects declare <code>dependencies</code> on it so they cannot start before it succeeds.</p>
+
+      <pre><code>// playwright.config.ts — one setup project per role
+projects: [
+  { name: 'setup:auth', testMatch: /auth\.setup\.ts/ },
+  {
+    name: 'regression',
+    dependencies: ['setup:auth'],
+    use: { storageState: '.auth/${role}.json' },   // resolved per worker
+  },
+  {
+    name: 'auth-flows',            // the exception
+    testMatch: /login|mfa|password/,
+    use: { storageState: undefined },              // must start signed out
+  },
+]</code></pre>
+
+      <p>Making that exception explicit as its own project — rather than leaving it to each test to remember — means a spec cannot accidentally inherit a session it was supposed to establish itself. Enforce it with a lint rule: any spec tagged <code>@auth</code> must run in the <code>auth-flows</code> project.</p>
+
+      <h4>Storage state is a credential</h4>
+      <p>A storage state file contains live session tokens. Anyone who obtains it is signed in as that account, no password or MFA required. So it inherits every rule from section 08: written only to a gitignored <code>.auth/</code> directory, never uploaded as a CI artifact, never attached to a PractiTest run, deleted in teardown, and regenerated per pipeline run rather than cached across days. Short-lived is the point — a stale session file is both a security exposure and a source of confusing mid-run failures when the server expires it.</p>
+
+      <h3>Account pools, leased per worker</h3>
+      <p>Accounts come from Vault organised by type and role, and tests declare what they need rather than naming a user:</p>
+      <pre><code>kv/data/qa/&lt;env&gt;/pools/&lt;accountType&gt;/&lt;role&gt;/&lt;n&gt;
+   → { username, passwordRef, mfaSeedRef, rotatedAt, state }</code></pre>
+      <p>A worker-scoped fixture leases an account for the life of the worker and releases it at teardown. Worker-scoped rather than test-scoped matters: it means one login and one storage state per worker, not per test, while still guaranteeing two parallel workers never share an identity.</p>
+      <ul>
+        <li><b>Leasing must be atomic.</b> Two runners starting simultaneously will otherwise both take account 1. A Vault CAS write, or a small lease record with a TTL, prevents it. Without this, parallel runs corrupt each other in ways that look exactly like flaky tests.</li>
+        <li><b>Pool exhaustion needs a real error.</b> "No available account for role <code>approver</code>: pool size 4, all leased" — not a timeout ten minutes later.</li>
+        <li><b>Leases must expire.</b> A crashed runner that never releases its lease will otherwise shrink the pool permanently.</li>
+        <li><b>Size pools against worker count.</b> Pool size must be at least the maximum concurrent workers per role, or the suite serialises on account availability and nobody understands why it got slow.</li>
+        <li><b>Mutating tests need their own accounts.</b> A test that changes a user's profile or permissions should lease from a pool marked disposable, not from the shared read-only pool.</li>
+      </ul>
+
+      <h3>Scheduled password rotation</h3>
+      <p>Rotation is a scheduled GitLab pipeline, not something the test run does. Interval is configuration, per environment and per account type:</p>
+      <pre><code>rotation:
+  enabled: true
+  maxAgeDays: 60            # per account type, overridable per role
+  jitterDays: 5             # avoid rotating the whole pool at once
+  blackout: { start: '18:00', end: '06:00' }   # never during the nightly run
+  onFailure: quarantine     # remove from pool, alert, do not retry blindly</code></pre>
+
+      <p>The order of operations is what makes this safe. Change the password in the application first, verify a login succeeds with the new one, and only then write it to Vault. Writing to Vault first and failing the application change leaves an account nobody can use and a credential store that lies about it.</p>
+      <ol class="body">
+        <li>Acquire an exclusive lease on the account, so no run can pick it up mid-rotation.</li>
+        <li>Change the password in the application through its own API or UI flow.</li>
+        <li>Verify by authenticating with the new password.</li>
+        <li>Write the new value to Vault as a <em>new KV v2 version</em> — the version history is your rollback.</li>
+        <li>Invalidate any cached storage state for that account.</li>
+        <li>Release the lease.</li>
+        <li>On failure at any step: mark the account <code>quarantined</code>, remove it from the pool, and alert. Never leave it in a state where the next run finds it broken.</li>
+      </ol>
+      <p>The blackout window matters more than it looks. Rotating an account while the nightly suite is mid-flight produces authentication failures that look like application defects and will consume a morning of triage. Jitter matters for the same reason at pool scale — rotating every account on day 60 means one night where everything is briefly invalid.</p>
+      <p>Two smaller points that prevent recurring pain: many enterprise applications enforce password history and minimum-age rules, so the generator must produce values that satisfy the real policy and rotation cannot run more often than the minimum age allows. And if the application forces a change-password screen on first login after a reset, that interstitial has to be handled in the rotation flow, or every subsequent storage state capture silently lands on the wrong page.</p>
+    </section>
+
+    <section id="practitest">
+      <h2><span class="num">Section 11</span>PractiTest results</h2>
+
+      <h4>Identity mapping</h4>
+      <p>Specs carry <code>{ type: 'practitest', description: '4821' }</code> annotations. The reporter resolves display IDs to instance IDs via <code>set-ids</code> plus <code>name_exact</code>, caching the map so resolution is not repeated every run. A spec whose case cannot be resolved is reported loudly but does not fail the suite.</p>
+
+      <h4>Working inside the API envelope</h4>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Constraint</th><th>Handling</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">≤ 20 instances / POST</td><td>Reporter buffers all results to <code>onEnd</code>, then chunks into 20s.</td></tr>
+            <tr><td class="mono">≤ 30 calls / minute</td><td>Token-bucket limiter shared across the process; exponential backoff with jitter on 429.</td></tr>
+            <tr><td class="mono">Sharded CI</td><td>Shards write result JSON as artifacts; a single post-job merges and posts once. Avoids N shards × M calls blowing the limit.</td></tr>
+            <tr><td class="mono">Attachments</td><td>Base64, failures only, size-capped, scrubbed. Traces are large — cap before encoding.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Authentication uses the <code>PTToken</code> header with a Personal API Token so actions are attributed to a real user and inherit that user's permissions. Step-level results are posted where the case has structured steps and the spec maps to them; otherwise a single run status with the failure message as the actual result.</p>
+    </section>
+
+    <section id="jira">
+      <h2><span class="num">Section 12</span>Jira Data Center</h2>
+      <p class="lede">Data Center is not Cloud with a different URL. Four differences bite an integration written against Cloud documentation.</p>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th></th><th>Cloud (not applicable)</th><th>Data Center (target)</th></tr></thead>
+          <tbody>
+            <tr><td><b>Endpoint</b></td><td class="mono">/rest/api/3/</td><td class="mono">/rest/api/2/</td></tr>
+            <tr><td><b>Auth</b></td><td class="mono">Basic: email:token</td><td class="mono">Authorization: Bearer &lt;PAT&gt;</td></tr>
+            <tr><td><b>Rich text</b></td><td>Atlassian Document Format (JSON)</td><td>Wiki markup (string)</td></tr>
+            <tr><td><b>Official MCP</b></td><td>Yes</td><td>No — cannot connect</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>The auth difference is the one that wastes an afternoon: a Data Center PAT sent as Basic auth returns <strong>401</strong>, not a helpful error. PATs require Jira DC 8.14 or later — worth confirming your instance version early, because below that the only options are password basic auth or OAuth 1.0a, both considerably worse.</p>
+
+      <h4>Confirmed configuration</h4>
+      <pre><code>JIRA_BASE_URL = https://jira.&lt;org&gt;.&lt;internal-domain&gt;/rest/api/2
+JIRA_AUTH     = Authorization: Bearer ${PAT}   # from Vault, never CI plaintext
+JIRA_TLS      = NODE_EXTRA_CA_CERTS=&lt;internal root CA&gt;  # see section 13</code></pre>
+
+      <h4>PAT lifecycle</h4>
+      <p>Jira DC PATs take an <em>optional</em> expiry, and administrators can enforce a maximum lifetime or forbid non-expiring tokens via system properties. Two consequences worth designing for now rather than discovering at 2am:</p>
+      <ul>
+        <li>A token that silently expires turns every nightly run's reporting step into a 401. The Jira client should treat 401 as a distinct, loudly-reported condition — "credential expired or revoked" — not fold it into generic request failure.</li>
+        <li>Store the PAT in Vault, not in CI variables. Rotation then means updating one Vault path rather than hunting through pipeline configuration, and the audit trail comes free.</li>
+        <li>Use a dedicated service account, not a person's PAT. Personal tokens inherit that person's permissions and die when they change role or leave.</li>
+      </ul>
+
+      <h3>Integration behaviour</h3>
+      <ul>
+        <li><b>Inbound:</b> a spec's <code>jira</code> annotation links it to the story or defect it covers, giving traceability in both directions.</li>
+        <li><b>Outbound:</b> on failure, create or update a defect. Deduplicate on a fingerprint of test ID plus normalised error, so a flaky test produces one ticket with a failure count, not forty tickets.</li>
+        <li><b>Reopen, don't duplicate:</b> if a matching closed defect exists, reopen with a comment linking the new run. Note that DC transitions are workflow-specific — the adapter must look up available transitions by name rather than hard-coding IDs, which differ per project.</li>
+        <li><b>Guard rail:</b> defect creation is off by default and enabled per-pipeline. An automated defect filer pointed at a broken environment can create hundreds of tickets in one night.</li>
+        <li><b>Formatting:</b> descriptions are built as wiki markup. Reusing a Cloud ADF payload here produces tickets displaying raw JSON.</li>
+      </ul>
+
+      <h3>The conversational access that was lost</h3>
+      <p>Losing the official MCP means agents can no longer be asked "what's the acceptance criteria on FIN-2210?" during generation. Two ways to recover part of it:</p>
+      <ul>
+        <li><b>A read-only Jira CLI</b> (<code>jira:issue &lt;key&gt;</code>) that prints an issue as markdown. Cheap, fully under your control, and enough for the generation workflow's actual need — pulling acceptance criteria into context.</li>
+        <li><b>A community MCP server.</b> <code>sooperset/mcp-atlassian</code> supports Jira Server/DC 8.14+ with PAT auth and is actively maintained. <em>Revised recommendation given the environment:</em> assume this will not clear security review. Handing a third-party package a PAT against an internal, self-hosted Jira is a supply-chain question your security team will reasonably say no to, and it is not worth spending review capital on a convenience feature.</li>
+      </ul>
+      <p>Recommendation: build the CLI, and only the CLI. The reporter needs the REST client anyway, so the CLI is a thin wrapper over code you are writing regardless — no new dependency, no new egress path, no review.</p>
+    </section>
+
+    <section id="ci">
+      <h2><span class="num">Section 13</span>GitLab CI</h2>
+      <p class="lede">GitLab changes three decisions from earlier drafts, all in the plan's favour — it removes the AppRole bootstrap problem, it answers the report-hosting question, and it puts results on the merge request.</p>
+
+      <h3>Vault authentication via OIDC, not AppRole</h3>
+      <p>This supersedes the AppRole recommendation in section 08 for CI. GitLab issues a signed JWT per job through the <code>id_tokens</code> keyword, Vault validates it against your GitLab's OIDC discovery URL, and the <code>secrets</code> keyword uses it automatically. There is no <code>secret_id</code> to deliver, wrap, or rotate — the bootstrap credential problem disappears.</p>
+      <pre><code>.vault-auth:
+  id_tokens:
+    VAULT_ID_TOKEN:
+      aud: https://vault.&lt;internal&gt;
+  secrets:
+    PRACTITEST_TOKEN:
+      vault: qa/shared/integrations/practitest@kv
+    JIRA_PAT:
+      vault: qa/shared/integrations/jira@kv</code></pre>
+      <p>The real advantage is <b>bound claims</b>. A Vault role can require <code>project_path</code> and <code>ref</code> to match, so a job on a feature branch of a forked project cannot read staging credentials even with a valid token. That is meaningfully stronger than AppRole, where possession of the secret ID is the whole authorisation. Keep AppRole only for local developer runs outside GitLab.</p>
+
+      <h4>Your Vault is a separate system — what that changes</h4>
+      <p>It does not break this design; a separately-operated Vault is the normal topology for JWT auth. But it makes two prerequisites explicit, and both belong to a different team than the one building this framework.</p>
+      <ul>
+        <li><b>Someone must enable and configure the JWT auth backend on Vault</b>, create the role, and set the bound claims. This is a Vault administrator task with its own request process. Nothing in the pipeline works until it is done, so raise it in phase 0.</li>
+        <li><b>Vault must be able to validate GitLab's token signature</b>, and there are two ways to arrange that. <code>oidc_discovery_url</code> has Vault fetch GitLab's keys at authentication time — clean, self-maintaining, but it requires Vault to reach GitLab over the network, which across security zones is not a given.</li>
+      </ul>
+      <p>If that path is blocked, the fallback is <code>jwt_validation_pubkeys</code>: GitLab's signing public keys are configured directly into the Vault backend, and no network call is made. The three options — <code>oidc_discovery_url</code>, <code>jwks_url</code> and <code>jwt_validation_pubkeys</code> — are mutually exclusive, so this is a deliberate choice, not a layered fallback.</p>
+      <p>The trade-off is real and worth stating to whoever configures it: static public keys remove the network dependency but also remove automatic key rotation. When GitLab rotates its signing key, every pipeline fails authentication until someone updates Vault by hand. Prefer discovery if the network path can be opened; choose static keys knowingly, with a documented owner, if it cannot.</p>
+      <p>Confirm the direction of reachability too. OIDC discovery needs <b>Vault → GitLab</b>, while the runner needs <b>GitLab runner → Vault</b>. These are separate firewall rules and it is common for one to exist without the other.</p>
+
+      <h3>Pipeline shape</h3>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Stage</th><th>Runs on</th><th>Contents</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">verify</td><td>Every MR</td><td>Lint, <code>tsc</code>, catalog freshness, instruction-file sync, agent-definition freshness</td></tr>
+            <tr><td class="mono">test:smoke</td><td>Every MR</td><td>Tagged smoke subset, JUnit to the MR widget, no external reporting</td></tr>
+            <tr><td class="mono">test:full</td><td>Scheduled nightly</td><td>Sharded via <code>parallel:matrix</code>, blob reports as artifacts</td></tr>
+            <tr><td class="mono">merge</td><td>Nightly, after tests</td><td><code>merge-reports</code>, build <code>run-result.json</code>, render report</td></tr>
+            <tr><td class="mono">triage</td><td>Nightly, on failure</td><td>Cluster, rule-classify, then the agent on the remainder</td></tr>
+            <tr><td class="mono">publish</td><td>Nightly</td><td>Pages deploy, PractiTest runs, Jira defects, Nodemailer digest</td></tr>
+            <tr><td class="mono">rotate</td><td>Scheduled, separate</td><td>Password rotation, outside the test blackout window</td></tr>
+            <tr><td class="mono">heal</td><td>Manual</td><td>Healer over current failures, opens an MR. Never auto-merges.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Sharding uses <code>parallel:matrix</code> with Playwright's blob reporter, merged in a single downstream job — which is also exactly what the PractiTest rate limit in section 11 requires, since one merge job means one batched set of API calls rather than N shards each calling independently. The two constraints happen to want the same architecture.</p>
+
+      <h3>Two GitLab features worth using deliberately</h3>
+      <ul>
+        <li><b><code>artifacts:reports:junit</code></b> puts pass/fail directly in the merge request widget. This is the fastest feedback surface you have and it costs one line — emit JUnit alongside the other reporters.</li>
+        <li><b>GitLab Pages</b> hosts the rich HTML report at a stable per-run URL, which resolves the open hosting question from section 16. Caveat for self-managed: Pages must be enabled on your instance, and on an internal GitLab it may be restricted or unavailable. Confirm early — if Pages is off, fall back to a job artifact URL, which is stable enough to link from email.</li>
+      </ul>
+
+      <h3>Runner and environment notes</h3>
+      <ul>
+        <li>Use Playwright's official container image matching the pinned version exactly. Version drift between image and dependency is a top source of "works locally, fails in CI".</li>
+        <li>Proxy, CA bundle and registry variables from section 14 belong in the job environment, not baked into the image.</li>
+        <li>Vault dev mode and the mail mock run as <code>services</code> for MR pipelines; nightly uses the real instances.</li>
+        <li>Confirm whether runners are shared or project-specific. On shared runners, secrets fetched into the job environment are exposed to whatever else that runner executes — in a regulated environment, project-specific runners are the expected answer.</li>
+        <li>Local Docker here is 20.10.11, old enough to be worth upgrading before relying on service containers. The <code>vault</code> CLI is absent, so the adapter should speak HTTP directly — the better dependency choice regardless.</li>
+      </ul>
+    </section>
+
+    <section id="network">
+      <h2><span class="num">Section 14</span>Operating inside a restricted network</h2>
+      <p class="lede">A self-hosted Jira on an internal domain implies a proxied, privately-signed, mirror-fed environment. None of the tooling below works out of the box in one, and every failure mode presents as something other than what it is.</p>
+
+      <h3>The four that will bite in the first week</h3>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Problem</th><th>Presents as</th><th>Fix</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>Internal root CA</b><br /><span class="mono">TLS interception</span></td>
+              <td><code>SELF_SIGNED_CERT_IN_CHAIN</code> on any call to Jira, PractiTest or Vault</td>
+              <td class="mono">NODE_EXTRA_CA_CERTS=/path/root.pem</td>
+            </tr>
+            <tr>
+              <td><b>Browser binary download</b></td>
+              <td><code>npx playwright install</code> hangs or 403s</td>
+              <td class="mono">HTTPS_PROXY + PLAYWRIGHT_DOWNLOAD_HOST</td>
+            </tr>
+            <tr>
+              <td><b>npm registry</b></td>
+              <td><code>npm ci</code> fails or resolves nothing</td>
+              <td>Internal Artifactory/Nexus mirror in <code>.npmrc</code></td>
+            </tr>
+            <tr>
+              <td><b>Egress rules</b></td>
+              <td>CI reaches nothing; timeouts, not refusals</td>
+              <td>Firewall exceptions — long lead time, request in phase 0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>The CA one deserves emphasis because it is genuinely misleading: <strong>never</strong> reach for <code>NODE_TLS_REJECT_UNAUTHORIZED=0</code> to make it go away. It disables certificate validation process-wide, including for the Vault calls carrying your credentials, and it has a way of surviving into production pipelines. Point Node at the real CA bundle instead.</p>
+
+      <p>Playwright's browser binaries are the other classic stall. Playwright honours <code>HTTPS_PROXY</code>, and <code>PLAYWRIGHT_DOWNLOAD_HOST</code> redirects the installer at an internal artifact server — worth mirroring the binaries there, since browser downloads are large, frequent in CI, and the first thing a proxy throttles. Per-browser overrides exist (<code>PLAYWRIGHT_CHROMIUM_DOWNLOAD_HOST</code>) if only some are mirrored.</p>
+
+      <h3>Data governance for the generation loop</h3>
+      <p>This is the constraint most likely to be raised late by someone who was not in the room, so it belongs in the plan now. Both supported AI clients send context to a cloud model. During explore-first generation that context includes accessibility snapshots of real application screens, and during case-pulling it includes Jira and PractiTest content.</p>
+      <ul>
+        <li><b>Generation runs against test environments only</b>, never production and never an environment seeded from a production copy. This should be enforced by configuration — the MCP browser target is an allowlist of non-production hosts — not by convention.</li>
+        <li><b>Synthetic test data only</b> in any environment the agents explore. A masked-but-real dataset is still a dataset leaving the building inside a snapshot.</li>
+        <li><b>Get the AI tooling's data-handling terms reviewed before phase 2</b>, not after. Approval for Copilot and Claude Code may already exist organisation-wide; if it does not, phase 2 is blocked regardless of how good the framework is.</li>
+        <li>The framework itself sends nothing anywhere — this constraint applies to the authoring loop, not to test execution. Worth stating clearly, because the two get conflated in review.</li>
+      </ul>
+
+      <h3>Vault, in an environment that probably already has one</h3>
+      <p>An organisation of this shape likely runs Vault Enterprise already, which changes three assumptions in section 08: namespaces prefix every API path, the auth methods you need may not be enabled on your namespace, and mount paths are set by a platform team rather than chosen by you. Confirm namespace, mount points, and whether the TOTP secrets engine is enabled at all — it is comparatively rarely used and may require a request.</p>
+    </section>
+
+    <section id="report">
+      <h2><span class="num">Section 15</span>The run report</h2>
+      <p class="lede">Serenity's real achievement is not that it is pretty. It is that a product owner can read it without knowing what a locator is. That is the property worth copying — and it is orthogonal to visual polish.</p>
+
+      <h3>One data model, three renderings</h3>
+      <p>The mistake to avoid is generating HTML directly from the reporter. Everything downstream — the report, the email, the PractiTest push, the triage agent — needs the same facts, and each one re-deriving them from Playwright's raw output guarantees they eventually disagree. So the reporter's only job is to emit a normalised, versioned <code>run-result.json</code>; every consumer reads that.</p>
+
+      <ol class="flow">
+        <li><span class="n">Source</span><b>run-result.json</b><span>Canonical, versioned, shard-merged</span></li>
+        <li><span class="n">Render A</span><b>Rich HTML</b><span>Self-contained, browser, full evidence</span></li>
+        <li><span class="n">Render B</span><b>Email digest</b><span>Outlook-safe, ~600px, links out</span></li>
+        <li><span class="n">Render C</span><b>PractiTest + Jira</b><span>Runs, defects, attachments</span></li>
+      </ol>
+
+      <p>A useful side effect: the report becomes testable. Feed a fixture <code>run-result.json</code> with a known mix of pass, fail, flaky and skipped, and assert the rendered HTML. Reports that are generated only from live runs are never tested and quietly rot.</p>
+
+      <h3>What "comprehensive" should actually contain</h3>
+      <p>Ordered by how often someone genuinely needs it — not by what is easy to compute.</p>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Band</th><th>Content</th><th>Answers</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>Verdict</b></td>
+              <td>Pass / fail / flaky / skipped counts, overall status, run duration, environment, build and branch, trigger, timestamp with timezone</td>
+              <td>Do I need to care, right now?</td>
+            </tr>
+            <tr>
+              <td><b>Triage summary</b></td>
+              <td>Failures grouped by agent-assigned cause, counts per category, confidence, "new since last run" vs known issues</td>
+              <td>Is this our bug or the environment's?</td>
+            </tr>
+            <tr>
+              <td><b>Trend</b></td>
+              <td>Pass rate and flake rate over the last N runs, duration trend, newly-failing and newly-fixed lists</td>
+              <td>Is quality moving, and which way?</td>
+            </tr>
+            <tr>
+              <td><b>Coverage</b></td>
+              <td>PractiTest set coverage — cases automated vs total in scope, cases not executed, specs with no case ID</td>
+              <td>What did we <em>not</em> test?</td>
+            </tr>
+            <tr>
+              <td><b>Per test</b></td>
+              <td>PractiTest ID (linked), title, suite, owner, duration, retries, first-run outcome, browser/shard, tags</td>
+              <td>Which case, and how long?</td>
+            </tr>
+            <tr>
+              <td><b>Evidence</b></td>
+              <td>Narrative steps in business language, screenshots at each step, error with the failing assertion highlighted, network log excerpt, console errors, trace link, video</td>
+              <td>What actually happened?</td>
+            </tr>
+            <tr>
+              <td><b>Health</b></td>
+              <td>Slowest tests, flakiest tests ranked by rate not count, quarantined list with age, shard balance, retry budget consumed</td>
+              <td>What is rotting?</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Two of these are the ones teams skip and later wish they had. <b>Flake rate as a rate</b>, not a count — a test that fails 1 in 3 runs matters far more than one that failed twice ever. And <b>first-run outcome</b> recorded separately from final outcome, because a suite that is green only after retries is not green, and the distinction disappears if you record only the final state.</p>
+
+      <h4>Getting flaky right in the reporter</h4>
+      <p>A detail that produces wrong numbers if missed: <code>onTestEnd</code> fires once per <em>attempt</em>, including every retry, so counting statuses there double-counts retried tests. Flakiness is only knowable once all attempts are done. Aggregate in <code>onEnd</code> using <code>test.outcome()</code>, which returns <code>expected</code>, <code>unexpected</code>, <code>flaky</code> or <code>skipped</code> — that is the API that actually encodes "passed, but not first time".</p>
+
+      <h3>The Serenity qualities worth carrying over</h3>
+      <ul>
+        <li><b>Narrative steps in business language.</b> Playwright's <code>test.step()</code> titles become the report's narrative, so step naming stops being cosmetic and becomes the report's readability. This should be a lint-enforced convention: steps are named for intent, not mechanics — "Submit the expense claim", never "click #submit-btn".</li>
+        <li><b>Evidence attached to the step, not the test.</b> A screenshot at the failing step is worth ten at the end. Capture per step on failure paths.</li>
+        <li><b>Requirements coverage as a first-class view.</b> With PractiTest IDs on every spec, the report can show set coverage directly — the closest thing to Serenity's living documentation available here, and more valuable than any visual flourish.</li>
+        <li><b>Readable without the code.</b> The test is the disclosure, not the source file. Every failure states what was expected in plain language before it shows a stack trace.</li>
+      </ul>
+
+      <h3>Build it, or theme Allure?</h3>
+      <p>Worth deciding deliberately rather than by default. Allure is the most capable off-the-shelf option — history, trends, categories, step detail, attachments — and adopting it costs days rather than weeks. What it does not give you is a PractiTest coverage view, the triage verdict column, or your own visual identity, and its categories mechanism is regex-over-error-text rather than genuine analysis.</p>
+      <p><b>Recommendation:</b> emit <code>run-result.json</code> plus Allure results from the same reporter. Use Allure immediately for deep per-test forensics, and build the bespoke report as the executive and stakeholder view fed by the same JSON. They serve different readers, the duplication is small, and it avoids a month of rebuilding trend charts that already exist.</p>
+
+      <h3>The report's visual spec</h3>
+      <p>Self-contained single HTML file — inlined CSS and JS, evidence embedded or referenced by relative path, no CDN. It must open from a file share with no server. Structure: a status band that reads correct at a glance from across a desk, a triage summary, filter chips (status, suite, category, owner, "new only"), a virtualised results table for suites in the thousands, and an expandable evidence drawer per test rather than a separate page. Semantic colour for pass/fail/flaky/quarantined is a data encoding here, kept distinct from the brand accent, and never the only signal — pair it with shape or label for accessibility.</p>
+    </section>
+
+    <section id="email">
+      <h2><span class="num">Section 16</span>Delivery by email</h2>
+      <p class="lede">The instinct is to email the pretty report. That does not work, and knowing why up front saves building something twice.</p>
+
+      <h3>The constraint</h3>
+      <p>Outlook desktop renders HTML through the Word engine: no flexbox, no grid, no CSS custom properties, no media queries, no reliable <code>border-radius</code>, no background images. Microsoft has said it will retire Word-based rendering in favour of the Chromium engine, but an enterprise on managed desktops will be behind that curve for a long time. Two further traps:</p>
+      <ul>
+        <li><b>Base64 <code>data:</code> images do not work.</b> Gmail strips them; Outlook blocks them outright. Inline images must be CID attachments — which Nodemailer supports natively — or hosted on an internal server and linked.</li>
+        <li><b>An <code>.html</code> attachment will probably be quarantined.</b> HTML attachments are a standard phishing vector and corporate mail filters routinely strip them. Do not make the rich report an attachment.</li>
+      </ul>
+
+      <h3>The design that survives this</h3>
+      <ol class="body">
+        <li><b>Publish the rich report</b> to the CI artifact store or an internal web server, at a stable per-run URL.</li>
+        <li><b>Email a digest, not the report.</b> Table-based layout, ~600px, fully inlined CSS, no JavaScript, a plain-text alternative part for accessibility and filters. It carries the verdict band, the counts, the triage summary, and the top failures — enough that someone can decide whether to open anything at all.</li>
+        <li><b>Link out for everything else.</b> One prominent "Open full report" bulletproof button (VML-wrapped so Outlook renders it), plus deep links per failing test.</li>
+        <li><b>Degrade to inline detail only if hosting is unavailable.</b> If nothing can host the report, expand the digest to include the top failures' errors as text. Never attach the HTML.</li>
+      </ol>
+
+      <h4>Nodemailer specifics</h4>
+      <ul>
+        <li>SMTP credentials come from Vault via the same <code>secrets</code> fixture, never from CI variables.</li>
+        <li>Set both <code>html</code> and <code>text</code>. Some corporate gateways score HTML-only mail as spam.</li>
+        <li>Inline images as <code>attachments</code> with a <code>cid:</code> reference. Keep them few and small — a status band and a trend sparkline, not screenshots.</li>
+        <li>Send once, from the merge job, after all shards report. Per-shard emails are how a team learns to filter your notifications into a folder they never open.</li>
+        <li>Subject line carries the verdict, not the tool: <code>[FAIL] Regression · staging · 12 failed, 4 flaky · build 4821</code>. It should be triageable from a phone lock screen.</li>
+        <li>Failure to send must not fail the build — log, retain the digest as an artifact, and move on.</li>
+      </ul>
+    </section>
+
+    <section id="triage">
+      <h2><span class="num">Section 17</span>The failure triage agent</h2>
+      <p class="lede">The most valuable component in this plan, and the one most likely to be built wrong — because the obvious implementation is to hand every failure to a model and ask what happened.</p>
+
+      <h3>Two passes before any AI runs</h3>
+      <p><b>Pass 1 — cluster.</b> Group failures by signature: normalised error, failing step, and time window. If forty tests fail with the same connection error in the same two minutes, that is one environment incident, not forty defects. Triage the cluster once.</p>
+      <p>This single decision does three things at once: it stops forty Jira tickets being filed on a bad night, it cuts triage cost by roughly the clustering factor, and it makes the answer <em>more</em> accurate — because breadth is itself the evidence for an infrastructure cause, and a per-test view cannot see it.</p>
+      <p><b>Pass 2 — classify by rule.</b> A large share of failures are deterministically identifiable and need no model at all:</p>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Signal</th><th>Conclusion</th></tr></thead>
+          <tbody>
+            <tr><td>Passed on retry</td><td class="mono">Flaky — by definition, not inference</td></tr>
+            <tr><td>Network log contains 5xx from the app</td><td class="mono">App or infrastructure, never locator</td></tr>
+            <tr><td>Vault or mail adapter threw</td><td class="mono">Dependency</td></tr>
+            <tr><td>DNS / ECONNREFUSED / TLS error</td><td class="mono">Network or environment</td></tr>
+            <tr><td>Error fingerprint matches an open Jira defect</td><td class="mono">Known issue — link, do not re-file</td></tr>
+            <tr><td>Every test in the run failed at login</td><td class="mono">Environment or credentials</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The model is then asked only about what the rules could not settle — which is where judgement genuinely is required, and which is a small fraction of a typical run.</p>
+
+      <h3>The taxonomy</h3>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Category</th><th>Distinguishing evidence</th><th>Routes to</th></tr></thead>
+          <tbody>
+            <tr><td><b>Application defect</b></td><td>Element present and correct, app returned a wrong value or state; error visible in UI; server 5xx on a valid request</td><td>Jira defect, dev team</td></tr>
+            <tr><td><b>Locator / UI drift</b></td><td>Target absent from DOM snapshot but a near-match exists with a changed name, role or structure</td><td>Healer PR, QA</td></tr>
+            <tr><td><b>Test data</b></td><td>Precondition record missing, already consumed, or in an unexpected state; unique-constraint collisions</td><td>QA, data setup</td></tr>
+            <tr><td><b>Network / infrastructure</b></td><td>Connection failures, gateway errors, DNS, TLS; correlated across unrelated tests</td><td>Platform, no ticket per test</td></tr>
+            <tr><td><b>Environment / config</b></td><td>Wrong build deployed, feature flag off, expired certificate, service down, auth misconfigured</td><td>Platform / release</td></tr>
+            <tr><td><b>Test logic defect</b></td><td>Assertion contradicts the source test case; test depends on another test's residue; wrong expected value</td><td>QA, spec fix</td></tr>
+            <tr><td><b>Timing / synchronisation</b></td><td>Passes on retry; failure at a load or transition boundary; race with async render</td><td>QA, stabilise then quarantine</td></tr>
+            <tr><td><b>Dependency</b></td><td>Vault unavailable, OTP never arrived, mail mock down, third-party sandbox failing</td><td>Owner of that system</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>What the agent is given, and what it must return</h3>
+      <p>Evidence: the normalised error and stack, the failing <code>test.step()</code> and the steps that preceded it, the DOM snapshot at failure, the network log with status codes, console errors, before/after screenshots, retry history, this test's failure history, what else failed in the same window, and the commits deployed since the last green run.</p>
+      <p>Output is a strict JSON contract, validated on receipt — free-text findings cannot be aggregated, filtered, or trended:</p>
+      <pre><code>{
+  "clusterId": "c7f2",
+  "category": "application-defect",
+  "confidence": "high",              // high | medium | low — never a fake percentage
+  "summary": "Approval limit not enforced for amounts over 10,000",
+  "evidence": [
+    "POST /api/claims returned 201 for amount=15000",
+    "No validation error rendered; assertion expected 'exceeds limit'",
+    "Same behaviour on both retries — not timing-related"
+  ],
+  "affectedTests": ["TC-4821", "TC-4822"],
+  "recommendedAction": "file-defect",  // file-defect | heal | fix-test | fix-data | escalate | none
+  "suggestedOwner": "payments-team",
+  "needsHumanReview": false
+}</code></pre>
+
+      <h3>Guardrails</h3>
+      <ul>
+        <li><b>Advisory by default.</b> The agent annotates the report. Filing a Jira defect stays behind the same per-pipeline switch as section 11, and auto-filing should stay off until the category accuracy has been measured over several weeks.</li>
+        <li><b>Every claim cites evidence.</b> A verdict without a specific artifact reference is rejected by the schema validator. This is what makes the output reviewable rather than merely confident-sounding.</li>
+        <li><b>Three confidence levels, not percentages.</b> A model's "92% confident" is not a calibrated probability, and printing it as one manufactures trust the number cannot support.</li>
+        <li><b>Low confidence is a valid answer.</b> <code>needsHumanReview</code> routes it to a person unclassified. An agent that always produces a category will produce wrong categories.</li>
+        <li><b>Triage never heals.</b> It may <em>recommend</em> <code>heal</code>; the healer's own constraints from section 07 still apply, and a human still reviews the PR.</li>
+        <li><b>Traces carry application data.</b> Sending them to a model is the same governance question as section 13 — scrub before sending, and only from non-production environments.</li>
+      </ul>
+
+      <h3>Measuring whether it works</h3>
+      <p>A triage agent nobody trusts is worse than none, because it adds a step without removing one. So instrument it: record the agent's category alongside the human's eventual verdict, and report agreement rate per category monthly. Expect it to be genuinely good at network, environment and dependency — where evidence is unambiguous — and weakest at distinguishing application defect from test logic defect, which needs requirement context it may not have. Publishing that breakdown is what earns the team's trust in the categories that are reliable.</p>
+    </section>
+
+    <section id="phases">
+      <h2><span class="num">Section 18</span>Delivery phases</h2>
+      <p class="lede">Ordered so that the riskiest assumption — that generated tests are actually good enough — is tested in phase 2, not phase 5.</p>
+
+      <div class="phase">
+        <div class="idx">0</div>
+        <div>
+          <h3>Walking skeleton — and the unblocking work</h3>
+          <p>Playwright scaffold, the four layers with one real flow, <code>seed.spec.ts</code>, conventions doc, lint rules, <code>.gitlab-ci.yml</code> running verify and smoke with JUnit to the MR widget. No integrations at all.</p>
+          <p>Run in parallel, because these have lead times that code cannot shorten: proxy, CA bundle and npm mirror configured; firewall exceptions requested in <em>both</em> directions between GitLab, Vault, Jira, PractiTest and the app under test; the Vault JWT backend requested from the Vault team; Jira DC version confirmed as 8.14+; GitLab Pages availability confirmed; and written confirmation that the AI clients are approved for this data.</p>
+          <p class="exit"><b>Exit:</b> one hand-written spec passes in CI and violates nothing — <b>and</b> every external host is reachable from a CI runner.</p>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="idx">1</div>
+        <div>
+          <h3>Secrets, identity and MFA</h3>
+          <p>Vault adapter over OIDC in CI, the <code>secrets</code> fixture, the account-pool lease fixture, storage-state setup projects, both OTP providers, redaction helpers. Vault dev and the mail mock as GitLab services. Gated on the internal mail tool's read interface and the Vault-side JWT backend.</p>
+          <p class="exit"><b>Exit:</b> a login-with-MFA spec passes with zero credentials in the repo or CI variables, and a second spec reuses its session without touching the login form.</p>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="idx">1b</div>
+        <div>
+          <h3>Password rotation</h3>
+          <p>Deliberately split from phase 1 — it is the piece most likely to break the pool if rushed. Scheduled rotation pipeline, blackout windows, jitter, quarantine-on-failure, and storage-state invalidation.</p>
+          <p class="exit"><b>Exit:</b> a full pool rotates on schedule, the next nightly run passes unaffected, and an induced mid-rotation failure quarantines the account rather than corrupting it.</p>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="idx">2</div>
+        <div>
+          <h3>Generation loop</h3>
+          <p><code>init-agents</code>, the capability catalog, golden examples, all three instruction files generated. Then the honest experiment: take ten real test cases of mixed quality and measure how many reach green with no human edit.</p>
+          <p class="exit"><b>Exit:</b> a measured hit rate and a written list of why the failures failed.</p>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="idx">3</div>
+        <div>
+          <h3>PractiTest, both directions</h3>
+          <p><code>pull-cases</code> with the quality gate; the batching, throttling reporter. Attachment scrubbing verified by an actual leak test.</p>
+          <p class="exit"><b>Exit:</b> a nightly run appears in PractiTest with correct statuses and no secrets in attachments.</p>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="idx">4</div>
+        <div>
+          <h3>Jira</h3>
+          <p>DC REST v2 client with Bearer PAT, annotation traceability, defect creation with deduplication, reopen logic, per-pipeline kill switch, plus the read-only issue CLI.</p>
+          <p class="exit"><b>Exit:</b> an induced failure files exactly one correctly-linked defect.</p>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="idx">5</div>
+        <div>
+          <h3>Report and email</h3>
+          <p>The rich HTML report rendered from <code>run-result.json</code>, hosting for per-run URLs, and the Outlook-safe Nodemailer digest. Allure wired up in parallel from the same reporter for deep forensics.</p>
+          <p class="exit"><b>Exit:</b> a nightly digest arrives in Outlook rendering correctly, and its link opens a report a product owner can read unaided.</p>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="idx">6</div>
+        <div>
+          <h3>Triage agent</h3>
+          <p>Clustering and rule-based classification first — measure how much they resolve alone before adding the model. Then the AI pass on the remainder, the JSON contract with schema validation, and the triage band in the report. Auto-filing stays off.</p>
+          <p class="exit"><b>Exit:</b> a week of nightly runs triaged, with agent verdicts recorded against human verdicts for agreement measurement.</p>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="idx">7</div>
+        <div>
+          <h3>Scale and heal</h3>
+          <p>Sharding, flake quarantine, the gated healer workflow, and whatever the phase 2 and phase 6 measurements said to fix.</p>
+          <p class="exit"><b>Exit:</b> suite runs nightly inside its time budget with a tracked flake rate and a measured triage agreement rate.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="critique">
+      <h2><span class="num">Section 19</span>Self-critique</h2>
+      <p class="lede">Written adversarially against the plan above. Severity reflects how much of the design has to change if the concern proves out.</p>
+
+      <div class="card">
+        <div class="card-head"><h3>The headline promise is oversold</h3><span class="chip high">High</span></div>
+        <p>"Automatically create scripts just by looking at test cases" implies a hands-off pipeline. Realistically, explore-first generation against a well-written case produces a spec needing minor review most of the time; against a typical legacy case it produces something needing real work. The quality gate in section 07 mitigates but does not remove this.</p>
+        <p class="verdict"><b>Response</b>Phase 2 measures the hit rate on real cases before anyone commits to a target. Frame the deliverable as "drafts a reviewable spec" rather than "writes the test", and let the measured number set expectations.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Six integrations at once is the classic way this dies</h3><span class="chip high">High</span></div>
+        <p>Playwright, MCP, Vault, mock SMTP, Jira, PractiTest, plus a novel framework shape and an agent workflow. Any one of them can absorb a week. Built in parallel, nothing is demonstrable for two months and the first integration problem stalls everything.</p>
+        <p class="verdict"><b>Response</b>The phasing is explicitly a walking skeleton, and every phase has a demonstrable exit criterion. If the plan is adopted, the phase boundaries should be treated as hard.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>The four-layer split is a bet, not a proven pattern</h3><span class="chip med">Medium</span></div>
+        <p>The argument that a closed vocabulary beats POM for generation is reasoned, not measured. Models have seen enormous quantities of POM in training and comparatively little of this shape, so priors may partly work against it. It is also more structure than a small suite needs.</p>
+        <p class="verdict"><b>Response</b>Falsifiable in phase 2 — generate the same ten cases against both shapes and compare. The layers are conventions plus lint rules, so reverting toward POM is cheap if the data says so.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Traces and attachments are a live credential leak path</h3><span class="chip high">High</span></div>
+        <p>Doing Vault properly and then base64-ing an unscrubbed trace of a login flow into PractiTest defeats the entire exercise. Scrubbing is easy to specify and easy to implement incompletely — a password typed character by character does not appear as a contiguous string in a DOM snapshot.</p>
+        <p class="verdict"><b>Response</b>Treat this as a feature with its own test: a deliberate leak test that fails if a known canary value survives into any artifact. Until that test exists, attachments stay off.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>The healer can quietly erase regression coverage</h3><span class="chip med">Medium</span></div>
+        <p>A locator repair and a bug are indistinguishable from inside the test. If the login button's accessible name changes because someone broke the i18n bundle, healing the locator hides a real defect and the suite goes green on a broken build.</p>
+        <p class="verdict"><b>Response</b>PR-only healing, no assertion changes, labelled diffs. Worth adding: a healer that files a Jira ticket instead of only a PR when it repairs the same locator more than once in a fortnight.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>"Vault gets no MCP" will feel obstructive</h3><span class="chip med">Medium</span></div>
+        <p>The first time someone debugs a credential problem, wanting the agent to just read the secret is entirely natural, and the rule will get quietly broken. Security controls that depend on discipline decay.</p>
+        <p class="verdict"><b>Response</b>Make the safe path easier than the unsafe one — a <code>vault:check</code> CLI that reports whether a path resolves and what shape it has, without ever printing values. Most debugging needs the existence check, not the secret.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>PractiTest rate limits are tighter than they look</h3><span class="chip med">Medium</span></div>
+        <p>Thirty calls per minute is not much once instance resolution, run creation and attachment uploads are counted, and sharded CI multiplies callers. Naive implementation hits 429s on the first full nightly run.</p>
+        <p class="verdict"><b>Response</b>The merge-then-post design in section 10 addresses it, at the cost of no live progress during a run. That trade should be stated to stakeholders who may expect results appearing in real time.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Supporting both AI clients equally doubles the surface that can rot</h3><span class="chip med">Medium</span></div>
+        <p>Both Copilot Chat and Claude Code are now first-class, which is a real requirement rather than a preference — but generating <code>copilot-instructions.md</code> and <code>CLAUDE.md</code> from one source only keeps the <em>text</em> aligned. Different context windows, tool-calling behaviour and MCP support still produce different code from identical instructions. Two <code>init-agents</code> loops (<code>--loop=vscode</code> and <code>--loop=claude</code>) also means two agent definition sets to keep current.</p>
+        <p class="verdict"><b>Response</b>Accept the cost, contain it three ways. Lint, types and the test run are the equaliser — whatever writes the code passes identical gates. Run the phase 2 hit-rate experiment separately per client so divergence is measured, not assumed. And add a CI check that both agent definition sets were regenerated against the installed Playwright version, since a stale set fails silently.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Jira Data Center weakens the traceability story</h3><span class="chip med">Medium</span></div>
+        <p>New in this draft. With no official MCP, agents cannot pull acceptance criteria conversationally while generating, so the requirement context that would improve generated assertions has to be fetched explicitly or pasted by a human. Self-hosted Jira also tends to mean network restrictions — CI may not reach it at all without a firewall exception, which nobody has requested yet.</p>
+        <p class="verdict"><b>Response</b>The read-only CLI in section 11 covers the generation-time need at low cost. The network path is a genuine unknown: confirm CI-to-Jira reachability during phase 0, not phase 4, because an infrastructure request has a lead time no amount of code can shorten.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Dual source of truth between Jira and PractiTest</h3><span class="chip med">Medium</span></div>
+        <p>Requirements in Jira, cases in PractiTest, code in git — three systems that will drift. A case updated in PractiTest does not notify the spec; the spec silently tests yesterday's requirement.</p>
+        <p class="verdict"><b>Response</b>Store a content hash of the source case in the spec annotation and add a CI check that flags specs whose upstream case changed. Cheap, and it converts silent drift into a visible task.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Password rotation is the most dangerous automation in this plan</h3><span class="chip high">High</span></div>
+        <p>Everything else fails safe. Rotation writes to a live system, and its failure modes lock accounts out: a password changed in the app but not persisted to Vault, a rotation firing mid-run, an application-enforced history rule silently rejecting the new value, or a forced change-password interstitial that the flow does not expect. In a regulated environment, repeated failed logins against a locked account may also trip security monitoring — which is a conversation nobody wants to have unprepared.</p>
+        <p class="verdict"><b>Response</b>Phase 1b exists precisely so this is not rushed alongside the pool work. App-first-then-Vault ordering, verify before persist, exclusive lease during rotation, blackout windows, jitter, and quarantine rather than retry. Test it against a disposable pool before it ever touches the shared one, and tell whoever owns account security that this automation exists before it runs.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Cross-team dependencies now sit on the critical path</h3><span class="chip high">High</span></div>
+        <p>New with the confirmation that Vault is operated separately. Phase 1 cannot complete until a Vault administrator enables the JWT backend and creates a role with bound claims, and OIDC discovery additionally needs a network path from Vault to GitLab that may not exist. None of this is work the QA team can do, estimate, or expedite, and it is the classic cause of a plan that looks on track until it stops entirely.</p>
+        <p class="verdict"><b>Response</b>Raise both requests in phase 0, before writing the Vault adapter. Build the adapter against a local Vault dev container so progress does not depend on the request landing, and keep the auth method behind an interface so switching from AppRole to OIDC — or to static public keys — is a configuration change rather than a rewrite.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Both Playwright agent tools are pre-1.0</h3><span class="chip med">Medium</span></div>
+        <p><code>@playwright/mcp</code> is at 0.0.79 and <code>@playwright/cli</code> at 0.1.18. The agent definitions are explicitly meant to be regenerated whenever Playwright updates, which means the command surface and generated files this plan describes will move. Building tooling tightly around either is building on a moving foundation.</p>
+        <p class="verdict"><b>Response</b>Pin exact versions and treat upgrades as deliberate, tested changes rather than routine dependency bumps. Keep project-specific logic — case pulling, result pushing, conventions — in your own scripts rather than inside generated agent definitions, so an upgrade regenerates their files and not yours. The CI check for agent-definition freshness exists for exactly this.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>The account pool is a shared mutable resource, and those always leak</h3><span class="chip med">Medium</span></div>
+        <p>Leases assume every holder releases them. Crashed runners, cancelled pipelines and killed jobs do not. Over weeks a pool silently shrinks until the suite serialises or fails on exhaustion, and the symptom — intermittent slowness, then sudden failures — looks nothing like the cause. Tests that mutate their leased account's state compound it.</p>
+        <p class="verdict"><b>Response</b>TTL every lease so abandonment self-heals, report pool utilisation in the run report so shrinkage is visible before it is critical, and separate disposable pools for mutating tests from read-only shared ones. Treat "pool exhausted" as a first-class error with a named role and count, never a timeout.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>A bespoke report is a product, and products need owners</h3><span class="chip med">Medium</span></div>
+        <p>"Prettier than the Playwright report" sounds like styling; a Serenity-class report is virtualised tables, trend storage, evidence handling and a build pipeline. It will take longer than estimated, and in eighteen months it is either someone's job or it is abandoned at whatever state it reached — and abandoned reporting is worse than the stock report, because people stop trusting it before they stop receiving it.</p>
+        <p class="verdict"><b>Response</b>The Allure-in-parallel recommendation is the hedge: if the bespoke report stalls, the team still has capable forensics and nothing is blocked. Keep the bespoke surface deliberately small — executive view, coverage, triage — and resist rebuilding what Allure already does well.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Trend data needs somewhere to live, and nothing owns that yet</h3><span class="chip med">Medium</span></div>
+        <p>Flake rate, pass-rate trends and "new since last run" all require history, but the plan describes per-run artifacts only. CI artifact retention is typically days to weeks, and it is not a queryable store. Without deciding this, the most valuable band of the report silently degrades to a single run's snapshot.</p>
+        <p class="verdict"><b>Response</b>Decide it in phase 5, before building the trend views. Cheapest workable option: append each run's summary to a small committed JSON-lines file or an internal object store bucket, keyed by branch and environment. A database is not needed for hundreds of runs a year, and choosing one is how this stalls.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>The triage agent's confidence will be over-trusted</h3><span class="chip high">High</span></div>
+        <p>The genuine risk is not that it is wrong — it will be, sometimes — but that a wrong verdict is stated fluently next to correct ones and is indistinguishable from them. "Test data issue" on what is actually a production-affecting defect is a miss that a plausible explanation actively conceals, and the report's authority makes it worse.</p>
+        <p class="verdict"><b>Response</b>Three levels rather than percentages, mandatory evidence citations, a valid "needs human review" outcome, no auto-filing, and a published per-category agreement rate. The report should also visually mark AI verdicts as distinct from rule-derived ones, so readers know which is which. Treat any category below a measured agreement threshold as advisory-only in the UI.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Email is a notification channel people learn to ignore</h3><span class="chip low">Low</span></div>
+        <p>A nightly mail that is green 90% of the time trains its recipients to filter it. The value is in the exceptions, and undifferentiated daily mail destroys the signal — while a corporate mail gateway may also throttle or quarantine a repeating automated sender.</p>
+        <p class="verdict"><b>Response</b>Make the subject line carry the verdict so it is triageable unopened, and consider sending detail only on failure or change of state, with a weekly summary otherwise. Confirm the sending account is a sanctioned service mailbox rather than a person's.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Generation cost has not been estimated</h3><span class="chip low">Low</span></div>
+        <p>Explore-first generation is token-expensive: snapshots are large and the verify-repair loop iterates. Across hundreds of cases, plus healer runs, this is a real budget line nobody has priced.</p>
+        <p class="verdict"><b>Response</b>Measure cost per generated test during phase 2 alongside the hit rate. It is one extra number from an experiment already planned.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>The internal mail tool is the largest remaining unknown</h3><span class="chip high">High</span></div>
+        <p>Severity raised from the previous draft. An in-house SMTP mock has no documentation I can design against, and the email-OTP flow depends on three specific capabilities it may not have. If it lacks a read API, a whole authentication path is unautomatable until something changes.</p>
+        <p class="verdict"><b>Response</b>The capability table in section 09 states exactly what is required and what each gap costs, and the Mailpit-as-sink fallback keeps the plan viable in the worst case. But this is now the top item to resolve before phase 1 starts.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Environment friction is underweighted</h3><span class="chip med">Medium</span></div>
+        <p>Raised from Low. Windows host, Docker 20.10.11, no Vault CLI — and now a self-hosted internal network on top, meaning proxy, private CA and registry mirror configuration before a single test runs. Line endings, path separators and container networking each cost an afternoon, and none of it appears in the phase estimates.</p>
+        <p class="verdict"><b>Response</b>Section 13 now enumerates the specific failure modes. HTTP-API-only Vault access avoids the CLI dependency. Enforce LF via <code>.gitattributes</code> from the first commit, and confirm whether CI is Windows or Linux — if they differ, that difference will surface as flakes.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Approval to send context to a cloud model may not exist</h3><span class="chip high">High</span></div>
+        <p>New, and potentially fatal to the central premise. The entire generation approach depends on an AI client receiving application snapshots and test case content. In a self-hosted, regulated environment that is a data-governance question with a real chance of a restrictive answer — and it is the kind of question that surfaces at phase 3 review, after the framework is built around an assumption nobody validated.</p>
+        <p class="verdict"><b>Response</b>Move it to phase 0 as a written confirmation, not a corridor conversation. If the answer is restrictive, the framework itself still delivers value — the four-layer shape, Vault, OTP, PractiTest and Jira integration all stand without any AI in the loop. Only the generation loop is lost, and knowing that in week one is worth far more than discovering it in month three.</p>
+      </div>
+    </section>
+
+    <section id="open">
+      <h2><span class="num">Section 20</span>Decisions — settled and outstanding</h2>
+
+      <h4>Settled</h4>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Question</th><th>Answer</th><th>Consequence in this plan</th></tr></thead>
+          <tbody>
+            <tr><td>Jira deployment</td><td><b>Data Center, self-hosted</b><br /><span class="mono">/rest/api/2/ · Bearer PAT</span></td><td>No official MCP, and third-party MCP now advised against on supply-chain grounds. REST v2 + Bearer PAT, wiki markup, transitions resolved by name, plus a read-only CLI. Sections 11 and 13.</td></tr>
+            <tr><td>Test case ownership</td><td><b>PractiTest is the source</b></td><td>Pipeline direction as originally drawn: pull cases → gate → generate → push runs.</td></tr>
+            <tr><td>AI client</td><td><b>Both, equally</b></td><td>Two <code>init-agents</code> loops, two generated instruction files, per-client hit-rate measurement in phase 2.</td></tr>
+            <tr><td>Mock SMTP</td><td><b>Internal tool</b></td><td>Adapter written to a capability contract rather than a known API. Mailpit retained only as a fallback sink.</td></tr>
+            <tr><td>CI platform</td><td><b>GitLab</b></td><td><code>.gitlab-ci.yml</code> with <code>parallel:matrix</code> sharding, JUnit to the MR widget, Pages for report hosting, and Vault auth via <code>id_tokens</code> instead of AppRole. Section 13.</td></tr>
+            <tr><td>Agent browser tooling</td><td><b>Playwright CLI</b></td><td>Reversed from earlier drafts: ~4x fewer tokens than MCP, skills-based, and explicitly aimed at Claude Code and Copilot. MCP kept for interactive debugging only.</td></tr>
+            <tr><td>Session handling</td><td><b>storageState by default</b></td><td>Setup projects per role; only <code>@auth</code>-tagged specs log in through the UI. Storage state treated as a credential.</td></tr>
+            <tr><td>Vault ownership</td><td><b>Separate from GitLab</b></td><td>OIDC still works but needs a Vault-side JWT backend and a Vault→GitLab network path; static public keys are the fallback, at the cost of manual key rotation.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Outstanding — needed before the phase noted</h4>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Question</th><th>Blocks</th><th>Why it matters</th></tr></thead>
+          <tbody>
+            <tr><td>What read interface does the internal mail tool expose?</td><td class="mono">Phase 1</td><td>Determines whether email OTP is automatable at all. See the capability table in section 09.</td></tr>
+            <tr><td>Are the AI clients approved to receive app snapshots and ticket content?</td><td class="mono">Phase 0</td><td>The generation loop's core premise. A restrictive answer removes it entirely — everything else in the plan survives, but you need to know now.</td></tr>
+            <tr><td>Jira DC version — is it 8.14+?</td><td class="mono">Phase 0</td><td>Below 8.14 there are no PATs, and the remaining auth options are materially worse.</td></tr>
+            <tr><td>Proxy host, internal root CA bundle, npm mirror URL?</td><td class="mono">Phase 0</td><td>Nothing installs or connects without these. See section 13.</td></tr>
+            <tr><td>Can CI reach Jira, PractiTest, Vault and the app under test?</td><td class="mono">Phase 0</td><td>Firewall exceptions have lead times that code cannot shorten. If the app under test is unreachable, explore-first generation is off the table.</td></tr>
+            <tr><td>Vault: namespace, mount paths, and is the TOTP engine enabled?</td><td class="mono">Phase 1</td><td>Enterprise namespaces prefix every path. AppRole and the TOTP secrets engine both need a Vault administrator to enable them.</td></tr>
+            <tr><td>Is GitLab Pages enabled on your instance?</td><td class="mono">Phase 0</td><td>Preferred host for the per-run report. If disabled on self-managed, fall back to job artifact URLs — the email design needs a stable link either way.</td></tr>
+            <tr><td>Will the Vault team enable a JWT auth backend and role for this project?</td><td class="mono">Phase 0</td><td>Blocks CI secret access entirely. Someone else's queue, so request before writing the adapter.</td></tr>
+            <tr><td>Can Vault reach GitLab's OIDC discovery endpoint?</td><td class="mono">Phase 0</td><td>Determines <code>oidc_discovery_url</code> versus static <code>jwt_validation_pubkeys</code>, and the latter needs a named owner for manual key rotation.</td></tr>
+            <tr><td>Are GitLab runners project-specific or shared?</td><td class="mono">Phase 0</td><td>On shared runners, job secrets are exposed to whatever else runs there.</td></tr>
+            <tr><td>Pool size per role, and the app's real password policy?</td><td class="mono">Phase 1</td><td>Pools must exceed max concurrent workers; history and minimum-age rules constrain how rotation can work.</td></tr>
+            <tr><td>Which SMTP relay, and is there a sanctioned service mailbox?</td><td class="mono">Phase 5</td><td>Nodemailer needs a relay that accepts automated mail. A personal account will be rate-limited or blocked.</td></tr>
+            <tr><td>Where does run history live for trends?</td><td class="mono">Phase 5</td><td>Flake rate and "new since last run" need retained history; CI artifacts expire.</td></tr>
+            <tr><td>Bespoke report only, or bespoke plus Allure?</td><td class="mono">Phase 5</td><td>Recommendation is both from one reporter — Allure for forensics, bespoke for stakeholders and coverage.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <hr class="rule" />
+    </section>
+
+  </main>
+
+  <footer>
+    <p>Draft 5 · Adds GitLab CI, the Playwright CLI reversal, and identity / session / account lifecycle. Confirmed: GitLab CI with a separately-operated Vault, self-hosted Jira Data Center on <code>/rest/api/2/</code> with Bearer PAT, PractiTest as source of truth, both AI clients first-class, internal mail tool. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, <code>@playwright/mcp</code> 0.0.79, PractiTest API v2 (20 instances/POST, 30 calls/min), Jira DC PAT support (8.14+), GitLab <code>id_tokens</code> + Vault JWT auth, and Outlook's Word-engine CSS limits. Both Playwright agent packages are pre-1.0 and will move — re-check at implementation time.</p>
+  </footer>
+
+</div>

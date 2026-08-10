@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+.npm/
+.cache/
+
+# --- secrets & session material ----------------------------------------------
+# storageState files contain live session tokens. Anyone holding one is signed
+# in as that account with no password or MFA required. Never commit, never
+# publish as a CI artifact.
+.auth/
+*.storagestate.json
+
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Playwright output --------------------------------------------------------
+blob-report/
+playwright-report/
+test-results/
+results/
+.last-run.json
+
+# --- generated run data -------------------------------------------------------
+run-result.json
+triage-result.json
+.practitest-cache.json
+report-out/
+
+# NOTE: docs/generated/ is deliberately NOT ignored. The capability catalog is
+# committed so CI can diff it against a fresh build and fail on drift.
+
+# --- editors / OS -------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.log
