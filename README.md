@@ -12,10 +12,14 @@ triaged automatically before a human reads them.
 **→ [Read the handbook](docs/handbook.html)** — architecture, onboarding and how it
 works, in 19 sections. Start there if you are new; this README is the summary.
 
+**→ [What real testing taught the framework](docs/learnings.md)** — the defects and
+conventions that came out of pointing this at a live application, and where each
+fix landed. New learnings go there.
+
 ```bash
 npm install
 npx playwright install chromium
-npm run verify        # lint + types + generated-file checks + 191 unit tests
+npm run verify        # lint + types + generated-file checks + 196 unit tests
 npx playwright test   # + the suite against the reference target
 ```
 
@@ -101,6 +105,7 @@ tests/unit/           the framework's own tests, incl. the lint rules
 cases/                the intermediate case format both authoring tracks produce
 docs/CONVENTIONS.md   single source of truth → CLAUDE.md, AGENTS.md, copilot
 docs/handbook.html    architecture · onboarding · how it works
+docs/learnings.md     what real testing taught the framework, and where fixes landed
 docs/plan.html        the original architecture plan and self-critique
 docs/generated/       capability catalog + run history (committed, checked in CI)
 ```

@@ -45,15 +45,62 @@ function verdict(
   };
 }
 
+/**
+ * Transport failures in both vocabularies: Node's error codes, and Chromium's
+ * `net::ERR_*` codes as Playwright surfaces them from the browser.
+ */
+const TRANSPORT_ERROR =
+  /(ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|SELF_SIGNED_CERT[A-Z_]*|CERT_[A-Z_]+|net::ERR_[A-Z_]+)/i;
+
+/**
+ * Authentication-shaped failures. `\bauth\b` rather than a bare substring:
+ * `net::ERR_CERT_AUTHORITY_INVALID` contains "auth", and a TLS failure
+ * misfiled as a credentials problem sends the whole night's triage to the
+ * wrong team.
+ */
+const AUTH_ERROR =
+  /(\bauth\b|authentication|unauthori[sz]ed|sign ?in|log ?in|\b401\b|\b403\b|storage ?state)/i;
+
 const errorText = (tests: TestRecord[]): string =>
   tests.map((test) => `${test.error?.message ?? ''} ${test.error?.stack ?? ''}`).join('\n');
 
+/**
+ * Order matters: the first rule that matches wins, so the most *specific*
+ * signal has to come first. A transport failure is unambiguous evidence about
+ * where the fault is; "everything failed and the text mentions auth" is an
+ * inference, and inference must never pre-empt evidence.
+ */
 export const RULES: TriageRule[] = [
+  /**
+   * DNS, connection and TLS failures → network or environment, never one
+   * ticket per test.
+   *
+   * Two vocabularies, because failures arrive from two places. Node-side codes
+   * (`ECONNREFUSED`) come from the integration adapters; Chromium's `net::ERR_`
+   * codes come from the browser, and those are most of what a UI suite
+   * actually sees when an environment is down. Matching only the first set —
+   * as this rule originally did — leaves the commonest infrastructure failure
+   * in the suite unclassified.
+   */
+  rule('transport-failure', (cluster, { tests }) => {
+    const text = errorText(tests);
+    if (!TRANSPORT_ERROR.test(text)) return null;
+    return verdict(cluster, 'transport-failure', {
+      category: 'network-infrastructure',
+      confidence: 'high',
+      summary: 'Connection, DNS or TLS failure — correlated across tests',
+      evidence: [matched(text, TRANSPORT_ERROR), `${cluster.size} test(s) share this signature`],
+      recommendedAction: 'escalate',
+      suggestedOwner: 'platform',
+      needsHumanReview: false,
+    });
+  }),
+
   // "Every test in the run failed at login" → environment or credentials.
   rule('all-failed-at-auth', (cluster, { run, tests }) => {
     const executed = run.tests.filter((test) => test.outcome !== 'skipped');
     const allFailed = executed.length > 0 && executed.every((test) => test.outcome === 'unexpected');
-    const authShaped = /sign in|log ?in|auth|401|403|storage ?state/i.test(errorText(tests));
+    const authShaped = AUTH_ERROR.test(errorText(tests));
     if (!allFailed || !authShaped) return null;
     return verdict(cluster, 'all-failed-at-auth', {
       category: 'environment-config',
@@ -62,26 +109,6 @@ export const RULES: TriageRule[] = [
       evidence: [
         `${executed.length} of ${executed.length} executed tests failed`,
         'failures mention authentication or a session',
-      ],
-      recommendedAction: 'escalate',
-      suggestedOwner: 'platform',
-      needsHumanReview: false,
-    });
-  }),
-
-  // DNS / ECONNREFUSED / TLS → network or environment, never one ticket per test.
-  rule('transport-failure', (cluster, { tests }) => {
-    const text = errorText(tests);
-    if (!/ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|SELF_SIGNED_CERT|CERT_|TLS/i.test(text)) {
-      return null;
-    }
-    return verdict(cluster, 'transport-failure', {
-      category: 'network-infrastructure',
-      confidence: 'high',
-      summary: 'Connection, DNS or TLS failure — correlated across tests',
-      evidence: [
-        matched(text, /(ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|SELF_SIGNED_CERT[A-Z_]*|CERT_[A-Z_]+)/i),
-        `${cluster.size} test(s) share this signature`,
       ],
       recommendedAction: 'escalate',
       suggestedOwner: 'platform',

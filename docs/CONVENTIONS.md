@@ -58,6 +58,24 @@ Priority order, and it is not a preference:
 4. Raw CSS — only with `// locator-justification: <reason>` on the line above
 5. XPath — never
 
+**Scope a locator to its container when a test id is reused.** Applications
+reuse test ids across pages more often than the priority order implies. An
+unscoped locator that matches on two pages does not fail — it answers the wrong
+question with a plausible result:
+
+```ts
+// no  — matches cart rows AND listing cards, depending on the page
+items: (page) => page.getByTestId('inventory-item'),
+// yes — unambiguous wherever it is called
+items: (page) => cartLocators.list(page).getByTestId('inventory-item'),
+```
+
+**Derive internal identifiers; never write them down.** If a vocabulary needs
+an id, slug or key belonging to the application, read it from the running
+application. A transcribed internal id is a hallucinated locator wearing a
+different hat, and it fails silently — the wrong data is used and the test
+carries on.
+
 Ground locators in a real page, not in priors:
 
 ```bash
@@ -189,6 +207,47 @@ not a special case.
 - A target name inside framework code
 - A test that depends on another test having run first
 - Committing `.auth/`, a storage state, or any real credential
+
+## Performance: budgets, not load testing
+
+Load and performance testing are refused — they need different tooling and a
+dedicated environment, and numbers from a shared runner under unknown
+contention are not actionable.
+
+A **budget** is in scope: an assertion that a journey the suite already drives
+finishes inside a stated ceiling. Tag it `@performance`, state the ceiling in
+the failure message, and keep it loose — a tight budget on a shared runner is a
+flake generator, and a flaky performance test teaches a team to ignore
+performance tests.
+
+```ts
+expect(elapsed, `the listing took ${elapsed}ms against a ${budget}ms budget`)
+  .toBeLessThan(budget);
+```
+
+A budget met by an empty page is not a budget met: assert the content arrived,
+then assert the time.
+
+## The triage ground-truth fixture
+
+`src/targets/<app>/tests/triage-fixture/` holds specs that are **meant to
+fail**, with causes known in advance. They do not run in the normal suite — the
+`triage-fixture` project exists only when `TRIAGE_FIXTURE=true` — so a green
+pipeline stays green.
+
+```bash
+TRIAGE_FIXTURE=true npx playwright test --project=triage-fixture
+npm run triage:cluster && npm run triage:rules
+```
+
+Compare what the rules settled against the expected category recorded beside
+each spec. That comparison is the agreement measurement §20 asks for, and it is
+available on day one rather than after weeks of real failures with confirmed
+verdicts.
+
+Rules that classify something the fixture says is a different category are
+wrong and should be tightened. Rules that decline to classify a genuine
+judgement call are **correct** — the model exists for those.
 
 ## When the vocabulary is missing
 

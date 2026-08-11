@@ -3,6 +3,7 @@ import { fixtureRun } from '../support/fixture-run';
 import { renderReport } from '../../src/support/report/render-html';
 import { renderDigest } from '../../src/support/report/render-email';
 import { buildTrend, summarise, type HistoryEntry } from '../../src/support/report/history';
+import { stripAnsi } from '../../src/support/text';
 import {
   firstRunPassRate,
   flakeRate,
@@ -72,6 +73,29 @@ test.describe('the run model', () => {
     expect(run.totals.byKind.ui.total).toBe(4);
     expect(run.totals.byKind.api.total).toBe(1);
     expect(run.totals.byKind.contract.total).toBe(0);
+  });
+});
+
+test.describe('captured text', () => {
+  test('strips the ANSI colouring Playwright puts in assertion errors', () => {
+    // Invisible in a console, very visible in a report cell, a Jira
+    // description, a PractiTest run output, and a cluster signature.
+    const coloured = 'Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeNull()';
+
+    expect(stripAnsi(coloured)).toBe('Error: expect(received).toBeNull()');
+  });
+
+  test('leaves ordinary text alone', () => {
+    expect(stripAnsi('Timeout 30000ms exceeded')).toBe('Timeout 30000ms exceeded');
+  });
+
+  test('colour does not change a clustering signature', () => {
+    // Otherwise the same failure clusters differently depending on where it
+    // ran, which quietly defeats the whole point of clustering.
+    const plain = 'Expected "Rejected" but received "Approved"';
+    const coloured = 'Expected [32m"Rejected"[39m but received [31m"Approved"[39m';
+
+    expect(stripAnsi(coloured)).toBe(plain);
   });
 });
 
