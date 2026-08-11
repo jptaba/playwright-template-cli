@@ -31,8 +31,23 @@ export const saucedemo: TargetProfile = {
     mfa: 'none', // no MFA here — §12 providers are inert
     accountPool: 'static', // fixed users: no leasing, no rotation, no quarantine
     serverState: false, // cart lives in localStorage; no cross-test cleanup
-    api: { enabled: false }, // no API: `testData` falls back to UI-driven setup
+    // This target publishes no *service* API — it is a client-rendered site
+    // with no backend to call. What it does have is an HTTP surface: the
+    // documents and assets it serves, whose status codes, content types and
+    // headers are a real contract worth asserting. That is what the `api`
+    // project tests here, and the vocabulary in `endpoints/` says so plainly
+    // rather than pretending there are business endpoints.
+    api: {
+      enabled: true,
+      baseURL: process.env.BASE_URL ?? 'https://www.saucedemo.com',
+    },
+    // No database. Nothing to read, and nothing this framework could assert
+    // that the UI or the HTTP surface does not already expose — which is the
+    // hierarchy in §05 arriving at its correct answer for this target.
     db: { enabled: false },
+    // No published JSON schema, so schema conformance has nothing to validate
+    // against. `api` on and `contracts` off is a coherent combination, and
+    // exactly what the capability matrix exists to express.
     contracts: { enabled: false, spec: null },
   },
 

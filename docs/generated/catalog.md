@@ -39,6 +39,7 @@ _Added on top of the framework fixtures when TARGET=saucedemo._
 | `auth` | `named actions — see the table below` | Signing in and out, and reading what the sign-in form said. |
 | `inventory` | `named actions — see the table below` | The product listing: browsing, sorting, and adding to the cart. |
 | `checkout` | `named actions — see the table below` | The cart and the three checkout steps, up to placing the order. |
+| `cartState` | `named actions — see the table below` | Read and seed the cart where this application actually persists it. |
 | `testData` | `SaucedemoTestData` | Builders for the data a spec needs. |
 
 ## actions/ — saucedemo
@@ -53,6 +54,8 @@ _L2 UI vocabulary. Composes locators, returns data, asserts nothing._
 | `auth.readSignInError` | `(page: Page) => Promise<string \| null>` | The sign-in error banner text, or null when the form reported no error. |
 | `auth.signOut` | `(page: Page) => Promise<void>` | Sign out through the burger menu, ending the session. |
 | `auth.resetApplicationState` | `(page: Page) => Promise<void>` | Discard cart and sort state through the application's own menu action. |
+| `cartState.readPersisted` | `(page: Page) => Promise<string[]>` | Product names currently persisted, whatever the screen is showing. |
+| `cartState.seed` | `(page: Page, names: readonly string[]) => Promise<void>` | Put products in the cart without driving the UI, then reload so the application renders from the state it was given. |
 | `checkout.openCart` | `(page: Page) => Promise<void>` | Open the cart from the header badge. |
 | `checkout.readCartContents` | `(page: Page) => Promise<string[]>` | Product names currently in the cart, in display order. |
 | `checkout.removeFromCart` | `(page: Page, name: string) => Promise<void>` | Remove a named product from the cart page itself. |
@@ -70,6 +73,17 @@ _L2 UI vocabulary. Composes locators, returns data, asserts nothing._
 | `inventory.removeFromCart` | `(page: Page, name: string) => Promise<void>` | Remove a named product from the cart, from the listing page. |
 | `inventory.sortBy` | `(page: Page, option: "Name (A to Z)" \| "Name (Z to A)" \| "Price (low to high)" \| "Price (high to low)") => Promise<void>` | Reorder the listing using the store's own sort control. |
 | `inventory.cartCount` | `(page: Page) => Promise<number>` | The number on the cart badge, or 0 when no badge is rendered — the store removes the element entirely at zero rather than showing "0". |
+
+## api/ — saucedemo
+
+_L2 HTTP vocabulary. Typed clients with response-schema validation._
+
+| Name | Signature | What it does |
+|---|---|---|
+| `siteApi.landing` | `() => Promise<HttpSurface>` | The sign-in document, as served. |
+| `siteApi.inventoryDocument` | `() => Promise<HttpSurface>` | The product listing document. |
+| `siteApi.missingPath` | `(nonce: string) => Promise<HttpSurface>` | What the host does with a path that does not exist. |
+| `siteApi.asset` | `(path: string) => Promise<HttpSurface>` | Fetch an asset the document actually references, by its resolved path. |
 
 ## api/ — internal-app
 

@@ -43,6 +43,13 @@ export interface CallOptions<TBody> {
 
 export interface ApiResponse<T> {
   status: number;
+  /**
+   * Response headers, lower-cased. Kept because a great many real contracts
+   * live here and nowhere else: content type, cache directives, `Location` on
+   * a redirect, rate-limit budgets, correlation ids. A client that drops them
+   * cannot express those assertions at all.
+   */
+  headers: Record<string, string>;
   body: T;
   /** Populated when the response did not match the published schema. */
   drift: ContractDriftError | null;
@@ -113,6 +120,7 @@ export class ApiClient {
       });
 
       const status = response.status();
+      const headers = response.headers(); // already lower-cased by Playwright
       const text = await response.text();
       const body = parse<TResponse>(text);
 
@@ -128,7 +136,7 @@ export class ApiClient {
         if (this.options.throwOnDrift) throw drift;
       }
 
-      return { status, body, drift };
+      return { status, headers, body, drift };
     });
   }
 

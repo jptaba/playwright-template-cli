@@ -1,5 +1,6 @@
 import { test as framework } from '../../fixtures/base';
 import { auth } from './actions/auth';
+import { cartState } from './actions/cart-state';
 import { checkout } from './actions/checkout';
 import { inventory } from './actions/inventory';
 import { CATALOG, TAX_RATE, type CatalogItem, type Customer } from './data/catalog';
@@ -29,6 +30,8 @@ export interface SaucedemoFixtures {
   inventory: typeof inventory;
   /** The cart and the three checkout steps, up to placing the order. */
   checkout: typeof checkout;
+  /** Read and seed the cart where this application actually persists it. */
+  cartState: typeof cartState;
   /** Builders for the data a spec needs. Never reads the application. */
   testData: SaucedemoTestData;
 }
@@ -42,6 +45,9 @@ export const test = framework.extend<SaucedemoFixtures>({
   },
   checkout: async ({}, use) => {
     await use(checkout);
+  },
+  cartState: async ({}, use) => {
+    await use(cartState);
   },
   testData: async ({ run }, use) => {
     await use({
