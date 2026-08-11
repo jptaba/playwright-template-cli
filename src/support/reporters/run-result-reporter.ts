@@ -10,6 +10,7 @@ import type {
 } from '@playwright/test/reporter';
 import { RUN_RESULT_PATH } from '../paths';
 import { redact } from '../redact';
+import { stripAnsi } from '../text';
 import {
   RUN_RESULT_SCHEMA_VERSION,
   tally,
@@ -101,11 +102,13 @@ export default class RunResultReporter implements Reporter {
       retries: Math.max(0, attempts.length - 1),
       durationMs: attempts.reduce((total, attempt) => total + attempt.duration, 0),
       workerIndex: last?.workerIndex ?? 0,
+      // Scrubbed and de-colourised here, once, so no downstream consumer has
+      // to remember either.
       error: last?.error
         ? {
-            message: redact(last.error.message ?? ''),
-            stack: last.error.stack ? redact(last.error.stack) : null,
-            snippet: last.error.snippet ? redact(last.error.snippet) : null,
+            message: clean(last.error.message ?? ''),
+            stack: last.error.stack ? clean(last.error.stack) : null,
+            snippet: last.error.snippet ? clean(last.error.snippet) : null,
           }
         : null,
       steps: last ? flattenSteps(last) : [],
@@ -113,6 +116,11 @@ export default class RunResultReporter implements Reporter {
       annotations,
     };
   }
+}
+
+/** Everything captured from a run goes through both: scrub, then de-colourise. */
+function clean(text: string): string {
+  return stripAnsi(redact(text));
 }
 
 /** Every step title, so the report has its narrative even for nested steps. */
@@ -124,10 +132,10 @@ function flattenSteps(result: TestResult): StepRecord[] {
       // a report a product owner reads.
       if (step.category === 'test.step') {
         steps.push({
-          title: redact(step.title),
+          title: clean(step.title),
           durationMs: step.duration,
           failed: Boolean(step.error),
-          ...(step.error?.message ? { error: redact(step.error.message) } : {}),
+          ...(step.error?.message ? { error: clean(step.error.message) } : {}),
         });
       }
       walk(step.steps);

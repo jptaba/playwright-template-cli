@@ -1,5 +1,5 @@
 <!-- GENERATED FILE — DO NOT EDIT.
-     Source: docs/CONVENTIONS.md (sha256 f970bfec8688387e)
+     Source: docs/CONVENTIONS.md (sha256 4730b10b72b28269)
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 
@@ -199,6 +199,27 @@ not a special case.
 - A target name inside framework code
 - A test that depends on another test having run first
 - Committing `.auth/`, a storage state, or any real credential
+
+## The triage ground-truth fixture
+
+`src/targets/<app>/tests/triage-fixture/` holds specs that are **meant to
+fail**, with causes known in advance. They do not run in the normal suite — the
+`triage-fixture` project exists only when `TRIAGE_FIXTURE=true` — so a green
+pipeline stays green.
+
+```bash
+TRIAGE_FIXTURE=true npx playwright test --project=triage-fixture
+npm run triage:cluster && npm run triage:rules
+```
+
+Compare what the rules settled against the expected category recorded beside
+each spec. That comparison is the agreement measurement §20 asks for, and it is
+available on day one rather than after weeks of real failures with confirmed
+verdicts.
+
+Rules that classify something the fixture says is a different category are
+wrong and should be tightened. Rules that decline to classify a genuine
+judgement call are **correct** — the model exists for those.
 
 ## When the vocabulary is missing
 

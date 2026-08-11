@@ -31,6 +31,20 @@ export const checkout = {
     });
   },
 
+  /** Remove a named product from the cart page itself. */
+  async removeFromCart(page: Page, name: string): Promise<void> {
+    await test.step(`Remove ${name} from the cart`, async () => {
+      await cartLocators.removeFromCart(cartLocators.itemByName(page, name)).click();
+    });
+  },
+
+  /** Return to the product listing, keeping the cart as it is. */
+  async continueShopping(page: Page): Promise<void> {
+    await test.step('Return to the product listing', async () => {
+      await cartLocators.continueShopping(page).click();
+    });
+  },
+
   /** Leave the cart and start the checkout flow. */
   async proceedToCheckout(page: Page): Promise<void> {
     await test.step('Start checkout', async () => {
@@ -45,6 +59,13 @@ export const checkout = {
       await checkoutLocators.lastName(page).fill(customer.lastName);
       await checkoutLocators.postalCode(page).fill(customer.postalCode);
       await checkoutLocators.continue(page).click();
+    });
+  },
+
+  /** Abandon checkout step one and return to the cart. */
+  async cancelCheckout(page: Page): Promise<void> {
+    await test.step('Abandon checkout', async () => {
+      await checkoutLocators.cancel(page).click();
     });
   },
 

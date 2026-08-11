@@ -9,6 +9,7 @@ export const cartLocators = {
       has: page.getByTestId('inventory-item-name').getByText(name, { exact: true }),
     }),
   itemQuantity: (card: Locator): Locator => card.getByTestId('item-quantity'),
+  removeFromCart: (card: Locator): Locator => card.getByRole('button', { name: 'Remove' }),
   checkout: (page: Page): Locator => page.getByTestId('checkout'),
   continueShopping: (page: Page): Locator => page.getByTestId('continue-shopping'),
 };

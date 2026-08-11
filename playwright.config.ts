@@ -85,6 +85,21 @@ const projects: Project<FrameworkOptions>[] = [
   },
 ];
 
+/**
+ * The triage ground-truth fixture: specs that are *meant* to fail, with causes
+ * known in advance (§21 phase 6). Opt-in only, so a green pipeline stays
+ * green — run it deliberately to produce a failing run for measuring triage
+ * agreement.
+ */
+if (process.env.TRIAGE_FIXTURE === 'true') {
+  projects.push({
+    name: 'triage-fixture',
+    testDir: `${targetRoot}/tests/triage-fixture`,
+    retries: 0, // a retried known failure would report as flaky and skew the ground truth
+    use: { ...devices['Desktop Chrome'], role: '' },
+  });
+}
+
 // Capability-gated projects. A disabled capability means the project does not
 // run for this target and the report says so explicitly — "api: not applicable
 // for <target>" rather than a silent zero (§05).

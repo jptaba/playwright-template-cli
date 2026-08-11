@@ -55,8 +55,11 @@ _L2 UI vocabulary. Composes locators, returns data, asserts nothing._
 | `auth.resetApplicationState` | `(page: Page) => Promise<void>` | Discard cart and sort state through the application's own menu action. |
 | `checkout.openCart` | `(page: Page) => Promise<void>` | Open the cart from the header badge. |
 | `checkout.readCartContents` | `(page: Page) => Promise<string[]>` | Product names currently in the cart, in display order. |
+| `checkout.removeFromCart` | `(page: Page, name: string) => Promise<void>` | Remove a named product from the cart page itself. |
+| `checkout.continueShopping` | `(page: Page) => Promise<void>` | Return to the product listing, keeping the cart as it is. |
 | `checkout.proceedToCheckout` | `(page: Page) => Promise<void>` | Leave the cart and start the checkout flow. |
 | `checkout.provideDeliveryDetails` | `(page: Page, customer: Customer) => Promise<void>` | Fill checkout step one and continue to the order overview. |
+| `checkout.cancelCheckout` | `(page: Page) => Promise<void>` | Abandon checkout step one and return to the cart. |
 | `checkout.readCheckoutError` | `(page: Page) => Promise<string \| null>` | The checkout error banner text, or null when the step reported no error. |
 | `checkout.readOrderTotals` | `(page: Page) => Promise<OrderTotals>` | The three figures on the overview step, as numbers. |
 | `checkout.completeThroughOverview` | `(page: Page, customer: Customer) => Promise<OrderTotals>` | Cart → delivery details → overview, stopping before the order is placed. |

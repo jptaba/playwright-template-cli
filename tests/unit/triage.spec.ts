@@ -99,6 +99,30 @@ test.describe('rule classification', () => {
     expect(verdict!.evidence.join(' ')).toContain('ECONNREFUSED');
   });
 
+  test('a browser network failure is network too, not just a Node error code', () => {
+    // Chromium reports `net::ERR_CONNECTION_REFUSED`, which contains none of
+    // the Node codes. A UI suite against a dead environment produces these
+    // almost exclusively, so missing them left the commonest infrastructure
+    // failure unclassified.
+    const verdict = classify([
+      failing('a', 'page.goto: net::ERR_CONNECTION_REFUSED at https://app.internal/'),
+    ]);
+    expect(verdict).toMatchObject({ category: 'network-infrastructure', confidence: 'high' });
+    expect(verdict!.evidence[0]).toContain('net::ERR_CONNECTION_REFUSED');
+  });
+
+  test('an unresolvable host is network, however the failure was reported', () => {
+    for (const message of [
+      'page.goto: net::ERR_NAME_NOT_RESOLVED',
+      'connect ENOTFOUND vault.internal',
+      'request failed: net::ERR_CERT_AUTHORITY_INVALID',
+    ]) {
+      expect(classify([failing('a', message)])).toMatchObject({
+        category: 'network-infrastructure',
+      });
+    }
+  });
+
   test('a schema validation failure is contract drift, and routes to the provider team', () => {
     const verdict = classify([
       failing('a', 'Contract drift on POST /orders: the response no longer validates against the published schema'),
