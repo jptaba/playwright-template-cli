@@ -6,7 +6,7 @@
 # diff before it is enforced.
 openapi: 3.0.3
 info:
-  title: Internal orders service
+  title: Example orders service (TEMPLATE — replace with your published spec)
   version: '2.0'
 
 paths:

@@ -475,6 +475,9 @@
     <p class="eyebrow">Architecture Plan &amp; Self-Critique · Draft 7</p>
     <h1>An AI-legible Playwright framework</h1>
     <p class="standfirst">A test automation stack with two authoring tracks — a Jira story becomes reviewed test cases, or an existing PractiTest case is picked up as written — and both end as running Playwright specs with a human in the review seat, not the typing seat. It covers UI journeys, API tests, contract conformance and the mixed tests that span them. The application under test is configuration, not code, with <code>www.saucedemo.com</code> as the reference target, and every environment it touches is a real running system.</p>
+    <p class="standfirst" style="font-size:0.95rem;opacity:0.78;border-left:3px solid currentColor;padding-left:0.9em;margin-top:1.2em">
+      <b>Historical record.</b> This is the plan as authored, before implementation, and it is kept unedited so the design decisions can be checked against what was actually built. It names <code>www.saucedemo.com</code> throughout as its reference target; that target pack lives on the <code>saucedemo/extensive-coverage</code> branch and is not on <code>main</code>. <code>main</code> ships the framework plus one <code>example-app</code> scaffold and names no real application. For the built system, read <a href="handbook.html">the handbook</a>; for what the reference target taught the framework, <a href="learnings.md">docs/learnings.md</a>.
+    </p>
     <dl class="factbar">
       <div class="fact"><dt>Runner</dt><dd>Playwright 1.62.1</dd></div>
       <div class="fact"><dt>Authoring</dt><dd>Two AI tracks, one spine</dd></div>

@@ -262,16 +262,16 @@ test('no-target-coupling stops the framework growing a special case for one appl
       { code: `if (target.capabilities.mfa === 'none') return skipProvider();`, filename: FIXTURE },
       { code: `const dir = 'src/targets/' + target.name + '/tests';`, filename: INTEGRATION },
       // Inside a target pack, naming the target is not coupling.
-      { code: `const name = 'saucedemo';`, filename: ACTION },
+      { code: `const name = 'example-app';`, filename: ACTION },
     ],
     invalid: [
       {
-        code: `if (target.name === 'saucedemo') skipMfa();`,
+        code: `if (target.name === 'example-app') skipMfa();`,
         filename: FIXTURE,
         errors: [{ messageId: 'namesTarget' }],
       },
       {
-        code: `const dir = 'src/targets/saucedemo/tests';`,
+        code: `const dir = 'src/targets/example-app/tests';`,
         filename: INTEGRATION,
         errors: [{ messageId: 'pathsIntoTarget' }],
       },

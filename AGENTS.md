@@ -1,5 +1,5 @@
 <!-- GENERATED FILE — DO NOT EDIT.
-     Source: docs/CONVENTIONS.md (sha256 f1e1cb87c6b6a5b5)
+     Source: docs/CONVENTIONS.md (sha256 aa904a746dafe80b)
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 
@@ -186,7 +186,7 @@ Framework code branches on **declared capabilities**, never on a target name:
 
 ```ts
 if (target.capabilities.mfa === 'none') …    // yes — holds for any such app
-if (target.name === 'saucedemo') …           // no  — `no-target-coupling`
+if (target.name === 'acme-shop') …           // no  — `no-target-coupling`
 ```
 
 ### Adding an application under test

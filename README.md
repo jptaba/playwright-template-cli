@@ -20,8 +20,14 @@ fix landed. New learnings go there.
 npm install
 npx playwright install chromium
 npm run verify        # lint + types + generated-file checks + 196 unit tests
-npx playwright test   # + the suite against the reference target
+npx playwright test   # the framework's own suite; no application attached yet
 ```
+
+`main` is the template: the framework, its guardrails, and one clearly-labelled
+scaffold at `src/targets/example-app/` with a deliberately unusable host and no
+specs. Copy it, rename it, replace its contents — the four steps are below. A
+worked implementation against a live public site lives on the
+`saucedemo/extensive-coverage` branch.
 
 ---
 
@@ -144,7 +150,8 @@ PractiTest and Jira clients (against in-process fakes, including their rate
 limits and DC's Bearer-auth behaviour), Track A's invention guards, the run
 model, the HTML report, the email digest's Outlook constraints, triage
 clustering and rules, the healing brief's refusal to touch assertions, and the
-drift harness — against the live reference target.
+drift harness — the last of these against a live application, on the
+`saucedemo/extensive-coverage` branch.
 
 **Not proven, and cannot be from here.** No real Vault, PractiTest, Jira, mail
 tool, GitLab runner or internal application has been reachable. The adapters are
@@ -152,7 +159,7 @@ written against their documented contracts and exercised against fakes that
 encode those contracts; first contact with the real systems will still find
 things. `.gitlab-ci.yml` has never executed. The generation hit rate in §21
 phase 2 — the plan's riskiest assumption — is unmeasured, because measuring it
-needs the real cases and the real target.
+needs the real cases and the real application.
 
 **Deliberate deviations from the plan.** Two. The canonical `run-result.json`
 reporter was built in phase 3 rather than phase 5, because the PractiTest

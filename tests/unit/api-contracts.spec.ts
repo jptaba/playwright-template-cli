@@ -1,19 +1,20 @@
 import { expect, request, test } from '@playwright/test';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import path from 'node:path';
 import { ApiClient, ApiError, type EndpointDescriptor } from '../../src/integrations/http/api-client';
 import { ContractDriftError, ContractRegistry } from '../../src/support/contracts/validator';
-import { REPO_ROOT } from '../../src/support/paths';
 import {
   DisabledDbReader,
   DbReader,
   ReadOnlyViolationError,
   defineQuery,
 } from '../../src/integrations/db/reader';
-import { ledgerQueries } from '../../src/targets/internal-app/queries/ledger';
+import { CONTRACT_DOCUMENT, fixtureQueries } from '../support/fixture-contract';
 
-const SPEC = path.join(REPO_ROOT, 'src', 'targets', 'internal-app', 'contracts', 'openapi.yaml');
+// The framework's own tests own their fixtures. Importing a target pack here
+// would be the coupling every lint rule forbids elsewhere, and it would make
+// these tests assert one application's choices rather than the framework's.
+const registry = () => ContractRegistry.fromDocument(CONTRACT_DOCUMENT);
 
 const createOrder: EndpointDescriptor = {
   name: 'Create an order',
@@ -80,7 +81,7 @@ test.describe('the shared API client', () => {
       client: new ApiClient(context, {
         baseURL,
         runId: 'run-7',
-        registry: ContractRegistry.fromFile(SPEC),
+        registry: registry(),
         throwOnDrift: options.throwOnDrift ?? true,
       }),
     };
@@ -182,8 +183,7 @@ test.describe('the shared API client', () => {
     const { client, context } = await clientFor();
     await client.call(createOrder, { body: {} });
 
-    const registry = ContractRegistry.fromFile(SPEC);
-    const uncovered = registry.uncovered(client.exercised);
+    const uncovered = registry().uncovered(client.exercised);
 
     expect([...client.exercised]).toEqual(['POST /orders']);
     expect(uncovered.map((operation) => `${operation.method} ${operation.path}`)).toContain(
@@ -195,12 +195,11 @@ test.describe('the shared API client', () => {
 
 test.describe('the contract registry', () => {
   test('an undocumented endpoint is a coverage gap, not a failure', () => {
-    const registry = ContractRegistry.fromFile(SPEC);
-    expect(registry.validate('GET', '/not-in-the-spec', 200, { anything: true })).toEqual([]);
+    expect(registry().validate('GET', '/not-in-the-spec', 200, { anything: true })).toEqual([]);
   });
 
   test('lists the documented operations so the contract project can walk them', () => {
-    const operations = ContractRegistry.fromFile(SPEC).operations();
+    const operations = registry().operations();
     expect(operations.map((operation) => `${operation.method} ${operation.path}`).sort()).toEqual([
       'DELETE /orders/{id}',
       'GET /orders',
@@ -210,8 +209,7 @@ test.describe('the contract registry', () => {
   });
 
   test('resolves $ref into the components section', () => {
-    const registry = ContractRegistry.fromFile(SPEC);
-    const failures = registry.validate('POST', '/orders', 201, { id: 'o-1' });
+    const failures = registry().validate('POST', '/orders', 201, { id: 'o-1' });
     expect(failures.length).toBeGreaterThan(0);
     expect(failures[0]!.message).toMatch(/required/);
   });
@@ -229,8 +227,8 @@ test.describe('database access', () => {
   });
 
   test('the shipped queries are read-only and named for the fact they establish', () => {
-    expect(ledgerQueries.entryForReference.name).toContain('ledger entry');
-    expect(ledgerQueries.entryForReference.sql.trim().toUpperCase().startsWith('SELECT')).toBe(true);
+    expect(fixtureQueries.entryForReference.name).toContain('ledger entry');
+    expect(fixtureQueries.entryForReference.sql.trim().toUpperCase().startsWith('SELECT')).toBe(true);
   });
 
   test('a parameter-count mismatch fails before the query runs', async () => {
@@ -239,7 +237,7 @@ test.describe('database access', () => {
       close: async () => undefined,
     });
 
-    await expect(reader.run(ledgerQueries.entryForReference, [])).rejects.toThrow(
+    await expect(reader.run(fixtureQueries.entryForReference, [])).rejects.toThrow(
       /takes 1 parameter\(s\), got 0/,
     );
   });
@@ -253,12 +251,12 @@ test.describe('database access', () => {
       { maxRows: 5 },
     );
 
-    await expect(reader.run(ledgerQueries.auditTrailForOrder, ['o-1'])).rejects.toThrow(/row cap/);
+    await expect(reader.run(fixtureQueries.auditTrailForOrder, ['o-1'])).rejects.toThrow(/row cap/);
   });
 
   test('a target with db disabled states the reason instead of failing obscurely', async () => {
     const reader = new DisabledDbReader('reference-app');
-    await expect(reader.run(ledgerQueries.entryForReference, ['REF-1'])).rejects.toThrow(
+    await expect(reader.run(fixtureQueries.entryForReference, ['REF-1'])).rejects.toThrow(
       /capabilities\.db\.enabled = false/,
     );
   });

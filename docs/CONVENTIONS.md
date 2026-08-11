@@ -176,7 +176,7 @@ Framework code branches on **declared capabilities**, never on a target name:
 
 ```ts
 if (target.capabilities.mfa === 'none') …    // yes — holds for any such app
-if (target.name === 'saucedemo') …           // no  — `no-target-coupling`
+if (target.name === 'acme-shop') …           // no  — `no-target-coupling`
 ```
 
 ### Adding an application under test

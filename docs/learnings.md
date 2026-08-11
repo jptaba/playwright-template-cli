@@ -4,6 +4,12 @@ The framework was built against a plan and proven against in-process fakes.
 Then it was pointed at a real, running application — `www.saucedemo.com` — and
 asked to do every kind of testing that target can honestly support.
 
+> That application's target pack lives on the `saucedemo/extensive-coverage`
+> branch, not on `main`. `main` is the application-agnostic template: the
+> framework, its guardrails, and one `example-app` scaffold to copy. The fixes
+> below are the part of that exercise which was true of *any* application, and
+> they are on `main`.
+
 That exercise found **six defects and three missing conventions in the
 framework itself**. This file records each one: what it cost, what fixed it,
 and where the fix belongs.

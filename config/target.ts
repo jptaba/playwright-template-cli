@@ -1,18 +1,19 @@
 import type { TargetProfile } from './targets/types';
-import { saucedemo } from './targets/saucedemo';
-import { internalApp } from './targets/internal-app';
+import { exampleApp } from './targets/example-app';
 
 /**
  * TARGET → profile resolution. Resolved once in `playwright.config.ts` and
  * injected everywhere else through the `target` fixture. No spec, action or
  * locator ever names a host (§04).
+ *
+ * Register your application here alongside `example-app`, which is a template
+ * rather than a real target — copy it, rename it, and replace its contents.
  */
 const PROFILES: Record<string, TargetProfile> = {
-  [saucedemo.name]: saucedemo,
-  [internalApp.name]: internalApp,
+  [exampleApp.name]: exampleApp,
 };
 
-export const DEFAULT_TARGET = saucedemo.name;
+export const DEFAULT_TARGET = exampleApp.name;
 
 export function targetNames(): string[] {
   return Object.keys(PROFILES);

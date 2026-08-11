@@ -476,9 +476,9 @@
       <div class="fact"><dt>Runner</dt><dd>Playwright 1.62.1</dd></div>
       <div class="fact"><dt>Language</dt><dd>TypeScript, strict</dd></div>
       <div class="fact"><dt>Guardrails</dt><dd>10 lint rules</dd></div>
-      <div class="fact"><dt>Self-tests</dt><dd>191 unit</dd></div>
-      <div class="fact"><dt>Suite</dt><dd>204 passing</dd></div>
-      <div class="fact"><dt>Reference target</dt><dd>saucedemo</dd></div>
+      <div class="fact"><dt>Self-tests</dt><dd>196 unit</dd></div>
+      <div class="fact"><dt>Suite</dt><dd>196 passing</dd></div>
+      <div class="fact"><dt>Target packs</dt><dd>example template</dd></div>
       <div class="fact"><dt>Agent tooling</dt><dd>playwright-cli</dd></div>
       <div class="fact"><dt>Status</dt><dd>Phases 0–7 built</dd></div>
     </dl>
@@ -513,15 +513,16 @@
 
     <section id="start">
       <h2><span class="num">Section 01</span>Start here</h2>
-      <p class="lede">Four commands to a green suite. Everything in phases 0 to 2 runs against a public reference target, so nothing internal has to be reachable before you see it work.</p>
+      <p class="lede">Four commands to a green suite. None of it needs an application: the framework proves itself against in-process fakes, so nothing internal has to be reachable before you see it work.</p>
 
       <pre><code>npm install
 npx playwright install chromium
 
-npm run verify          # lint + types + generated-file checks + 191 unit tests
-npx playwright test     # + the suite against the reference target</code></pre>
+npm run verify          # lint + types + generated-file checks + 196 unit tests
+npx playwright test     # the framework's own suite; no application attached yet</code></pre>
 
-      <p>If both are green you have a working framework, its guardrails, and every integration adapter exercised against in-process fakes. No credential, no network beyond <code>www.saucedemo.com</code> and the npm registry, and no Docker.</p>
+      <p>If both are green you have a working framework, its guardrails, and every integration adapter exercised against in-process fakes. No credential, no network beyond the npm registry, and no Docker.</p>
+      <p><b>There is no application attached yet.</b> <code>main</code> ships the framework plus one template pack, <code>src/targets/example-app/</code>, which has a deliberately unusable host and no specs — copy it, rename it, and replace its contents. <a href="#newapp">Section 08</a> is the four-step path; a worked implementation against a live public site lives on the <code>saucedemo/extensive-coverage</code> branch, and what it taught the framework is written up in <a href="learnings.md">docs/learnings.md</a>.</p>
 
       <h3>What each command actually does</h3>
       <div class="scroller">
@@ -612,42 +613,49 @@ npx playwright test     # + the suite against the reference target</code></pre>
 
       <h3>What each layer looks like in practice</h3>
       <p>A locator is a named function of a page. Nothing else:</p>
-      <pre><code>// src/targets/saucedemo/locators/login.ts
-export const loginLocators = {
+      <pre><code>// src/targets/example-app/locators/sign-in.ts
+export const signInLocators = {
   username: (page: Page): Locator =&gt; page.getByRole('textbox', { name: 'Username' }),
   password: (page: Page): Locator =&gt; page.getByRole('textbox', { name: 'Password' }),
-  submit:   (page: Page): Locator =&gt; page.getByRole('button',  { name: 'Login' }),
-  error:    (page: Page): Locator =&gt; page.getByTestId('error'),
+  submit:   (page: Page): Locator =&gt; page.getByRole('button',  { name: 'Sign in' }),
+  error:    (page: Page): Locator =&gt; page.getByRole('alert'),
 };</code></pre>
 
       <p>An action composes locators into something a manual tester would recognise, and returns data rather than asserting:</p>
-      <pre><code>// src/targets/saucedemo/actions/inventory.ts
-async addToCart(page: Page, names: readonly string[]): Promise&lt;CatalogItem[]&gt; {
-  return test.step(`Add ${names.length} product(s) to the cart`, async () =&gt; {
-    const added: CatalogItem[] = [];
-    for (const name of names) {
-      const card = inventoryLocators.itemByName(page, name);
-      const price = parseMoney(await inventoryLocators.itemPrice(card).textContent());
-      await inventoryLocators.addToCart(card).click();
-      added.push({ name, price });
-    }
-    return added;   // the price the store displayed, so the spec can assert against it
+      <pre><code>// src/targets/example-app/actions/sign-in.ts
+async withCredentials(page: Page, credentials: Credentials): Promise&lt;void&gt; {
+  await test.step(`Sign in as ${credentials.username}`, async () =&gt; {
+    await page.goto('/');
+    await signInLocators.username(page).fill(credentials.username);
+    await signInLocators.password(page).fill(credentials.password);
+    await signInLocators.submit(page).click();
   });
+},
+
+/** The error the form reported, or null when it reported none. */
+async readError(page: Page): Promise&lt;string | null&gt; {
+  const banner = signInLocators.error(page);
+  if (!(await banner.isVisible())) return null;
+  return (await banner.textContent())?.trim() ?? null;   // returns data, asserts nothing
 }</code></pre>
 
       <p>And a spec reads like the test case it implements:</p>
-      <pre><code>// src/targets/saucedemo/tests/e2e/checkout-totals.spec.ts
-test('SD-012 · Checkout totals include tax @smoke @checkout', {
-  annotation: [{ type: 'practitest', description: '5104' }],
-}, async ({ authedPage, inventory, checkout, testData }) =&gt; {
-  const items = testData.catalogItems({ count: 2 });
+      <pre><code>// src/targets/&lt;app&gt;/tests/e2e/expense-approval.spec.ts
+test('TC-4907 · An approved claim posts to the ledger @smoke @expenses', {
+  annotation: [{ type: 'practitest', description: '4907' }],
+}, async ({ authedPage, api, db, expenses, testData }) =&gt; {
+  // Arrange over the API — seconds, not a five-step wizard
+  const claim = await api.expenses.create(testData.expenseClaim({ amount: 250 }));
 
-  await inventory.open(authedPage);
-  const added = await inventory.addToCart(authedPage, items.map((i) =&gt; i.name));
-  const totals = await checkout.completeThroughOverview(authedPage, testData.customer());
+  // Act in the UI — this part is the actual subject of the test
+  await expenses.approve(authedPage, claim.reference);
 
-  const expectedSubtotal = added.reduce((sum, item) =&gt; sum + item.price, 0);
-  expect(totals.tax).toBeCloseTo(expectedSubtotal * testData.taxRate, 2);
+  // Assert where each fact really lives
+  await expect(authedPage.getByRole('status')).toHaveText(/approved/i);
+  expect((await api.expenses.get(claim.id)).body).toMatchObject({ state: 'approved' });
+  await expect
+    .poll(() =&gt; db.ledger.entryFor(claim.reference), { timeout: 30_000 })
+    .toMatchObject({ amount: 250, type: 'DEBIT' });
 });</code></pre>
 
       <h3>The rules that hold it together</h3>
@@ -691,7 +699,7 @@ test('SD-012 · Checkout totals include tax @smoke @checkout', {
         </table>
       </div>
 
-      <p>The target then adds its own verbs. For the reference target that is <code>auth</code>, <code>inventory</code>, <code>checkout</code> and <code>testData</code>; for your application it will be whatever its business language actually is.</p>
+      <p>The target then adds its own verbs. The template pack adds <code>signIn</code> and <code>testData</code> to show the shape; for your application it will be whatever its business language actually is.</p>
 
       <h3>The catalog is generated, so it cannot go stale</h3>
       <p><code>npm run catalog:build</code> walks the TypeScript AST with ts-morph and writes <code>docs/generated/catalog.md</code>: every exported fixture and every L2 verb — <code>actions/</code>, <code>api/</code> and <code>db/</code> alike — with its signature and first doc line. Agents are told to select from that file. CI runs <code>catalog:check</code> and fails if the committed copy has drifted, because a stale catalog lists verbs that no longer exist — precisely the hallucination it exists to prevent.</p>
@@ -742,10 +750,10 @@ test('SD-012 · Checkout totals include tax @smoke @checkout', {
 
       <div class="card">
         <div class="card-head"><h3>no-target-coupling, and why it exists</h3><span class="chip ok">Agnosticism</span></div>
-        <p><code>layer-boundaries</code> stops framework code <em>importing</em> a target pack. This rule stops the subtler version: <code>if (target.name === 'saucedemo')</code> inside a fixture, which is how a framework acquires a special case for the application it was written against — a special case nobody notices until the second application arrives.</p>
+        <p><code>layer-boundaries</code> stops framework code <em>importing</em> a target pack. This rule stops the subtler version: <code>if (target.name === 'acme-shop')</code> inside a fixture, which is how a framework acquires a special case for the application it was written against — a special case nobody notices until the second application arrives.</p>
         <p>Target names are read from <code>config/targets/*.ts</code> at lint time, so adding an application never means editing a rule. The correct way to branch is a declared capability, which says something true of the <em>target</em> and therefore holds for every application sharing the property:</p>
         <pre><code>if (target.capabilities.mfa === 'none') …   // yes
-if (target.name === 'saucedemo') …          // no — fails the build</code></pre>
+if (target.name === 'acme-shop') …          // no — fails the build</code></pre>
       </div>
     </section>
 
@@ -762,8 +770,7 @@ if (target.name === 'saucedemo') …          // no — fails the build</code></
 │  ├─ target.ts                 # TARGET → profile, plus the non-production guard
 │  ├─ targets/
 │  │  ├─ types.ts               # TargetProfile: capabilities, roles, testIdAttribute
-│  │  ├─ saucedemo.ts           # the reference target
-│  │  └─ internal-app.ts        # env-driven, no usable default
+│  │  └─ example-app.ts        # TEMPLATE — copy, rename, replace
 │  ├─ secrets.local.json        # public demo credentials only; Vault path shape
 │  └─ quarantine.json           # reviewed, committed, reported with its age
 │
@@ -825,7 +832,7 @@ if (target.name === 'saucedemo') …          // no — fails the build</code></
         <div>
           <h3>Explore the running application</h3>
           <p>Snapshots go to disk and are read on demand — roughly 4× cheaper in tokens than streaming them through the MCP server, and the reason the CLI is the documented default.</p>
-          <pre><code>npx playwright-cli open https://www.saucedemo.com
+          <pre><code>npx playwright-cli open $BASE_URL          # the host from your profile
 npx playwright-cli snapshot            # accessibility tree → .playwright-cli/*.yml
 npx playwright-cli find "Checkout"     # search the snapshot
 npx playwright-cli eval "() =&gt; document.querySelector('.item')?.outerHTML"</code></pre>
@@ -951,7 +958,7 @@ npm run instructions:build  # only if you edited docs/CONVENTIONS.md</code></pre
         </table>
       </div>
 
-      <p>Two profiles ship: <code>saucedemo</code>, the reference target, and <code>internal-app</code>, which is entirely environment-driven with a deliberately unusable default — a profile that ships a guessable internal hostname is a profile someone eventually points at the wrong environment.</p>
+      <p>One profile ships: <code>example-app</code>, a template. It is entirely environment-driven and its default host and allowlist both use <code>.invalid</code>, the domain RFC 2606 reserves so that it can never resolve — a profile that ships a guessable hostname is a profile someone eventually points at the wrong environment. Copy it, rename it, and replace both.</p>
     </section>
 
     <section id="secrets">
@@ -969,7 +976,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
                                   ↓
                      redact() before any trace, report or attachment leaves</code></pre>
 
-      <p><code>SecretStore</code> is an interface with two implementations. <code>VaultSecretStore</code> speaks HTTP directly — one less binary on a locked-down host — and supports JWT/OIDC, AppRole and token auth, Enterprise namespaces, KV v2 envelope unwrapping, compare-and-swap writes, the TOTP engine and dynamic database credentials. <code>LocalSecretStore</code> serves the reference target's public demo logins from <code>config/secrets.local.json</code>, and refuses any path outside the selecting profile's own root.</p>
+      <p><code>SecretStore</code> is an interface with two implementations. <code>VaultSecretStore</code> speaks HTTP directly — one less binary on a locked-down host — and supports JWT/OIDC, AppRole and token auth, Enterprise namespaces, KV v2 envelope unwrapping, compare-and-swap writes, the TOTP engine and dynamic database credentials. <code>LocalSecretStore</code> exists for the one case where a file is legitimate — an application whose logins are genuinely public, such as a public demo site — reading <code>config/secrets.local.json</code>, and refusing any path outside the selecting profile's own root.</p>
 
       <div class="card">
         <div class="card-head"><h3>Why there is a local store at all</h3><span class="chip low">Sequencing</span></div>
@@ -1141,7 +1148,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
       </div>
 
       <h3>The drift harness</h3>
-      <p>The healer needs drift to repair, and the reference target never drifts. So drift is induced deliberately: an init script installs a MutationObserver before any application script runs, stripping the test-id attribute or rewriting accessible names as elements appear.</p>
+      <p>The healer needs drift to repair, and a stable application never drifts. So drift is induced deliberately: an init script installs a MutationObserver before any application script runs, stripping the test-id attribute or rewriting accessible names as elements appear.</p>
       <p>It mutates the <b>rendered DOM</b>, not the HTML response — and that distinction is load-bearing. A client-rendered application ships a near-empty document and builds the page in JavaScript, so a response rewriter silently does nothing and produces a "the healer works" result that means nothing. The shipped specs assert that the drift actually landed, for exactly that reason.</p>
     </section>
 
@@ -1153,8 +1160,8 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
         <table>
           <thead><tr><th>Stage</th><th>Runs on</th><th>Contents</th></tr></thead>
           <tbody>
-            <tr><td class="mono">verify</td><td>Every MR</td><td>lint, tsc, catalog, instruction sync, agent definitions, hashes, case gate, 191 unit tests</td></tr>
-            <tr><td class="mono">test:smoke</td><td>Every MR</td><td><code>@smoke</code> subset against the reference target, JUnit to the MR widget</td></tr>
+            <tr><td class="mono">verify</td><td>Every MR</td><td>lint, tsc, catalog, instruction sync, agent definitions, hashes, case gate, 196 unit tests</td></tr>
+            <tr><td class="mono">test:smoke</td><td>Every MR</td><td><code>@smoke</code> subset against the target under test, JUnit to the MR widget</td></tr>
             <tr><td class="mono">test:full</td><td>Nightly</td><td>Sharded via <code>parallel:matrix</code>, blob reports as artifacts</td></tr>
             <tr><td class="mono">merge</td><td>Nightly</td><td><code>merge-reports</code>, then <code>report:normalise</code> → one <code>run-result.json</code></td></tr>
             <tr><td class="mono">triage</td><td>On failure</td><td>cluster → rules → agent. <code>allow_failure: true</code></td></tr>
@@ -1176,7 +1183,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
 
     <section id="selftest">
       <h2><span class="num">Section 16</span>How the framework tests itself</h2>
-      <p class="lede">191 unit tests across 15 files, in a <code>unit</code> project with no browser and no network. They are the reason any of the guarantees above can be stated as facts.</p>
+      <p class="lede">196 unit tests across 15 files, in a <code>unit</code> project with no browser and no network. They are the reason any of the guarantees above can be stated as facts.</p>
 
       <div class="scroller">
         <table>
@@ -1277,7 +1284,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
         <table>
           <thead><tr><th>Variable</th><th>Effect</th></tr></thead>
           <tbody>
-            <tr><td class="mono">TARGET</td><td>Which profile to resolve. Defaults to the reference target.</td></tr>
+            <tr><td class="mono">TARGET</td><td>Which profile to resolve. Defaults to <code>example-app</code>, the template.</td></tr>
             <tr><td class="mono">BASE_URL / TARGET_ENV</td><td>Override the profile's host and environment label</td></tr>
             <tr><td class="mono">SECRET_SOURCE</td><td><code>vault</code> or <code>local</code></td></tr>
             <tr><td class="mono">GENERATION_HOST_ALLOWLIST</td><td>Widen the non-production allowlist for this pipeline</td></tr>
@@ -1296,13 +1303,13 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
 
       <div class="card">
         <div class="card-head"><h3>Verified by running it</h3><span class="chip ok">Proven</span></div>
-        <p>The four layers and all ten lint rules. The target profile mechanism and session setup. The case format, quality gate, capability catalog and instruction sync. The Vault adapter, account-pool leasing under concurrency, both OTP providers, and rotation ordering — against an in-process Vault. Redaction, including a canary leak test. The shared API client and schema conformance, and read-only query enforcement. The PractiTest and Jira clients against in-process fakes, including rate limits and Data Center's Bearer-auth behaviour. Track A's invention guards. The run model, the HTML report and the digest's Outlook constraints. Triage clustering, every rule, and the verdict validator. The healing brief's refusal to touch assertions. And the drift harness — against the live reference target.</p>
+        <p>The four layers and all ten lint rules. The target profile mechanism and session setup. The case format, quality gate, capability catalog and instruction sync. The Vault adapter, account-pool leasing under concurrency, both OTP providers, and rotation ordering — against an in-process Vault. Redaction, including a canary leak test. The shared API client and schema conformance, and read-only query enforcement. The PractiTest and Jira clients against in-process fakes, including rate limits and Data Center's Bearer-auth behaviour. Track A's invention guards. The run model, the HTML report and the digest's Outlook constraints. Triage clustering, every rule, and the verdict validator. The healing brief's refusal to touch assertions. And the drift harness — against a live application.</p>
       </div>
 
       <div class="card">
         <div class="card-head"><h3>Not proven, and not provable from here</h3><span class="chip high">Open</span></div>
         <p>No real Vault, PractiTest, Jira, mail tool, GitLab runner or internal application has been reachable. Every adapter is written against its documented contract and exercised against a fake that encodes that contract — first contact with the real systems will still find things. <code>.gitlab-ci.yml</code> has never executed. And the generation hit rate — the plan's own riskiest assumption — is unmeasured, because measuring it needs the real cases and the real target.</p>
-        <p class="verdict"><b>The reference target's role</b>Green on saucedemo demonstrates the wiring works. It has no MFA, fixed public users, no API and a DOM that never changes, so it says nothing about whether this design survives pools, rotation, contract drift or real UI drift. Every phase exit that involves those must be met against the real target.</p>
+        <p class="verdict"><b>A reference target's role</b>The framework was proven end to end against a live public site, and that work — including a triage ground-truth fixture and the drift harness — is on the <code>saucedemo/extensive-coverage</code> branch. What it demonstrates is that the wiring works. That application had no MFA, fixed public users, no service API and a DOM that never changes, so it says nothing about whether this design survives pools, rotation, contract drift or real UI drift. Every phase exit involving those must be met against your own application.</p>
       </div>
 
       <div class="card">
@@ -1361,7 +1368,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
   </main>
 
   <footer>
-    <p>Companion to <a href="plan.html">the architecture plan</a> and to <a href="CONVENTIONS.md">docs/CONVENTIONS.md</a>, which is the machine-readable source of the conventions described here. Where this document and a lint rule disagree, the lint rule is correct — that is the point of writing conventions as code. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, TypeScript 5.9, ESLint 9, and a suite of 204 passing tests.</p>
+    <p>Companion to <a href="plan.html">the architecture plan</a> and to <a href="CONVENTIONS.md">docs/CONVENTIONS.md</a>, which is the machine-readable source of the conventions described here. Where this document and a lint rule disagree, the lint rule is correct — that is the point of writing conventions as code. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, TypeScript 5.9, ESLint 9, and a suite of 196 passing tests.</p>
   </footer>
 
 </div>
