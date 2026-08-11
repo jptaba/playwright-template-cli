@@ -1,7 +1,10 @@
 # =============================================================================
 #  Playwright E2E Automation — GitLab CI reference pipeline
 # =============================================================================
-#  STATUS: reference implementation. Not currently executed.
+#  STATUS: every npm script referenced below exists and runs. What has not been
+#  executed is this file itself — no GitLab instance, runner or credential has
+#  been available, so the pipeline shape is unverified even though its contents
+#  are not.
 #
 #  This file encodes the decisions in docs/plan.html. It is written to be read
 #  as documentation as much as run, so it is more heavily commented than a
@@ -155,6 +158,15 @@ verify:
     - npm run catalog:check       # generated capability catalog is current
     - npm run instructions:check  # CLAUDE.md / copilot-instructions.md in sync
     - npm run agents:check        # playwright agent definitions match PW_VERSION
+    # Both traceability hops: an edited story surfaces as "3 cases derived from
+    # FIN-2210 are stale", an edited case as "the spec tests a previous
+    # version" (§9). Silent drift becomes a visible task.
+    - npm run hashes:check
+    # The specificity gate over every committed case (§7). Expect it to reject
+    # a share of a legacy suite on first run — that is the system working.
+    - npm run cases:gate
+    # The framework's own tests: lint rules, adapters, reporters, triage.
+    - npm run test:unit
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -225,7 +237,9 @@ merge:
     - npx playwright merge-reports --reporter=html,json ./blob-report
     # Normalise into the canonical model every downstream consumer reads.
     # Nothing else re-derives facts from raw Playwright output (§15).
-    - npm run report:normalise    # -> run-result.json
+    # Each shard uploads its own run-result-<n>.json; this merges them, which
+    # is also the only point at which flaky status is knowable.
+    - npm run report:normalise -- results   # -> run-result.json
   artifacts:
     when: always
     expire_in: 30 days
@@ -254,7 +268,11 @@ triage:
   extends: .install
   needs: ["merge"]
   variables:
-    TRIAGE_AUTOFILE: "false"     # keep off until agreement rate is measured
+    JIRA_AUTOFILE: "false"       # keep off until agreement rate is measured
+    # The model stays off until clustering + rules have been measured alone,
+    # and until the data-handling terms are reviewed — traces carry
+    # application data (§14, §17).
+    TRIAGE_AGENT_ENABLED: "false"
   script:
     - npm run triage:cluster     # group by normalised error + step + time window
     - npm run triage:rules       # deterministic classification
@@ -279,9 +297,14 @@ pages:
   stage: publish
   needs: ["merge"]
   script:
+    - npm run report:render      # bespoke stakeholder report -> report-out/index.html
     - mkdir -p public
     - cp -r playwright-report/* public/
-    - npm run report:render      # bespoke stakeholder report -> public/index.html
+    - cp report-out/index.html public/index.html
+    # The trend band needs history, and CI artifacts expire. report:render
+    # appends this run's summary to a committed JSON-lines file — commit it
+    # back on a schedule, or point HISTORY at an object store (§19).
+    - test -f docs/generated/run-history.jsonl && cp docs/generated/run-history.jsonl public/
   artifacts:
     paths:
       - public

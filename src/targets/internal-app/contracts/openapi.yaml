@@ -1,0 +1,103 @@
+# The published API description, vendored and pinned (§05, §06).
+#
+# Vendored deliberately: validating against a spec fetched at run time means a
+# provider can change the contract and the check under it in the same breath.
+# Update this file as a reviewed commit, so a schema change is visible in a
+# diff before it is enforced.
+openapi: 3.0.3
+info:
+  title: Internal orders service
+  version: '2.0'
+
+paths:
+  /orders:
+    post:
+      operationId: createOrder
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    get:
+      operationId: listOrders
+      responses:
+        '200':
+          description: A page of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      responses:
+        '200':
+          description: The order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+    delete:
+      operationId: cancelOrder
+      responses:
+        '204':
+          description: Cancelled
+
+components:
+  schemas:
+    Order:
+      type: object
+      additionalProperties: true
+      required: [id, reference, customerId, status, total, lines, createdAt]
+      properties:
+        id:
+          type: string
+        reference:
+          type: string
+        customerId:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, cancelled]
+        total:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        lines:
+          type: array
+          items:
+            type: object
+            required: [sku, quantity]
+            properties:
+              sku:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+
+    Problem:
+      type: object
+      required: [title, status]
+      properties:
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string

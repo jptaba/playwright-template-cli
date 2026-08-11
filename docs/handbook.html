@@ -1,0 +1,1367 @@
+<title>Playwright Template CLI — Architecture &amp; Handbook</title>
+<style>
+  :root {
+    --bg: #EAEDF1;
+    --surface: #FBFCFD;
+    --surface-2: #F1F4F7;
+    --ink: #151A21;
+    --ink-2: #39424F;
+    --muted: #5F6B7C;
+    --rule: #CFD6DF;
+    --rule-strong: #AFBAC7;
+    --accent: #8A5E12;
+    --accent-ink: #6E4A0C;
+    --accent-soft: #EFE4CC;
+    --pass: #1C6B4F;
+    --pass-soft: #DCEBE3;
+    --fail: #9F2B37;
+    --fail-soft: #F3DDDF;
+    --warn: #855F0F;
+    --warn-soft: #F1E6CC;
+    --code-bg: #EEF2F6;
+    --shadow: 0 1px 2px rgba(21, 26, 33, .06), 0 8px 24px -16px rgba(21, 26, 33, .3);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10131A;
+      --surface: #171B23;
+      --surface-2: #1C212A;
+      --ink: #E6E9EE;
+      --ink-2: #C2C9D4;
+      --muted: #929CAB;
+      --rule: #272D38;
+      --rule-strong: #3A4250;
+      --accent: #D9AC57;
+      --accent-ink: #E8C382;
+      --accent-soft: #2B2417;
+      --pass: #4FB88C;
+      --pass-soft: #16281F;
+      --fail: #E4757F;
+      --fail-soft: #2C1A1D;
+      --warn: #D2A03F;
+      --warn-soft: #2A2214;
+      --code-bg: #1A1F28;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #10131A;
+    --surface: #171B23;
+    --surface-2: #1C212A;
+    --ink: #E6E9EE;
+    --ink-2: #C2C9D4;
+    --muted: #929CAB;
+    --rule: #272D38;
+    --rule-strong: #3A4250;
+    --accent: #D9AC57;
+    --accent-ink: #E8C382;
+    --accent-soft: #2B2417;
+    --pass: #4FB88C;
+    --pass-soft: #16281F;
+    --fail: #E4757F;
+    --fail-soft: #2C1A1D;
+    --warn: #D2A03F;
+    --warn-soft: #2A2214;
+    --code-bg: #1A1F28;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-sans-serif, "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  code, pre, .mono {
+    font-family: ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", monospace;
+  }
+
+  .shell {
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: 0 1.5rem 6rem;
+    display: grid;
+    grid-template-columns: 14.5rem minmax(0, 1fr);
+    gap: 3.5rem;
+    align-items: start;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--rule-strong);
+    padding: 4.5rem 0 2.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .eyebrow {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 1rem;
+  }
+
+  h1 {
+    font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(2.1rem, 4.5vw, 3.1rem);
+    line-height: 1.1;
+    letter-spacing: -.015em;
+    text-wrap: balance;
+    margin: 0 0 1rem;
+    max-width: 20ch;
+  }
+
+  .standfirst {
+    font-size: 1.12rem;
+    color: var(--ink-2);
+    max-width: 62ch;
+    margin: 0 0 2rem;
+    text-wrap: pretty;
+  }
+
+  .factbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 2.5rem;
+    row-gap: 1rem;
+    padding-top: .5rem;
+    border-top: 1px solid var(--rule);
+  }
+
+  .fact { display: flex; flex-direction: column; gap: .1rem; }
+
+  .fact dt {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .fact dd { margin: 0; font-size: .95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* ---------- nav ---------- */
+  nav.toc {
+    position: sticky;
+    top: 2rem;
+    font-size: .875rem;
+    line-height: 1.45;
+  }
+
+  nav.toc p {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 .85rem;
+  }
+
+  nav.toc ol { list-style: none; margin: 0 0 1.25rem; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+
+  nav.toc a {
+    color: var(--ink-2);
+    text-decoration: none;
+    display: block;
+    border-left: 2px solid var(--rule);
+    padding-left: .75rem;
+    transition: color .15s, border-color .15s;
+  }
+
+  nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent-ink); border-left-color: var(--accent); }
+
+  /* ---------- sections ---------- */
+  main { min-width: 0; max-width: 46rem; }
+
+  section { padding-top: 3.25rem; scroll-margin-top: 1.5rem; }
+
+  h2 {
+    font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+    font-weight: 600;
+    font-size: 1.72rem;
+    line-height: 1.2;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+    margin: 0 0 .35rem;
+  }
+
+  h2 .num {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .8rem;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: .08em;
+    display: block;
+    margin-bottom: .4rem;
+  }
+
+  h3 {
+    font-size: 1.02rem;
+    font-weight: 660;
+    letter-spacing: -.005em;
+    margin: 2rem 0 .5rem;
+    color: var(--ink);
+  }
+
+  h4 {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .74rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 1.5rem 0 .5rem;
+  }
+
+  p { margin: 0 0 1rem; max-width: 68ch; text-wrap: pretty; }
+
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  ul, ol.body { margin: 0 0 1rem; padding-left: 1.15rem; max-width: 68ch; }
+  li { margin-bottom: .45rem; }
+  li::marker { color: var(--muted); }
+
+  strong { font-weight: 660; }
+
+  code {
+    font-size: .855em;
+    background: var(--code-bg);
+    padding: .1em .35em;
+    border-radius: 3px;
+    border: 1px solid var(--rule);
+  }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1rem 1.15rem;
+    overflow-x: auto;
+    font-size: .82rem;
+    line-height: 1.6;
+    margin: 0 0 1.25rem;
+  }
+
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+
+  .lede {
+    font-size: 1.02rem;
+    color: var(--ink-2);
+    border-left: 2px solid var(--accent);
+    padding-left: 1.1rem;
+    margin: 0 0 1.75rem;
+    max-width: 64ch;
+  }
+
+  /* ---------- tables ---------- */
+  .scroller { overflow-x: auto; margin: 0 0 1.5rem; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+
+  th, td { text-align: left; padding: .7rem .9rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+
+  thead th {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .68rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    background: var(--surface-2);
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  td.mono, th.mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: .8rem; white-space: nowrap; }
+
+  /* ---------- layer stack ---------- */
+  .stack { display: flex; flex-direction: column; gap: .4rem; margin: 0 0 1.5rem; }
+
+  .layer {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 5px;
+    padding: .8rem 1rem;
+    align-items: baseline;
+  }
+
+  .layer .tag {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .75rem;
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+
+  .layer .what { font-size: .9rem; }
+  .layer .what b { display: block; font-weight: 660; margin-bottom: .1rem; }
+  .layer .what span { color: var(--muted); font-size: .85rem; }
+
+  /* ---------- flow ---------- */
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: .4rem;
+    margin: 0 0 1.5rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .flow li {
+    flex: 1 1 7rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: .65rem .75rem;
+    margin: 0;
+    font-size: .8rem;
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+  }
+
+  .flow li .n {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .65rem;
+    color: var(--accent);
+    letter-spacing: .1em;
+  }
+
+  .flow li b { font-weight: 640; font-size: .84rem; }
+  .flow li span { color: var(--muted); font-size: .76rem; line-height: 1.4; }
+
+  /* ---------- cards ---------- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1.1rem 1.25rem;
+    margin: 0 0 1rem;
+    box-shadow: var(--shadow);
+  }
+
+  .card > :last-child { margin-bottom: 0; }
+
+  .card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: .6rem;
+    flex-wrap: wrap;
+  }
+
+  .card-head h3 { margin: 0; font-size: .98rem; }
+
+  .chip {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .64rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: .18rem .5rem;
+    border-radius: 3px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+
+  .chip.high { background: var(--fail-soft); color: var(--fail); border-color: var(--fail); }
+  .chip.med { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
+  .chip.low { background: var(--surface-2); color: var(--muted); border-color: var(--rule-strong); }
+  .chip.ok { background: var(--pass-soft); color: var(--pass); border-color: var(--pass); }
+
+  .verdict {
+    font-size: .87rem;
+    color: var(--ink-2);
+    border-top: 1px solid var(--rule);
+    padding-top: .6rem;
+    margin-top: .75rem;
+  }
+
+  .verdict b {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: .15rem;
+  }
+
+  /* ---------- steps ---------- */
+  .step {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: 1.1rem;
+    padding: 1.1rem 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .step:last-of-type { border-bottom: 1px solid var(--rule); }
+
+  .step .idx {
+    font-family: ui-serif, Georgia, serif;
+    font-size: 1.6rem;
+    color: var(--accent);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .step h3 { margin: 0 0 .35rem; }
+  .step p { margin-bottom: .5rem; font-size: .92rem; }
+  .step > div > :last-child { margin-bottom: 0; }
+
+  .exit {
+    font-size: .82rem;
+    color: var(--muted);
+    background: var(--surface-2);
+    border-radius: 4px;
+    padding: .45rem .7rem;
+    display: inline-block;
+  }
+
+  .exit b { color: var(--ink-2); font-weight: 640; }
+
+  hr.rule { border: none; border-top: 1px solid var(--rule); margin: 2.5rem 0 0; }
+
+  footer {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--rule-strong);
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    font-size: .82rem;
+    color: var(--muted);
+  }
+
+  footer a { color: var(--muted); }
+
+  @media (max-width: 62rem) {
+    .shell { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    nav.toc { position: static; margin-bottom: 1rem; border-bottom: 1px solid var(--rule); padding-bottom: 1.25rem; }
+    nav.toc ol { flex-direction: row; flex-wrap: wrap; gap: .35rem .9rem; }
+    nav.toc a { border-left: none; padding-left: 0; border-bottom: 2px solid var(--rule); }
+    main { max-width: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="eyebrow">Architecture · Onboarding · How it works</p>
+    <h1>The framework, as built</h1>
+    <p class="standfirst">This is the companion to <a href="plan.html">the architecture plan</a>: the plan argues for a design, and this document describes the thing that now exists. It covers how the pieces fit, how to get productive in an afternoon, and where each decision actually lives in the source. Where the implementation departed from the plan, it says so and why.</p>
+    <dl class="factbar">
+      <div class="fact"><dt>Runner</dt><dd>Playwright 1.62.1</dd></div>
+      <div class="fact"><dt>Language</dt><dd>TypeScript, strict</dd></div>
+      <div class="fact"><dt>Guardrails</dt><dd>10 lint rules</dd></div>
+      <div class="fact"><dt>Self-tests</dt><dd>191 unit</dd></div>
+      <div class="fact"><dt>Suite</dt><dd>204 passing</dd></div>
+      <div class="fact"><dt>Reference target</dt><dd>saucedemo</dd></div>
+      <div class="fact"><dt>Agent tooling</dt><dd>playwright-cli</dd></div>
+      <div class="fact"><dt>Status</dt><dd>Phases 0–7 built</dd></div>
+    </dl>
+  </header>
+
+  <nav class="toc" aria-label="Contents">
+    <p>Contents</p>
+    <ol>
+      <li><a href="#start">Start here</a></li>
+      <li><a href="#loop">How it works</a></li>
+      <li><a href="#layers">The four layers</a></li>
+      <li><a href="#vocabulary">The closed vocabulary</a></li>
+      <li><a href="#guardrails">Executable guardrails</a></li>
+      <li><a href="#layout">Repository layout</a></li>
+      <li><a href="#firstspec">Your first spec</a></li>
+      <li><a href="#newapp">Adding an application</a></li>
+      <li><a href="#secrets">Secrets &amp; identity</a></li>
+      <li><a href="#beyond">API, contract &amp; data</a></li>
+      <li><a href="#authoring">Authoring tracks</a></li>
+      <li><a href="#reporting">Reporting</a></li>
+      <li><a href="#triage">Triage</a></li>
+      <li><a href="#maintenance">Rotation, quarantine, healing</a></li>
+      <li><a href="#ci">CI pipeline</a></li>
+      <li><a href="#selftest">How it tests itself</a></li>
+      <li><a href="#commands">Command reference</a></li>
+      <li><a href="#state">What is proven</a></li>
+      <li><a href="#gotchas">Gotchas &amp; conventions</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section id="start">
+      <h2><span class="num">Section 01</span>Start here</h2>
+      <p class="lede">Four commands to a green suite. Everything in phases 0 to 2 runs against a public reference target, so nothing internal has to be reachable before you see it work.</p>
+
+      <pre><code>npm install
+npx playwright install chromium
+
+npm run verify          # lint + types + generated-file checks + 191 unit tests
+npx playwright test     # + the suite against the reference target</code></pre>
+
+      <p>If both are green you have a working framework, its guardrails, and every integration adapter exercised against in-process fakes. No credential, no network beyond <code>www.saucedemo.com</code> and the npm registry, and no Docker.</p>
+
+      <h3>What each command actually does</h3>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Command</th><th>What it proves</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">npm run verify</td><td>The conventions execute, the types hold, the generated agent files are current, and the framework's own 191 tests pass. This is what CI runs on every merge request.</td></tr>
+            <tr><td class="mono">npx playwright test</td><td>Adds the browser projects: a session is established once, specs run against it, and the drift harness proves locator drift can be induced on demand.</td></tr>
+            <tr><td class="mono">npm run report:render</td><td>Turns the run into a self-contained HTML report you can open from a file share.</td></tr>
+            <tr><td class="mono">npm run vault:check</td><td>Confirms every credential path the target needs resolves — without ever printing a value.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>The one idea to hold onto</h3><span class="chip ok">Orientation</span></div>
+        <p>A generated test is a constrained search. Everything here exists to shrink the search space and to tell a model — without a human — that it went wrong. That is why the vocabulary is closed, why conventions are lint rules rather than prose, and why locators come from a snapshot of a real page rather than from a model's priors. If a change makes generation freer, it is probably the wrong change.</p>
+      </div>
+    </section>
+
+    <section id="loop">
+      <h2><span class="num">Section 02</span>How it works, end to end</h2>
+      <p class="lede">A written test case becomes a running spec, a run becomes one canonical fact set, and failures are grouped and classified before a human reads them. Each hop is a separate tool, so the chain can be stopped anywhere.</p>
+
+      <ol class="flow">
+        <li><span class="n">01</span><b>Case</b><span><code>cases/*.yaml</code> from Jira or PractiTest</span></li>
+        <li><span class="n">02</span><b>Gate</b><span>Reject cases too vague to automate</span></li>
+        <li><span class="n">03</span><b>Explore</b><span><code>playwright-cli</code> snapshots the live page</span></li>
+        <li><span class="n">04</span><b>Generate</b><span>Agent writes a spec from the catalog</span></li>
+        <li><span class="n">05</span><b>Verify</b><span>lint + tsc + run, until green</span></li>
+        <li><span class="n">06</span><b>Review</b><span>Human reads a diff</span></li>
+        <li><span class="n">07</span><b>Report</b><span>One JSON → report, email, PractiTest</span></li>
+        <li><span class="n">08</span><b>Triage</b><span>Cluster → rules → model</span></li>
+      </ol>
+
+      <h3>The feedback loop that makes generation work</h3>
+      <p>Steps 04 and 05 are a loop, and the loop is the product. An agent writes a spec; <code>npm run lint</code> and <code>tsc --noEmit</code> answer in structured, quotable errors; the agent repairs. Nothing in that cycle needs a human, which is the whole reason the conventions are executable rather than documented.</p>
+
+      <pre><code>write  →  lint + tsc + playwright test  →  structured errors  →  repair</code></pre>
+
+      <p>Anything a person has to catch by eye is a convention that has not been finished. When you add a rule to <code>docs/CONVENTIONS.md</code>, ask immediately whether it can be a lint rule instead — and if it can, write the rule.</p>
+
+      <h3>Where the data goes after a run</h3>
+      <p>Exactly one artifact carries facts: <code>run-result.json</code>, written by the reporter in <code>src/support/reporters/</code>. The HTML report, the email digest, the PractiTest push and the triage pipeline all read it and never re-derive anything from Playwright's raw output. That is what stops four renderings of the same run quietly disagreeing about how many tests failed.</p>
+
+      <div class="stack">
+        <div class="layer">
+          <span class="tag">Source</span>
+          <span class="what"><b>run-result.json</b><span>Normalised, versioned, shard-merged. Flaky is computed in <code>onEnd</code> from <code>test.outcome()</code>, never counted per attempt.</span></span>
+        </div>
+        <div class="layer">
+          <span class="tag">Render A</span>
+          <span class="what"><b>report-out/index.html</b><span>Self-contained: inlined CSS and JS, no CDN, opens from a file share.</span></span>
+        </div>
+        <div class="layer">
+          <span class="tag">Render B</span>
+          <span class="what"><b>Email digest</b><span>Table layout, 600px, inlined styles, plain-text alternative. Links the report, never attaches it.</span></span>
+        </div>
+        <div class="layer">
+          <span class="tag">Render C</span>
+          <span class="what"><b>PractiTest &amp; Jira</b><span>Batched, throttled, scrubbed. Best-effort — never turns a green suite red.</span></span>
+        </div>
+      </div>
+    </section>
+
+    <section id="layers">
+      <h2><span class="num">Section 03</span>The four layers</h2>
+      <p class="lede">Locators, actions, fixtures, specs. Each has one job and a hard rule about what it may not do — and each rule is enforced by <code>layer-boundaries</code> rather than by review.</p>
+
+      <div class="stack">
+        <div class="layer">
+          <span class="tag">L1</span>
+          <span class="what"><b>src/targets/&lt;app&gt;/locators/</b><span>Flat maps of named locators. Also <code>endpoints/</code> for typed HTTP descriptors and <code>queries/</code> for named SQL. No logic, no waits, no assertions.</span></span>
+        </div>
+        <div class="layer">
+          <span class="tag">L2</span>
+          <span class="what"><b>actions/ · api/ · db/</b><span>Business verbs per medium. Compose L1, return data, assert nothing. Each wraps itself in a <code>test.step()</code> named for intent.</span></span>
+        </div>
+        <div class="layer">
+          <span class="tag">L3</span>
+          <span class="what"><b>src/fixtures/ + &lt;app&gt;/fixtures.ts</b><span>The injectable surface. Framework fixtures are target-agnostic; the target adds its own named actions and data builders.</span></span>
+        </div>
+        <div class="layer">
+          <span class="tag">L4</span>
+          <span class="what"><b>&lt;app&gt;/tests/{e2e,api,contract}/</b><span>Thin specs carrying their case ids as annotations. <b>Every assertion lives here.</b></span></span>
+        </div>
+      </div>
+
+      <h3>What each layer looks like in practice</h3>
+      <p>A locator is a named function of a page. Nothing else:</p>
+      <pre><code>// src/targets/saucedemo/locators/login.ts
+export const loginLocators = {
+  username: (page: Page): Locator =&gt; page.getByRole('textbox', { name: 'Username' }),
+  password: (page: Page): Locator =&gt; page.getByRole('textbox', { name: 'Password' }),
+  submit:   (page: Page): Locator =&gt; page.getByRole('button',  { name: 'Login' }),
+  error:    (page: Page): Locator =&gt; page.getByTestId('error'),
+};</code></pre>
+
+      <p>An action composes locators into something a manual tester would recognise, and returns data rather than asserting:</p>
+      <pre><code>// src/targets/saucedemo/actions/inventory.ts
+async addToCart(page: Page, names: readonly string[]): Promise&lt;CatalogItem[]&gt; {
+  return test.step(`Add ${names.length} product(s) to the cart`, async () =&gt; {
+    const added: CatalogItem[] = [];
+    for (const name of names) {
+      const card = inventoryLocators.itemByName(page, name);
+      const price = parseMoney(await inventoryLocators.itemPrice(card).textContent());
+      await inventoryLocators.addToCart(card).click();
+      added.push({ name, price });
+    }
+    return added;   // the price the store displayed, so the spec can assert against it
+  });
+}</code></pre>
+
+      <p>And a spec reads like the test case it implements:</p>
+      <pre><code>// src/targets/saucedemo/tests/e2e/checkout-totals.spec.ts
+test('SD-012 · Checkout totals include tax @smoke @checkout', {
+  annotation: [{ type: 'practitest', description: '5104' }],
+}, async ({ authedPage, inventory, checkout, testData }) =&gt; {
+  const items = testData.catalogItems({ count: 2 });
+
+  await inventory.open(authedPage);
+  const added = await inventory.addToCart(authedPage, items.map((i) =&gt; i.name));
+  const totals = await checkout.completeThroughOverview(authedPage, testData.customer());
+
+  const expectedSubtotal = added.reduce((sum, item) =&gt; sum + item.price, 0);
+  expect(totals.tax).toBeCloseTo(expectedSubtotal * testData.taxRate, 2);
+});</code></pre>
+
+      <h3>The rules that hold it together</h3>
+      <ul>
+        <li>Specs never import from <code>locators/</code>. If a spec needs an element, the missing thing is an action.</li>
+        <li>Actions never assert. Assertions in specs keep intent readable when a human is reviewing generated code at volume.</li>
+        <li>Framework code never imports or names a target pack — see <a href="#newapp">section 08</a>.</li>
+        <li>One target may not import another's code. Swapping targets selects a pack; it does not reuse one.</li>
+        <li>Step titles are named for intent. <code>step-naming</code> rejects "click #submit-btn" and accepts "Submit the expense claim".</li>
+      </ul>
+
+      <div class="card">
+        <div class="card-head"><h3>Why not Page Object Model</h3><span class="chip low">Rationale</span></div>
+        <p>POM's open-ended class surface is exactly what makes LLM output drift: given any method on any page object plus raw <code>page.*</code>, a model invents <code>loginPage.loginWithValidCredentials()</code> — plausible, non-existent, and caught only at runtime. A closed vocabulary of typed fixtures and named verbs turns generation into a constrained choice. This is a bet, and it is falsifiable: generate the same ten cases against both shapes and compare.</p>
+      </div>
+    </section>
+
+    <section id="vocabulary">
+      <h2><span class="num">Section 04</span>The closed vocabulary</h2>
+      <p class="lede">One import gives a spec everything it may use. If the verb it needs is not there, the correct move is to stop and ask — not to reach for <code>page.locator</code>.</p>
+
+      <pre><code>import { expect, test } from '../../fixtures';   // the only import a spec needs</code></pre>
+
+      <h3>Framework fixtures — available for every application</h3>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Fixture</th><th>Scope</th><th>What it gives you</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">target</td><td>worker</td><td>The resolved profile: base URL, capabilities, environment, roles.</td></tr>
+            <tr><td class="mono">run</td><td>worker</td><td><code>runId</code> and <code>unique(prefix)</code>, so every record created can be cleaned up by run.</td></tr>
+            <tr><td class="mono">secrets</td><td>worker</td><td><code>read(path)</code> and <code>account(role)</code>. Registers every value for redaction at fetch time.</td></tr>
+            <tr><td class="mono">accounts</td><td>worker</td><td><code>lease(role)</code>. An atomic, TTL'd lease on a pooled target; a plain read on a static one.</td></tr>
+            <tr><td class="mono">otp</td><td>worker</td><td><code>arm()</code> then <code>get(mark)</code>. TOTP or email, decided by the capability matrix.</td></tr>
+            <tr><td class="mono">inbox</td><td>worker</td><td>The mail sink, when one is configured. Null otherwise.</td></tr>
+            <tr><td class="mono">role</td><td>option</td><td>Which session <code>authedPage</code> carries. Empty means signed out.</td></tr>
+            <tr><td class="mono">authedPage</td><td>test</td><td>A page already carrying the role's session. Never drives a login form.</td></tr>
+            <tr><td class="mono">api</td><td>test</td><td>The shared HTTP client, with response-schema validation inside it.</td></tr>
+            <tr><td class="mono">db</td><td>test</td><td>Read-only named queries. Disabled unless the target declares the capability.</td></tr>
+            <tr><td class="mono">contracts</td><td>test</td><td>The vendored OpenAPI document, when the target publishes one.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>The target then adds its own verbs. For the reference target that is <code>auth</code>, <code>inventory</code>, <code>checkout</code> and <code>testData</code>; for your application it will be whatever its business language actually is.</p>
+
+      <h3>The catalog is generated, so it cannot go stale</h3>
+      <p><code>npm run catalog:build</code> walks the TypeScript AST with ts-morph and writes <code>docs/generated/catalog.md</code>: every exported fixture and every L2 verb — <code>actions/</code>, <code>api/</code> and <code>db/</code> alike — with its signature and first doc line. Agents are told to select from that file. CI runs <code>catalog:check</code> and fails if the committed copy has drifted, because a stale catalog lists verbs that no longer exist — precisely the hallucination it exists to prevent.</p>
+      <p>It reads both idiomatic vocabulary shapes: a plain exported object (<code>export const auth = { … }</code>) and a factory that takes a client and returns one (<code>export function ordersApi(client) { … }</code>). The second is what an HTTP or database vocabulary needs, and missing it would hide that entire surface from the agent — which is why the extraction has its own tests.</p>
+
+      <h4>What the agent reads</h4>
+      <pre><code>| Name                     | Signature                                       | What it does                    |
+|--------------------------|-------------------------------------------------|---------------------------------|
+| `inventory.addToCart`    | (page: Page, names: readonly string[]) =&gt; ...    | Add named products to the cart… |
+| `checkout.readOrderTotals` | (page: Page) =&gt; Promise&lt;OrderTotals&gt;           | The three figures on the overview step, as numbers. |</code></pre>
+
+      <div class="card">
+        <div class="card-head"><h3>When the vocabulary is missing something</h3><span class="chip med">Convention</span></div>
+        <p>Stop and say so. Do not invent a helper, and do not work around the gap with a raw locator. A missing verb is a design question, and the answer is usually a new action added deliberately, once — not inlined into a spec that then diverges from the forty others doing the same thing.</p>
+      </div>
+    </section>
+
+    <section id="guardrails">
+      <h2><span class="num">Section 05</span>Executable guardrails</h2>
+      <p class="lede">Ten custom ESLint rules in <code>eslint-rules/</code>, each with its own unit tests. These are the framework's real conventions; the markdown is a description of them.</p>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Rule</th><th>Stops</th><th>Escape hatch</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">no-raw-locators</td><td>CSS, XPath, <code>$</code>, <code>$$</code>, <code>waitForSelector</code></td><td><code>// locator-justification: …</code> on the line above</td></tr>
+            <tr><td class="mono">no-hard-waits</td><td><code>waitForTimeout</code>, <code>setTimeout</code>, hand-rolled sleeps</td><td>None. Use <code>expect.poll</code>.</td></tr>
+            <tr><td class="mono">layer-boundaries</td><td>Specs importing L1; framework importing a target; cross-target imports</td><td>None</td></tr>
+            <tr><td class="mono">no-hardcoded-urls</td><td>Any <code>http(s)://</code> literal outside <code>config/targets/</code></td><td>Loopback, XML namespaces, <code>&lt;placeholder&gt;</code> hosts</td></tr>
+            <tr><td class="mono">typed-clients-only</td><td>Raw <code>request.*</code>, <code>fetch</code>, inline SQL in specs</td><td>None in L4; the vocabulary layer is where those live</td></tr>
+            <tr><td class="mono">secrets-via-fixture</td><td><code>process.env</code> for credentials; any <code>process.env</code> in a target pack</td><td>One file: <code>src/support/env-credentials.ts</code></td></tr>
+            <tr><td class="mono">require-case-id</td><td>Specs with no <code>practitest</code> annotation</td><td>The contract project, seeds and setup files</td></tr>
+            <tr><td class="mono">step-naming</td><td>Step titles describing mechanics or containing selectors</td><td>None</td></tr>
+            <tr><td class="mono">auth-project-boundary</td><td><code>@auth</code> specs filed where they would inherit a session</td><td>None</td></tr>
+            <tr><td class="mono">no-target-coupling</td><td>Framework code naming a target instead of reading a capability</td><td>None</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Two rules worth understanding properly</h3>
+
+      <div class="card">
+        <div class="card-head"><h3>secrets-via-fixture, and its single exemption</h3><span class="chip high">Security</span></div>
+        <p>Credentials resolve through the <code>secrets</code> fixture, which registers every value with the redaction helper at fetch time. A credential read straight from the environment is one that is <em>not</em> registered, so it survives into a trace, and from a trace into an attachment on a test management system.</p>
+        <p>Integration tokens do legitimately arrive as job variables — that is how GitLab's <code>secrets:</code> keyword delivers them from Vault. So exactly one file may read them: <code>src/support/env-credentials.ts</code>, whose <code>credentialFromEnv()</code> registers the value on the way through. The exemption is one file rather than one directory precisely so it stays auditable.</p>
+        <p class="verdict"><b>Naming carve-out</b>A name ending in <code>_PATH</code>, <code>_FILE</code>, <code>_REF</code>, <code>_SOURCE</code>, <code>_ROLE</code>, <code>_MOUNT</code>, <code>_URL</code> or <code>_ADDR</code> describes <em>where</em> a secret lives, not the secret. References are exactly what an agent is allowed to write.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>no-target-coupling, and why it exists</h3><span class="chip ok">Agnosticism</span></div>
+        <p><code>layer-boundaries</code> stops framework code <em>importing</em> a target pack. This rule stops the subtler version: <code>if (target.name === 'saucedemo')</code> inside a fixture, which is how a framework acquires a special case for the application it was written against — a special case nobody notices until the second application arrives.</p>
+        <p>Target names are read from <code>config/targets/*.ts</code> at lint time, so adding an application never means editing a rule. The correct way to branch is a declared capability, which says something true of the <em>target</em> and therefore holds for every application sharing the property:</p>
+        <pre><code>if (target.capabilities.mfa === 'none') …   // yes
+if (target.name === 'saucedemo') …          // no — fails the build</code></pre>
+      </div>
+    </section>
+
+    <section id="layout">
+      <h2><span class="num">Section 06</span>Repository layout</h2>
+      <p class="lede">Where everything lives, and which parts you are expected to touch.</p>
+
+      <pre><code>playwright-template-cli/
+├─ .gitlab-ci.yml               # pipeline: verify · test · merge · triage · publish
+├─ playwright.config.ts         # projects, resolved once from the target profile
+├─ eslint.config.js
+│
+├─ config/
+│  ├─ target.ts                 # TARGET → profile, plus the non-production guard
+│  ├─ targets/
+│  │  ├─ types.ts               # TargetProfile: capabilities, roles, testIdAttribute
+│  │  ├─ saucedemo.ts           # the reference target
+│  │  └─ internal-app.ts        # env-driven, no usable default
+│  ├─ secrets.local.json        # public demo credentials only; Vault path shape
+│  └─ quarantine.json           # reviewed, committed, reported with its age
+│
+├─ eslint-rules/                # ← the ten executable conventions (+ index.d.ts)
+│
+├─ src/
+│  ├─ fixtures/base.ts          # L3, target-agnostic — the closed vocabulary
+│  ├─ targets/&lt;app&gt;/
+│  │  ├─ locators/ endpoints/ queries/     # L1
+│  │  ├─ actions/  api/       db/          # L2
+│  │  ├─ fixtures.ts                       # L3, this target's verbs
+│  │  ├─ contracts/openapi.yaml            # vendored + pinned
+│  │  └─ tests/{e2e,api,contract}/         # L4
+│  ├─ integrations/            # vault · mail · otp · practitest · jira · http · llm · db
+│  └─ support/
+│     ├─ redact.ts  env-credentials.ts  paths.ts  poll.ts  rate-limiter.ts  money.ts
+│     ├─ cases/     schema · store · gate · author · publish
+│     ├─ contracts/ validator.ts          # Ajv, inside the shared client
+│     ├─ reporters/ run-result.ts + run-result-reporter.ts
+│     ├─ report/    render-html · render-email · history
+│     ├─ triage/    cluster · rules · agent · types
+│     ├─ rotation/  policy · schedule · runner
+│     ├─ heal/brief.ts   quarantine.ts   drift/harness.ts
+│
+├─ tools/                       # 19 CLIs — the pipeline's and the agents' entry points
+├─ tests/
+│  ├─ unit/                     # 191 tests, 15 files
+│  └─ support/                  # in-process fakes: vault, practitest, jira, inbox
+├─ cases/&lt;app&gt;/*.yaml           # the intermediate case format, both tracks
+├─ stories/*.json               # normalised Jira stories (Track A input)
+└─ docs/
+   ├─ CONVENTIONS.md            # ← single source of truth
+   ├─ plan.html  handbook.html
+   └─ generated/                # catalog.md + run-history.jsonl (committed)</code></pre>
+
+      <h3>Three boundaries that carry weight</h3>
+      <ul>
+        <li><b><code>src/targets/</code> makes the per-target boundary a directory</b>, not a convention — which is what lets a lint rule enforce it.</li>
+        <li><b><code>cases/</code> is the junction.</b> Track A writes into it from a story, Track B fills it from PractiTest, and generation reads only from it. One input format regardless of origin.</li>
+        <li><b><code>docs/generated/</code> is committed, deliberately.</b> The catalog and the run history are both derived, and both are checked into git so CI can diff them and so trends survive artifact expiry.</li>
+      </ul>
+    </section>
+
+    <section id="firstspec">
+      <h2><span class="num">Section 07</span>Your first spec, start to finish</h2>
+      <p class="lede">The intended workflow, whether you are a person or an agent. The order matters: explore before writing, because guessed locators are the single largest source of dead-on-arrival tests.</p>
+
+      <div class="step">
+        <div class="idx">1</div>
+        <div>
+          <h3>Read the case</h3>
+          <p>Specs implement managed cases, not ideas. Start from <code>cases/&lt;target&gt;/*.yaml</code> — it carries the preconditions, the steps, the assertions and the acceptance criterion it claims to cover.</p>
+          <p class="exit"><b>If the case is vague:</b> run <code>npm run cases:gate</code>. If it fails, send it back with the named gap rather than inventing the missing specifics.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="idx">2</div>
+        <div>
+          <h3>Explore the running application</h3>
+          <p>Snapshots go to disk and are read on demand — roughly 4× cheaper in tokens than streaming them through the MCP server, and the reason the CLI is the documented default.</p>
+          <pre><code>npx playwright-cli open https://www.saucedemo.com
+npx playwright-cli snapshot            # accessibility tree → .playwright-cli/*.yml
+npx playwright-cli find "Checkout"     # search the snapshot
+npx playwright-cli eval "() =&gt; document.querySelector('.item')?.outerHTML"</code></pre>
+          <p>Write L1 from what the snapshot says, in priority order: <code>getByRole</code>, then <code>getByLabel</code>/<code>getByPlaceholder</code>, then <code>getByTestId</code>. Raw CSS needs a justification comment; XPath is never allowed.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="idx">3</div>
+        <div>
+          <h3>Check the catalog before writing a verb</h3>
+          <p>Open <code>docs/generated/catalog.md</code>. If the action exists, use it. If it does not, add it to <code>actions/</code> — one named business verb, composing locators, returning data, asserting nothing, wrapped in a <code>test.step()</code> named for intent.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="idx">4</div>
+        <div>
+          <h3>Write the spec</h3>
+          <p>One import, the case id as an annotation, tags for suite selection, and every assertion in the body. Read it aloud against the case: it should match step for step.</p>
+          <p class="exit"><b>Tags:</b> <code>@smoke</code> runs on every merge request; <code>@auth</code> means the spec must live in a <code>*login|mfa|password.spec.ts</code> file and take <code>page</code>, not <code>authedPage</code>.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="idx">5</div>
+        <div>
+          <h3>Let the guardrails answer</h3>
+          <pre><code>npm run lint          # the ten conventions
+npx tsc --noEmit      # actions and fixtures fully typed
+npx playwright test --grep "SD-012"</code></pre>
+          <p>Each failure names the rule, the reason and the remedy — written to be actionable by an agent with no other context.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="idx">6</div>
+        <div>
+          <h3>Rebuild the generated files</h3>
+          <p>If you added or changed an action or fixture, the catalog is now stale and CI will say so:</p>
+          <pre><code>npm run catalog:build       # docs/generated/catalog.md
+npm run instructions:build  # only if you edited docs/CONVENTIONS.md</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="newapp">
+      <h2><span class="num">Section 08</span>Adding an application under test</h2>
+      <p class="lede">The application is configuration. Framework code never imports, names, or special-cases a target — and two lint rules fail the build if it starts to.</p>
+
+      <h3>Four steps, all inside the new application's own directory</h3>
+
+      <div class="step">
+        <div class="idx">1</div>
+        <div>
+          <h3>Declare the profile</h3>
+          <p><code>config/targets/&lt;app&gt;.ts</code>, then register it in <code>config/target.ts</code>. The capability matrix is the important part: it is how every downstream decision is made without anyone naming your application.</p>
+          <pre><code>export const yourApp: TargetProfile = {
+  name: 'your-app',
+  baseURL: process.env.BASE_URL ?? PLACEHOLDER,
+  environment: process.env.TARGET_ENV ?? 'staging',
+
+  credentials: { source: 'vault', root: 'qa/staging/pools', accountType: 'workforce' },
+
+  capabilities: {
+    mfa: 'totp',              // 'none' | 'totp' | 'email'
+    accountPool: 'leased',    // 'static' | 'leased'
+    serverState: true,        // does state need cross-test cleanup?
+    api:       { enabled: true, baseURL: process.env.API_BASE_URL },
+    db:        { enabled: false },
+    contracts: { enabled: true, spec: 'src/targets/your-app/contracts/openapi.yaml' },
+  },
+
+  testIdAttribute: 'data-testid',    // your app's, not the framework's
+  hostAllowlist: ['staging.internal'],
+  roles: ['submitter', 'approver'],
+  suites: ['smoke', 'regression'],
+};</code></pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="idx">2</div>
+        <div>
+          <h3>Write L1 and L2 from a snapshot</h3>
+          <p><code>src/targets/&lt;app&gt;/locators/</code> and <code>actions/</code>. Explore first with <code>playwright-cli</code>; write the locators from what you saw, not from what you expect.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="idx">3</div>
+        <div>
+          <h3>Extend the fixture surface</h3>
+          <p><code>src/targets/&lt;app&gt;/fixtures.ts</code> takes the framework <code>test</code> and adds this target's named actions and <code>testData</code> builders. That file is what a spec imports.</p>
+          <pre><code>export const test = framework.extend&lt;YourAppFixtures&gt;({
+  claims:   async ({}, use) =&gt; { await use(claims); },
+  approvals: async ({}, use) =&gt; { await use(approvals); },
+  testData: async ({ run }, use) =&gt; { await use(buildTestData(run)); },
+});</code></pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="idx">4</div>
+        <div>
+          <h3>Add specs and run</h3>
+          <pre><code>TARGET=your-app npx playwright test</code></pre>
+          <p class="exit"><b>Rule of thumb:</b> if you find yourself editing <code>src/fixtures/</code>, <code>src/integrations/</code>, <code>src/support/</code> or <code>tools/</code> to make a new application work, that is a framework bug. The thing you need is a capability, not a special case.</p>
+        </div>
+      </div>
+
+      <h3>What a capability actually controls</h3>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Capability</th><th>Effect when off</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">mfa: 'none'</td><td><code>otp.get()</code> throws a stated reason instead of hanging until timeout. The whole of the OTP layer is inert.</td></tr>
+            <tr><td class="mono">accountPool: 'static'</td><td>No leasing, no rotation, no quarantine. <code>accounts.lease()</code> becomes a plain read.</td></tr>
+            <tr><td class="mono">api.enabled: false</td><td>The <code>api</code> project does not exist, the fixture refuses with a reason, and the report says "not applicable" rather than showing a silent zero.</td></tr>
+            <tr><td class="mono">db.enabled: false</td><td>Every named query fails with the question you should answer first: which facts genuinely need a database assertion?</td></tr>
+            <tr><td class="mono">contracts.enabled: false</td><td>No schema validation hook, no contract project.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Two profiles ship: <code>saucedemo</code>, the reference target, and <code>internal-app</code>, which is entirely environment-driven with a deliberately unusable default — a profile that ships a guessable internal hostname is a profile someone eventually points at the wrong environment.</p>
+    </section>
+
+    <section id="secrets">
+      <h2><span class="num">Section 09</span>Secrets, sessions and identity</h2>
+      <p class="lede">The agent writes the reference; the value resolves at runtime, inside the test process, and is registered for scrubbing the moment it arrives.</p>
+
+      <h3>How a credential travels</h3>
+      <pre><code>profile.credentials.root          qa/staging/pools
+        + accountType             /workforce
+        + role, index             /approver/1
+                                  ↓
+secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local store)
+                                  ↓
+                  registerSecretPayload(...)  ← every value, at fetch time
+                                  ↓
+                     redact() before any trace, report or attachment leaves</code></pre>
+
+      <p><code>SecretStore</code> is an interface with two implementations. <code>VaultSecretStore</code> speaks HTTP directly — one less binary on a locked-down host — and supports JWT/OIDC, AppRole and token auth, Enterprise namespaces, KV v2 envelope unwrapping, compare-and-swap writes, the TOTP engine and dynamic database credentials. <code>LocalSecretStore</code> serves the reference target's public demo logins from <code>config/secrets.local.json</code>, and refuses any path outside the selecting profile's own root.</p>
+
+      <div class="card">
+        <div class="card-head"><h3>Why there is a local store at all</h3><span class="chip low">Sequencing</span></div>
+        <p>So that phases 0 to 2 can be proven before a Vault administrator has enabled anything. The demo credentials are public and trivial, and they <em>still</em> go through the <code>secrets</code> fixture on the same path shape as every other target — because the moment one target is allowed to bypass the fixture, the lint rule stops being enforceable and the pattern erodes.</p>
+      </div>
+
+      <h3>Sessions</h3>
+      <p>Storage state is the default. A <code>setup:auth</code> project signs in once per role and writes <code>.auth/&lt;target&gt;.&lt;role&gt;.json</code>; the <code>e2e</code> project declares a dependency on it so it cannot start first. The framework overrides Playwright's own <code>storageState</code> option with a fixture derived from <code>role</code>, which means <code>test.use({ role: 'approver' })</code> switches identity while tracing, video and screenshots keep working unchanged.</p>
+      <p>The exception is its own project. <code>auth-flows</code> matches <code>*login|mfa|password.spec.ts</code>, runs signed out, and <code>auth-project-boundary</code> fails the build if an <code>@auth</code> spec is filed anywhere else or takes <code>authedPage</code>.</p>
+      <p class="exit"><b>Treat a storage state file as a credential.</b> Gitignored, never a CI artifact, never attached to a result, regenerated per run.</p>
+
+      <h3>Account pools</h3>
+      <p>On a <code>leased</code> target, a worker-scoped fixture takes an account for the life of the worker: one login and one storage state per worker, never two workers sharing an identity. Leasing uses a Vault compare-and-swap write, so two runners starting simultaneously cannot both take account 1 — the loser sees a version mismatch and moves to the next index. Leases carry a TTL so a crashed runner self-heals, quarantined accounts are skipped and never implicitly restored, and exhaustion raises a named error with the role and the counts rather than a timeout ten minutes later.</p>
+
+      <h3>MFA</h3>
+      <p>One interface, two providers. <code>arm()</code> takes a watermark <em>before</em> the code is triggered; <code>get(mark)</code> accepts only what arrived after it. That is the entire defence against the failure everyone hits — polling the inbox and reading the previous test's code — and it is combined with per-worker plus-addressing so parallel workers cannot read each other's mail. The TOTP provider checks the remaining window and waits for the next one rather than returning a code that will expire between fetch and submit.</p>
+    </section>
+
+    <section id="beyond">
+      <h2><span class="num">Section 10</span>API, contract and data</h2>
+      <p class="lede">The layers extend sideways, not downward. <code>actions/</code> is the UI vocabulary, <code>api/</code> is the HTTP vocabulary, <code>db/</code> is the read vocabulary — all L2, all returning data, none asserting.</p>
+
+      <h3>Schema conformance lives inside the client</h3>
+      <p>The design decision worth understanding: validation runs <em>inside</em> the shared API client rather than as a separate suite. So every API call in every test — including the setup calls inside UI journeys — is a contract check for free, and incidental traffic becomes coverage.</p>
+      <pre><code>const response = await client.call&lt;Order&gt;(orderEndpoints.create, { body });
+// → status checked against the endpoint's expected set
+// → body validated against the vendored OpenAPI document
+// → drift recorded, and thrown in api/contract projects</code></pre>
+      <p>Inside a UI journey drift is recorded rather than thrown: failing the journey on a provider's schema change hides the thing the test was actually about. In the <code>api</code> and <code>contract</code> projects it throws, and it reports as its own category — <em>contract drift</em>, not application defect — because the distinction routes the ticket to a different team.</p>
+
+      <div class="card">
+        <div class="card-head"><h3>Name it precisely: this is schema conformance, not Pact</h3><span class="chip med">Honesty</span></div>
+        <p>It catches provider drift after deployment. It does <em>not</em> fail a provider's build before release, which is what consumer-driven contract testing is for. Saying "we already do contract testing" is how a real initiative gets deferred on false grounds.</p>
+      </div>
+
+      <h3>Database access is deliberately awkward</h3>
+      <p>The hierarchy is a rule, not a preference: assert through the UI if the user can see it, through the API if a service exposes it, and through the database only when neither does. <code>defineQuery()</code> rejects anything that is not a single <code>SELECT</code> — at definition time, not at run time — so the read-only rule is enforced where the query is written. Result sets are capped, parameter counts are checked before the query runs, and a target with the capability off gets an error that states the question to answer first.</p>
+      <p>Queries are named for the business fact they establish, not the table they read. That naming is not cosmetic: the list is what you send the owning team when they ask which columns the suite depends on, and if it is too long to send, it is too long.</p>
+    </section>
+
+    <section id="authoring">
+      <h2><span class="num">Section 11</span>Authoring: two tracks, one spine</h2>
+      <p class="lede">Track A starts at a Jira story and drafts cases. Track B picks up a case already written in PractiTest. Both converge on <code>cases/*.yaml</code>, so there is exactly one place where a case becomes a spec.</p>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th></th><th>Track A — story-first</th><th>Track B — case-first</th></tr></thead>
+          <tbody>
+            <tr><td><b>Entry point</b></td><td class="mono">npm run story:pull -- KEY</td><td class="mono">npm run cases:pull</td></tr>
+            <tr><td><b>The model's job</b></td><td>Draft cases from requirement text</td><td>Normalise prose steps, score automatability</td></tr>
+            <tr><td><b>Human gate</b></td><td>Approve the cases before they exist anywhere official</td><td>Approve the generated spec</td></tr>
+            <tr><td><b>Principal risk</b></td><td>Inventing requirements nobody agreed to</td><td>Cases too vague to automate</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The three AI roles never overlap</h3>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Role</th><th>Sees</th><th>Must never see</th></tr></thead>
+          <tbody>
+            <tr><td><b>Case author</b></td><td>Story text and acceptance criteria</td><td>The running application — otherwise the app becomes the requirement</td></tr>
+            <tr><td><b>Spec generator</b></td><td>The case, the catalog, live snapshots</td><td>The story's open questions; its job is to implement the agreed case</td></tr>
+            <tr><td><b>Triage agent</b></td><td>Failures, evidence, history</td><td>Write access to anything at all</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The invention guards are code, not prompting</h3>
+      <p>A model given a thin story does not produce nothing — it produces fluent, well-formatted cases for behaviour nobody specified, and once published such a case looks exactly like a requirement. Three mechanical checks contain it, and all three run <em>after</em> the model replies:</p>
+      <ul>
+        <li><b>Citation.</b> Every case must cite a criterion by an id the story actually contains. One that does not is written to a <code>speculative-*</code> file for a human to triage, never published.</li>
+        <li><b>Verbatim quoting.</b> <code>acQuoted</code> is checked as a substring of the story. A paraphrase is quarantined, because a paraphrase is how a requirement quietly changes meaning between the story and the case.</li>
+        <li><b>Coverage, inverted.</b> Every criterion must have at least one case behind it. This is the more useful direction: uncovered AC is what a reviewer cannot spot by reading a list of cases that all look reasonable.</li>
+      </ul>
+
+      <p>Then the specificity gate runs over what survived, and the cost of the run is reported — because "generation cost has not been estimated" was a real gap, and it is one extra number from an experiment already happening.</p>
+
+      <h3>Publication is the only irreversible step</h3>
+      <p><code>npm run cases:push</code> is a dry run unless you pass <code>--publish</code>. It is idempotent on case identity, so re-running updates rather than duplicating; it records provenance in custom fields so "how many of our cases were written by a model?" is answerable; and it <b>never touches a case whose last editor was a human</b>. That last rule is enforced in code rather than documented, because a re-run that silently reverts a tester's correction is the fastest possible way to lose the team's trust in the whole pipeline.</p>
+
+      <h4>Traceability, hashed at both hops</h4>
+      <pre><code>Jira story ──contentHash──▶ case ──caseHash──▶ spec annotation
+  FIN-2210                   #5104            tests/…/SD-012.spec.ts</code></pre>
+      <p><code>npm run hashes:check</code> runs in CI and turns silent drift into a visible task: "3 cases derived from FIN-2210 are stale", or "the spec for #5104 tests a previous version".</p>
+    </section>
+
+    <section id="reporting">
+      <h2><span class="num">Section 12</span>Reporting</h2>
+      <p class="lede">One data model, three renderings. The reporter's only job is to emit facts; every consumer reads them.</p>
+
+      <h3>Getting flaky right</h3>
+      <p><code>onTestEnd</code> fires once per <em>attempt</em>, including retries, so counting statuses there double-counts every retried test. Flakiness is only knowable once all attempts are done, so the reporter collects attempts and aggregates in <code>onEnd</code> using <code>test.outcome()</code> — the API that actually encodes "passed, but not first time".</p>
+      <p>Two numbers follow from that, and both are in the report: <b>flake rate as a rate</b>, because a test failing 1 run in 3 matters far more than one that failed twice ever; and <b>first-run outcome</b> recorded separately from the final outcome, because a suite that is green only after retries is not green.</p>
+
+      <h3>The report</h3>
+      <p>Self-contained HTML — inlined CSS and JS, no CDN, opens from a file share with no server. A status band that reads correctly from across a desk, then triage, trend, coverage, applicability, a filterable results table with an evidence drawer per test, and a health band. Status is always a word as well as a colour; AI verdicts are visually marked as distinct from rule-derived ones.</p>
+
+      <h3>The digest</h3>
+      <p>Outlook renders HTML through the Word engine: no flexbox, no grid, no custom properties, no media queries. So the digest is table-based at 600px with fully inlined styles, a VML-wrapped button, a plain-text alternative part, and no <code>data:</code> images — Gmail strips them and Outlook blocks them. The rich report is <b>linked, never attached</b>; an <code>.html</code> attachment is a standard phishing vector and corporate filters quarantine it.</p>
+      <p>The subject line carries the verdict so it is triageable from a lock screen, and by default the digest only sends on failure or a change of state — a nightly mail that is green 90% of the time trains its recipients to filter it.</p>
+
+      <h3>Trend history</h3>
+      <p>Trends need retained history and CI artifacts expire, so the decision was made rather than deferred: each run appends one summary line to <code>docs/generated/run-history.jsonl</code>, keyed by target, environment and branch. A database is not needed for hundreds of runs a year, and choosing one is how this stalls. "Newly failing" and "newly fixed" are computed against the previous run <em>in the same lane</em> — a trend that mixes environments is noise.</p>
+    </section>
+
+    <section id="triage">
+      <h2><span class="num">Section 13</span>Triage</h2>
+      <p class="lede">The most valuable component, and the one most likely to be built wrong — because the obvious implementation is to hand every failure to a model and ask what happened.</p>
+
+      <ol class="flow">
+        <li><span class="n">Pass 1</span><b>Cluster</b><span>Normalised error + failing step + window</span></li>
+        <li><span class="n">Pass 2</span><b>Rules</b><span>Deterministic classification, no model</span></li>
+        <li><span class="n">Pass 3</span><b>Model</b><span>Only what the rules could not settle</span></li>
+      </ol>
+
+      <p>Clustering first does three things at once: it stops forty Jira tickets being filed on a bad night, it cuts cost by roughly the clustering factor, and it makes the answer <em>more</em> accurate — because breadth is itself the evidence for an infrastructure cause, and a per-test view cannot see it. Forty tests failing with the same connection error collapse to one cluster; a test showing an assertion mismatch stays separate.</p>
+
+      <h3>What the rules settle without a model</h3>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Signal</th><th>Conclusion</th></tr></thead>
+          <tbody>
+            <tr><td>Passed on retry</td><td class="mono">flaky — by definition, not inference</td></tr>
+            <tr><td>ECONNREFUSED / DNS / TLS</td><td class="mono">network-infrastructure</td></tr>
+            <tr><td>Response failed schema validation</td><td class="mono">contract-drift → provider team</td></tr>
+            <tr><td>5xx on a valid request</td><td class="mono">application-defect, never a locator</td></tr>
+            <tr><td>Vault or mail adapter threw</td><td class="mono">dependency</td></tr>
+            <tr><td>Every executed test failed at auth</td><td class="mono">environment-config</td></tr>
+            <tr><td>Fingerprint matches an open defect</td><td class="mono">known issue — link, do not re-file</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The guardrails on the model</h3>
+      <ul>
+        <li><b>Advisory by default.</b> It annotates the report. Filing is behind <code>JIRA_AUTOFILE</code>, and the model itself is behind <code>TRIAGE_AGENT_ENABLED</code> — both off.</li>
+        <li><b>Every claim cites evidence.</b> A verdict with an empty evidence array is rejected by the validator and replaced with <em>unclassified, needs human review</em>. That is what makes the output reviewable rather than merely confident-sounding.</li>
+        <li><b>Three confidence levels, never a percentage.</b> A model's "92% confident" is not calibrated, and printing it as one manufactures trust the number cannot support.</li>
+        <li><b>Low confidence is a valid answer</b>, and an agent that throws routes the cluster to a person rather than failing the run.</li>
+        <li><b>Evidence is scrubbed</b> before it leaves the process, and the report marks AI verdicts as distinct from rule-derived ones.</li>
+      </ul>
+
+      <p class="exit"><b>Measure it.</b> Record the agent's category alongside the human's eventual verdict and publish agreement per category. A triage agent nobody trusts is worse than none, because it adds a step without removing one.</p>
+    </section>
+
+    <section id="maintenance">
+      <h2><span class="num">Section 14</span>Rotation, quarantine and healing</h2>
+      <p class="lede">Three maintenance capabilities, each dangerous in its own way, each constrained accordingly.</p>
+
+      <div class="card">
+        <div class="card-head"><h3>Password rotation — the order is the design</h3><span class="chip high">Most dangerous</span></div>
+        <p>Everything else in this framework fails safe. Rotation writes to a live system, and its failure modes lock accounts out.</p>
+        <pre><code>lease exclusively → change in the application → VERIFY by authenticating
+                  → write a new KV v2 version → invalidate storage state → release</code></pre>
+        <p>Vault-first would leave an account nobody can use and a credential store that lies about it. So nothing is persisted before it has been verified, and a failure at any step <b>quarantines</b> the account rather than retrying blindly. Blackout windows and jitter are enforced inside the runner, not in the pipeline schedule, so a manually triggered run cannot bypass them — rotating an account mid-suite produces authentication failures that look exactly like application defects.</p>
+        <p class="verdict"><b>Also handled</b>Password policy generation that satisfies the real rules, the application's minimum-age constraint, and deterministic per-account jitter so a re-run picks the same day rather than drifting earlier every cycle.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Quarantine — visible, not hidden</h3><span class="chip med">Hygiene</span></div>
+        <p><code>config/quarantine.json</code> is committed and every entry needs a reason, a date and a <em>named</em> owner. The report shows the list with its age, so an entry that has been "temporarily" quarantined for four months is visible rather than forgotten. Candidates are ranked by flake <em>rate</em> over a window, and the ranking refuses to judge from too little history. Nothing adds to the file automatically — quarantining is a reviewed decision.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Healing — a brief, not an edit</h3><span class="chip high">Leashed</span></div>
+        <p>A healer that "fixes" a test to match newly-broken behaviour destroys the test's reason for existing. So <code>npm run heal</code> <b>changes no source file</b>. It produces a brief: which failures are safely healable, and which are escalated with the reason.</p>
+        <p>Locator and timing repairs only. A changed assertion or expected value is always escalated — if a button's accessible name changed because someone broke the i18n bundle, healing the locator hides a real defect and the suite goes green on a broken build. A triage verdict of anything other than <em>heal</em> also blocks the candidate. Whatever comes back opens a merge request; it never pushes to a protected branch.</p>
+      </div>
+
+      <h3>The drift harness</h3>
+      <p>The healer needs drift to repair, and the reference target never drifts. So drift is induced deliberately: an init script installs a MutationObserver before any application script runs, stripping the test-id attribute or rewriting accessible names as elements appear.</p>
+      <p>It mutates the <b>rendered DOM</b>, not the HTML response — and that distinction is load-bearing. A client-rendered application ships a near-empty document and builds the page in JavaScript, so a response rewriter silently does nothing and produces a "the healer works" result that means nothing. The shipped specs assert that the drift actually landed, for exactly that reason.</p>
+    </section>
+
+    <section id="ci">
+      <h2><span class="num">Section 15</span>The CI pipeline</h2>
+      <p class="lede">Six stages in <code>.gitlab-ci.yml</code>. Every npm script it calls exists and runs; the pipeline shape itself has never executed, because no GitLab instance has been available.</p>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Stage</th><th>Runs on</th><th>Contents</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">verify</td><td>Every MR</td><td>lint, tsc, catalog, instruction sync, agent definitions, hashes, case gate, 191 unit tests</td></tr>
+            <tr><td class="mono">test:smoke</td><td>Every MR</td><td><code>@smoke</code> subset against the reference target, JUnit to the MR widget</td></tr>
+            <tr><td class="mono">test:full</td><td>Nightly</td><td>Sharded via <code>parallel:matrix</code>, blob reports as artifacts</td></tr>
+            <tr><td class="mono">merge</td><td>Nightly</td><td><code>merge-reports</code>, then <code>report:normalise</code> → one <code>run-result.json</code></td></tr>
+            <tr><td class="mono">triage</td><td>On failure</td><td>cluster → rules → agent. <code>allow_failure: true</code></td></tr>
+            <tr><td class="mono">publish</td><td>Nightly</td><td>Pages, PractiTest, Jira (gated), email digest. All <code>allow_failure: true</code></td></tr>
+            <tr><td class="mono">maintenance</td><td>Separate schedules</td><td>Rotation (own schedule, outside the blackout) and the manual healer</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Three decisions worth noting</h3>
+      <ul>
+        <li><b>One merge job, for two reasons.</b> PractiTest allows 30 calls a minute, so N shards posting independently blows the limit on the first real night — and flaky status is only knowable once every attempt across every shard is accounted for. The two constraints want the same architecture.</li>
+        <li><b>Vault via <code>id_tokens</code>, not AppRole.</b> GitLab mints a signed JWT per job; there is no secret to deliver, wrap or rotate. The real win is bound claims: a job on a fork's feature branch cannot read staging credentials even holding a valid token.</li>
+        <li><b>Reporting never fails the build.</b> Every publish job is <code>allow_failure: true</code>, and the tools degrade to a warning plus a retained artifact. A reporting outage must not turn a green suite red.</li>
+      </ul>
+
+      <p class="exit"><b>Before it runs for real:</b> pin <code>PW_VERSION</code> to <code>package.json</code>, have a Vault admin enable the JWT backend and role, replace every <code>&lt;placeholder&gt;</code>, and confirm GitLab Pages is enabled or switch the report link to a job artifact URL.</p>
+    </section>
+
+    <section id="selftest">
+      <h2><span class="num">Section 16</span>How the framework tests itself</h2>
+      <p class="lede">191 unit tests across 15 files, in a <code>unit</code> project with no browser and no network. They are the reason any of the guarantees above can be stated as facts.</p>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th>File</th><th>What it pins down</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">eslint-rules.spec.ts</td><td>All ten rules, with the false-positive cases written down next to the true ones</td></tr>
+            <tr><td class="mono">vault-store.spec.ts</td><td>KV v2 unwrapping, CAS, namespaces, 429 backoff, TOTP windows, auth errors</td></tr>
+            <tr><td class="mono">account-pool.spec.ts</td><td>Concurrent leasing, TTL reclaim, exhaustion errors, quarantine</td></tr>
+            <tr><td class="mono">otp-providers.spec.ts</td><td>The watermark defeating a stale code; worker isolation; the dying TOTP window</td></tr>
+            <tr><td class="mono">rotation.spec.ts</td><td>Ordering, verify-before-persist, blackout, jitter, quarantine-on-failure</td></tr>
+            <tr><td class="mono">redact.spec.ts</td><td>Scrubbing across encodings, plus the canary leak test</td></tr>
+            <tr><td class="mono">cases.spec.ts</td><td>The quality gate, including the plan's own "Verify the report is correct"</td></tr>
+            <tr><td class="mono">api-contracts.spec.ts</td><td>Induced provider drift, cleanup, read-only SQL enforcement</td></tr>
+            <tr><td class="mono">practitest.spec.ts / jira.spec.ts</td><td>Chunking, rate limits, scrubbing, DC's Bearer-auth behaviour, dedup and reopen</td></tr>
+            <tr><td class="mono">track-a.spec.ts</td><td>Invention, paraphrase and human-owned-case protection</td></tr>
+            <tr><td class="mono">report.spec.ts</td><td>Flaky counting, first-run rate, self-containment, the Outlook constraints</td></tr>
+            <tr><td class="mono">triage.spec.ts</td><td>Clustering, every rule, and the verdict validator</td></tr>
+            <tr><td class="mono">heal-quarantine.spec.ts</td><td>The healer's refusal to touch assertions; flake ranking by rate</td></tr>
+            <tr><td class="mono">catalog.spec.ts</td><td>Both vocabulary shapes reach the catalog — a missed shape hides a whole surface, silently</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>In-process fakes, not mocks</h3>
+      <p><code>tests/support/</code> holds real HTTP servers that speak the subset of each API this framework uses — Vault, PractiTest, Jira — plus an in-memory inbox that behaves like a real one, including the awkward parts. A fake <em>server</em> rather than a fake object is deliberate: it exercises the envelope, the CAS semantics, the retry path and the auth behaviour, which is where the real bugs are.</p>
+      <p>This is also what keeps progress independent of someone else's queue. The Vault adapter was written and proven while the JWT backend was still hypothetical.</p>
+      <p class="exit"><b>Note the distinction.</b> "No fakes in CI" in the plan is about <em>test environments</em> — the framework provisions nothing and talks only to real running systems. Unit-testing an adapter against a fake is the opposite of that, and is explicitly what the plan asks for.</p>
+    </section>
+
+    <section id="commands">
+      <h2><span class="num">Section 17</span>Command reference</h2>
+
+      <h4>Daily</h4>
+      <div class="scroller">
+        <table>
+          <tbody>
+            <tr><td class="mono">npm run verify</td><td>Everything CI runs on a merge request</td></tr>
+            <tr><td class="mono">npx playwright test</td><td>The whole suite</td></tr>
+            <tr><td class="mono">npm run test:smoke</td><td>The <code>@smoke</code> subset</td></tr>
+            <tr><td class="mono">npm run test:unit</td><td>Framework self-tests only — no browser</td></tr>
+            <tr><td class="mono">npm run lint:fix</td><td>Lint with autofix</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>The agent contract</h4>
+      <div class="scroller">
+        <table>
+          <tbody>
+            <tr><td class="mono">catalog:build / catalog:check</td><td>ts-morph → <code>docs/generated/catalog.md</code></td></tr>
+            <tr><td class="mono">instructions:build / :check</td><td>CONVENTIONS.md → CLAUDE.md, AGENTS.md, copilot-instructions.md</td></tr>
+            <tr><td class="mono">agents:check</td><td>Playwright agent definitions still match the pinned version</td></tr>
+            <tr><td class="mono">hashes:check</td><td>Story → case → spec drift, both hops</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Cases</h4>
+      <div class="scroller">
+        <table>
+          <tbody>
+            <tr><td class="mono">story:pull -- KEY</td><td>Jira story → <code>stories/*.json</code>; rejects a story with no criteria</td></tr>
+            <tr><td class="mono">cases:author -- KEY</td><td>Story → cases + coverage matrix + speculative quarantine + cost</td></tr>
+            <tr><td class="mono">cases:pull</td><td>PractiTest → <code>cases/*.yaml</code> (Track B)</td></tr>
+            <tr><td class="mono">cases:gate</td><td>Score every case; name the gap in each rejection</td></tr>
+            <tr><td class="mono">cases:push [--publish]</td><td>Publish; dry run by default, idempotent, human-owned-safe</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Run, report, triage</h4>
+      <div class="scroller">
+        <table>
+          <tbody>
+            <tr><td class="mono">report:normalise -- results</td><td>Merge shard results into one <code>run-result.json</code></td></tr>
+            <tr><td class="mono">report:render</td><td>Self-contained HTML + append to run history</td></tr>
+            <tr><td class="mono">notify:email</td><td>Outlook-safe digest; retains it as an artifact either way</td></tr>
+            <tr><td class="mono">triage:cluster / :rules / :agent</td><td>The three passes, in order</td></tr>
+            <tr><td class="mono">publish:practitest / publish:jira</td><td>Batched results; gated defect filing</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Operations and debugging</h4>
+      <div class="scroller">
+        <table>
+          <tbody>
+            <tr><td class="mono">vault:check [paths…]</td><td>Does a path resolve, and what shape is it? Never prints a value.</td></tr>
+            <tr><td class="mono">jira:issue -- KEY</td><td>Print an issue as markdown — the conversational access DC costs you</td></tr>
+            <tr><td class="mono">rotate:passwords [--dry-run]</td><td>Scheduled rotation; inert on a static pool</td></tr>
+            <tr><td class="mono">heal [--open-mr]</td><td>Healing brief; never edits a spec</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Environment variables that matter</h4>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Variable</th><th>Effect</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">TARGET</td><td>Which profile to resolve. Defaults to the reference target.</td></tr>
+            <tr><td class="mono">BASE_URL / TARGET_ENV</td><td>Override the profile's host and environment label</td></tr>
+            <tr><td class="mono">SECRET_SOURCE</td><td><code>vault</code> or <code>local</code></td></tr>
+            <tr><td class="mono">GENERATION_HOST_ALLOWLIST</td><td>Widen the non-production allowlist for this pipeline</td></tr>
+            <tr><td class="mono">TRIAGE_AGENT_ENABLED</td><td>Off by default. Measure rules alone first.</td></tr>
+            <tr><td class="mono">JIRA_AUTOFILE</td><td>Off by default. An automated filer on a broken environment files hundreds.</td></tr>
+            <tr><td class="mono">PRACTITEST_DRY_RUN</td><td>Print what would be posted</td></tr>
+            <tr><td class="mono">REPORT_URL / DIGEST_TO / SMTP_HOST</td><td>Where the digest points and goes</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="state">
+      <h2><span class="num">Section 18</span>What is proven, and what is not</h2>
+      <p class="lede">The distinction matters more than any line count, so it is stated plainly rather than implied by a green badge.</p>
+
+      <div class="card">
+        <div class="card-head"><h3>Verified by running it</h3><span class="chip ok">Proven</span></div>
+        <p>The four layers and all ten lint rules. The target profile mechanism and session setup. The case format, quality gate, capability catalog and instruction sync. The Vault adapter, account-pool leasing under concurrency, both OTP providers, and rotation ordering — against an in-process Vault. Redaction, including a canary leak test. The shared API client and schema conformance, and read-only query enforcement. The PractiTest and Jira clients against in-process fakes, including rate limits and Data Center's Bearer-auth behaviour. Track A's invention guards. The run model, the HTML report and the digest's Outlook constraints. Triage clustering, every rule, and the verdict validator. The healing brief's refusal to touch assertions. And the drift harness — against the live reference target.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Not proven, and not provable from here</h3><span class="chip high">Open</span></div>
+        <p>No real Vault, PractiTest, Jira, mail tool, GitLab runner or internal application has been reachable. Every adapter is written against its documented contract and exercised against a fake that encodes that contract — first contact with the real systems will still find things. <code>.gitlab-ci.yml</code> has never executed. And the generation hit rate — the plan's own riskiest assumption — is unmeasured, because measuring it needs the real cases and the real target.</p>
+        <p class="verdict"><b>The reference target's role</b>Green on saucedemo demonstrates the wiring works. It has no MFA, fixed public users, no API and a DOM that never changes, so it says nothing about whether this design survives pools, rotation, contract drift or real UI drift. Every phase exit that involves those must be met against the real target.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Deliberate deviations from the plan</h3><span class="chip med">Two</span></div>
+        <p><b>The canonical reporter moved earlier.</b> The plan puts <code>run-result.json</code> in phase 5; it was built during phase 3 because the PractiTest publisher reads it, and having two sources of run facts even temporarily is the exact failure the single model exists to prevent.</p>
+        <p><b>Allure is documented, not installed.</b> The plan recommends emitting Allure results alongside the canonical JSON. It is not wired up, because it cannot be verified without a real run history to feed it — and an unverified dependency in a template is a liability rather than a feature.</p>
+      </div>
+    </section>
+
+    <section id="gotchas">
+      <h2><span class="num">Section 19</span>Gotchas and house conventions</h2>
+
+      <h3>Things that will catch you once</h3>
+      <ul>
+        <li><b><code>--reporter</code> on the CLI replaces the config list.</b> Running <code>npx playwright test --reporter=list</code> silently skips the run-result reporter, so no <code>run-result.json</code> is written. Omit the flag when you want the full reporter set.</li>
+        <li><b>Specs import from <code>../../fixtures</code></b> — the target's own fixture file, not <code>@playwright/test</code>. That import <em>is</em> the closed vocabulary.</li>
+        <li><b>The seed spec is not a test.</b> <code>tests/seed.spec.ts</code> is the template Playwright's generator starts from; no project's <code>testDir</code> picks it up, and the lint rules exempt it.</li>
+        <li><b>Edit <code>docs/CONVENTIONS.md</code>, never the three generated files.</b> CLAUDE.md, AGENTS.md and copilot-instructions.md are byte-derived and CI fails on drift.</li>
+        <li><b>Adding an action means rebuilding the catalog.</b> <code>catalog:check</code> will fail otherwise, which is the point.</li>
+        <li><b><code>.auth/</code> never leaves the machine.</b> It is gitignored and excluded from CI artifacts; a storage state file signs you in as that account with no password and no MFA.</li>
+      </ul>
+
+      <h3>House conventions in one place</h3>
+      <div class="scroller">
+        <table>
+          <tbody>
+            <tr><td><b>Locator priority</b></td><td><code>getByRole</code> → <code>getByLabel</code>/<code>getByPlaceholder</code> → <code>getByTestId</code> → justified CSS → never XPath</td></tr>
+            <tr><td><b>Waiting</b></td><td>Web-first assertions; <code>expect.poll</code> for genuinely asynchronous facts; never a sleep</td></tr>
+            <tr><td><b>Spec titles</b></td><td><code>&lt;case ref&gt; · &lt;what it proves&gt; @tags</code></td></tr>
+            <tr><td><b>Step titles</b></td><td>Intent, not mechanics — they are the report's narrative</td></tr>
+            <tr><td><b>Assertions</b></td><td>Only in specs. Actions return data.</td></tr>
+            <tr><td><b>Test data</b></td><td>Created through the API or UI, tagged with <code>run.runId</code>, cleaned up in teardown</td></tr>
+            <tr><td><b>Assertion hierarchy</b></td><td>UI if the user can see it, else API, else — and only else — the database</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Where to look when something breaks</h3>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Symptom</th><th>Look at</th></tr></thead>
+          <tbody>
+            <tr><td>A lint rule you disagree with</td><td><code>eslint-rules/&lt;rule&gt;.js</code> and its cases in <code>tests/unit/eslint-rules.spec.ts</code>. Rules are testable; change them with a test.</td></tr>
+            <tr><td>"No storage state for role …"</td><td>The <code>setup:auth</code> project failed, or the e2e project lost its <code>dependencies</code></td></tr>
+            <tr><td>A credential does not resolve</td><td><code>npm run vault:check</code> — and on Vault, check the namespace and mount before the path</td></tr>
+            <tr><td>Suspected TLS or proxy problem</td><td><code>NODE_EXTRA_CA_CERTS</code> and <code>HTTPS_PROXY</code>. Never <code>NODE_TLS_REJECT_UNAUTHORIZED=0</code> — it disables validation process-wide, including for the calls carrying your credentials.</td></tr>
+            <tr><td>The report shows a silent zero</td><td>A capability is off; the applicability band says which and why</td></tr>
+            <tr><td>Flaky counts look wrong</td><td>Something is counting in <code>onTestEnd</code>. Aggregate in <code>onEnd</code> from <code>test.outcome()</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <hr class="rule" />
+    </section>
+
+  </main>
+
+  <footer>
+    <p>Companion to <a href="plan.html">the architecture plan</a> and to <a href="CONVENTIONS.md">docs/CONVENTIONS.md</a>, which is the machine-readable source of the conventions described here. Where this document and a lint rule disagree, the lint rule is correct — that is the point of writing conventions as code. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, TypeScript 5.9, ESLint 9, and a suite of 204 passing tests.</p>
+  </footer>
+
+</div>

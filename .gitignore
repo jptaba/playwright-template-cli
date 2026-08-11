@@ -17,6 +17,9 @@ node_modules/
 *.key
 
 # --- Playwright output --------------------------------------------------------
+# Accessibility snapshots written by @playwright/cli during exploration. They
+# contain rendered application content and are authoring scratch, not source.
+.playwright-cli/
 blob-report/
 playwright-report/
 test-results/

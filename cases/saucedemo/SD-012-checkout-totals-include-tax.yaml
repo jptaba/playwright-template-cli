@@ -1,0 +1,24 @@
+id: '5104'
+target: saucedemo
+title: Checkout totals include tax
+source:
+  type: human
+  key: SD-012
+  contentHash: bootstrap-handwritten
+  authoredBy: null
+coversAC:
+  - AC-3
+acQuoted: Order total must show subtotal, 8% tax and grand total.
+preconditions:
+  - A shopper account signed in with an empty cart
+steps:
+  - action: Add two catalogue items to the cart
+    expected: Cart badge shows 2
+  - action: Proceed through checkout to the order overview step
+    expected: Subtotal, tax and total are displayed
+assertions:
+  - Tax equals 8% of the subtotal, rounded to 2 decimal places
+  - Total equals subtotal plus tax
+priority: high
+type: positive
+specPath: src/targets/saucedemo/tests/e2e/checkout-totals.spec.ts
