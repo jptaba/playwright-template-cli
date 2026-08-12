@@ -4,7 +4,14 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { CASES_DIR, REPO_ROOT, STORIES_DIR } from '../src/support/paths';
+import os from 'node:os';
+import {
+  CASES_DIR,
+  REPO_ROOT,
+  RUN_RESULT_PATH,
+  STORIES_DIR,
+  TRIAGE_RESULT_PATH,
+} from '../src/support/paths';
 import { dashboardPage } from '../src/support/onboarding/dashboard-page';
 import {
   onboardingRoutes,
@@ -26,7 +33,21 @@ import type {
 } from '../src/integrations/llm/case-author-model';
 import { credentialFromEnv } from '../src/support/env-credentials';
 import { JiraClient } from '../src/integrations/jira/client';
-import { pruneRuns, RunManager } from '../src/support/runs/manager';
+import { pruneRuns, RunManager, RUNS_DIR } from '../src/support/runs/manager';
+import { triagePageContent } from '../src/support/ui/triage-page';
+import { triageRoutes, type TriageRunRef, type TriageService } from '../src/support/triage/dashboard';
+import { appendVerdict, readVerdicts } from '../src/support/triage/verdicts';
+import type { QuarantineView } from '../src/support/triage/review';
+import type { TriageResult } from '../src/support/triage/types';
+import {
+  ageInDays,
+  flakeCandidates,
+  FLAKE_MINIMUM_RUNS,
+  isOverdue,
+  loadQuarantine,
+} from '../src/support/quarantine';
+import { readHistory } from '../src/support/report/history';
+import type { RunResult } from '../src/support/reporters/run-result';
 import { diagnose, type TargetFacts } from '../src/support/onboarding/diagnose';
 import { planOffboard, type OffboardPlan } from '../src/support/onboarding/offboard';
 import { gatherFacts, removeTarget } from './offboard';
@@ -325,6 +346,7 @@ const runManager = new RunManager();
 /** Every page the dashboard serves. The navigation is built from this. */
 const PAGES = [
   { href: '/runs', label: 'Runs' },
+  { href: '/triage', label: 'Triage' },
   { href: '/stories', label: 'Stories' },
   { href: '/cases', label: 'Cases' },
   { href: '/onboard', label: 'Onboard' },
@@ -503,6 +525,99 @@ const authoring: AuthoringService = {
       })),
 };
 
+/**
+ * Every run model on disk: the ones this dashboard started, and the one a
+ * command-line run leaves at the repository root.
+ *
+ * Re-read on every request rather than cached. The files are the truth and
+ * this process did not write them — the same reason the runs page folds the
+ * event stream from disk instead of accumulating it in memory.
+ */
+function runModels(): Array<{ run: RunResult; source: TriageRunRef['source'] }> {
+  const found: Array<{ run: RunResult; source: TriageRunRef['source'] }> = [];
+
+  const read = (file: string, source: TriageRunRef['source']): void => {
+    if (!fs.existsSync(file)) return;
+    try {
+      found.push({ run: JSON.parse(fs.readFileSync(file, 'utf8')) as RunResult, source });
+    } catch {
+      // A half-written model from a run still finishing is not an error worth
+      // failing a page over; it appears on the next read.
+    }
+  };
+
+  if (fs.existsSync(RUNS_DIR)) {
+    for (const entry of fs.readdirSync(RUNS_DIR, { withFileTypes: true })) {
+      if (entry.isDirectory()) read(path.join(RUNS_DIR, entry.name, 'run-result.json'), 'dashboard');
+    }
+  }
+  read(RUN_RESULT_PATH, 'command-line');
+
+  return found.filter((entry) => entry.run?.run?.id);
+}
+
+const triage: TriageService = {
+  runs: () =>
+    runModels()
+      .map(({ run, source }) => ({
+        id: run.run.id,
+        target: run.run.target,
+        finishedAt: run.run.finishedAt,
+        failures: run.tests.filter((test) => test.outcome === 'unexpected').length,
+        source,
+      }))
+      .sort((a, b) => b.finishedAt.localeCompare(a.finishedAt)),
+
+  run: (id) => runModels().find((entry) => entry.run.run.id === id)?.run ?? null,
+
+  existingVerdicts: (runId) => {
+    if (!fs.existsSync(TRIAGE_RESULT_PATH)) return [];
+    try {
+      const result = JSON.parse(fs.readFileSync(TRIAGE_RESULT_PATH, 'utf8')) as TriageResult;
+      // A triage file from a previous run must not leak into this one.
+      return result.runId === runId ? result.verdicts : [];
+    } catch {
+      return [];
+    }
+  },
+
+  humanVerdicts: () => readVerdicts(),
+  record: (verdict) => appendVerdict(verdict),
+
+  quarantine: (): QuarantineView => {
+    const flakyPerRun = runModels().map(({ run }) =>
+      run.tests
+        .filter((test) => test.outcome === 'flaky')
+        .map((test) => test.caseId ?? test.title),
+    );
+    const now = Date.now();
+    return {
+      candidates: flakeCandidates(readHistory(), flakyPerRun),
+      runs: flakyPerRun.length,
+      minimumRuns: FLAKE_MINIMUM_RUNS,
+      quarantined: loadQuarantine().map((entry) => ({
+        ...entry,
+        ageDays: ageInDays(entry, now),
+        overdue: isOverdue(entry, now),
+      })),
+    };
+  },
+
+  who: () => os.userInfo().username,
+  now: () => new Date().toISOString(),
+};
+
+const triageViewRoutes: Route[] = [
+  {
+    method: 'GET',
+    path: '/triage',
+    public: true,
+    handle: () =>
+      html(renderPage(triagePageContent(), { token: TOKEN, pages: PAGES, current: '/triage' })),
+  },
+  ...triageRoutes(triage),
+];
+
 const storyRoutes: Route[] = [
   {
     method: 'GET',
@@ -545,7 +660,7 @@ const caseRoutes: Route[] = [
 ];
 
 const handle = createRouter(
-  [...runRoutes, ...storyRoutes, ...caseRoutes, ...onboardingRoutes(service)],
+  [...runRoutes, ...triageViewRoutes, ...storyRoutes, ...caseRoutes, ...onboardingRoutes(service)],
   { token: TOKEN },
 );
 

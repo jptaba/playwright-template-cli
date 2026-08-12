@@ -68,10 +68,17 @@ export interface FlakeCandidate {
   rate: number;
 }
 
+/**
+ * Runs needed before a rate means anything. Named rather than inlined because
+ * anything reporting candidates has to say which it is showing — "no
+ * candidates" and "not enough runs to have candidates" are different claims.
+ */
+export const FLAKE_MINIMUM_RUNS = 5;
+
 export function flakeCandidates(
   history: Array<{ failedCaseIds: string[]; total: number }>,
   flakyCaseIdsPerRun: string[][],
-  minimumRuns = 5,
+  minimumRuns = FLAKE_MINIMUM_RUNS,
   threshold = 0.2,
 ): FlakeCandidate[] {
   const counts = new Map<string, number>();
