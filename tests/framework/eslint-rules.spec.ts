@@ -73,6 +73,11 @@ test('layer-boundaries keeps the four layers and the target packs apart', () => 
       { code: `import { orders } from '../../actions/orders';`, filename: SPEC },
       { code: `import { l } from '../locators/orders';`, filename: ACTION },
       { code: `import { redact } from '../../support/redact';`, filename: FIXTURE },
+      // A real package is not this repository's code and must not be resolved
+      // into a layer just because its name starts with a letter.
+      { code: `import { test } from '@playwright/test';`, filename: SPEC },
+      { code: `import AxeBuilder from '@axe-core/playwright';`, filename: INTEGRATION },
+      { code: `import fs from 'node:fs';`, filename: ACTION },
     ],
     invalid: [
       {
@@ -95,6 +100,27 @@ test('layer-boundaries keeps the four layers and the target packs apart', () => 
         code: `import { other } from '../../other-app/actions/thing';`,
         filename: ACTION,
         errors: [{ messageId: 'crossTarget' }],
+      },
+      // An import that is not relative is still this repository's own code
+      // when it points into it. tsconfig's `paths` aliases were removed for
+      // being unused, but the rule must not depend on them staying removed:
+      // while they existed, `@targets/demo/locators/x` in a spec resolved to
+      // nothing, matched no layer, and sailed past the rule whose whole job is
+      // to forbid exactly that.
+      {
+        code: `import { l } from '@targets/demo/locators/orders';`,
+        filename: SPEC,
+        errors: [{ messageId: 'specImportsPrimitive' }],
+      },
+      {
+        code: `import { l } from 'src/targets/demo/locators/orders';`,
+        filename: SPEC,
+        errors: [{ messageId: 'specImportsPrimitive' }],
+      },
+      {
+        code: `import { checkout } from '@targets/demo/actions/checkout';`,
+        filename: FIXTURE,
+        errors: [{ messageId: 'frameworkImportsTarget' }],
       },
     ],
   });

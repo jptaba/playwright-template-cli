@@ -71,16 +71,54 @@ function projectOf(relativePath) {
 }
 
 /**
- * Resolve an import specifier to a repo-relative path when it is relative.
+ * Directories a non-relative specifier can point into and still be this
+ * repository's own code. Anything else is a package.
+ */
+const REPO_ROOTS = ['src/', 'config/', 'tools/', 'tests/', 'eslint-rules/'];
+
+/**
+ * Aliases that have existed, or could plausibly be re-added, in tsconfig's
+ * `paths`. Listed here so the layer rules keep working if one comes back.
+ *
+ * They were removed from tsconfig.json because nothing used them and they were
+ * a silent hole in `layer-boundaries`: this function only understood relative
+ * specifiers, so `import { x } from '@targets/app/locators/y'` in a spec
+ * resolved to nothing, matched no layer, and passed a rule whose entire job is
+ * to forbid it. Deleting the aliases makes such an import a type error, and
+ * handling them here means the rule catches it either way.
+ */
+const ALIASES = [
+  [/^@targets\//, 'src/targets/'],
+  [/^@fixtures\//, 'src/fixtures/'],
+  [/^@integrations\//, 'src/integrations/'],
+  [/^@support\//, 'src/support/'],
+  [/^@config\//, 'config/'],
+];
+
+/**
+ * Resolve an import specifier to a repo-relative path.
  *
  * Import specifiers carry no extension, but the layer patterns are written
  * against real filenames — so `../fixtures` is normalised to `fixtures.ts`,
  * and a directory import to its `index.ts`.
  */
 function resolveImport(relativePath, specifier) {
-  if (!specifier.startsWith('.')) return null;
-  const dir = path.posix.dirname(relativePath);
-  const joined = path.posix.normalize(path.posix.join(dir, specifier));
+  let joined = null;
+
+  if (specifier.startsWith('.')) {
+    const dir = path.posix.dirname(relativePath);
+    joined = path.posix.normalize(path.posix.join(dir, specifier));
+  } else {
+    const alias = ALIASES.find(([pattern]) => pattern.test(specifier));
+    if (alias) {
+      joined = specifier.replace(alias[0], alias[1]);
+    } else if (REPO_ROOTS.some((root) => specifier.startsWith(root))) {
+      joined = path.posix.normalize(specifier);
+    }
+  }
+
+  if (joined === null) return null;
+
   const last = joined.split('/').pop() ?? '';
   if (last.includes('.')) return joined;
   // Try the file first; callers only pattern-match, so offering both is wrong.

@@ -16,16 +16,7 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "noEmit": true,
-
-    "baseUrl": ".",
-    "paths": {
-      "@config/*": ["config/*"],
-      "@fixtures/*": ["src/fixtures/*"],
-      "@integrations/*": ["src/integrations/*"],
-      "@support/*": ["src/support/*"],
-      "@targets/*": ["src/targets/*"]
-    }
+    "noEmit": true
   },
   "include": [
     "config/**/*.ts",

@@ -20,8 +20,17 @@ fix landed. New learnings go there.
 npm install
 npx playwright install chromium
 npm run verify        # lint + types + generated-file checks + 250 framework tests
-npx playwright test   # the framework's own suite; no application attached yet
 ```
+
+`verify` is the whole gate, and it is what CI runs. It needs no browser, no
+credential and no application.
+
+`npx playwright test` also drives the browser projects against the selected
+target — which, on a fresh clone, is the `example-app` template pointed at a
+host reserved so it can never resolve. **It is meant to fail there**, and it
+fails with a DNS error rather than something clearer. Attach a real
+application first; `npm run target:doctor` says the same thing before you get
+that far.
 
 `main` is the template: the framework, its guardrails, and one clearly-labelled
 scaffold at `src/targets/example-app/` with a deliberately unusable host and no

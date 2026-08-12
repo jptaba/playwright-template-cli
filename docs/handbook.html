@@ -962,10 +962,10 @@
       <pre><code>npm install
 npx playwright install chromium
 
-npm run verify          # lint + types + generated-file checks + 250 framework tests
-npx playwright test     # the framework's own suite; no application attached yet</code></pre>
+npm run verify          # lint + types + generated-file checks + 250 framework tests</code></pre>
 
-      <p>If both are green you have a working framework, its guardrails, and every integration adapter exercised against in-process fakes. No credential, no network beyond the npm registry, and no Docker.</p>
+      <p>If that is green you have a working framework, its guardrails, and every integration adapter exercised against in-process fakes. No credential, no network beyond the npm registry, and no Docker.</p>
+      <p><code>npx playwright test</code> is a different command: it also drives the browser projects against whichever target is selected. On a fresh clone that is the template, pointed at a host reserved so it can never resolve, so it fails with a DNS error — correctly, but not helpfully. Attach an application first, and run <code>npm run target:doctor</code>, which says so before a browser opens.</p>
       <p><b>There is no application attached yet.</b> <code>main</code> ships the framework plus one template pack, <code>src/targets/example-app/</code>, which has a deliberately unusable host and no specs — copy it, rename it, and replace its contents. <a href="#newapp">Section 09</a> is the four-step path; a worked implementation against a live public site lives on the <code>saucedemo/extensive-coverage</code> branch, and what it taught the framework is written up in <a href="learnings.md">docs/learnings.md</a>.</p>
 
       <h3>What each command actually does</h3>

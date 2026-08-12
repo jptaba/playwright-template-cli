@@ -332,6 +332,25 @@ something that belongs in framework code. Everything that decides *what gets
 checked* — the cumulative tag ladder, the waivers, the shaping of a result —
 is pure and tested without a browser; only the injection is not.
 
+**16 · A convenience alias was a hole in the guardrail.** `tsconfig.json`
+declared five `paths` aliases — `@targets/*`, `@fixtures/*`, `@support/*` and
+so on. Nothing in the repository used any of them. But `layer-boundaries`
+resolves an import by path, and its resolver only understood specifiers
+starting with `.`, so `import { l } from '@targets/app/locators/x'` inside a
+spec resolved to nothing, matched no layer, and passed the rule whose entire
+purpose is to forbid exactly that. It compiled cleanly too. The single most
+important boundary in the framework had an unused, undocumented bypass.
+
+*Fix:* the aliases are gone, which turns such an import into a type error, and
+the resolver now understands non-relative specifiers that point into this
+repository anyway — so the rule holds if anyone re-adds them. Both gates were
+checked against a real probe file rather than reasoned about.
+
+*General lesson:* a rule that works by matching paths is only as good as its
+path resolution. Every alternative spelling of an import — alias, repo-rooted,
+index import — is a way past it, and dead configuration is not harmless when
+it is dead configuration that disables a check.
+
 **E · A diagram is a test of the design.** Neither of the above was found by
 reading code. Both were found by drawing the boxes and having someone ask why
 one of them was there. Worth remembering the next time a diagram feels like
@@ -363,6 +382,7 @@ documentation overhead.
 | 14 · A capability less configurable than the rest | `--a11y-standard`, `A11Y_STANDARD`, open union | `main` |
 | F · CLI logic must be importable | `parseScaffoldArgs` in `src/support/` | `main` |
 | 15 · a11y capability with no engine | `@axe-core/playwright` + `a11y` fixture | `main` |
+| 16 · Path aliases bypassed `layer-boundaries` | aliases removed, resolver hardened | `main` |
 | E · A diagram tests the design | — | `main` |
 | D · Selection is not configuration | Unit-only when nothing is selected | `main` |
 
