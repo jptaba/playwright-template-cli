@@ -126,7 +126,18 @@ export function dashboardPage(token: string): string {
     background: var(--surface); border: 1px solid var(--rule); border-radius: 8px;
     padding: 1.4rem 1.5rem 1.6rem; margin-bottom: 1.1rem; box-shadow: var(--shadow);
   }
-  section[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+  /*
+     A locked step is still readable — the reader is meant to see what is
+     coming — but it is genuinely unreachable, not merely dimmed.
+
+     A "pointer-events: none" rule was the first attempt and it is not enough:
+     it stops a mouse and does nothing to a keyboard, so every field in a
+     supposedly disabled section was still in the tab order and still
+     focusable. The inert attribute is the one that actually means this, and it
+     takes the subtree out of the accessibility tree as well.
+  */
+  section[inert] { opacity: .62; }
+  section[inert] input, section[inert] select, section[inert] button { background: var(--bg); }
   .head { display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap; }
   .step {
     font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -151,6 +162,13 @@ export function dashboardPage(token: string): string {
     color: var(--accent-ink); background: var(--accent-soft);
     border-color: color-mix(in srgb, var(--accent) 30%, transparent);
   }
+  /*
+     A locked step says it is locked, and says nothing about what it will want.
+     Showing "needs your input" on a section that cannot be typed into is a
+     straight contradiction, and it was the first thing a reader noticed.
+  */
+  .badge.locked { color: var(--muted); background: var(--surface-2); border-color: var(--rule); }
+  .lockhint { color: var(--muted); font-size: .85rem; margin: .55rem 0 0; font-style: italic; }
 
   p.explain { color: var(--ink-2); font-size: .9rem; margin: .8rem 0 1.1rem; max-width: 68ch; }
   p.explain b { color: var(--ink); font-weight: 620; }
@@ -274,12 +292,13 @@ export function dashboardPage(token: string): string {
     <div class="status" id="s1status"></div>
   </section>
 
-  <section id="s2" aria-disabled="true">
+  <section id="s2" inert>
     <div class="head">
       <span class="step">Step 2</span>
       <h2>What it says about itself</h2>
-      <span class="badge auto">Filled in for you</span>
+      <span class="badge locked" data-ready="Filled in for you" data-kind="auto">Locked</span>
     </div>
+    <p class="lockhint">Unlocks once step 1 has read the application.</p>
     <p class="explain">
       <b>Nothing to do here unless something looks wrong.</b> These were read from the running
       application and are already in the fields below.
@@ -320,12 +339,13 @@ export function dashboardPage(token: string): string {
     </div>
   </section>
 
-  <section id="s3" aria-disabled="true">
+  <section id="s3" inert>
     <div class="head">
       <span class="step">Step 3</span>
       <h2>The shape of the pack</h2>
-      <span class="badge manual">Needs your input</span>
+      <span class="badge locked" data-ready="Needs your input" data-kind="manual">Locked</span>
     </div>
+    <p class="lockhint">Unlocks once step 1 has read the application.</p>
     <p class="explain">
       Sensible defaults are already set; change them only where they are wrong for this
       application. <b>Roles</b> are the identities the suite signs in as — each gets its own
@@ -357,12 +377,13 @@ export function dashboardPage(token: string): string {
     <button id="preview">Preview what will be written</button>
   </section>
 
-  <section id="s4" aria-disabled="true">
+  <section id="s4" inert>
     <div class="head">
       <span class="step">Step 4</span>
       <h2>Credentials</h2>
-      <span class="badge manual">Needs your input</span>
+      <span class="badge locked" data-ready="Needs your input" data-kind="manual">Locked</span>
     </div>
+    <p class="lockhint">Unlocks once step 3 has previewed what will be written.</p>
     <p class="explain">
       One login per role. Specs never see these — they resolve at run time through the
       <code>secrets</code> fixture, and the generated code carries the <i>reference</i>, never the
@@ -379,12 +400,13 @@ export function dashboardPage(token: string): string {
     <div class="status" id="verifyStatus"></div>
   </section>
 
-  <section id="s5" aria-disabled="true">
+  <section id="s5" inert>
     <div class="head">
       <span class="step">Step 5</span>
       <h2>Write it</h2>
-      <span class="badge auto">Done for you</span>
+      <span class="badge locked" data-ready="Done for you" data-kind="auto">Locked</span>
     </div>
+    <p class="lockhint">Unlocks once step 3 has previewed what will be written.</p>
     <p class="explain">
       <b>Nothing to fill in.</b> Press the button and the whole target is written from what is
       above. Nothing is ever overwritten — if any of these files already exist the whole thing is
@@ -414,7 +436,30 @@ async function post(path, body) {
   return data;
 }
 
-const enable = (id) => $(id).setAttribute('aria-disabled', 'false');
+/*
+   Unlocking a step does three things, and all three matter.
+
+   The inert attribute comes off, so the section is reachable by mouse *and*
+   keyboard — the first version used a pointer-events rule, which stops one and
+   not the other. The badge stops saying "Locked" and starts saying what the
+   step wants. And the line explaining what would unlock it is removed, because
+   by then it answers a question nobody is asking.
+
+   A locked section that already claims to need your input is a contradiction,
+   and it was the first thing a reader noticed about this page.
+*/
+function enable(id) {
+  const section = $(id);
+  if (!section.hasAttribute('inert')) return;
+  section.removeAttribute('inert');
+  const badge = section.querySelector('.badge');
+  if (badge && badge.dataset.ready) {
+    badge.textContent = badge.dataset.ready;
+    badge.className = 'badge ' + (badge.dataset.kind || 'manual');
+  }
+  const hint = section.querySelector('.lockhint');
+  if (hint) hint.remove();
+}
 const text = (value) => document.createTextNode(value);
 
 function el(tag, className, content) {
