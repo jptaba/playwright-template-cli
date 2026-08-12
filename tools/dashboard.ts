@@ -11,9 +11,12 @@ import {
   type CreateResult,
   type DashboardService,
 } from '../src/support/onboarding/dashboard';
-import { createRouter, html, json, type Route } from '../src/support/ui/router';
+import { createRouter, failure, html, json, type Route } from '../src/support/ui/router';
 import { renderPage } from '../src/support/ui/shell';
 import { runsPageContent } from '../src/support/ui/runs-page';
+import { casesPageContent } from '../src/support/ui/cases-page';
+import { collectCoverage } from '../src/support/cases/collect';
+import { CaseValidationError } from '../src/support/cases/store';
 import { pruneRuns, RunManager } from '../src/support/runs/manager';
 import { diagnose, type TargetFacts } from '../src/support/onboarding/diagnose';
 import { planOffboard, type OffboardPlan } from '../src/support/onboarding/offboard';
@@ -313,6 +316,7 @@ const runManager = new RunManager();
 /** Every page the dashboard serves. The navigation is built from this. */
 const PAGES = [
   { href: '/runs', label: 'Runs' },
+  { href: '/cases', label: 'Cases' },
   { href: '/onboard', label: 'Onboard' },
 ];
 
@@ -374,7 +378,39 @@ const runRoutes: Route[] = [
   },
 ];
 
-const handle = createRouter([...runRoutes, ...onboardingRoutes(service)], { token: TOKEN });
+const caseRoutes: Route[] = [
+  {
+    method: 'GET',
+    path: '/cases',
+    public: true,
+    handle: () =>
+      html(renderPage(casesPageContent(), { token: TOKEN, pages: PAGES, current: '/cases' })),
+  },
+  {
+    method: 'POST',
+    path: '/api/cases',
+    handle: async (request) => {
+      const body = (request.body ?? {}) as Record<string, unknown>;
+      const target = String(body.target ?? '').trim();
+      try {
+        return json(200, await collectCoverage(target || undefined));
+      } catch (error) {
+        /*
+           A case file that does not parse is this page's commonest failure and
+           it is the operator's to fix, not a fault in the server. The loader's
+           message names the file and every field that is wrong, so it is worth
+           passing through as a 400 rather than becoming a 500 nobody reads.
+        */
+        if (error instanceof CaseValidationError) return failure(400, error.message);
+        throw error;
+      }
+    },
+  },
+];
+
+const handle = createRouter([...runRoutes, ...caseRoutes, ...onboardingRoutes(service)], {
+  token: TOKEN,
+});
 
 /**
  * The live stream, handled by the server rather than the router.
