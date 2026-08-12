@@ -201,10 +201,17 @@ export default defineConfig<FrameworkOptions>({
     ['list'],
     // Straight onto the merge request widget. One line, best feedback surface
     // available (§16).
-    ['junit', { outputFile: 'results/junit.xml' }],
+    // Same reason as RUN_RESULT_PATH: concurrent runs must not share a file.
+    ['junit', { outputFile: process.env.JUNIT_PATH ?? 'results/junit.xml' }],
     // The canonical, versioned model every downstream consumer reads. Nothing
     // else re-derives facts from raw Playwright output (§18).
     ['./src/support/reporters/run-result-reporter.ts'],
+    /*
+       Narrates the run while it happens, for the local dashboard. Does nothing
+       whatsoever unless LIVE_EVENTS_PATH is set, so a command-line run and
+       every run in CI pay one environment check for it.
+    */
+    ['./src/support/reporters/live-events-reporter.ts'],
     ...(isCI ? ([['blob']] as const) : []),
   ] as NonNullable<Parameters<typeof defineConfig>[0]['reporter']>,
 
