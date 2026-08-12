@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { REPO_ROOT } from '../src/support/paths';
+import { CASES_DIR, REPO_ROOT, STORIES_DIR } from '../src/support/paths';
 import { dashboardPage } from '../src/support/onboarding/dashboard-page';
 import {
   onboardingRoutes,
@@ -15,8 +15,17 @@ import { createRouter, failure, html, json, type Route } from '../src/support/ui
 import { renderPage } from '../src/support/ui/shell';
 import { runsPageContent } from '../src/support/ui/runs-page';
 import { casesPageContent } from '../src/support/ui/cases-page';
+import { storiesPageContent } from '../src/support/ui/stories-page';
 import { collectCoverage } from '../src/support/cases/collect';
-import { CaseValidationError } from '../src/support/cases/store';
+import { CaseValidationError, loadCases, saveCase } from '../src/support/cases/store';
+import { authoringRoutes, type AuthoringService } from '../src/support/cases/authoring';
+import type { CaseAuthorModel, NormalisedStory } from '../src/support/cases/author';
+import type {
+  AnthropicCaseAuthor as CaseAuthorClass,
+  AuthoringUsage,
+} from '../src/integrations/llm/case-author-model';
+import { credentialFromEnv } from '../src/support/env-credentials';
+import { JiraClient } from '../src/integrations/jira/client';
 import { pruneRuns, RunManager } from '../src/support/runs/manager';
 import { diagnose, type TargetFacts } from '../src/support/onboarding/diagnose';
 import { planOffboard, type OffboardPlan } from '../src/support/onboarding/offboard';
@@ -316,6 +325,7 @@ const runManager = new RunManager();
 /** Every page the dashboard serves. The navigation is built from this. */
 const PAGES = [
   { href: '/runs', label: 'Runs' },
+  { href: '/stories', label: 'Stories' },
   { href: '/cases', label: 'Cases' },
   { href: '/onboard', label: 'Onboard' },
 ];
@@ -378,6 +388,132 @@ const runRoutes: Route[] = [
   },
 ];
 
+/**
+ * Track A's I/O, and nothing else — every rule it obeys is in
+ * `src/support/cases/authoring.ts`, tested against the same fake Jira server
+ * the client's own tests use.
+ */
+let lastAuthor: { usage: AuthoringUsage } | null = null;
+
+const authoring: AuthoringService = {
+  storedStories: () => {
+    if (!fs.existsSync(STORIES_DIR)) return [];
+    return fs
+      .readdirSync(STORIES_DIR)
+      .filter((name) => name.endsWith('.json'))
+      .sort()
+      .map((name) => {
+        const file = path.join(STORIES_DIR, name);
+        try {
+          return JSON.parse(fs.readFileSync(file, 'utf8')) as NormalisedStory;
+        } catch (error) {
+          // Named rather than skipped: a story file that will not parse is a
+          // story that silently stops being offered, and the person looking
+          // for it has no way to find out why.
+          throw new Error(
+            `${path.relative(REPO_ROOT, file)} is not readable JSON: ` +
+              `${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      });
+  },
+
+  jira: () => {
+    const baseURL = process.env.JIRA_BASE_URL;
+    // Read through the helper that registers it for redaction, so checking
+    // whether a credential exists cannot itself leak one.
+    const token = credentialFromEnv('JIRA_PAT');
+    if (baseURL && token) return { configured: true };
+    return {
+      configured: false,
+      reason:
+        `Reading a story from Jira needs ${!baseURL ? 'JIRA_BASE_URL' : ''}` +
+        `${!baseURL && !token ? ' and ' : ''}${!token ? 'JIRA_PAT' : ''}. ` +
+        'Stories already in stories/ can be drafted from without either.',
+    };
+  },
+
+  fetchIssue: async (key) => {
+    const client = JiraClient.fromEnvironment();
+    try {
+      return await client.getIssue(key);
+    } finally {
+      await client.dispose();
+    }
+  },
+
+  saveStory: (story) => {
+    fs.mkdirSync(STORIES_DIR, { recursive: true });
+    const file = path.join(STORIES_DIR, `${story.key}.json`);
+    fs.writeFileSync(file, `${JSON.stringify(story, null, 2)}\n`, 'utf8');
+    return path.relative(REPO_ROOT, file).split(path.sep).join('/');
+  },
+
+  targets: existingTargets,
+
+  /*
+     Built per draft, not once: the usage this reports is what that draft cost,
+     and a model reused across drafts would report a total that grows while
+     looking like a single answer.
+
+     Loaded here rather than at the top of the file because requiring the
+     Anthropic SDK costs 2.8 seconds — measured — and a dashboard opened to
+     watch a run should not wait for a client it may never use.
+  */
+  model: async (): Promise<CaseAuthorModel> => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { AnthropicCaseAuthor } = require('../src/integrations/llm/case-author-model') as {
+      AnthropicCaseAuthor: typeof CaseAuthorClass;
+    };
+    try {
+      const author = new AnthropicCaseAuthor();
+      lastAuthor = author;
+      return author;
+    } catch (error) {
+      lastAuthor = null;
+      throw new Error(
+        'The case author could not be created: ' +
+          `${error instanceof Error ? error.message : String(error)}. ` +
+          'It needs an Anthropic credential in the environment — ANTHROPIC_API_KEY. ' +
+          'Nothing was drafted and nothing was written.',
+      );
+    }
+  },
+
+  usage: () => (lastAuthor ? { ...lastAuthor.usage } : null),
+
+  writeCase: (testCase, slug) => {
+    const full = path.join(CASES_DIR, testCase.target, `${slug}.yaml`);
+    const replaced = fs.existsSync(full);
+    const written = saveCase(testCase, slug);
+    return {
+      file: path.relative(REPO_ROOT, written).split(path.sep).join('/'),
+      replaced,
+      yaml: fs.readFileSync(written, 'utf8'),
+    };
+  },
+
+  casesFor: (storyKey) =>
+    loadCases()
+      .filter((stored) => stored.case.source.key === storyKey)
+      .map((stored) => ({
+        file: path.relative(REPO_ROOT, stored.file).split(path.sep).join('/'),
+        title: stored.case.title,
+        speculative: stored.case.speculative === true,
+      })),
+};
+
+const storyRoutes: Route[] = [
+  {
+    method: 'GET',
+    path: '/stories',
+    public: true,
+    handle: () =>
+      html(renderPage(storiesPageContent(), { token: TOKEN, pages: PAGES, current: '/stories' })),
+  },
+  ...authoringRoutes(authoring),
+];
+
 const caseRoutes: Route[] = [
   {
     method: 'GET',
@@ -408,9 +544,10 @@ const caseRoutes: Route[] = [
   },
 ];
 
-const handle = createRouter([...runRoutes, ...caseRoutes, ...onboardingRoutes(service)], {
-  token: TOKEN,
-});
+const handle = createRouter(
+  [...runRoutes, ...storyRoutes, ...caseRoutes, ...onboardingRoutes(service)],
+  { token: TOKEN },
+);
 
 /**
  * The live stream, handled by the server rather than the router.

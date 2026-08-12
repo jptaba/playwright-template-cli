@@ -1,0 +1,281 @@
+import { authorCases, criterionId, normaliseStory, type CaseAuthorModel, type CoverageMatrix, type NormalisedStory } from './author';
+import { gateCase, type GateFinding } from './gate';
+import { slugify } from './store';
+import type { CasePriority, CaseType, TestCase } from './schema';
+import { failure, json, type Route, type UiRequest, type UiResponse } from '../ui/router';
+
+/**
+ * Track A with a face on it — §09, §08 phase 4.
+ *
+ * A story becomes drafted cases, and stops there. The conventions put a person
+ * between authoring and publication on purpose: git is the staging area,
+ * PractiTest is publication, and the review that matters is a diff. A button
+ * that went from story to merged spec would be the exact loop those
+ * conventions exist to prevent.
+ *
+ * So this writes files into `cases/` and nothing else. It commits nothing, it
+ * publishes nothing, and it touches no path outside that directory.
+ *
+ * Every rule lives here, over an injected service, so it can be tested without
+ * a socket, a network or a credential — including against the fake Jira server
+ * the client's own tests already use.
+ */
+
+/** Everything the outside world has to do for the authoring page. */
+export interface AuthoringService {
+  /** Stories already pulled and sitting in `stories/`. */
+  storedStories(): NormalisedStory[];
+  /** Whether a Jira client can be built, and if not, what is missing. */
+  jira(): { configured: boolean; reason?: string };
+  /** One issue, as the client normalises it. */
+  fetchIssue(key: string): Promise<{
+    key: string;
+    summary: string;
+    description: string;
+    acceptanceCriteria: string[];
+  }>;
+  /** Persist a pulled story. Returns its repo-relative path. */
+  saveStory(story: NormalisedStory): string;
+  /** The applications a case may be drafted against. */
+  targets(): string[];
+  /** The case author. Built on demand: no credential is needed to open the page. */
+  model(): Promise<CaseAuthorModel>;
+  /** What the last `model()` spent, when the model reports it. */
+  usage(): AuthoringUsageView | null;
+  /** Write one case. Says whether it replaced a file, and returns what it wrote. */
+  writeCase(testCase: TestCase, slug: string): { file: string; replaced: boolean; yaml: string };
+  /** Cases already in `cases/` that came from this story. */
+  casesFor(storyKey: string): Array<{ file: string; title: string; speculative: boolean }>;
+}
+
+export interface AuthoringUsageView {
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCost: number | null;
+}
+
+export interface StoryView {
+  key: string;
+  summary: string;
+  description: string;
+  criteria: Array<{ id: string; text: string }>;
+  contentHash: string;
+  /** Cases already drafted from it, so a second run is a choice rather than a surprise. */
+  drafted: Array<{ file: string; title: string; speculative: boolean }>;
+}
+
+export interface DraftedCaseView {
+  title: string;
+  /**
+   * `written` reached `cases/`. `quarantined` cited nothing or misquoted, and
+   * was written to a speculative file. `rejected` failed the quality gate and
+   * was **not** written — shown in full because it is otherwise lost.
+   */
+  status: 'written' | 'quarantined' | 'rejected';
+  coversAC: string[];
+  acQuoted: string;
+  priority: CasePriority;
+  type: CaseType;
+  /**
+   * Absent on a quarantined case: it never reached the gate, and reporting a
+   * score it was never given would be an invented number on a page whose whole
+   * subject is invented content.
+   */
+  gate?: { passed: boolean; score: number; findings: GateFinding[] };
+  /** Why it was quarantined. */
+  reason?: string;
+  file?: string;
+  /** True when the file was already there — then the git diff is a real diff. */
+  replaced?: boolean;
+  /** Exactly what was written, for the review. */
+  yaml?: string;
+}
+
+export interface DraftReview {
+  story: string;
+  target: string;
+  model: string;
+  cases: DraftedCaseView[];
+  coverage: CoverageMatrix;
+  counts: {
+    drafted: number;
+    written: number;
+    replaced: number;
+    quarantined: number;
+    rejected: number;
+  };
+  usage: AuthoringUsageView | null;
+}
+
+/**
+ * `ABC-123`. Checked because it is interpolated into a request path, and
+ * because a typo should say so rather than return somebody else's 404.
+ */
+const ISSUE_KEY = /^[A-Za-z][A-Za-z0-9_]*-\d+$/;
+
+/** The wording `story:pull` uses, because it is the same refusal (§09). */
+export const NO_CRITERIA_REASON =
+  'has no identifiable acceptance criteria, so it is rejected at extraction rather than ' +
+  'guessed at. Set JIRA_AC_FIELD to the custom field that holds them, or add an ' +
+  '"Acceptance Criteria" heading to the description — Track A may simply not apply to older ' +
+  'stories.';
+
+function storyView(story: NormalisedStory, service: AuthoringService): StoryView {
+  return {
+    key: story.key,
+    summary: story.summary,
+    description: story.description,
+    criteria: story.acceptanceCriteria.map((text, index) => ({ id: criterionId(index), text })),
+    contentHash: story.contentHash,
+    drafted: service.casesFor(story.key),
+  };
+}
+
+export function authoringRoutes(service: AuthoringService): Route[] {
+  const paths = ['/api/stories', '/api/stories/pull', '/api/stories/draft'];
+  return paths.map<Route>((path) => ({
+    method: 'POST',
+    path,
+    handle: (request) => authoringApi(request, service),
+  }));
+}
+
+async function authoringApi(request: UiRequest, service: AuthoringService): Promise<UiResponse> {
+  const body = (request.body ?? {}) as Record<string, unknown>;
+
+  switch (request.path) {
+    case '/api/stories':
+      return json(200, {
+        stories: service.storedStories().map((story) => storyView(story, service)),
+        jira: service.jira(),
+        targets: service.targets(),
+      });
+
+    case '/api/stories/pull':
+      return pull(String(body.key ?? '').trim(), service);
+
+    case '/api/stories/draft':
+      return draft(String(body.key ?? '').trim(), String(body.target ?? '').trim(), service);
+
+    default:
+      return failure(404, `No route for ${request.path}.`);
+  }
+}
+
+async function pull(key: string, service: AuthoringService): Promise<UiResponse> {
+  if (!ISSUE_KEY.test(key)) {
+    return failure(400, `'${key}' is not an issue key. They look like FIN-2210.`);
+  }
+
+  const status = service.jira();
+  if (!status.configured) {
+    return failure(400, status.reason ?? 'Jira is not configured.');
+  }
+
+  const issue = await service.fetchIssue(key);
+
+  /*
+     The one refusal that matters in this whole flow. Drafting cases from a
+     title and a paragraph of context is precisely how a model invents a
+     requirement, and an invented requirement that reaches PractiTest stops
+     looking like a guess and starts looking like a specification (§22).
+  */
+  if (issue.acceptanceCriteria.length === 0) {
+    return failure(400, `${key} ${NO_CRITERIA_REASON}`);
+  }
+
+  const story = normaliseStory({
+    key: issue.key,
+    summary: issue.summary,
+    description: issue.description,
+    acceptanceCriteria: issue.acceptanceCriteria,
+  });
+
+  return json(200, { story: storyView(story, service), file: service.saveStory(story) });
+}
+
+async function draft(
+  key: string,
+  target: string,
+  service: AuthoringService,
+): Promise<UiResponse> {
+  const story = service.storedStories().find((candidate) => candidate.key === key);
+  if (!story) return failure(400, `No story ${key} on disk. Read it from Jira first.`);
+
+  // The target names a directory under `cases/`. Anything not already a known
+  // application is refused rather than created.
+  if (!service.targets().includes(target)) {
+    return failure(400, `'${target}' is not an application in this repository.`);
+  }
+
+  const model = await service.model();
+  const result = await authorCases(story, model, target);
+
+  const cases: DraftedCaseView[] = [];
+  let written = 0;
+  let replaced = 0;
+
+  for (const testCase of result.accepted) {
+    const gate = gateCase(testCase);
+    const view: DraftedCaseView = {
+      title: testCase.title,
+      status: gate.passed ? 'written' : 'rejected',
+      coversAC: testCase.coversAC,
+      acQuoted: testCase.acQuoted,
+      priority: testCase.priority,
+      type: testCase.type,
+      gate: { passed: gate.passed, score: gate.score, findings: gate.findings },
+    };
+
+    /*
+       A case that fails the gate is not written, exactly as `cases:author`
+       does. "'Automatically create scripts just by looking at test cases'
+       holds only for cases that are actually specific" — so it is shown here
+       in full, with the findings, because otherwise it is simply lost (§10).
+    */
+    if (gate.passed) {
+      const saved = service.writeCase(testCase, `${story.key}-${slugify(testCase.title)}`);
+      view.file = saved.file;
+      view.replaced = saved.replaced;
+      view.yaml = saved.yaml;
+      written += 1;
+      if (saved.replaced) replaced += 1;
+    }
+
+    cases.push(view);
+  }
+
+  for (const { case: testCase, reason } of result.speculative) {
+    const saved = service.writeCase(
+      testCase,
+      `speculative-${story.key}-${slugify(testCase.title)}`,
+    );
+    if (saved.replaced) replaced += 1;
+    cases.push({
+      title: testCase.title,
+      status: 'quarantined',
+      coversAC: testCase.coversAC,
+      acQuoted: testCase.acQuoted,
+      priority: testCase.priority,
+      type: testCase.type,
+      reason,
+      ...saved,
+    });
+  }
+
+  return json(200, {
+    story: story.key,
+    target,
+    model: model.identity,
+    cases,
+    coverage: result.coverage,
+    counts: {
+      drafted: result.accepted.length + result.speculative.length,
+      written,
+      replaced,
+      quarantined: result.speculative.length,
+      rejected: result.accepted.length - written,
+    },
+    usage: service.usage(),
+  } satisfies DraftReview);
+}
