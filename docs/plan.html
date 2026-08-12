@@ -156,21 +156,147 @@
   .fact dd { margin: 0; font-size: .95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 
   /* ---------- nav ---------- */
+  /*
+     A sticky panel that carries its own scroll.
+     `position: sticky` alone was not enough: the contents list is taller than a
+     laptop viewport, and a sticky element taller than the screen hides its own
+     tail — you can never reach the last few entries. So the panel is pinned to
+     the full viewport height and the *list* scrolls inside it, which also keeps
+     the filter pinned at the top and the theme control at the bottom.
+  */
   nav.toc {
     position: sticky;
-    top: 2rem;
+    top: 0;
+    align-self: start;
+    max-height: 100vh;
+    max-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    gap: .85rem;
+    padding: 2rem 0 1.25rem;
     font-size: .875rem;
     line-height: 1.45;
   }
 
-  nav.toc p {
+  .toc-head, .toc-foot { flex: none; }
+
+  .toc-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: .4rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule-strong) transparent;
+  }
+  .toc-list::-webkit-scrollbar { width: 6px; }
+  .toc-list::-webkit-scrollbar-track { background: transparent; }
+  .toc-list::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 3px; }
+
+  nav.toc .toc-label {
     font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
     font-size: .68rem;
     letter-spacing: .12em;
     text-transform: uppercase;
     color: var(--muted);
-    margin: 0 0 .85rem;
+    margin: 0 0 .6rem;
   }
+
+  /* ---------- filter ---------- */
+  .toc-search { position: relative; display: block; }
+
+  .toc-search input {
+    width: 100%;
+    font: inherit;
+    font-size: .82rem;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: .3rem;
+    padding: .34rem .5rem .34rem 1.75rem;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .toc-search input::placeholder { color: var(--muted); }
+  .toc-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+  .toc-search input:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  /* Drawn rather than fetched — the page loads no external asset of any kind. */
+  .toc-search::before {
+    content: "";
+    position: absolute;
+    left: .55rem;
+    top: 50%;
+    width: .56rem;
+    height: .56rem;
+    margin-top: -.42rem;
+    border: 1.5px solid var(--muted);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .toc-search::after {
+    content: "";
+    position: absolute;
+    left: 1.04rem;
+    top: 50%;
+    width: .3rem;
+    height: 1.5px;
+    margin-top: .1rem;
+    background: var(--muted);
+    transform: rotate(45deg);
+    transform-origin: left center;
+    pointer-events: none;
+  }
+
+  nav.toc li[hidden] { display: none; }
+
+  nav.toc mark {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    border-radius: 2px;
+    padding: 0 .1em;
+  }
+
+  .toc-empty {
+    margin: .2rem 0 0;
+    color: var(--muted);
+    font-size: .8rem;
+  }
+
+  /* ---------- theme ---------- */
+  .theme {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--rule);
+    border-radius: .35rem;
+    background: var(--surface-2);
+  }
+  .theme button {
+    flex: 1 1 0;
+    font: inherit;
+    font-size: .72rem;
+    letter-spacing: .03em;
+    color: var(--muted);
+    background: none;
+    border: 0;
+    border-radius: .25rem;
+    padding: .26rem .1rem;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .theme button:hover { color: var(--ink-2); }
+  .theme button[aria-pressed="true"] {
+    background: var(--surface);
+    color: var(--accent-ink);
+    box-shadow: var(--shadow);
+  }
+  .theme button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   nav.toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
 
@@ -458,7 +584,11 @@
 
   @media (max-width: 62rem) {
     .shell { grid-template-columns: minmax(0, 1fr); gap: 0; }
-    nav.toc { position: static; margin-bottom: 1rem; border-bottom: 1px solid var(--rule); padding-bottom: 1.25rem; }
+    nav.toc { position: static; display: block; max-height: none; margin-bottom: 1rem; border-bottom: 1px solid var(--rule); padding: 0 0 1.25rem; }
+    .toc-list { overflow: visible; padding-right: 0; }
+    .toc-search { margin-bottom: .9rem; max-width: 22rem; }
+    .toc-foot { margin-top: .9rem; }
+    .theme { max-width: 16rem; }
     nav.toc ol { flex-direction: row; flex-wrap: wrap; gap: .35rem .9rem; }
     nav.toc a { border-left: none; padding-left: 0; border-bottom: 2px solid var(--rule); }
     main { max-width: none; }
@@ -468,6 +598,25 @@
     * { transition: none !important; animation: none !important; }
   }
 </style>
+
+<script>
+  /*
+     Restore the reader's theme choice before anything paints.
+     The stylesheet already understands three states: no `data-theme` means
+     "follow the system", which is the default and stays the default — a stored
+     value only exists once someone has chosen.
+  */
+  (function () {
+    try {
+      var stored = localStorage.getItem('theme');
+      if (stored === 'light' || stored === 'dark') {
+        document.documentElement.setAttribute('data-theme', stored);
+      }
+    } catch (error) {
+      /* Storage can be denied outright; the system preference still applies. */
+    }
+  })();
+</script>
 
 <div class="shell">
 
@@ -492,32 +641,50 @@
   </header>
 
   <nav class="toc" aria-label="Contents">
-    <p>Contents</p>
-    <ol>
-      <li><a href="#summary">Recommendation</a></li>
-      <li><a href="#legible">What AI-legible means</a></li>
-      <li><a href="#shape">Framework shape</a></li>
-      <li><a href="#target">Application under test</a></li>
-      <li><a href="#beyond">API, data &amp; contracts</a></li>
-      <li><a href="#layout">Repository layout</a></li>
-      <li><a href="#contract">The agent contract</a></li>
-      <li><a href="#topology">Agent tooling: CLI vs MCP</a></li>
-      <li><a href="#authoring">Story → test cases</a></li>
-      <li><a href="#pipeline">Case → script pipeline</a></li>
-      <li><a href="#vault">Vault</a></li>
-      <li><a href="#otp">MFA and OTP</a></li>
-      <li><a href="#identity">Identity &amp; sessions</a></li>
-      <li><a href="#practitest">PractiTest results</a></li>
-      <li><a href="#jira">Jira Data Center</a></li>
-      <li><a href="#ci">GitLab CI</a></li>
-      <li><a href="#network">Restricted network</a></li>
-      <li><a href="#report">The run report</a></li>
-      <li><a href="#email">Delivery by email</a></li>
-      <li><a href="#triage">Triage agent</a></li>
-      <li><a href="#phases">Delivery phases</a></li>
-      <li><a href="#critique">Self-critique</a></li>
-      <li><a href="#open">Decisions</a></li>
-    </ol>
+    <div class="toc-head">
+      <p class="toc-label">Contents</p>
+      <label class="toc-search">
+        <input type="search" id="toc-filter" placeholder="Filter sections"
+               aria-label="Filter contents" autocomplete="off" spellcheck="false">
+      </label>
+    </div>
+
+    <div class="toc-list">
+      <ol>
+        <li><a href="#summary">Recommendation</a></li>
+        <li><a href="#legible">What AI-legible means</a></li>
+        <li><a href="#shape">Framework shape</a></li>
+        <li><a href="#target">Application under test</a></li>
+        <li><a href="#beyond">API, data &amp; contracts</a></li>
+        <li><a href="#layout">Repository layout</a></li>
+        <li><a href="#contract">The agent contract</a></li>
+        <li><a href="#topology">Agent tooling: CLI vs MCP</a></li>
+        <li><a href="#authoring">Story → test cases</a></li>
+        <li><a href="#pipeline">Case → script pipeline</a></li>
+        <li><a href="#vault">Vault</a></li>
+        <li><a href="#otp">MFA and OTP</a></li>
+        <li><a href="#identity">Identity &amp; sessions</a></li>
+        <li><a href="#practitest">PractiTest results</a></li>
+        <li><a href="#jira">Jira Data Center</a></li>
+        <li><a href="#ci">GitLab CI</a></li>
+        <li><a href="#network">Restricted network</a></li>
+        <li><a href="#report">The run report</a></li>
+        <li><a href="#email">Delivery by email</a></li>
+        <li><a href="#triage">Triage agent</a></li>
+        <li><a href="#phases">Delivery phases</a></li>
+        <li><a href="#critique">Self-critique</a></li>
+        <li><a href="#open">Decisions</a></li>
+      </ol>
+      <p class="toc-empty" hidden>No section matches that.</p>
+    </div>
+
+    <div class="toc-foot">
+      <div class="theme" role="group" aria-label="Colour theme">
+        <button type="button" data-theme-choice="light">Light</button>
+        <button type="button" data-theme-choice="dark">Dark</button>
+        <button type="button" data-theme-choice="auto">Auto</button>
+      </div>
+    </div>
   </nav>
 
   <main>
@@ -2032,3 +2199,133 @@ JIRA_TLS      = NODE_EXTRA_CA_CERTS=&lt;internal root CA&gt;  # see section 17</
   </footer>
 
 </div>
+
+<script>
+  /*
+     Two small behaviours, no dependencies and no network:
+
+       1. Filtering the contents list. The list is long enough that scanning it
+          is slower than typing three letters, and the panel now scrolls
+          separately so the filter stays in view.
+       2. The theme control. It writes `data-theme` on the root element, which
+          is what the stylesheet already keys on, and remembers the choice.
+          "Auto" removes the attribute and hands the decision back to the
+          operating system rather than freezing today's appearance.
+  */
+  (function () {
+    var nav = document.querySelector('nav.toc');
+    if (!nav) return;
+
+    /* ---- filter ---- */
+    var input = nav.querySelector('#toc-filter');
+    var empty = nav.querySelector('.toc-empty');
+    var items = Array.prototype.slice.call(nav.querySelectorAll('.toc-list li'));
+
+    /* Captured once: rebuilding from the live DOM would nest the highlights. */
+    var entries = items.map(function (item) {
+      var link = item.querySelector('a');
+      return { item: item, link: link, text: link ? link.textContent : '' };
+    });
+
+    function render(entry, at, length) {
+      var link = entry.link;
+      if (!link) return;
+      while (link.firstChild) link.removeChild(link.firstChild);
+      if (at < 0) {
+        link.appendChild(document.createTextNode(entry.text));
+        return;
+      }
+      /* Built from text nodes, so a heading containing markup characters is
+         shown rather than interpreted. */
+      var mark = document.createElement('mark');
+      mark.appendChild(document.createTextNode(entry.text.slice(at, at + length)));
+      link.appendChild(document.createTextNode(entry.text.slice(0, at)));
+      link.appendChild(mark);
+      link.appendChild(document.createTextNode(entry.text.slice(at + length)));
+    }
+
+    function filter() {
+      var term = input.value.trim().toLowerCase();
+      var shown = 0;
+      entries.forEach(function (entry) {
+        var at = term ? entry.text.toLowerCase().indexOf(term) : -1;
+        var match = !term || at !== -1;
+        entry.item.hidden = !match;
+        if (match) shown++;
+        render(entry, term ? at : -1, term.length);
+      });
+      if (empty) empty.hidden = shown !== 0;
+    }
+
+    if (input) {
+      input.addEventListener('input', filter);
+      input.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          input.value = '';
+          filter();
+          input.blur();
+        }
+      });
+
+      /* `/` focuses the filter, unless something is already taking typing. */
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
+        var active = document.activeElement;
+        var tag = active && active.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (active && active.isContentEditable)) return;
+        event.preventDefault();
+        input.focus();
+        input.select();
+      });
+
+      /* Following a link with the list filtered should leave it as it was. */
+      nav.addEventListener('click', function (event) {
+        if (!event.target.closest('.toc-list a') || !input.value) return;
+        input.value = '';
+        filter();
+      });
+    }
+
+    /* ---- theme ---- */
+    var buttons = Array.prototype.slice.call(nav.querySelectorAll('[data-theme-choice]'));
+
+    function paint(choice) {
+      buttons.forEach(function (button) {
+        button.setAttribute(
+          'aria-pressed',
+          button.getAttribute('data-theme-choice') === choice ? 'true' : 'false',
+        );
+      });
+    }
+
+    function current() {
+      try {
+        var stored = localStorage.getItem('theme');
+        if (stored === 'light' || stored === 'dark') return stored;
+      } catch (error) {
+        /* Unreadable storage means the system preference is in charge. */
+      }
+      return 'auto';
+    }
+
+    buttons.forEach(function (button) {
+      button.addEventListener('click', function () {
+        var choice = button.getAttribute('data-theme-choice');
+        if (choice === 'auto') {
+          document.documentElement.removeAttribute('data-theme');
+        } else {
+          document.documentElement.setAttribute('data-theme', choice);
+        }
+        try {
+          if (choice === 'auto') localStorage.removeItem('theme');
+          else localStorage.setItem('theme', choice);
+        } catch (error) {
+          /* The choice still applies to this page; it just will not persist. */
+        }
+        paint(choice);
+      });
+    });
+
+    paint(current());
+  })();
+</script>
