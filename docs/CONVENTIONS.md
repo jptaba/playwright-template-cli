@@ -159,6 +159,33 @@ await test.step('click #submit-btn', ...)          // no
 - Never log a credential, never write one to disk, never copy one into a
   snapshot or an attachment.
 
+## What kind of test goes where
+
+This suite does **not** contain unit tests. A unit test reaches into the code
+under test; Playwright drives an application from the outside, and the two are
+different jobs done with different tools by different people. What lives here:
+
+| Kind | Where | Project | Asserts |
+|---|---|---|---|
+| Functional / end-to-end | `tests/e2e/` | `e2e`, `auth-flows` | A user journey through the UI |
+| Integration | `tests/e2e/`, `tests/api/` | `e2e`, `api` | A journey that spans UI, service and data — reported as `mixed` |
+| Contract | `tests/contract/` | `contract` | A running service against its published schema |
+| Accessibility | `tests/a11y/` | `a11y` | The application against the standard its profile declares |
+| Performance budget | `tests/e2e/`, tagged `@performance` | `e2e` | A journey the suite already drives finishes inside a stated ceiling |
+
+`tests/framework/` is a separate thing: **the framework testing itself** — the
+lint rules, the adapters against in-process fakes, the reporters, triage,
+onboarding. It runs in the `framework` project, needs no browser, no network
+and no target, and it is deliberately not called `unit`, because a project of
+that name sitting beside `e2e` reads as unit-testing the application, which is
+not what any of it does.
+
+Accessibility is a declared capability, not a tag, because "is this application
+held to WCAG 2.2 AA?" is a property of the application rather than of a spec —
+and an accessibility suite with no stated standard argues about every finding.
+Waivers live in the profile with a reason and a review date: a known exception
+should be a recorded decision, not a test somebody quietly deleted.
+
 ## API, contract and database work
 
 - Specs call typed clients. No raw `request.*`, no `fetch`, no inline SQL.
@@ -191,8 +218,8 @@ TARGET=<app> npx playwright test --project=setup:auth # prove sign-in works
 
 `target:new` writes `config/targets/<app>.ts` and the whole of
 `src/targets/<app>/` — locators, actions, fixtures and `tests/auth.setup.ts` —
-and stops. It never overwrites. Add `--with=api,db,contracts` for the optional
-layers; the api layer also needs `--api-url`.
+and stops. It never overwrites. Add `--with=api,db,contracts,a11y` for the
+optional layers; the api layer also needs `--api-url`.
 
 **There is no registration step.** Profiles are discovered from
 `config/targets/`, so a new file is selectable the moment it lands.
@@ -206,7 +233,7 @@ Then the work that cannot be generated:
    single source of dead-on-arrival tests.
 3. Name the real business verbs in `actions/`, and expose them from
    `fixtures.ts`.
-4. Specs in `tests/{e2e,api,contract}/`, then `npm run catalog:build`.
+4. Specs in `tests/{e2e,api,contract,a11y}/`, then `npm run catalog:build`.
 
 `target:doctor` is the preflight, and it is worth running after each of those.
 It checks the profile's claims against what is actually on disk and what the
@@ -221,7 +248,7 @@ application work, that is a framework bug: the thing you need is a capability,
 not a special case.
 
 With more than one application in the repository, `TARGET` selects. Unset, and
-with several to choose from, only the framework's own `unit` project is built —
+with several to choose from, only the framework's own `framework` project is built —
 alphabetical order does not get to decide which application gets tested.
 
 ## Never

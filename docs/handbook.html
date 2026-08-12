@@ -907,8 +907,8 @@
       <div class="fact"><dt>Runner</dt><dd>Playwright 1.62.1</dd></div>
       <div class="fact"><dt>Language</dt><dd>TypeScript, strict</dd></div>
       <div class="fact"><dt>Guardrails</dt><dd>10 lint rules</dd></div>
-      <div class="fact"><dt>Self-tests</dt><dd>227 unit</dd></div>
-      <div class="fact"><dt>Suite</dt><dd>227 passing</dd></div>
+      <div class="fact"><dt>Self-tests</dt><dd>230 framework</dd></div>
+      <div class="fact"><dt>Suite</dt><dd>230 passing</dd></div>
       <div class="fact"><dt>Target packs</dt><dd>example template</dd></div>
       <div class="fact"><dt>Agent tooling</dt><dd>playwright-cli</dd></div>
       <div class="fact"><dt>Status</dt><dd>Phases 0–7 built</dd></div>
@@ -961,7 +961,7 @@
       <pre><code>npm install
 npx playwright install chromium
 
-npm run verify          # lint + types + generated-file checks + 227 unit tests
+npm run verify          # lint + types + generated-file checks + 230 framework tests
 npx playwright test     # the framework's own suite; no application attached yet</code></pre>
 
       <p>If both are green you have a working framework, its guardrails, and every integration adapter exercised against in-process fakes. No credential, no network beyond the npm registry, and no Docker.</p>
@@ -1088,8 +1088,8 @@ npx playwright test     # the framework's own suite; no application attached yet
       <text class="d-title" x="585" y="215" text-anchor="middle">*.spec.ts</text>
       <text class="d-sub" x="585" y="232" text-anchor="middle">one case, one spec</text>
       <rect class="d-box d-gate" x="694" y="182" width="186" height="72" rx="7"/>
-      <text class="d-title" x="787" y="215" text-anchor="middle">lint · tsc · playwright</text>
-      <text class="d-sub" x="787" y="232" text-anchor="middle">structured errors</text>
+      <text class="d-title" x="787" y="215" text-anchor="middle">npm run verify</text>
+      <text class="d-sub" x="787" y="232" text-anchor="middle">lint · types · self-tests</text>
       <rect class="d-box" x="910" y="182" width="150" height="72" rx="7"/>
       <text class="d-title" x="985" y="215" text-anchor="middle">Merge request</text>
       <text class="d-sub" x="985" y="232" text-anchor="middle">reviewed, not typed</text>
@@ -1103,40 +1103,42 @@ npx playwright test     # the framework's own suite; no application attached yet
       <path class="d-edge d-edge-accent" d="M 751 110 V 146 H 401 V 182"/>
       <rect class="d-band" x="0" y="298" width="1180" height="202" rx="8"/>
       <text class="d-band-label" x="16" y="319">Execution</text>
-      <rect class="d-box d-accent" x="120" y="322" width="190" height="46" rx="7"/>
-      <text class="d-title" x="215" y="342" text-anchor="middle">config/targets/&lt;app&gt;.ts</text>
-      <text class="d-sub" x="215" y="359" text-anchor="middle">base URL · capabilities</text>
-      <rect class="d-box" x="120" y="384" width="190" height="46" rx="7"/>
-      <text class="d-title" x="215" y="404" text-anchor="middle">playwright.config.ts</text>
-      <text class="d-sub" x="215" y="421" text-anchor="middle">projects from capabilities</text>
-      <rect class="d-box" x="340" y="316" width="132" height="38" rx="7"/>
-      <text class="d-title" x="406" y="340" text-anchor="middle">setup:auth</text>
-      <rect class="d-box" x="340" y="362" width="132" height="38" rx="7"/>
-      <text class="d-title" x="406" y="386" text-anchor="middle">e2e</text>
-      <rect class="d-box" x="340" y="408" width="132" height="38" rx="7"/>
-      <text class="d-title" x="406" y="432" text-anchor="middle">auth-flows</text>
-      <rect class="d-box" x="492" y="316" width="122" height="38" rx="7"/>
-      <text class="d-title" x="553" y="340" text-anchor="middle">api</text>
-      <rect class="d-box" x="492" y="362" width="122" height="38" rx="7"/>
-      <text class="d-title" x="553" y="386" text-anchor="middle">contract</text>
-      <rect class="d-box" x="492" y="408" width="122" height="38" rx="7"/>
-      <text class="d-title" x="553" y="432" text-anchor="middle">unit</text>
-      <rect class="d-box d-ext" x="120" y="442" width="190" height="36" rx="7"/>
-      <text class="d-title" x="215" y="465" text-anchor="middle">Vault</text>
-      <rect class="d-box d-ext" x="680" y="348" width="180" height="64" rx="7"/>
-      <text class="d-title" x="770" y="377" text-anchor="middle">Application</text>
-      <text class="d-sub" x="770" y="394" text-anchor="middle">under test</text>
-      <path class="d-edge d-edge-accent" d="M 215 368 L 215 380"/>
-      <path class="d-edge" d="M 310 407 L 336 425"/>
-      <path class="d-edge" d="M 310 400 L 336 381"/>
-      <path class="d-edge" d="M 310 394 L 336 335"/>
-      <path class="d-edge" d="M 472 335 L 488 335"/>
-      <path class="d-edge" d="M 472 381 L 488 381"/>
-      <path class="d-edge" d="M 472 427 L 488 427"/>
-      <path class="d-edge" d="M 614 348 L 676 366"/>
-      <path class="d-edge d-dash" d="M 310 460 H 322 V 335 H 334"/>
-      <path class="d-edge d-edge-accent" d="M 985 254 V 288 H 215 V 322"/>
-      <text class="d-note" x="330" y="470">A capability declared off removes its project entirely; setup:auth signs in once per worker and every other project reuses that session.</text>
+      <rect class="d-box d-accent" x="120" y="316" width="190" height="46" rx="7"/>
+      <text class="d-title" x="215" y="336" text-anchor="middle">config/targets/&lt;app&gt;.ts</text>
+      <text class="d-sub" x="215" y="353" text-anchor="middle">base URL · capabilities</text>
+      <rect class="d-box" x="120" y="374" width="190" height="46" rx="7"/>
+      <text class="d-title" x="215" y="394" text-anchor="middle">playwright.config.ts</text>
+      <text class="d-sub" x="215" y="411" text-anchor="middle">projects from capabilities</text>
+      <rect class="d-box" x="340" y="316" width="128" height="36" rx="7"/>
+      <text class="d-title" x="404" y="339" text-anchor="middle">setup:auth</text>
+      <rect class="d-box" x="340" y="358" width="128" height="36" rx="7"/>
+      <text class="d-title" x="404" y="381" text-anchor="middle">e2e</text>
+      <rect class="d-box" x="340" y="400" width="128" height="36" rx="7"/>
+      <text class="d-title" x="404" y="423" text-anchor="middle">auth-flows</text>
+      <rect class="d-box" x="486" y="316" width="118" height="36" rx="7"/>
+      <text class="d-title" x="545" y="339" text-anchor="middle">api</text>
+      <rect class="d-box" x="486" y="358" width="118" height="36" rx="7"/>
+      <text class="d-title" x="545" y="381" text-anchor="middle">contract</text>
+      <rect class="d-box" x="486" y="400" width="118" height="36" rx="7"/>
+      <text class="d-title" x="545" y="423" text-anchor="middle">a11y</text>
+      <rect class="d-box d-ext" x="120" y="432" width="190" height="52" rx="7"/>
+      <text class="d-title" x="215" y="455" text-anchor="middle">HashiCorp Vault</text>
+      <text class="d-sub" x="215" y="472" text-anchor="middle">accounts · TOTP · db creds</text>
+      <rect class="d-box d-ext" x="672" y="340" width="186" height="64" rx="7"/>
+      <text class="d-title" x="765" y="369" text-anchor="middle">Application</text>
+      <text class="d-sub" x="765" y="386" text-anchor="middle">under test</text>
+      <path class="d-edge d-edge-accent" d="M 215 362 L 215 370"/>
+      <path class="d-edge" d="M 310 400 L 336 418"/>
+      <path class="d-edge" d="M 310 396 L 336 376"/>
+      <path class="d-edge" d="M 310 390 L 336 334"/>
+      <path class="d-edge" d="M 468 334 L 482 334"/>
+      <path class="d-edge" d="M 468 376 L 482 376"/>
+      <path class="d-edge" d="M 468 418 L 482 418"/>
+      <path class="d-edge" d="M 604 340 L 668 358"/>
+      <path class="d-edge d-dash" d="M 310 452 H 322 V 334 H 334"/>
+      <path class="d-edge d-edge-accent" d="M 985 254 V 285 H 215 V 316"/>
+      <text class="d-note" x="330" y="452">Vault issues the account for each worker, the TOTP code when MFA needs one, and short-lived read-only database credentials.</text>
+      <text class="d-note" x="330" y="472">A capability declared off removes its project entirely, so the report says "not applicable" rather than showing a silent zero.</text>
       <rect class="d-band" x="0" y="508" width="1180" height="132" rx="8"/>
       <text class="d-band-label" x="16" y="529">Results</text>
       <rect class="d-box d-accent" x="120" y="534" width="186" height="72" rx="7"/>
@@ -1202,7 +1204,8 @@ npx playwright test     # the framework's own suite; no application attached yet
         <li><b>The accented path is the spine.</b> A case becomes a spec, a spec becomes a run, a run becomes <code>run-result.json</code>. Each stage hands the next a file rather than a convention, which is what makes the joins testable.</li>
         <li><b>The dashed edges are feedback, not flow.</b> The gate returns structured errors to the agent; the session written by <code>setup:auth</code> is read back by every other project.</li>
         <li><b>Nothing crosses a stage boundary informally.</b> Generation cannot read a Jira ticket, only the yaml. Reporting cannot read Playwright's raw output, only <code>run-result.json</code>. That is what stops four renderings of the same run disagreeing about how many tests failed.</li>
-        <li><b>The dashed boxes are other people's systems</b> — the application under test and Vault. Everything else in the diagram is in this repository.</li>
+        <li><b>The dashed boxes are other people’s systems</b> — the application under test, and HashiCorp Vault, which issues the account each worker signs in with, the TOTP code when a target uses MFA, and the short-lived read-only database credentials. Everything else in the diagram is in this repository.</li>
+        <li><b>There is no unit-test box, deliberately.</b> Every project in the execution band — <code>e2e</code>, <code>auth-flows</code>, <code>api</code>, <code>contract</code>, <code>a11y</code> — drives the application from the outside. The framework’s own tests sit inside <code>npm run verify</code> in the generation band, because they gate this repository rather than saying anything about the product.</li>
       </ul>
     </section>
 
@@ -1225,7 +1228,7 @@ npx playwright test     # the framework's own suite; no application attached yet
         </div>
         <div class="layer">
           <span class="tag">L4</span>
-          <span class="what"><b>&lt;app&gt;/tests/{e2e,api,contract}/</b><span>Thin specs carrying their case ids as annotations. <b>Every assertion lives here.</b></span></span>
+          <span class="what"><b>&lt;app&gt;/tests/{e2e,api,contract,a11y}/</b><span>Thin specs carrying their case ids as annotations. <b>Every assertion lives here.</b></span></span>
         </div>
       </div>
 
@@ -1345,7 +1348,7 @@ test('TC-4907 · An approved claim posts to the ledger @smoke @expenses', {
 
     <section id="guardrails">
       <h2><span class="num">Section 06</span>Executable guardrails</h2>
-      <p class="lede">Ten custom ESLint rules in <code>eslint-rules/</code>, each with its own unit tests. These are the framework's real conventions; the markdown is a description of them.</p>
+      <p class="lede">Ten custom ESLint rules in <code>eslint-rules/</code>, each with its own tests. These are the framework's real conventions; the markdown is a description of them.</p>
 
       <div class="scroller">
         <table>
@@ -1409,7 +1412,7 @@ if (target.name === 'acme-shop') …          // no — fails the build</code></
 │  │  ├─ actions/  api/       db/          # L2
 │  │  ├─ fixtures.ts                       # L3, this target's verbs
 │  │  ├─ contracts/openapi.yaml            # vendored + pinned
-│  │  └─ tests/{e2e,api,contract}/         # L4
+│  │  └─ tests/{e2e,api,contract,a11y}/    # L4 — tests of the application
 │  ├─ integrations/            # vault · mail · otp · practitest · jira · http · llm · db
 │  └─ support/
 │     ├─ redact.ts  env-credentials.ts  paths.ts  poll.ts  rate-limiter.ts  money.ts
@@ -1424,7 +1427,7 @@ if (target.name === 'acme-shop') …          // no — fails the build</code></
 │
 ├─ tools/                       # 22 CLIs — the pipeline's and the agents' entry points
 ├─ tests/
-│  ├─ unit/                     # 227 tests, 16 files
+│  ├─ framework/                # 230 tests — this repo, not the app
 │  └─ support/                  # in-process fakes: vault, practitest, jira, inbox
 ├─ cases/&lt;app&gt;/*.yaml           # the intermediate case format, both tracks
 ├─ stories/*.json               # normalised Jira stories (Track A input)
@@ -1644,12 +1647,12 @@ TARGET=&lt;app&gt; npx playwright test --project=setup:auth # prove sign-in work
           </tbody>
         </table>
       </div>
-      <p>Each one names what is true and what to do about it; a check that cannot say what to do is a check that gets ignored. They are pure functions over a profile and a description of the filesystem, so all of them are unit-tested without a target on disk, a Vault, or a network.</p>
+      <p>Each one names what is true and what to do about it; a check that cannot say what to do is a check that gets ignored. They are pure functions over a profile and a description of the filesystem, so all of them are tested without a target on disk, a Vault, or a network.</p>
 
       <p class="exit"><b>Rule of thumb:</b> if you find yourself editing <code>src/fixtures/</code>, <code>src/integrations/</code>, <code>src/support/</code> or <code>tools/</code> to make a new application work, that is a framework bug. The thing you need is a capability, not a special case.</p>
 
       <h3>More than one application in the repository</h3>
-      <p><code>TARGET</code> selects. Unset, with several to choose from, the browser projects are not built at all and only the framework's own <code>unit</code> project runs — alphabetical order does not get to decide which application gets tested, and <code>npm run verify</code> keeps working the moment a second application is onboarded. Only <em>selection</em> degrades that way: a target that is selected and misconfigured throws, because a suite that quietly skipped itself and reported green is worse than one that failed to start.</p>
+      <p><code>TARGET</code> selects. Unset, with several to choose from, the browser projects are not built at all and only the framework's own <code>framework</code> project runs — alphabetical order does not get to decide which application gets tested, and <code>npm run verify</code> keeps working the moment a second application is onboarded. Only <em>selection</em> degrades that way: a target that is selected and misconfigured throws, because a suite that quietly skipped itself and reported green is worse than one that failed to start.</p>
 
       <h3>What a capability actually controls</h3>
       <div class="scroller">
@@ -1661,6 +1664,7 @@ TARGET=&lt;app&gt; npx playwright test --project=setup:auth # prove sign-in work
             <tr><td class="mono">api.enabled: false</td><td>The <code>api</code> project does not exist, the fixture refuses with a reason, and the report says "not applicable" rather than showing a silent zero.</td></tr>
             <tr><td class="mono">db.enabled: false</td><td>Every named query fails with the question you should answer first: which facts genuinely need a database assertion?</td></tr>
             <tr><td class="mono">contracts.enabled: false</td><td>No schema validation hook, no contract project.</td></tr>
+            <tr><td class="mono">a11y.enabled: false</td><td>No accessibility project. It carries the standard the application is held to, so turning it on is a statement about the product rather than a preference about testing.</td></tr>
           </tbody>
         </table>
       </div>
@@ -1867,7 +1871,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
         <table>
           <thead><tr><th>Stage</th><th>Runs on</th><th>Contents</th></tr></thead>
           <tbody>
-            <tr><td class="mono">verify</td><td>Every MR</td><td>lint, tsc, catalog, instruction sync, agent definitions, hashes, case gate, 227 unit tests</td></tr>
+            <tr><td class="mono">verify</td><td>Every MR</td><td>lint, tsc, catalog, instruction sync, agent definitions, hashes, case gate, 230 framework tests</td></tr>
             <tr><td class="mono">test:smoke</td><td>Every MR</td><td><code>@smoke</code> subset against the target under test, JUnit to the MR widget</td></tr>
             <tr><td class="mono">test:full</td><td>Nightly</td><td>Sharded via <code>parallel:matrix</code>, blob reports as artifacts</td></tr>
             <tr><td class="mono">merge</td><td>Nightly</td><td><code>merge-reports</code>, then <code>report:normalise</code> → one <code>run-result.json</code></td></tr>
@@ -1890,7 +1894,8 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
 
     <section id="selftest">
       <h2><span class="num">Section 17</span>How the framework tests itself</h2>
-      <p class="lede">227 unit tests across 16 files, in a <code>unit</code> project with no browser and no network. They are the reason any of the guarantees above can be stated as facts.</p>
+      <p class="lede">230 tests across 16 files, in a <code>framework</code> project with no browser, no network and no target. They are the reason any of the guarantees above can be stated as facts.</p>
+      <p><b>These are not unit tests of the application.</b> Nothing in this suite reaches into the code of the application under test — that is a different job, done with different tools, by the people who own that code. The project is called <code>framework</code> for exactly that reason: a project named <code>unit</code> sitting beside <code>e2e</code> and <code>api</code> reads as a claim nobody here is making.</p>
 
       <div class="scroller">
         <table>
@@ -1930,7 +1935,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
             <tr><td class="mono">npm run verify</td><td>Everything CI runs on a merge request</td></tr>
             <tr><td class="mono">npx playwright test</td><td>The whole suite</td></tr>
             <tr><td class="mono">npm run test:smoke</td><td>The <code>@smoke</code> subset</td></tr>
-            <tr><td class="mono">npm run test:unit</td><td>Framework self-tests only — no browser</td></tr>
+            <tr><td class="mono">npm run test:framework</td><td>The framework’s own tests only — no browser, no target</td></tr>
             <tr><td class="mono">npm run lint:fix</td><td>Lint with autofix</td></tr>
           </tbody>
         </table>
@@ -2071,7 +2076,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
         <table>
           <thead><tr><th>Symptom</th><th>Look at</th></tr></thead>
           <tbody>
-            <tr><td>A lint rule you disagree with</td><td><code>eslint-rules/&lt;rule&gt;.js</code> and its cases in <code>tests/unit/eslint-rules.spec.ts</code>. Rules are testable; change them with a test.</td></tr>
+            <tr><td>A lint rule you disagree with</td><td><code>eslint-rules/&lt;rule&gt;.js</code> and its cases in <code>tests/framework/eslint-rules.spec.ts</code>. Rules are testable; change them with a test.</td></tr>
             <tr><td>"No storage state for role …"</td><td>The <code>setup:auth</code> project failed, or the e2e project lost its <code>dependencies</code></td></tr>
             <tr><td>A credential does not resolve</td><td><code>npm run vault:check</code> — and on Vault, check the namespace and mount before the path</td></tr>
             <tr><td>Suspected TLS or proxy problem</td><td><code>NODE_EXTRA_CA_CERTS</code> and <code>HTTPS_PROXY</code>. Never <code>NODE_TLS_REJECT_UNAUTHORIZED=0</code> — it disables validation process-wide, including for the calls carrying your credentials.</td></tr>
@@ -2091,7 +2096,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
 
 <footer>
   <div class="footer-inner">
-    <p>Companion to <a href="plan.html">the architecture plan</a> and to <a href="CONVENTIONS.md">docs/CONVENTIONS.md</a>, which is the machine-readable source of the conventions described here. Where this document and a lint rule disagree, the lint rule is correct — that is the point of writing conventions as code. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, TypeScript 5.9, ESLint 9, and a suite of 227 passing tests.</p>
+    <p>Companion to <a href="plan.html">the architecture plan</a> and to <a href="CONVENTIONS.md">docs/CONVENTIONS.md</a>, which is the machine-readable source of the conventions described here. Where this document and a lint rule disagree, the lint rule is correct — that is the point of writing conventions as code. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, TypeScript 5.9, ESLint 9, and a suite of 230 passing tests.</p>
   </div>
 </footer>
 

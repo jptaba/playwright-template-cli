@@ -30,7 +30,7 @@ function coverageOf(run: RunResult): CoverageSummary | null {
     automatedCases: automated.size,
     executedCases: cases.filter((stored) => stored.case.id && executed.has(stored.case.id)).length,
     specsWithoutCase: run.tests.filter(
-      (test) => !test.caseId && !['unit', 'contract'].includes(test.project) && !test.project.startsWith('setup:'),
+      (test) => !test.caseId && !['framework', 'contract'].includes(test.project) && !test.project.startsWith('setup:'),
     ).length,
     criteriaTotal: cases.reduce((sum, stored) => sum + stored.case.coversAC.length, 0),
     criteriaCovered: cases

@@ -61,7 +61,7 @@ async function main(): Promise<number> {
       !record.caseId &&
       // Framework self-tests, contract checks and setup projects implement no
       // managed case by design (§07).
-      !['unit', 'contract'].includes(record.project) &&
+      !['framework', 'contract'].includes(record.project) &&
       !record.project.startsWith('setup:'),
   );
 

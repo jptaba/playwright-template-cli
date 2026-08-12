@@ -19,7 +19,7 @@ fix landed. New learnings go there.
 ```bash
 npm install
 npx playwright install chromium
-npm run verify        # lint + types + generated-file checks + 227 unit tests
+npm run verify        # lint + types + generated-file checks + 230 framework tests
 npx playwright test   # the framework's own suite; no application attached yet
 ```
 
@@ -96,7 +96,7 @@ TARGET=<app> npx playwright test --project=setup:auth # prove sign-in works
 `target:new` writes the profile and the whole pack — locators, actions,
 fixtures, `auth.setup.ts` — and never overwrites. There is no registration
 step: profiles are discovered from `config/targets/`, so a new file is
-selectable the moment it lands. `--with=api,db,contracts` adds the optional
+selectable the moment it lands. `--with=api,db,contracts,a11y` adds the optional
 layers.
 
 What it cannot generate is the part that matters: **every locator in the
@@ -125,7 +125,8 @@ src/targets/<app>/    L1 locators/endpoints/queries · L2 actions/api/db · L4 t
 src/integrations/     vault · mail · practitest · jira · http · llm · db
 src/support/          redaction, cases, contracts, onboarding, reporters, triage, heal
 tools/                the CLIs the pipeline and the agents call
-tests/unit/           the framework's own tests, incl. the lint rules
+tests/framework/      the framework's own tests, incl. the lint rules
+src/targets/<app>/tests/{e2e,api,contract,a11y}/   tests of the application
 cases/                the intermediate case format both authoring tracks produce
 docs/CONVENTIONS.md   single source of truth → CLAUDE.md, AGENTS.md, copilot
 docs/handbook.html    architecture · onboarding · how it works

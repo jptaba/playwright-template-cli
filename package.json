@@ -10,7 +10,7 @@
   },
   "scripts": {
     "test": "playwright test",
-    "test:unit": "playwright test --project=unit",
+    "test:framework": "playwright test --project=framework",
     "test:smoke": "playwright test --grep @smoke",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -41,7 +41,7 @@
     "publish:jira": "tsx tools/publish-jira.ts",
     "rotate:passwords": "tsx tools/rotate-passwords.ts",
     "heal": "tsx tools/heal.ts",
-    "verify": "npm run lint && npm run typecheck && npm run catalog:check && npm run instructions:check && npm run test:unit"
+    "verify": "npm run lint && npm run typecheck && npm run catalog:check && npm run instructions:check && npm run test:framework"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.116.0",

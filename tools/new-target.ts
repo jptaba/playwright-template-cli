@@ -31,7 +31,7 @@ Options:
   --test-id=<attribute>   attribute getByTestId reads (default: data-testid)
   --env=<name>            which deployment this profile points at (default: staging)
   --secrets=vault|local   where credentials resolve from (default: vault)
-  --with=api,db,contracts optional layers to scaffold as well
+  --with=api,db,contracts,a11y   optional layers to scaffold as well
   --api-url=<url>         service API base URL; required with --with=api
   --allow=a.com,b.com     host suffixes this target may drive (default: from --url)
   --dry-run               list what would be written, write nothing`;
@@ -57,7 +57,7 @@ function parse(argv: readonly string[]): Args {
       .filter(Boolean);
 
   const requested = csv('with');
-  const unknown = requested.filter((layer) => !['api', 'db', 'contracts'].includes(layer));
+  const unknown = requested.filter((layer) => !['api', 'db', 'contracts', 'a11y'].includes(layer));
   if (unknown.length > 0) {
     throw new ScaffoldError(`--with does not know about: ${unknown.join(', ')}.\n\n${USAGE}`);
   }
@@ -82,6 +82,7 @@ function parse(argv: readonly string[]): Args {
         api: requested.includes('api'),
         db: requested.includes('db'),
         contracts: requested.includes('contracts'),
+        a11y: requested.includes('a11y'),
       },
     },
   };

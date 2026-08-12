@@ -43,6 +43,27 @@ export interface ContractsCapability {
   spec: string | null;
 }
 
+/** Which accessibility standard this application has actually committed to. */
+export type A11yStandard = 'wcag2a' | 'wcag2aa' | 'wcag21aa' | 'wcag22aa';
+
+/**
+ * Accessibility testing (§05).
+ *
+ * A capability rather than a tag, because "is this application held to WCAG
+ * 2.2 AA?" is a property of the application and its contract with its users,
+ * not a property of a spec. Naming the standard matters: an accessibility
+ * suite with no stated standard is a suite that argues about every finding.
+ */
+export interface A11yCapability {
+  enabled: boolean;
+  standard: A11yStandard;
+  /**
+   * Rules the product owner has accepted and dated, so a known exception is a
+   * recorded decision rather than a test somebody quietly deleted.
+   */
+  waived?: { rule: string; reason: string; reviewBy: string }[];
+}
+
 /**
  * Capabilities are consulted, not assumed. A fixture for a disabled capability
  * skips the test with a stated reason rather than hanging until timeout, and
@@ -56,6 +77,7 @@ export interface TargetCapabilities {
   api: ApiCapability;
   db: DbCapability;
   contracts: ContractsCapability;
+  a11y: A11yCapability;
 }
 
 export interface CredentialRefs {

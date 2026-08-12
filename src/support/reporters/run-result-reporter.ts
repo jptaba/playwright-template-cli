@@ -174,9 +174,12 @@ function extractTags(title: string): string[] {
  * separately (§05).
  */
 function kindOf(project: string, file: string): TestKind {
-  if (project === 'unit') return 'unit';
+  // `framework` is this repository testing itself, and is reported apart from
+  // every kind that says something about the application under test.
+  if (project === 'framework') return 'framework';
   if (project === 'api') return 'api';
   if (project === 'contract') return 'contract';
+  if (project === 'a11y') return 'a11y';
   const source = safeRead(file);
   if (source && /\bapi\.|\bdb\./.test(source)) return 'mixed';
   return 'ui';

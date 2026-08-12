@@ -23,7 +23,7 @@ export type Status = 'passed' | 'failed' | 'timedOut' | 'skipped' | 'interrupted
  * but 60% green on mixed tests is telling you something a single number
  * hides." (§05)
  */
-export type TestKind = 'ui' | 'mixed' | 'api' | 'contract' | 'unit';
+export type TestKind = 'ui' | 'mixed' | 'api' | 'contract' | 'a11y' | 'framework';
 
 export interface StepRecord {
   /** The business-language title that becomes the report's narrative (§18). */
@@ -118,7 +118,8 @@ export function tally(records: TestRecord[]): KindTotals & { byKind: Record<Test
     mixed: emptyTotals(),
     api: emptyTotals(),
     contract: emptyTotals(),
-    unit: emptyTotals(),
+    a11y: emptyTotals(),
+    framework: emptyTotals(),
   };
   const overall = emptyTotals();
 

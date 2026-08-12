@@ -38,6 +38,7 @@ function profile(overrides: Partial<TargetProfile> = {}): TargetProfile {
       api: { enabled: false },
       db: { enabled: false },
       contracts: { enabled: false, spec: null },
+      a11y: { enabled: false, standard: 'wcag22aa' },
     },
     testIdAttribute: 'data-testid',
     hostAllowlist: ['internal.corp'],
@@ -172,6 +173,41 @@ test.describe('the onboarding preflight', () => {
       facts({ contractSpecExists: true }),
     );
     expect(codes(found)).toContain('contracts-ready-not-enabled');
+  });
+
+  test('accessibility specs that no capability turns on are reported as dead', () => {
+    // An accessibility project nobody enabled reports a silent zero, which
+    // reads exactly like a pass.
+    const found = diagnose(profile(), facts({ packFiles: [...HEALTHY_PACK, 'tests/a11y/nav.spec.ts'] }));
+    expect(codes(found)).toContain('a11y-specs-not-enabled');
+  });
+
+  test('an accessibility capability with no specs behind it is reported too', () => {
+    const found = diagnose(
+      profile({
+        capabilities: { ...profile().capabilities, a11y: { enabled: true, standard: 'wcag22aa' } },
+      }),
+      facts(),
+    );
+    expect(codes(found)).toContain('a11y-no-specs');
+  });
+
+  test('an accessibility waiver past its review date is surfaced, not forgotten', () => {
+    // A waiver nobody revisits is a defect with better paperwork.
+    const found = diagnose(
+      profile({
+        capabilities: {
+          ...profile().capabilities,
+          a11y: {
+            enabled: true,
+            standard: 'wcag22aa',
+            waived: [{ rule: 'color-contrast', reason: 'brand palette review', reviewBy: '2020-01-01' }],
+          },
+        },
+      }),
+      facts({ packFiles: [...HEALTHY_PACK, 'tests/a11y/nav.spec.ts'] }),
+    );
+    expect(codes(found)).toContain('a11y-waiver-expired');
   });
 
   test('enabling the database capability is an error while no driver exists', () => {

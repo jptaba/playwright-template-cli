@@ -32,17 +32,25 @@ const target = selection.target;
 
 const projects: Project<FrameworkOptions>[] = [
   {
-    // Framework self-tests: lint rules, adapters, reporters, triage. No
-    // browser, no network, no target. They are the executable half of the
-    // conventions in docs/CONVENTIONS.md.
-    name: 'unit',
-    testDir: 'tests/unit',
+    /*
+       The framework's own tests — lint rules, adapters, reporters, triage,
+       onboarding — against in-process fakes. No browser, no network, no
+       target.
+
+       Deliberately *not* called `unit`. Nothing here tests the application
+       under test, and a project of that name sitting beside `e2e` and `api`
+       reads as "we unit-test the app in Playwright", which is neither true
+       nor a thing this framework does. The application is tested through
+       e2e, api, contract, a11y and the mixed specs that span them.
+    */
+    name: 'framework',
+    testDir: 'tests/framework',
   },
 ];
 
 if (!target) {
   console.warn(
-    `\nNo application selected, so only the 'unit' project is available.\n${selection.reason}\n`,
+    `\nNo application selected, so only the 'framework' project is available.\n${selection.reason}\n`,
   );
 } else {
   const targetRoot = `src/targets/${target.name}`;
@@ -75,6 +83,13 @@ if (!target) {
       note: target.capabilities.db.enabled
         ? 'read-only database assertions enabled'
         : `not applicable for ${target.name}: database assertions off`,
+    },
+    {
+      capability: 'a11y',
+      enabled: target.capabilities.a11y.enabled,
+      note: target.capabilities.a11y.enabled
+        ? `accessibility checked against ${target.capabilities.a11y.standard}`
+        : `not applicable for ${target.name}: accessibility testing off`,
     },
     {
       capability: 'mfa',
@@ -147,6 +162,24 @@ if (!target) {
       name: 'contract',
       testDir: `${targetRoot}/tests/contract`,
       use: {},
+    });
+  }
+
+  /**
+   * Accessibility is its own project rather than a tag on `e2e`, for the same
+   * reason `api` is: it is a distinct kind of claim about the application, it
+   * is reported separately, and a target that has not committed to a standard
+   * should show "not applicable" rather than a silent zero.
+   *
+   * It runs signed in, because the interesting accessibility problems are
+   * almost never on the landing page.
+   */
+  if (target.capabilities.a11y.enabled) {
+    projects.push({
+      name: 'a11y',
+      testDir: `${targetRoot}/tests/a11y`,
+      dependencies: ['setup:auth'],
+      use: { ...devices['Desktop Chrome'], role: target.roles[0] ?? '' },
     });
   }
 }

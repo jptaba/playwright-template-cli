@@ -260,6 +260,45 @@ green is worse than one that failed to start.
 
 ---
 
+## What a reader of the diagram caught
+
+Drawing the framework turned out to be a review of it. Two things a hundred
+pages of prose had not surfaced:
+
+**12 · A project called `unit` was a claim nobody was making.** The
+framework's own tests — lint rules, the Vault adapter against an in-process
+fake, reporters, triage — ran in a Playwright project named `unit`, invoked by
+`npm run test:unit`, and reported as `kind: 'unit'` in the run model beside
+`ui`, `api` and `contract`. Nothing in it touches the application under test.
+But a reader seeing `unit` next to `e2e` in a project list reasonably concludes
+this suite unit-tests the product, which is a different job done with different
+tools by the people who own that code.
+
+*Fix:* the project, the directory, the script and the reported kind are all
+`framework` now. The name says what the tests are for, and the flow diagram
+puts them inside `npm run verify` — a gate on this repository — rather than
+beside the projects that drive the application.
+
+**13 · The taxonomy had a hole in it.** Functional, integration, contract and
+performance were all covered — as `e2e`, the mixed kind, `contract`, and
+`@performance` budgets. Accessibility was not covered anywhere, in any form.
+
+*Fix:* `a11y` is a capability, a project, a spec directory and a reported kind.
+A capability rather than a tag, because "is this application held to WCAG 2.2
+AA?" is a property of the application and its contract with its users, not a
+property of a spec — and the profile carries the standard, so an accessibility
+suite cannot exist without someone having said which bar it measures against.
+Waivers live beside it with a reason and a review date, and the doctor reports
+one whose date has passed: a waiver nobody revisits is a defect with better
+paperwork.
+
+**E · A diagram is a test of the design.** Neither of the above was found by
+reading code. Both were found by drawing the boxes and having someone ask why
+one of them was there. Worth remembering the next time a diagram feels like
+documentation overhead.
+
+---
+
 ## What landed where
 
 | Learning | Change | Lands on |
@@ -279,6 +318,9 @@ green is worse than one that failed to start.
 | 9 · Silent leasing fallback | `leasing-degrades-silently` warning | `main` |
 | 10 · Scaffold that fails its own check | `npm run target:new` guards | `main` |
 | 11 · Guard lost in its own wrapper | `resolveExploreUrl` origin check | `main` |
+| 12 · `unit` project misnamed | `framework` project, directory and kind | `main` |
+| 13 · No accessibility testing | `a11y` capability, project and kind | `main` |
+| E · A diagram tests the design | — | `main` |
 | D · Selection is not configuration | Unit-only when nothing is selected | `main` |
 
 Every framework fix above ships with a unit test that fails without it. That is

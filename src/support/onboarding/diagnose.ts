@@ -302,6 +302,33 @@ function checkCapabilities(
     );
   }
 
+  const { a11y } = profile.capabilities;
+  if (a11y.enabled && !hasUnder('tests/a11y')) {
+    warn(
+      'a11y-no-specs',
+      'capabilities.a11y is enabled but the pack has no tests/a11y/ directory.',
+      'Add accessibility specs there, or disable the capability. An empty accessibility ' +
+        'project reports as a silent zero, which reads like a pass.',
+    );
+  }
+  if (!a11y.enabled && hasUnder('tests/a11y')) {
+    warn(
+      'a11y-specs-not-enabled',
+      'The pack has tests/a11y/ specs but capabilities.a11y is disabled, so none of them run.',
+      'Set a11y.enabled to true and name the standard the application is held to.',
+    );
+  }
+  for (const waiver of a11y.waived ?? []) {
+    if (Date.parse(waiver.reviewBy) < Date.now()) {
+      warn(
+        'a11y-waiver-expired',
+        `The accessibility waiver for '${waiver.rule}' was due for review on ${waiver.reviewBy}.`,
+        'Re-agree it with the product owner and move the date, or remove the waiver and fix ' +
+          'the finding. A waiver nobody revisits is a defect with better paperwork.',
+      );
+    }
+  }
+
   if (db.enabled) {
     error(
       'db-no-driver',

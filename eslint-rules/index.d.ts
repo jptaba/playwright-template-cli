@@ -1,7 +1,7 @@
 import type { Rule } from 'eslint';
 
 /**
- * Types for the executable conventions, so `tests/unit/eslint-rules.spec.ts`
+ * Types for the executable conventions, so `tests/framework/eslint-rules.spec.ts`
  * type-checks like everything else. The rules themselves stay plain CommonJS:
  * ESLint loads them directly with no build step, which is one less thing
  * between a convention and the feedback it produces.

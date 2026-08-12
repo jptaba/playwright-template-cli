@@ -166,7 +166,7 @@ verify:
     # a share of a legacy suite on first run — that is the system working.
     - npm run cases:gate
     # The framework's own tests: lint rules, adapters, reporters, triage.
-    - npm run test:unit
+    - npm run test:framework
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

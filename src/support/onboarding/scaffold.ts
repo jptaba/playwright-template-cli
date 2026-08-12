@@ -29,7 +29,7 @@ export interface ScaffoldOptions {
   /** Base URL of the service API. Required when the api layer is included. */
   apiBaseURL?: string;
   /** Optional layers to scaffold. UI locators and actions are always written. */
-  include?: { api?: boolean; db?: boolean; contracts?: boolean };
+  include?: { api?: boolean; db?: boolean; contracts?: boolean; a11y?: boolean };
 }
 
 export interface ScaffoldFile {
@@ -102,7 +102,7 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
   const allowlist = options.hostAllowlist?.length
     ? options.hostAllowlist
     : defaultAllowlist(baseURL);
-  const include = { api: false, db: false, contracts: false, ...options.include };
+  const include = { api: false, db: false, contracts: false, a11y: false, ...options.include };
 
   // A profile that enables the API capability without a base URL is dead on
   // arrival: every spec taking `api` fails at construction. Refuse here, where
@@ -170,6 +170,9 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
       { path: `${root}/tests/contract/.gitkeep`, contents: '' },
     );
   }
+  if (include.a11y) {
+    files.push({ path: `${root}/tests/a11y/.gitkeep`, contents: '' });
+  }
 
   const credentialPaths = roles.map((role) => `${credentialRoot}/workforce/${role}/1`);
 
@@ -206,7 +209,7 @@ interface ProfileInput {
   allowlist: string[];
   roles: string[];
   credentialRoot: string;
-  include: { api: boolean; db: boolean; contracts: boolean };
+  include: { api: boolean; db: boolean; contracts: boolean; a11y: boolean };
   apiBaseURL: string | null;
 }
 
@@ -259,6 +262,8 @@ export const ${input.camel}: TargetProfile = {
     db: { enabled: false, vaultRole: 'qa-readonly', dialect: 'postgres' },
     // Off until the published document is vendored to the path below.
     contracts: { enabled: false, spec: ${contractsSpec} },
+    // Turn on once someone can say which standard this application is held to.
+    a11y: { enabled: ${input.include.a11y}, standard: 'wcag22aa' },
   },
 
   // Which attribute \`getByTestId\` reads. Applications disagree — data-test,
