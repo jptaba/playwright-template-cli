@@ -69,8 +69,49 @@ export interface ParsedArgs {
 
 const FLAG = /^--([a-z][a-z0-9]*(?:-[a-z0-9]+)*)(?:=(.*))?$/;
 
-export function parseScaffoldArgs(argv: readonly string[], usage = ''): ParsedArgs {
+/**
+ * Detect the case where the shell ate the arguments.
+ *
+ * `npm run <script> -- --flag=value` is how every command in the handbook is
+ * written, and under PowerShell on Windows npm's shim loses the `--` separator:
+ * npm claims the flags as its own config, exports them as `npm_config_*`, and
+ * hands the script an empty `argv`. The tool then reports "--name and --url are
+ * both required" to somebody looking at a command line containing both, which
+ * is the least useful message it could produce.
+ *
+ * Detected rather than worked around: silently recovering the values from the
+ * environment would hide a mangling that also affects every other script here.
+ */
+export function detectSwallowedArguments(
+  argv: readonly string[],
+  env: Record<string, string | undefined>,
+): string | null {
+  if (argv.length > 0) return null;
+  const swallowed = ['name', 'url', 'with', 'api-url', 'roles', 'test-id', 'secrets', 'env']
+    .filter((flag) => env[`npm_config_${flag.replace(/-/g, '_')}`] !== undefined);
+  if (swallowed.length === 0) return null;
+
+  return (
+    `No arguments reached this script, but npm is holding ${swallowed
+      .map((flag) => `--${flag}`)
+      .join(', ')} as its own configuration.\n\n` +
+    "That is npm's PowerShell shim losing the `--` separator: the flags never " +
+    'get past npm. Run the tool directly instead, which works in every shell:\n\n' +
+    '  npx tsx tools/new-target.ts --name=<app> --url=<base-url> [options]\n\n' +
+    'Or run the documented `npm run` form from bash / Git Bash.'
+  );
+}
+
+export function parseScaffoldArgs(
+  argv: readonly string[],
+  usage = '',
+  env: Record<string, string | undefined> = process.env,
+): ParsedArgs {
   const tail = usage ? `\n\n${usage}` : '';
+
+  const swallowed = detectSwallowedArguments(argv, env);
+  if (swallowed) throw new ScaffoldError(swallowed);
+
   const flags = new Map<string, string>();
   for (const argument of argv) {
     const match = FLAG.exec(argument);
@@ -442,6 +483,13 @@ export const signIn = {
     return signInLocators.signedInMarker(page).isVisible();
   },
 
+  /** Who the session belongs to, or null when signed out. */
+  async signedInAs(page: Page): Promise<string | null> {
+    const marker = signInLocators.signedInMarker(page);
+    if (!(await marker.isVisible())) return null;
+    return (await marker.textContent())?.trim() ?? null;
+  },
+
   /** The error the form reported, or null when it reported none. */
   async readError(page: Page): Promise<string | null> {
     const banner = signInLocators.error(page);
@@ -510,8 +558,16 @@ import { expect, test as setup } from '../../../fixtures/base';
  * triage report that tells you nothing.
  *
  * This project runs signed out, so it uses \`page\`, never \`authedPage\`.
+ *
+ * **Each role gets its own browser context.** Looping over the roles in one
+ * page means role two signs in while role one's session is still live. Some
+ * applications fail that outright; the dangerous ones render the form anyway
+ * and quietly ignore the submit, so the storage state written for \`admin\`
+ * holds the customer's session, every administrator test runs with customer
+ * rights, and the specs asserting a permission boundary pass for exactly the
+ * wrong reason.
  */
-setup('Establish a session for each role', async ({ page, target, secrets }) => {
+setup('Establish a session for each role', async ({ browser, target, secrets }) => {
   fs.mkdirSync(AUTH_DIR, { recursive: true });
 
   for (const role of target.roles) {
@@ -525,19 +581,46 @@ setup('Establish a session for each role', async ({ page, target, secrets }) => 
       );
     }
 
-    await signIn.withCredentials(page, { username, password });
+    const context = await browser.newContext({ baseURL: target.baseURL });
+    const page = await context.newPage();
+    try {
+      await signIn.withCredentials(page, { username, password });
 
-    // Fail here, loudly, rather than writing a storage state that carries no
-    // session and producing a hundred confusing failures downstream.
-    await expect
-      .poll(() => signIn.isSignedIn(page), {
-        message: \`Sign-in for role '\${role}' did not establish a session\`,
-      })
-      .toBe(true);
+      /*
+         Fail here, loudly, rather than writing a storage state that carries no
+         session and producing a hundred confusing failures downstream — and
+         say *what the form reported*, not merely that no session appeared.
 
-    const statePath = storageStatePath(role, target.name);
-    fs.mkdirSync(path.dirname(statePath), { recursive: true });
-    await page.context().storageState({ path: statePath });
+         "Sign-in did not establish a session" is true and useless. The run
+         that first produced it had locked the account, and the application was
+         saying so on screen; twenty-one specs failed across five features
+         before anyone opened the screenshot.
+      */
+      const established = await expect
+        .poll(() => signIn.isSignedIn(page), {
+          message: \`Sign-in for role '\${role}' did not establish a session\`,
+        })
+        .toBe(true)
+        .then(() => true)
+        .catch(async (error: unknown) => {
+          const reported = await signIn.readError(page);
+          throw new Error(
+            \`Sign-in for role '\${role}' did not establish a session.\` +
+              (reported
+                ? \`\\nThe application said: "\${reported}"\`
+                : '\\nThe form reported no error, so the credential was accepted but no session ' +
+                  'marker appeared — check the signed-in locator rather than the credential.') +
+              \`\\n\\n\${error instanceof Error ? error.message : String(error)}\`,
+          );
+        });
+      expect(established).toBe(true);
+
+      const statePath = storageStatePath(role, target.name);
+      fs.mkdirSync(path.dirname(statePath), { recursive: true });
+      await context.storageState({ path: statePath });
+    } finally {
+      await context.close();
+    }
   }
 });
 `;

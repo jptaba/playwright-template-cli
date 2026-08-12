@@ -110,6 +110,27 @@ export class ContractRegistry {
     return operations;
   }
 
+  /**
+   * The statuses the document lists for one operation.
+   *
+   * Exists because response-body validation only happens for a status the
+   * document has a schema for — so a service answering 201 where its document
+   * declares only 200 is never schema-checked at all, and the gap is invisible
+   * from inside `validate()`, which correctly reports no failures for a
+   * response it has no schema for. A contract suite needs to be able to ask
+   * this question directly.
+   *
+   * `default` and wildcard forms such as `2XX` are excluded: they cannot be
+   * compared against a concrete status without deciding what they cover, and
+   * that decision belongs to whoever wrote the document.
+   */
+  statusesFor(method: string, pathTemplate: string): number[] {
+    const operation = this.document.paths?.[pathTemplate]?.[method.toLowerCase()];
+    return Object.keys(operation?.responses ?? {})
+      .map((code) => Number(code))
+      .filter((code) => Number.isFinite(code));
+  }
+
   private schemaFor(method: string, pathTemplate: string, status: number): AnySchema | null {
     const operation = this.document.paths?.[pathTemplate]?.[method.toLowerCase()];
     if (!operation?.responses) return null;

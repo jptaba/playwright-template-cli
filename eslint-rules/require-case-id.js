@@ -43,7 +43,7 @@ module.exports = {
 
     return {
       CallExpression(node) {
-        if (!isTestCall(node.callee)) return;
+        if (!isTestDeclaration(node)) return;
         // test(title, details, fn) — the annotation lives in the middle argument.
         const [, second] = node.arguments;
         if (!second || second.type !== 'ObjectExpression') {
@@ -77,15 +77,35 @@ module.exports = {
   },
 };
 
-function isTestCall(callee) {
-  if (callee.type === 'Identifier') return callee.name === 'test';
-  // test.only / test.fixme / test.skip still implement a case.
-  return (
-    callee.type === 'MemberExpression' &&
-    !callee.computed &&
-    callee.object.type === 'Identifier' &&
-    callee.object.name === 'test' &&
-    ['only', 'fixme', 'skip', 'fail', 'slow'].includes(callee.property.name)
+/**
+ * A *declaration* of a test, as opposed to a modifier that happens to share
+ * the name.
+ *
+ * `test.skip(condition, 'reason')` inside a test body is the conditional-skip
+ * form: it declares nothing, it has no title and it cannot carry an
+ * annotation. The rule used to treat it as a nameless test and demand a case
+ * id for it — so any spec that skipped itself when its precondition was
+ * missing failed lint, which is exactly what a data-dependent or
+ * capability-gated spec is supposed to do.
+ *
+ * The distinguishing feature is the body: a declaration ends in a function, a
+ * modifier does not.
+ */
+function isTestDeclaration(node) {
+  const callee = node.callee;
+  const named =
+    callee.type === 'Identifier'
+      ? callee.name === 'test'
+      : callee.type === 'MemberExpression' &&
+        !callee.computed &&
+        callee.object.type === 'Identifier' &&
+        callee.object.name === 'test' &&
+        ['only', 'fixme', 'skip', 'fail', 'slow'].includes(callee.property.name);
+  if (!named) return false;
+
+  const last = node.arguments[node.arguments.length - 1];
+  return Boolean(
+    last && (last.type === 'ArrowFunctionExpression' || last.type === 'FunctionExpression'),
   );
 }
 

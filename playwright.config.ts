@@ -1,5 +1,6 @@
 import { defineConfig, devices, type Project } from '@playwright/test';
 import { resolveTarget, TargetSelectionError } from './config/target';
+import { DEFAULT_AUTH_FLOW_PATTERN } from './src/support/auth-flows';
 import type { FrameworkOptions } from './src/fixtures/base';
 
 const isCI = Boolean(process.env.CI);
@@ -101,9 +102,10 @@ if (!target) {
   /**
    * Files the `auth-flows` project owns. The e2e project must not also run them.
    * The convention is documented in docs/CONVENTIONS.md and enforced by the
-   * `auth-project-boundary` lint rule; a target may override it.
+   * `auth-project-boundary` lint rule, which reads the same default and honours
+   * the same per-target override; a framework test holds the two in step.
    */
-  const authFlowFiles = target.authFlowPattern ?? /(login|mfa|password)\.spec\.ts$/;
+  const authFlowFiles = target.authFlowPattern ?? DEFAULT_AUTH_FLOW_PATTERN;
 
   projects.push(
     {

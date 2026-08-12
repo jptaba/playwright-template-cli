@@ -71,6 +71,52 @@ function projectOf(relativePath) {
 }
 
 /**
+ * The framework's default set of files the `auth-flows` project owns. Must stay
+ * in step with `playwright.config.ts`.
+ *
+ * `register` and `forgot` are in the default because signing up and recovering
+ * a password are signed-out journeys on essentially every application that has
+ * them — leaving them out meant the commonest override was one every target had
+ * to discover for itself, by watching a registration spec redirect away from
+ * the form it was trying to fill in.
+ */
+const DEFAULT_AUTH_FLOW_PATTERN = /(login|mfa|password|register|signup|forgot)\.spec\.ts$/;
+
+/**
+ * The pattern a target's own profile declares, if it declares one.
+ *
+ * A profile may override `authFlowPattern`, and `playwright.config.ts` honours
+ * it — so a lint rule carrying its own hardcoded copy will disagree with the
+ * runtime the moment anyone uses the override. That disagreement is the worst
+ * kind: the rule rejects a file the runner would have handled correctly, and
+ * the message tells the author to undo the thing that made it work.
+ *
+ * Read textually rather than by importing the profile, because profiles are
+ * TypeScript and a lint rule runs in plain CommonJS. A profile that computes
+ * the pattern instead of writing it as a literal falls back to the default,
+ * which is the safe direction: the rule then asks for more than the runtime
+ * does rather than less.
+ */
+function authFlowPatternFor(relativePath) {
+  const target = targetOf(relativePath);
+  if (!target) return DEFAULT_AUTH_FLOW_PATTERN;
+
+  const profile = path.join(REPO_ROOT, 'config', 'targets', `${target}.ts`);
+  if (!fs.existsSync(profile)) return DEFAULT_AUTH_FLOW_PATTERN;
+
+  const declared = /authFlowPattern\s*:\s*\/((?:[^/\\\n]|\\.)+)\/([gimsuy]*)/.exec(
+    fs.readFileSync(profile, 'utf8'),
+  );
+  if (!declared) return DEFAULT_AUTH_FLOW_PATTERN;
+
+  try {
+    return new RegExp(declared[1], declared[2]);
+  } catch {
+    return DEFAULT_AUTH_FLOW_PATTERN;
+  }
+}
+
+/**
  * Directories a non-relative specifier can point into and still be this
  * repository's own code. Anything else is a package.
  */
@@ -136,4 +182,6 @@ module.exports = {
   isSpec,
   projectOf,
   resolveImport,
+  authFlowPatternFor,
+  DEFAULT_AUTH_FLOW_PATTERN,
 };

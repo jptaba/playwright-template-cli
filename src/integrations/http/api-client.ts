@@ -55,6 +55,18 @@ export interface ApiResponse<T> {
   drift: ContractDriftError | null;
 }
 
+/**
+ * Supplies the headers that carry the caller's identity — typically
+ * `{ Authorization: 'Bearer …' }`.
+ *
+ * A function rather than a fixed map, and awaited on every call, because
+ * access tokens expire. A client that captured a bearer token once starts
+ * failing with 401s part-way through any suite whose run outlives the token,
+ * and the failure reads as an application defect rather than as an expiry.
+ * Resolving per call lets a target's own auth vocabulary refresh silently.
+ */
+export type AuthHeaderProvider = () => Record<string, string> | Promise<Record<string, string>>;
+
 export interface ApiClientOptions {
   baseURL: string;
   runId: string;
@@ -66,11 +78,22 @@ export interface ApiClientOptions {
    */
   throwOnDrift?: boolean;
   defaultHeaders?: Record<string, string>;
+  /** Initial credential. Usually set later with `setAuth` (§05). */
+  auth?: AuthHeaderProvider;
 }
 
 export interface CreatedResource {
   endpoint: EndpointDescriptor;
   id: string;
+  /**
+   * How to delete this record. Optional, and when absent cleanup falls back to
+   * `DELETE <collection>/<id>` derived from the creating endpoint.
+   *
+   * The fallback is a guess about REST conventions, and it is wrong for any
+   * nested or non-obvious resource. Naming the endpoint is the target saying
+   * how its own records are removed, rather than the framework assuming.
+   */
+  remove?: EndpointDescriptor;
 }
 
 export class ApiError extends Error {
@@ -93,15 +116,28 @@ export class ApiClient {
   /** Endpoints this run has actually exercised, for the coverage view. */
   readonly exercised = new Set<string>();
   readonly driftFound: ContractDriftError[] = [];
+  private auth: AuthHeaderProvider | null;
 
   constructor(
     private readonly request: APIRequestContext,
     private readonly options: ApiClientOptions,
-  ) {}
+  ) {
+    this.auth = options.auth ?? null;
+  }
 
   /** Tag every record with the run id so cleanup can find its own leftovers. */
   get runTag(): string {
     return this.options.runId;
+  }
+
+  /**
+   * Attach the credential every subsequent call carries, or clear it with
+   * `null`. The target's own auth vocabulary owns *how* a token is obtained;
+   * the client only owns that every call gets one, including the deletes that
+   * run during cleanup.
+   */
+  setAuth(provider: AuthHeaderProvider | null): void {
+    this.auth = provider;
   }
 
   async call<TResponse, TBody = unknown>(
@@ -112,11 +148,19 @@ export class ApiClient {
     const accepted = options.expect ?? endpoint.expect;
 
     return test.step(`${endpoint.name}`, async () => {
+      // Resolved per call so a short-lived token can refresh itself between
+      // one request and the next.
+      const credential = this.auth ? await this.auth() : {};
       const response = await this.request.fetch(joinUrl(this.options.baseURL, url), {
         method: endpoint.method,
         ...(options.query ? { params: compact(options.query) } : {}),
         ...(options.body === undefined ? {} : { data: options.body }),
-        headers: { 'Content-Type': 'application/json', ...this.options.defaultHeaders, ...options.headers },
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.options.defaultHeaders,
+          ...credential,
+          ...options.headers,
+        },
       });
 
       const status = response.status();
@@ -140,18 +184,52 @@ export class ApiClient {
     });
   }
 
-  /** Remember a record so teardown can remove it. */
-  track(endpoint: EndpointDescriptor, id: string): void {
-    this.created.push({ endpoint, id });
+  /**
+   * Remember a record so teardown can remove it.
+   *
+   * Pass `remove` when the delete is not `DELETE <collection>/<id>` — a nested
+   * resource, a different verb, a soft-delete endpoint. The fallback exists so
+   * the common case stays one argument, not so that the framework can guess on
+   * behalf of an API it knows nothing about.
+   */
+  track(endpoint: EndpointDescriptor, id: string, remove?: EndpointDescriptor): void {
+    this.created.push({ endpoint, id, ...(remove ? { remove } : {}) });
+  }
+
+  /**
+   * Delete one tracked record, through this client — so the delete carries the
+   * same credential, the same base URL and the same trace as the call that
+   * created it.
+   *
+   * This used to live in the `api` fixture as a bare `request.fetch` against a
+   * URL built by string surgery, which meant cleanup was unauthenticated: on
+   * any API that requires a token to delete, every delete answered 401, every
+   * failure was swallowed by the logger, and the environment filled with
+   * orphans while the suite stayed green.
+   */
+  async remove(resource: CreatedResource): Promise<void> {
+    const endpoint = resource.remove ?? derivedDelete(resource.endpoint);
+    /*
+       The placeholder is read from the endpoint rather than assumed to be
+       `{id}`. Real documents name it after the resource — `{brandId}`,
+       `{invoiceId}`, `{productId}` — and `fillPath` throws on a placeholder it
+       was given no value for, so assuming `{id}` turned every cleanup into an
+       exception that the cleanup logger then swallowed.
+    */
+    const placeholder = /\{(\w+)\}/.exec(endpoint.path)?.[1] ?? 'id';
+    await this.call(endpoint, { params: { [placeholder]: resource.id } });
   }
 
   /**
    * Delete what this client created, newest first. Failures are logged, never
    * thrown: a cleanup error must not turn a passing test red, but it must not
    * be silent either — orphaned records are how an environment rots.
+   *
+   * `remove` defaults to this client's own authenticated delete; it is
+   * injectable so the behaviour can be tested without a server.
    */
   async cleanup(
-    remove: (resource: CreatedResource) => Promise<void>,
+    remove: (resource: CreatedResource) => Promise<void> = (resource) => this.remove(resource),
     log: (message: string) => void = () => undefined,
   ): Promise<void> {
     for (const resource of [...this.created].reverse()) {
@@ -166,6 +244,24 @@ export class ApiClient {
     }
     this.created.length = 0;
   }
+}
+
+/**
+ * `POST /products` → `DELETE /products/{id}`. The convention most REST APIs
+ * follow, used only when a target has not said otherwise.
+ *
+ * A 404 here is accepted: cleanup runs after tests that may already have
+ * deleted the record themselves, and re-deleting something that is gone is a
+ * success for cleanup's purposes.
+ */
+function derivedDelete(created: EndpointDescriptor): EndpointDescriptor {
+  const collection = created.path.replace(/\{[^}]+\}/g, '').replace(/\/+$/, '');
+  return {
+    name: `Clean up ${created.name}`,
+    method: 'DELETE',
+    path: `${collection}/{id}`,
+    expect: [200, 202, 204, 404],
+  };
 }
 
 function fillPath(template: string, params: Record<string, string | number> = {}): string {

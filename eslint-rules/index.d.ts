@@ -27,6 +27,15 @@ declare const plugin: {
       rules: Record<string, string>;
     };
   };
+  /**
+   * The spec files the signed-out `auth-flows` project owns by default. Held
+   * identical to `src/support/auth-flows.ts` by a framework test, because two
+   * copies of this pattern is exactly how the rule and the runner came to
+   * disagree about which files that project matches.
+   */
+  DEFAULT_AUTH_FLOW_PATTERN: RegExp;
+  /** The pattern a given file's target profile declares, or the default. */
+  authFlowPatternFor(relativePath: string): RegExp;
 };
 
 export default plugin;

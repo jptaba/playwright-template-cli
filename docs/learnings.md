@@ -408,3 +408,298 @@ documentation overhead.
 Every framework fix above ships with a unit test that fails without it. That is
 the point of writing them down here rather than in a commit message: the next
 target will find the next six, and this file is where they go.
+
+---
+
+## What onboarding a third application taught the framework
+
+The third target was **Toolshop** (`practicesoftwaretesting.com`): an Angular
+storefront over a Laravel REST API, with a published OpenAPI 3.2 document, an
+administrator area, five payment methods and 56 documented endpoints. It was
+chosen because it is the rare demo application that can exercise *every* layer
+this framework has — UI, typed HTTP clients, schema conformance and
+accessibility — rather than only the first.
+
+> Its target pack lives on `live-target/onboarding`. The framework fixes below
+> are on `main`, and each ships with a unit test in
+> `tests/framework/learnings-toolshop.spec.ts` that fails without it.
+
+It found **eleven framework defects, one design decision that was wrong, and
+one profile field that did not exist**. It also found three genuine defects in
+the application under test, which is the point of the exercise.
+
+### Framework defects found
+
+**18 · The documented onboarding command silently lost its arguments.**
+Every command in the handbook is `npm run target:new -- --name=x --url=y`. Under
+PowerShell on Windows — the platform this session ran on — npm's shim drops the
+`--` separator, swallows the flags as its own config, and hands the script an
+empty `argv`. The tool then reported "`--name` and `--url` are both required"
+while the user was looking at a command line containing both. It works under
+bash, which is why nobody had seen it.
+
+*Fix:* the CLI detects the swallowed-argument case and names the shell, rather
+than repeating a usage message that appears to contradict what was typed.
+→ **`main`**
+
+**19 · The scaffolded `auth.setup.ts` established every role in one browser
+context.** The generated loop signs in as role one, saves its storage state,
+then signs in as role two *in the same context*, where role one's session is
+still live. On this application it fails outright. The dangerous version is the
+application that renders the login form anyway and ignores the submit: the
+storage state written for `admin` then holds the customer's session, every
+administrator test runs with customer rights, and the specs asserting a
+permission boundary pass for exactly the wrong reason.
+
+*Fix:* one context per role, closed after use, and a check that the session
+established actually names somebody. → **`main`** (scaffold template)
+
+**20 · `setup:auth` reported that no session appeared, and not why.**
+"Sign-in for role 'customer' did not establish a session" is true and useless.
+The run that produced it had locked the account, and the application was saying
+so on screen. Twenty-one specs failed across five features before anyone opened
+the screenshot.
+
+*Fix:* the setup quotes what the form reported — `The application said:
+"Account locked, too many failed attempts."` — and says explicitly when the form
+reported nothing, which points at the signed-in locator instead of the
+credential. → **`main`** (scaffold template)
+
+**21 · The API client could not authenticate.** `ApiClient` had
+`defaultHeaders` and nothing that set them, so a target with a bearer token had
+no way to attach one through the shared client — the client that carries schema
+validation, cleanup tracking and the trace.
+
+*Fix:* `setAuth(provider)`, resolved **per call** rather than captured once.
+This service issues five-minute tokens; a client that captured the header would
+start answering 401 part-way through any longer run, and the failure reads as a
+broken endpoint rather than an expired token. → **`main`**
+
+**22 · Cleanup could not authenticate either, and guessed the URL.** The `api`
+fixture deleted tracked records with a bare `request.fetch` against a URL built
+by splitting the creating endpoint's path. Unauthenticated, and wrong for any
+nested resource. On an API that needs a token to delete, every cleanup answered
+401, the cleanup logger swallowed it, and the environment filled with orphans
+behind a green run.
+
+*Fix:* deletion goes through the client, so it carries the same credential, base
+URL and trace. `track()` takes an optional delete endpoint — the target saying
+how its own records are removed rather than the framework assuming REST
+conventions — and the placeholder is read from that endpoint rather than assumed
+to be `{id}`. Real documents name it `{brandId}`, and `fillPath` throws on a
+placeholder it was given no value for, so assuming `{id}` turned every cleanup
+into an exception the logger then swallowed. → **`main`**
+
+**23 · Contract drift failed the wrong tests.** Drift threw in every project
+except `e2e`, on the reasoning that failing a UI journey on a provider's schema
+change hides what the test was about. That reasoning is not about browsers. It
+is about the difference between a spec asserting *behaviour* and one asserting
+*conformance*. A real drift proved it: the service returns `null` where its own
+document promises a number, and "a customer can list their invoices" went red
+for a reason that had nothing to do with the claim it makes — four behavioural
+specs failed and one contract spec failed, and only the last was informative.
+
+*Fix:* drift throws in the `contract` project and is recorded-and-attached
+everywhere else. → **`main`**
+
+**24 · Accessibility waivers were blindfolds.** A waiver was matched by rule id
+alone, so accepting one unlabelled button in a third-party widget suppressed
+`button-name` on every page the suite would ever scan, including pages added
+next month. The documentation promised that "an exception accepted for three
+cannot quietly become ninety"; the implementation dropped the whole violation
+the moment the rule id matched, so it could.
+
+*Fix:* waivers carry optional `urlPattern` and `selector`, and are applied
+**per node**. The nodes a waiver covers stay waived and counted; every other
+node the rule fires on is still a failure. An unscoped waiver still covers the
+whole rule, because sometimes that genuinely is the decision — it should be a
+decision rather than a default. → **`main`**
+
+**25 · `require-case-id` could not tell a test from a conditional skip.**
+`test.skip(condition, 'reason')` inside a body declares nothing, has no title
+and cannot carry an annotation. The rule treated it as a nameless test and
+demanded a case id — so any spec that skipped itself when its precondition was
+absent failed lint, which is precisely what a data-dependent or
+capability-gated spec is supposed to do.
+
+*Fix:* a declaration ends in a function; a modifier does not. → **`main`**
+
+**26 · The lint rule and the runner disagreed about which files are
+signed-out.** `auth-project-boundary` carried its own hardcoded copy of the
+auth-flow pattern and ignored the documented `authFlowPattern` override that
+`playwright.config.ts` honours. Using the override made the rule reject a file
+the runner handled correctly, and the message told the author to undo the thing
+that made it work.
+
+*Fix:* the rule reads the selecting target's profile. The default gained
+`register`, `signup` and `forgot`, because registering and recovering a password
+are signed-out journeys on essentially every application that has them —
+leaving them out made the commonest possible override into something every
+target had to discover by watching a registration spec get redirected away from
+the form it was filling in. The two copies of the pattern are now held identical
+by a test rather than by a comment on each. → **`main`**
+
+**27 · `ContractRegistry` could not be asked what a document promises.**
+Response validation only runs for a status the document has a schema for — so a
+service answering 201 where its document declares only 200 is never
+schema-checked at all, and the gap is invisible from inside `validate()`, which
+correctly reports no failures for a response it has no schema for.
+
+*Fix:* `statusesFor(method, path)`, so a contract suite can ask directly. The
+Toolshop pack uses it to turn exactly that mismatch into a reported finding
+rather than a comment in an endpoint descriptor. → **`main`**
+
+**28 · A profile could not say "this environment is shared with strangers".**
+`serverState` says data needs cleaning up. Nothing said the *environment* can be
+damaged for other people. See learning 31 below for what that cost.
+
+*Fix:* `sharedEnvironment` on the profile, gating the specs whose blast radius
+is somebody else's next test run. → **`main`**
+
+### A check that was written and then withdrawn
+
+**29 · A warning that fires on the default configuration is noise.** Parallel
+workers on a `static` account pool with `serverState: true` all mutate one
+account — a real hazard, hit twice during this exercise. A doctor warning for it
+was written, and then removed: that pair is also *the scaffolder's own default*,
+so every freshly scaffolded target would have failed its own preflight on day
+one. That is the trap learning 10 already recorded, approached from the other
+side. Nothing in a profile can distinguish a suite where the pairing is harmless
+from one where it is not — that depends on whether two specs touch the same
+record, which is a property of the specs.
+
+*Outcome:* a convention in `docs/CONVENTIONS.md`, and the answer lives in the
+target's own vocabulary — partition by `run.workerIndex`, or make the verb
+tolerate contention rather than assume it owns the account. → **`main`**
+(documentation only, deliberately)
+
+### Conventions the exercise added
+
+**G · Ground locators in the accessibility tree, not in a DOM dump.** Every
+locator in the first version of the sign-in vocabulary was wrong, because the
+exploration script that produced it fell back to the `placeholder` attribute:
+it reported `Your email` where the accessible name is `Email address *`. The
+failure was a bare fifteen-second timeout on a field plainly on screen.
+`npx playwright-cli snapshot` writes what `getByRole` and a screen reader both
+read; a DOM dump does not.
+
+**H · The same rule applies to values, not just selectors.** A billing address
+built from memory used `Netherlands`; the country list uses UN naming and says
+`Netherlands (the)`. `selectOption` with a label matching nothing does not fail
+fast — Playwright retries the whole action and times out reporting *"waiting for
+element to be visible and enabled"*, which describes the select rather than the
+missing option. Three checkout specs spent fifteen seconds each on that message.
+A value typed from memory is the same mistake as a locator typed from memory and
+fails just as opaquely.
+
+**I · `count()` does not wait.** Every other Playwright read auto-waits;
+`Locator.count()` answers for the DOM as it is at that instant. An admin table
+renders after its search box, so an action that waited for the box handed back a
+page whose rows had not arrived and `countRows()` reported a truthful zero — and
+the assertion read "expected > 0, received 0", which points at the application.
+An action that returns a count has to leave the page in a state that count can
+be trusted in.
+
+**J · Scope a table locator to the table you mean.** `getByRole('table')`
+matched the product **specifications** table on the page the cart click started
+from, so `openCart` waited for "a table", found the one it was already looking
+at, decided the cart had arrived, and read five rows of specifications as cart
+lines. No error and no timeout: an empty cart and a plausible total. This is
+convention A again, and it recurred in three separate vocabularies in one pack —
+which suggests the guidance is not strong enough. Scope to the thing that makes
+the answer unambiguous: the cart is *the table containing the total cell*.
+
+**K · A vocabulary must be able to express every state the application has.**
+`readCart` could only describe a cart with something in it, so the spec that
+emptied the cart failed at the step confirming it had worked — the total cell it
+read had stopped existing. An empty cart is a legitimate state.
+
+**L · Do not assert on data the spec did not create.** "The seeded customer has
+order history" passed until the account behind the `customer` role changed, then
+failed for a reason unrelated to invoicing. The spec now places the order it
+asserts about.
+
+### 30 · Three genuine defects in the application under test
+
+The point of all of the above. Each is reproducible against the live service and
+each is the kind of thing only the layer that found it could have found.
+
+1. **`GET /invoices` does not match its own published schema.** The document
+   declares `subtotal`, `additional_discount_percentage`,
+   `additional_discount_amount` and the invoice lines' `discount_percentage` and
+   `discounted_price` as `number`; the service returns `null` for all of them.
+   Found by schema conformance, on the first run, across every invoice in the
+   response.
+2. **`POST /favorites` answers 201 where its document declares only 200.**
+   Worth more than it looks: because there is no documented 201 response, *no
+   response body on that endpoint is schema-checked at all*, and the coverage
+   view counts an endpoint nobody is checking.
+3. **The forgotten-password form enumerates accounts.** A known address answers
+   `page.forgot-password.confirm`; an unknown one answers `The selected email is
+   invalid.` An attacker can therefore ask the form which addresses have
+   accounts. The first answer is also an **untranslated i18n key rendered to the
+   user**, which is a second defect in the same response.
+
+Two accessibility defects were found and waived with reasons and review dates
+rather than deleted: an unlabelled password-visibility toggle (WCAG 4.1.2) on
+the sign-in and registration forms, and a filter tree nesting `<ul>` outside an
+`<li>` (WCAG 1.3.1).
+
+### 31 · The largest finding was about the target, not the framework
+
+**Negative authentication specs spend the account's lockout budget.** Two specs
+asserting "a wrong password is refused" ran against the shared `customer`
+account. This application locks an account after a few failures, so those two
+specs locked the identity every other spec depends on: twenty-one tests failed
+across account, cart, checkout, contact and admin, none of them about
+authentication, and the lock outlives the run.
+
+Moving them onto disposable, freshly registered accounts was **not** sufficient
+— a second seeded account locked as well, so the counter is not purely
+per-account. Over one session this target became progressively unusable:
+
+| Account | Outcome |
+|---|---|
+| `customer@` | locked (HTTP 423) by this suite's own negative specs |
+| `customer2@` | locked the same way after the specs were moved to disposables |
+| `customer3@` | stopped accepting its documented password — the credentials are published, so anyone may change them |
+| a purpose-registered account | wiped within twenty minutes |
+
+The deployment **reseeds on a schedule**: it rotated every product id in the
+catalogue twice during the session, restored `customer@`, and deleted the
+account the suite had registered for itself. The reseed is also what makes
+convention B non-negotiable here — an id transcribed at the start of a session
+is wrong by the end of it.
+
+*What this is evidence for:* a vendor's public demonstration site is a fine
+target for exploration and for read-only checks, and a poor one for an
+authenticated suite that owns state. The same application ships a
+`docker compose` deployment with a seeded MariaDB, which is where this pack
+belongs — and where `capabilities.db` becomes true and the fourth layer gets
+exercised for the first time. `sharedEnvironment: true` is the profile saying
+so out loud, and the framework change it forced is the one worth keeping.
+
+### What landed where
+
+| Learning | Change | Lands on |
+|---|---|---|
+| 18 · Documented CLI loses its arguments under PowerShell | shell-aware diagnostic in `tools/new-target.ts` | `main` |
+| 19 · Multi-role auth setup shared one context | one context per role in the scaffold template | `main` |
+| 20 · Sign-in failure did not say why | `auth.setup.ts` quotes what the form reported | `main` |
+| 21 · API client could not authenticate | `ApiClient.setAuth`, resolved per call | `main` |
+| 22 · Cleanup was unauthenticated and guessed URLs | `ApiClient.remove`, `track(…, remove)` | `main` |
+| 23 · Drift failed behavioural specs | throw only in the `contract` project | `main` |
+| 24 · Waivers suppressed whole rules | per-node waivers with `urlPattern`/`selector` | `main` |
+| 25 · `require-case-id` misread `test.skip` | declaration detected by its function body | `main` |
+| 26 · Lint rule ignored `authFlowPattern` | rule reads the profile; default widened; held by a test | `main` |
+| 27 · No way to ask what a document promises | `ContractRegistry.statusesFor` | `main` |
+| 28 · No way to declare a shared environment | `TargetProfile.sharedEnvironment` | `main` |
+| 29 · Warning fired on the default config | withdrawn; convention instead | `main` (docs) |
+| G · Ground locators in the accessibility tree | `docs/CONVENTIONS.md` | `main` |
+| H · Ground *values* in the page too | `docs/CONVENTIONS.md` | `main` |
+| I · `count()` does not wait | `docs/CONVENTIONS.md` | `main` |
+| J · Scope a table locator | `docs/CONVENTIONS.md` | `main` |
+| K · Express every state the application has | `docs/CONVENTIONS.md` | `main` |
+| L · Never assert on data you did not create | `docs/CONVENTIONS.md` | `main` |
+| 30 · Three defects in the application | reported; two a11y findings waived with dates | target pack |
+| 31 · Shared demo is not a home for an authed suite | `sharedEnvironment: true`, specs gated | target pack |

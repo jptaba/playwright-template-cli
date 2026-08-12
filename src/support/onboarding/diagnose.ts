@@ -420,6 +420,27 @@ function checkAuthentication(
         'same account with no lease and no TTL, which looks fine until two workers collide.',
     );
   }
+
+  /*
+     Deliberately *not* checked here: `accountPool: 'static'` together with
+     `serverState: true`, which is what puts every parallel worker on one
+     identity mutating one account's cart, favourites and orders.
+
+     It is a real hazard — onboarding Toolshop hit it twice, once between two
+     workers and once between two projects — but it is not a diagnosable one.
+     That pair is also the scaffolder's own default, so warning on it means
+     every freshly scaffolded target fails its own preflight on day one, which
+     is the noise trap this checker already learned to avoid: a warning that
+     fires on the default configuration is a warning people learn to scroll
+     past, and it takes the useful ones with it.
+
+     Nothing here can tell the difference between a suite where that pairing is
+     harmless and one where it is not — that depends on whether two specs
+     mutate the same record, which is a property of the specs. So it is a
+     convention in docs/CONVENTIONS.md, and the answer lives in the target's own
+     vocabulary: partition by `run.workerIndex`, or make the verb tolerate
+     contention instead of assuming it owns the account.
+  */
 }
 
 function checkRotation(profile: TargetProfile, warn: Report): void {

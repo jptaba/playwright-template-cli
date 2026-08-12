@@ -99,7 +99,38 @@ export interface A11yCapability {
    * Rules the product owner has accepted and dated, so a known exception is a
    * recorded decision rather than a test somebody quietly deleted.
    */
-  waived?: { rule: string; reason: string; reviewBy: string }[];
+  waived?: A11yWaiver[];
+}
+
+/**
+ * An accepted accessibility exception.
+ *
+ * `urlPattern` and `selector` are what keep a waiver from being a blindfold.
+ * A waiver written as a bare rule id suppresses that rule *everywhere*: accept
+ * one unlabelled button in a third-party widget and the suite stops reporting
+ * unlabelled buttons on every page it will ever scan, including the ones added
+ * next month. Narrowing the waiver to the pages and nodes it was actually
+ * granted for keeps the rest of the rule live.
+ *
+ * Both are optional, and omitting both is still allowed — sometimes a rule
+ * genuinely is accepted product-wide. It should be a decision, not a default.
+ */
+export interface A11yWaiver {
+  /** Axe rule id — `color-contrast`, `button-name`, `list`. */
+  rule: string;
+  reason: string;
+  /** ISO date. `target:doctor` reports a waiver whose review date has passed. */
+  reviewBy: string;
+  /**
+   * Substring or regular-expression source matched against the scanned URL.
+   * Omit to waive the rule on every page.
+   */
+  urlPattern?: string;
+  /**
+   * Substring matched against the CSS path axe reports for a node. Omit to
+   * waive every node the rule fires on.
+   */
+  selector?: string;
 }
 
 /**
@@ -135,6 +166,30 @@ export interface TargetProfile {
   baseURL: string;
   credentials: CredentialRefs;
   capabilities: TargetCapabilities;
+
+  /**
+   * True when this deployment is shared with people outside the team — a
+   * vendor's public demo, a joint integration environment, a sandbox other
+   * suites also point at.
+   *
+   * It gates the tests that are *destructive to the environment rather than to
+   * the data they create*: account lockout, password rotation, rate-limit
+   * exhaustion, anything whose blast radius is other people's next test run.
+   * Those are legitimate tests — an application that never locks an account
+   * after repeated failures has a real defect — but they need an environment
+   * the team owns.
+   *
+   * This exists because nothing else expressed it. Onboarding a public demo,
+   * two specs asserting "a wrong password is refused" locked the shared account
+   * every other spec signed in as; twenty-one tests failed across five
+   * features, and the lockout is permanent until an administrator clears it.
+   * Moving those specs onto disposable registered accounts was not enough,
+   * because the lockout counter turned out not to be per-account either.
+   *
+   * `serverState` is a different claim: it says data needs cleaning up, not
+   * that the environment can be damaged for others.
+   */
+  sharedEnvironment?: boolean;
 
   /**
    * Which deployment of the application this profile points at — `staging`,

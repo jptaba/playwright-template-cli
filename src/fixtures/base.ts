@@ -353,23 +353,50 @@ export const test = base.extend<
       baseURL: capability.baseURL,
       runId: run.runId,
       registry: contracts,
-      // Inside a UI journey, drift is recorded and reported rather than thrown:
-      // failing the journey on a provider's schema change hides the thing the
-      // test was actually about (§05).
-      throwOnDrift: testInfo.project.name !== 'e2e',
+      /*
+         Drift fails the `contract` project and is recorded everywhere else.
+
+         The original rule was "throw unless this is a UI journey", on the
+         reasoning that failing a journey on a provider's schema change hides
+         what the test was actually about. That reasoning is not about
+         browsers — it is about the difference between a spec that asserts
+         *behaviour* and a spec that asserts *conformance*. A real provider
+         drift proved it: the service returned `null` where its own document
+         promised a number, and "a customer can list their invoices" went red
+         for a reason that had nothing to do with the claim it makes. Four
+         behavioural specs failed and one contract spec failed, and only the
+         last of those was informative.
+
+         So conformance is the contract project's job, and every other project
+         records drift and carries on. Nothing is swallowed: what was found is
+         attached to the result below and surfaced in the run report (§05, §20).
+      */
+      throwOnDrift: testInfo.project.name === 'contract',
     });
 
     await use(client);
 
-    // Everything created gets cleaned up. A test environment that fills with
-    // orphaned records becomes slow and then untrustworthy (§05).
-    await client.cleanup(
-      async (resource) => {
-        await request.fetch(`${capability.baseURL}/${resource.endpoint.path.split('/')[1]}/${resource.id}`, {
-          method: 'DELETE',
-        });
-      },
-      (message) => testInfo.attach('cleanup-warning', { body: message, contentType: 'text/plain' }),
+    // Recorded, not silent. A drift nobody sees is a drift nobody tickets.
+    if (client.driftFound.length > 0 && testInfo.project.name !== 'contract') {
+      await testInfo.attach('contract-drift', {
+        body: client.driftFound.map((drift) => drift.message).join('\n\n'),
+        contentType: 'text/plain',
+      });
+    }
+
+    /*
+       Everything created gets cleaned up. A test environment that fills with
+       orphaned records becomes slow and then untrustworthy (§05).
+
+       Deletion goes through the client rather than through `request.fetch`
+       here, which is what makes it carry the credential the spec was using.
+       The earlier version built the URL by splitting the creating endpoint's
+       path — unauthenticated, and wrong for any nested resource — so on an API
+       that needs a token to delete, every cleanup 401'd into the warning log
+       and the suite stayed green while the environment filled up.
+    */
+    await client.cleanup(undefined, (message) =>
+      testInfo.attach('cleanup-warning', { body: message, contentType: 'text/plain' }),
     );
   },
 

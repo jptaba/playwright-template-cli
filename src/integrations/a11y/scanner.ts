@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import type { A11yCapability, A11yStandard } from '../../../config/targets/types';
+import type { A11yCapability, A11yStandard, A11yWaiver } from '../../../config/targets/types';
 
 /**
  * Accessibility scanning — the framework's engine, the target's standard.
@@ -49,6 +49,13 @@ export interface WaivedViolation {
   reviewBy: string;
   /** How many nodes the waiver suppressed. Reported, never hidden. */
   nodes: number;
+}
+
+/** Whether a waiver applies to this page and this node. */
+function waiverCovers(waiver: A11yWaiver, url: string, target: string): boolean {
+  if (waiver.urlPattern && !new RegExp(waiver.urlPattern).test(url)) return false;
+  if (waiver.selector && !target.includes(waiver.selector)) return false;
+  return true;
 }
 
 export interface A11yScan {
@@ -146,27 +153,59 @@ export function summarise(
   capability: Pick<A11yCapability, 'standard' | 'waived'>,
   tags: string[],
 ): A11yScan {
-  const waivers = new Map((capability.waived ?? []).map((entry) => [entry.rule, entry]));
+  const url = raw.url ?? '';
   const violations: A11yViolation[] = [];
   const waived: WaivedViolation[] = [];
 
   for (const violation of raw.violations) {
-    const waiver = waivers.get(violation.id);
-    if (waiver) {
-      waived.push({ ...waiver, nodes: violation.nodes.length });
-      continue;
+    const candidates = (capability.waived ?? []).filter((entry) => entry.rule === violation.id);
+
+    const nodes = violation.nodes.map((node) => ({
+      target: node.target.map((part) => String(part)).join(' '),
+      html: node.html,
+      failureSummary: node.failureSummary ?? '',
+    }));
+
+    /*
+       Waivers are applied per node, not per rule.
+
+       Suppressing the whole violation the moment its rule id matched meant a
+       waiver granted for one known element silently covered every other
+       element the rule fired on — including ones added afterwards. Splitting
+       the nodes is what makes "an exception accepted for three cannot quietly
+       become ninety" true rather than aspirational: the three stay waived and
+       counted, and the other eighty-seven are still a failure.
+    */
+    const remaining: typeof nodes = [];
+    const suppressedBy = new Map<A11yWaiver, number>();
+
+    for (const node of nodes) {
+      const waiver = candidates.find((entry) => waiverCovers(entry, url, node.target));
+      if (waiver) {
+        suppressedBy.set(waiver, (suppressedBy.get(waiver) ?? 0) + 1);
+      } else {
+        remaining.push(node);
+      }
     }
+
+    for (const [waiver, count] of suppressedBy) {
+      waived.push({
+        rule: waiver.rule,
+        reason: waiver.reason,
+        reviewBy: waiver.reviewBy,
+        nodes: count,
+      });
+    }
+
+    if (remaining.length === 0) continue;
+
     violations.push({
       id: violation.id,
       impact: IMPACTS.includes(violation.impact ?? '') ? (violation.impact as Impact) : null,
       help: violation.help,
       helpUrl: violation.helpUrl,
       criteria: criteriaOf(violation.tags),
-      nodes: violation.nodes.map((node) => ({
-        target: node.target.map((part) => String(part)).join(' '),
-        html: node.html,
-        failureSummary: node.failureSummary ?? '',
-      })),
+      nodes: remaining,
     });
   }
 

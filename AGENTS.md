@@ -1,5 +1,5 @@
 <!-- GENERATED FILE — DO NOT EDIT.
-     Source: docs/CONVENTIONS.md (sha256 5d977a8b7d2654c1)
+     Source: docs/CONVENTIONS.md (sha256 0b3af474b3ebce53)
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 
@@ -86,6 +86,29 @@ application. A transcribed internal id is a hallucinated locator wearing a
 different hat, and it fails silently — the wrong data is used and the test
 carries on.
 
+**Scope a container locator to the container you mean.** `getByRole('table')`
+is not "the cart" — it is whichever table is on screen. On one application it
+matched the *product specifications* table on the page a cart click started
+from, so the action waited for "a table", found the one it was already looking
+at, decided the cart had arrived, and read five rows of specifications as cart
+lines. No error and no timeout: an empty cart and a plausible total. Scope to
+the thing that makes the answer unambiguous — the cart is *the table containing
+the total cell*.
+
+**Ground locators in the accessibility tree, not in a DOM dump.** The snapshot
+`npx playwright-cli snapshot` writes is what `getByRole` and a screen reader
+both read. A DOM dump is not: a script that fell back to the `placeholder`
+attribute reported `Your email` for a field whose accessible name is
+`Email address *`, and every locator written from it failed as a bare
+fifteen-second timeout on a field plainly on screen.
+
+**The same rule applies to values, not only to selectors.** A country chosen
+from memory — `Netherlands` — matched nothing in a list using UN naming
+(`Netherlands (the)`). `selectOption` with a label that matches nothing does
+not fail fast: Playwright retries the whole action and times out reporting
+*"waiting for element to be visible and enabled"*, which describes the select
+rather than the missing option.
+
 Ground locators in a real page, not in priors:
 
 ```bash
@@ -105,6 +128,35 @@ generated tests. Exploration is the only real fix.
 - For genuinely asynchronous facts — a batch posting, a queue — use
   `expect.poll(fn, { timeout })`. It is the only acceptable answer to eventual
   consistency, and it fails as a clear assertion rather than a hung test.
+- **`Locator.count()` does not wait.** Every other read auto-waits; `count()`
+  answers for the DOM as it is at that instant. An action that returns a count
+  must first anchor on something that *does* wait, or it reports a truthful
+  zero for a table that has not rendered — and the assertion then reads
+  "expected > 0, received 0", which points at the application.
+- Wait for the fact, not for the network. `networkidle` returned while a
+  removed cart row was still in the table; `row.waitFor({ state: 'detached' })`
+  waits for the thing the step was actually about.
+
+## State the suite does not own
+
+- **A vocabulary must be able to express every state the application has.** A
+  cart reader that could only describe a non-empty cart made the spec that
+  empties the cart fail at the step confirming it had worked.
+- **Never assert on data the spec did not create.** "The seeded customer has
+  order history" passes until the account behind the role changes, then fails
+  for a reason unrelated to what it tests. Place the order you assert about.
+- **A static account pool plus `serverState: true` means every parallel worker
+  shares one identity.** The failures do not look like contention — they look
+  like a 409 from an endpoint, or a cart with one item too many, landing on
+  whichever spec lost the race. Partition per worker with `run.workerIndex`, or
+  write the verb to tolerate contention rather than assume it owns the account.
+  Note that worker indices repeat across *projects*: `api` worker 0 and
+  `contract` worker 0 pick the same slot.
+- **Negative authentication specs spend the account's lockout budget.** Two
+  specs asserting "a wrong password is refused" locked the shared account every
+  other spec signed in as, and twenty-one unrelated tests failed. Use a
+  disposable identity — and on a deployment shared with strangers, declare
+  `sharedEnvironment: true` in the profile and skip them entirely.
 
 ## Specs
 

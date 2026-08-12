@@ -1,9 +1,7 @@
 'use strict';
 
-const { relPath, layerOf } = require('./lib/paths');
+const { relPath, layerOf, authFlowPatternFor } = require('./lib/paths');
 
-/** Must match `authFlowPattern` in playwright.config.ts. */
-const AUTH_FLOW_FILE = /(login|mfa|password)\.spec\.ts$/;
 const AUTH_TAG = /@auth\b/;
 
 /**
@@ -22,22 +20,30 @@ module.exports = {
     messages: {
       wrongFile:
         'This spec is tagged @auth but lives in "{{file}}", which the auth-flows project does not ' +
-        'match. Move it into a *login|mfa|password.spec.ts file, or it will run with a session ' +
-        'already established and pass without testing anything (§13).',
+        'match ({{pattern}}). Move it into a file that pattern matches, or widen ' +
+        "`authFlowPattern` in the target's profile — otherwise it runs with a session already " +
+        'established and passes without testing anything (§13).',
       authedPageInAuthFlow:
         'An @auth spec must not take `authedPage` — it runs signed out by design. Use `page` and ' +
         'establish the session the spec is about (§13).',
       pageInSignedInFile:
         'This file runs in the e2e project, which is signed in. A spec here that drives the login ' +
-        'form is testing a session it already has; tag it @auth and move it to a ' +
-        '*login|mfa|password.spec.ts file (§13).',
+        'form is testing a session it already has; tag it @auth and move it into a file the ' +
+        "target's `authFlowPattern` matches (§13).",
     },
   },
 
   create(context) {
     const file = relPath(context);
     if (layerOf(file) !== 'spec') return {};
-    const isAuthFlowFile = AUTH_FLOW_FILE.test(file);
+    /*
+       Taken from the selecting target's own profile, so the rule and
+       `playwright.config.ts` cannot disagree about which files the signed-out
+       project owns. A hardcoded copy here rejected files the runner handled
+       correctly, and told the author to undo the override that made them work.
+    */
+    const pattern = authFlowPatternFor(file);
+    const isAuthFlowFile = pattern.test(file);
 
     return {
       CallExpression(node) {
@@ -58,7 +64,11 @@ module.exports = {
         const tagged = AUTH_TAG.test(titleNode.value);
 
         if (tagged && !isAuthFlowFile) {
-          context.report({ node: titleNode, messageId: 'wrongFile', data: { file } });
+          context.report({
+            node: titleNode,
+            messageId: 'wrongFile',
+            data: { file, pattern: String(pattern) },
+          });
           return;
         }
 

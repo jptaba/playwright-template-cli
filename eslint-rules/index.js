@@ -22,9 +22,18 @@ const rules = {
   'no-target-coupling': require('./no-target-coupling'),
 };
 
+const { DEFAULT_AUTH_FLOW_PATTERN, authFlowPatternFor } = require('./lib/paths');
+
 const plugin = {
   meta: { name: 'framework', version: '1.0.0' },
   rules,
+  /**
+   * Re-exported so the framework's own tests can assert that the rules and
+   * `playwright.config.ts` share one definition of an auth-flow file. Two
+   * copies of that pattern is how the two came to disagree.
+   */
+  DEFAULT_AUTH_FLOW_PATTERN,
+  authFlowPatternFor,
 };
 
 /** Every rule at error, which is the only setting an agent can act on. */
