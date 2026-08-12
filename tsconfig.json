@@ -2,8 +2,16 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022", "DOM"],
-    "module": "CommonJS",
-    "moduleResolution": "Node",
+
+    // `nodenext`, not `node`/`node10`: that name is deprecated and stops
+    // working in TypeScript 7. This package has no "type": "module", so
+    // nodenext still treats every .ts file here as CommonJS — which is what
+    // tsx and Playwright's loader actually produce. Nothing about the emit
+    // changes, because `noEmit` is set and this compiler only type-checks;
+    // what changes is that TypeScript now models a dependency's ESM/CJS
+    // boundary correctly instead of assuming pre-Node-10 resolution.
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "types": ["node"],
 
     "strict": true,

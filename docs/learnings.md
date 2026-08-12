@@ -351,6 +351,24 @@ path resolution. Every alternative spelling of an import — alias, repo-rooted,
 index import — is a way past it, and dead configuration is not harmless when
 it is dead configuration that disables a check.
 
+**17 · The repository's own toolchain was on a deprecated setting.**
+`moduleResolution: "Node"` — the option TypeScript renamed to `node10` — is
+deprecated and stops functioning in TypeScript 7. The pinned compiler here
+(5.9.3) accepts it silently, so nothing in the gate said a word; a newer
+TypeScript in an editor is what surfaced it.
+
+*Fix:* `nodenext` for both `module` and `moduleResolution`. This package has
+no `"type": "module"`, so nodenext still treats every `.ts` file as
+CommonJS — which is exactly what tsx and Playwright's loader produce — and
+`noEmit` means the compiler only type-checks either way. What changes is that
+TypeScript now models a dependency's ESM/CJS boundary properly rather than
+assuming pre-Node-10 resolution, so an ESM-only package is reported at
+type-check time instead of at run time.
+
+*General lesson:* a pinned toolchain hides its own deprecations. The gate can
+only be as current as the compiler in it, so a warning from a newer one is
+worth acting on rather than silencing.
+
 **E · A diagram is a test of the design.** Neither of the above was found by
 reading code. Both were found by drawing the boxes and having someone ask why
 one of them was there. Worth remembering the next time a diagram feels like
@@ -383,6 +401,7 @@ documentation overhead.
 | F · CLI logic must be importable | `parseScaffoldArgs` in `src/support/` | `main` |
 | 15 · a11y capability with no engine | `@axe-core/playwright` + `a11y` fixture | `main` |
 | 16 · Path aliases bypassed `layer-boundaries` | aliases removed, resolver hardened | `main` |
+| 17 · Deprecated module resolution | `nodenext` in `tsconfig.json` | `main` |
 | E · A diagram tests the design | — | `main` |
 | D · Selection is not configuration | Unit-only when nothing is selected | `main` |
 
