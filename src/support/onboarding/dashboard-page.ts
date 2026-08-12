@@ -682,7 +682,10 @@ export function onboardingPageContent(): DashboardPageContent {
 export function dashboardPage(token: string, options?: Partial<ShellOptions>): string {
   return renderPage(onboardingPageContent(), {
     token,
-    pages: options?.pages ?? [{ href: '/onboard', label: 'Onboard' }],
+    pages: options?.pages ?? [
+      { href: '/runs', label: 'Runs' },
+      { href: '/onboard', label: 'Onboard' },
+    ],
     current: options?.current ?? '/onboard',
   });
 }

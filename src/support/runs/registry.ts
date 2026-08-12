@@ -134,8 +134,12 @@ export function runCommand(run: RunRecord): { args: string[]; env: Record<string
      Traces and video on failure, not on everything. A trace is 2.9 MB for a
      short journey against 244 KB of video, and a passing run that keeps one per
      test is how a laptop fills up. You want the trace when something broke.
+
+     Only `--trace` is a command-line flag; there is no `--video`, and passing
+     one makes the runner exit with "unknown option" before a single test runs.
+     Video goes through the config, which reads PW_VIDEO below.
   */
-  args.push('--trace=retain-on-failure', '--video=retain-on-failure');
+  args.push('--trace=retain-on-failure');
 
   return {
     args,
@@ -145,6 +149,7 @@ export function runCommand(run: RunRecord): { args: string[]; env: Record<string
       RUN_RESULT_PATH: `${run.directory}/run-result.json`,
       JUNIT_PATH: `${run.directory}/junit.xml`,
       LIVE_EVENTS_PATH: `${run.directory}/events.ndjson`,
+      PW_VIDEO: 'retain-on-failure',
       ...(run.request.liveView ? { LIVE_VIEW: '1' } : {}),
     },
   };

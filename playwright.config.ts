@@ -226,7 +226,9 @@ export default defineConfig<FrameworkOptions>({
       : {}),
     trace: isCI ? 'retain-on-failure' : 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: isCI ? 'retain-on-failure' : 'off',
+    /* There is no `--video` flag, so a run that wants video says so here. */
+    video: (process.env.PW_VIDEO as 'off' | 'on' | 'retain-on-failure' | undefined) ??
+      (isCI ? 'retain-on-failure' : 'off'),
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
   },

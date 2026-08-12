@@ -11,7 +11,10 @@ import {
   type CreateResult,
   type DashboardService,
 } from '../src/support/onboarding/dashboard';
-import { createRouter } from '../src/support/ui/router';
+import { createRouter, html, json, type Route } from '../src/support/ui/router';
+import { renderPage } from '../src/support/ui/shell';
+import { runsPageContent } from '../src/support/ui/runs-page';
+import { pruneRuns, RunManager } from '../src/support/runs/manager';
 import { diagnose, type TargetFacts } from '../src/support/onboarding/diagnose';
 import { planOffboard, type OffboardPlan } from '../src/support/onboarding/offboard';
 import { gatherFacts, removeTarget } from './offboard';
@@ -250,7 +253,7 @@ async function create(
 }
 
 const service: DashboardService = {
-  page: () => dashboardPage(TOKEN),
+  page: () => dashboardPage(TOKEN, { pages: PAGES, current: '/onboard' }),
   existingTargets,
   probe,
   verify,
@@ -305,13 +308,124 @@ function open(url: string): void {
    entry is furniture pretending to be a choice. Adding the runs page is adding
    a route table and a page module, and nothing else.
 */
-const handle = createRouter(onboardingRoutes(service), { token: TOKEN });
+const runManager = new RunManager();
+
+/** Every page the dashboard serves. The navigation is built from this. */
+const PAGES = [
+  { href: '/runs', label: 'Runs' },
+  { href: '/onboard', label: 'Onboard' },
+];
+
+const runRoutes: Route[] = [
+  {
+    method: 'GET',
+    path: '/runs',
+    public: true,
+    handle: () =>
+      html(renderPage(runsPageContent(), { token: TOKEN, pages: PAGES, current: '/runs' })),
+  },
+  {
+    method: 'POST',
+    path: '/api/runs/start',
+    handle: (request) => {
+      const body = (request.body ?? {}) as Record<string, unknown>;
+      const target = String(body.target ?? '').trim();
+      if (!target) return json(400, { error: 'Choose an application to run against.' });
+      const started = runManager.start({
+        target,
+        projects: Array.isArray(body.projects)
+          ? body.projects.map((entry) => String(entry).trim()).filter(Boolean)
+          : [],
+        ...(body.grep ? { grep: String(body.grep) } : {}),
+        headed: body.headed === true,
+        liveView: body.liveView === true,
+      });
+      return json(200, started);
+    },
+  },
+  {
+    method: 'POST',
+    path: '/api/runs/cancel',
+    handle: (request) => {
+      const body = (request.body ?? {}) as Record<string, unknown>;
+      runManager.cancel(String(body.id ?? ''));
+      return json(200, { cancelled: String(body.id ?? '') });
+    },
+  },
+  {
+    method: 'POST',
+    path: '/api/runs/view',
+    handle: (request) => {
+      const body = (request.body ?? {}) as Record<string, unknown>;
+      runManager.setExpanded(String(body.id ?? ''), body.expanded === true);
+      return json(200, { ok: true });
+    },
+  },
+  {
+    method: 'POST',
+    path: '/api/runs/frame',
+    handle: (request) => {
+      // Posted by the live-view fixture inside a running test process.
+      const body = (request.body ?? {}) as Record<string, unknown>;
+      const id = String(body.id ?? '');
+      runManager.recordFrame(id, String(body.frame ?? ''));
+      return json(200, { expanded: runManager.isExpanded(id) });
+    },
+  },
+];
+
+const handle = createRouter([...runRoutes, ...onboardingRoutes(service)], { token: TOKEN });
+
+/**
+ * The live stream, handled by the server rather than the router.
+ *
+ * The router models a request and a response, which is the right model for
+ * everything else here and the wrong one for a connection that stays open and
+ * pushes. Rather than bend it into something that can hold a socket, streaming
+ * stays where the I/O already lives.
+ *
+ * The token comes in the query string because `EventSource` cannot set headers.
+ * That is a weaker place to carry a secret — it lands in logs — which is
+ * tolerable for a value minted per run on a loopback-only server, and would not
+ * be anywhere else.
+ */
+function streamRuns(request: http.IncomingMessage, response: http.ServerResponse): void {
+  const url = new URL(request.url ?? '/', `http://${request.headers.host ?? HOST}`);
+  if (url.searchParams.get('token') !== TOKEN) {
+    response.writeHead(403, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify({ error: 'Missing or stale session token.' }));
+    return;
+  }
+
+  response.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-store',
+    Connection: 'keep-alive',
+  });
+
+  const push = (): void => {
+    const payload = JSON.stringify({ runs: runManager.list(), slotsFree: runManager.slotsFree() });
+    response.write(`data: ${payload}
+
+`);
+  };
+
+  push();
+  // Twice a second: fast enough that a lane change reads as immediate, slow
+  // enough that folding a few hundred events costs nothing.
+  const timer = setInterval(push, 500);
+  request.on('close', () => clearInterval(timer));
+}
 
 function main(): void {
   const server = http.createServer((request, response) => {
     void (async () => {
       try {
         const url = new URL(request.url ?? '/', `http://${request.headers.host ?? HOST}`);
+        if (url.pathname === '/api/runs/stream') {
+          streamRuns(request, response);
+          return;
+        }
         const result = await handle({
           method: request.method ?? 'GET',
           path: url.pathname,
@@ -335,6 +449,20 @@ function main(): void {
       }
     })();
   });
+
+  const pruned = pruneRuns();
+  if (pruned.removed.length > 0) {
+    console.log(`Pruned ${pruned.removed.length} old run(s) from .runs/.`);
+  }
+
+  /* A dashboard that exits leaving browsers behind is a set of windows nobody
+     can explain, so the runs it started go with it. */
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.on(signal, () => {
+      runManager.cancelAll();
+      process.exit(0);
+    });
+  }
 
   server.listen(0, HOST, () => {
     const address = server.address();

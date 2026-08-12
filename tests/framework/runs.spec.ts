@@ -193,12 +193,19 @@ test.describe('the command line a run is given', () => {
     expect(runCommand(record).args.some((flag) => flag.startsWith('--reporter'))).toBe(false);
   });
 
-  test('keeps traces for failures only', () => {
+  test('keeps traces for failures only, and asks for video the only way there is', () => {
     // 2.9 MB of trace against 244 KB of video, measured. A passing run that
     // keeps one per test is how a laptop fills up.
-    const { args } = runCommand(record);
+    const { args, env } = runCommand(record);
     expect(args).toContain('--trace=retain-on-failure');
-    expect(args).toContain('--video=retain-on-failure');
+    /*
+       There is no `--video` command-line flag. Passing one makes the runner
+       exit with "unknown option" before a single test runs — which is exactly
+       what the first run started from the dashboard did, and the reason the
+       live view sat at "0 of 0" looking like a streaming bug.
+    */
+    expect(args.some((flag) => flag.startsWith('--video'))).toBe(false);
+    expect(env.PW_VIDEO).toBe('retain-on-failure');
   });
 
   test('passes projects, grep and headed through, and the live view only when asked', () => {
