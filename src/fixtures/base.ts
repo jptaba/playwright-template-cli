@@ -16,6 +16,7 @@ import { VaultAccountPool, type AccountLease } from '../integrations/vault/accou
 import { VaultSecretStore } from '../integrations/vault/vault-store';
 import { registerSecretPayload } from '../support/redact';
 import { storageStatePath } from '../support/paths';
+import { attachLiveView, liveViewFromEnv } from '../integrations/live-view/screencast';
 
 /**
  * L3 — the injectable surface (§03).
@@ -471,6 +472,32 @@ export const test = base.extend<
         'Provide a DbDriver built on dynamic read-only credentials from Vault\'s database ' +
         'secrets engine — never a static password in a KV path (§05).',
     );
+  },
+
+  /**
+   * The page, with a live view attached when the dashboard asked for one.
+   *
+   * Overriding `page` rather than adding an `auto` fixture is what keeps this
+   * free: an auto fixture depending on `page` would create a browser for every
+   * project, including `api` and `contract`, and losing the no-browser
+   * projects is most of the wall-clock time in a naive mixed suite. An override
+   * runs only when something actually asks for a page.
+   *
+   * Off unless `LIVE_VIEW=1`, which only the dashboard sets, so a command-line
+   * run and every run in CI pay one environment check.
+   */
+  page: async ({ page, browserName }, use) => {
+    const liveView = liveViewFromEnv();
+    if (!liveView || browserName !== 'chromium') {
+      await use(page);
+      return;
+    }
+    const detach = await attachLiveView(page, liveView);
+    try {
+      await use(page);
+    } finally {
+      await detach();
+    }
   },
 
   authedPage: async ({ page, role, target }, use) => {

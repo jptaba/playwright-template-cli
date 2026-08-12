@@ -49,7 +49,14 @@ interface Tracked {
 export class RunManager {
   private readonly runs = new Map<string, Tracked>();
 
+  /** Where a run posts its frames. Known only once the server is listening. */
+  private endpoint: { url: string; token: string } | null = null;
+
   constructor(private readonly now: () => number = () => Date.now()) {}
+
+  setEndpoint(url: string, token: string): void {
+    this.endpoint = { url, token };
+  }
 
   list(): LiveRun[] {
     return [...this.runs.values()]
@@ -106,7 +113,18 @@ export class RunManager {
     const { args, env } = runCommand({ ...record, directory });
     const child = spawn('npx', args, {
       cwd: REPO_ROOT,
-      env: { ...process.env, ...env },
+      env: {
+        ...process.env,
+        ...env,
+        /*
+           Where the live view posts frames. Passed rather than discovered: the
+           port is chosen at startup, and a run that had to guess it would be a
+           run that quietly stopped working the day the port changed.
+        */
+        ...(request.liveView && this.endpoint
+          ? { DASHBOARD_URL: this.endpoint.url, DASHBOARD_TOKEN: this.endpoint.token }
+          : {}),
+      },
       // Detached so the whole tree can be killed: Playwright spawns workers and
       // browsers, and killing only the parent leaves those behind.
       detached: process.platform !== 'win32',

@@ -438,7 +438,16 @@ function main(): void {
           // Nothing here should ever be cached, embedded or sniffed.
           'Cache-Control': 'no-store',
           'X-Content-Type-Options': 'nosniff',
-          'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'",
+          /*
+             `img-src data:` is load-bearing, not boilerplate. The live view is
+             a JPEG in a data URI, and without it the policy refused every frame
+             — the tile rendered a broken-image icon while the frames arriving
+             on the wire were perfectly good JPEGs. Nothing external is allowed
+             either way.
+          */
+          'Content-Security-Policy':
+            "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; " +
+            "img-src 'self' data:; connect-src 'self'",
         });
         response.end(result.body);
       } catch (error) {
@@ -468,6 +477,8 @@ function main(): void {
     const address = server.address();
     const port = typeof address === 'object' && address ? address.port : 0;
     const url = `http://${HOST}:${port}/`;
+    // Runs need this to post frames back, and it is only knowable now.
+    runManager.setEndpoint(url, TOKEN);
     console.log(`\nOnboarding dashboard: ${url}`);
     console.log('Bound to loopback only. Press Ctrl+C when the target is created.\n');
     open(url);

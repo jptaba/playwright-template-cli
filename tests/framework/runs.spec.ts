@@ -13,6 +13,12 @@ import {
   runCommand,
   type RunRecord,
 } from '../../src/support/runs/registry';
+import {
+  FRAME_SIZES,
+  liveViewFromEnv,
+  MIN_FRAME_INTERVAL_MS,
+  shouldSendFrame,
+} from '../../src/integrations/live-view/screencast';
 
 /**
  * Running from the dashboard — phase 2.
@@ -219,5 +225,46 @@ test.describe('the command line a run is given', () => {
     const quiet = runCommand({ ...record, request: { target: 'shop', projects: [] } });
     expect(quiet.args).not.toContain('--headed');
     expect(quiet.env.LIVE_VIEW).toBeUndefined();
+  });
+});
+
+test.describe('the live view', () => {
+  test('is off unless the dashboard asked for it, and complete when it did', () => {
+    // A command-line run and every run in CI pay one environment check for a
+    // feature only the local dashboard uses.
+    expect(liveViewFromEnv({})).toBeNull();
+    expect(liveViewFromEnv({ LIVE_VIEW: '1' }), 'no address to post to').toBeNull();
+    expect(
+      liveViewFromEnv({ LIVE_VIEW: '1', DASHBOARD_URL: 'http://127.0.0.1:1/', DASHBOARD_TOKEN: 't' }),
+      'no run to attribute frames to',
+    ).toBeNull();
+
+    expect(
+      liveViewFromEnv({
+        LIVE_VIEW: '1',
+        DASHBOARD_URL: 'http://127.0.0.1:1/',
+        DASHBOARD_TOKEN: 't',
+        RUN_ID: 'r1',
+      }),
+    ).toEqual({ dashboardUrl: 'http://127.0.0.1:1/', token: 't', runId: 'r1' });
+  });
+
+  test('throttles to roughly eight frames a second', () => {
+    /*
+       Measured unthrottled against a real site: 235 frames in 5.1 seconds, about
+       46 a second at 72 KB each — which is 6 MB/s for two runs. An off-by-one
+       here is the difference between eight frames a second and forty-six.
+    */
+    expect(shouldSendFrame(1000, 1000)).toBe(false);
+    expect(shouldSendFrame(1124, 1000)).toBe(false);
+    expect(shouldSendFrame(1125, 1000)).toBe(true);
+    expect(MIN_FRAME_INTERVAL_MS).toBe(125);
+  });
+
+  test('asks for a bigger frame only when the tile is bigger', () => {
+    // Sending 1280px into a 400px tile is waste; sending 640px into a full
+    // window is a blur. The size follows the tile rather than being picked once.
+    expect(FRAME_SIZES.expanded.maxWidth).toBeGreaterThan(FRAME_SIZES.embedded.maxWidth);
+    expect(FRAME_SIZES.embedded.quality).toBeLessThanOrEqual(FRAME_SIZES.expanded.quality);
   });
 });
