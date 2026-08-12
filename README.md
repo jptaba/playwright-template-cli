@@ -19,7 +19,7 @@ fix landed. New learnings go there.
 ```bash
 npm install
 npx playwright install chromium
-npm run verify        # lint + types + generated-file checks + 236 framework tests
+npm run verify        # lint + types + generated-file checks + 250 framework tests
 npx playwright test   # the framework's own suite; no application attached yet
 ```
 

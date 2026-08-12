@@ -6,6 +6,8 @@ import { createSecretStore, type SecretPayload, type SecretStore } from '../inte
 import { ApiClient } from '../integrations/http/api-client';
 import { DbReader, DisabledDbReader } from '../integrations/db/reader';
 import { ContractRegistry } from '../support/contracts/validator';
+import { createScanner, type A11yScanner } from '../integrations/a11y/scanner';
+import { runAxe } from '../integrations/a11y/axe-runner';
 import { MailpitInbox } from '../integrations/mail/mailpit-inbox';
 import { plusAddress, type MailInbox } from '../integrations/mail/types';
 import { EmailOtpProvider, TotpOtpProvider } from '../integrations/otp/providers';
@@ -129,6 +131,11 @@ export interface FrameworkTestFixtures {
   db: DbReader;
   /** The vendored contract document, when the target publishes one. */
   contracts: ContractRegistry | null;
+  /**
+   * Accessibility scanning against the standard the target declares. Returns
+   * findings; the spec decides what counts as a failure.
+   */
+  a11y: A11yScanner;
 }
 
 const RUN_ID = process.env.RUN_ID ?? `local-${Date.now().toString(36)}`;
@@ -364,6 +371,20 @@ export const test = base.extend<
       },
       (message) => testInfo.attach('cleanup-warning', { body: message, contentType: 'text/plain' }),
     );
+  },
+
+  a11y: async ({ target }, use) => {
+    const capability = target.capabilities.a11y;
+    if (!capability.enabled) {
+      // Constructing it anyway would let a spec claim an accessibility result
+      // for a target that has not said which standard it is held to.
+      throw new CapabilityDisabledError(
+        target.name,
+        'a11y.enabled',
+        'no accessibility standard has been declared for it',
+      );
+    }
+    await use(createScanner(capability, runAxe));
   },
 
   db: async ({ target }, use) => {

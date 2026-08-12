@@ -318,6 +318,20 @@ where it is testable, and the tool is I/O only. If a CLI's logic cannot be
 imported, it cannot be tested, and the usage text becomes the only place the
 flag exists.
 
+**15 · A capability with no engine behind it is worse than no capability.**
+The `a11y` project, the spec directory, the reported kind and the declared
+standard all shipped before anything could actually check a WCAG rule. That
+reads as coverage from the outside — a project named `a11y` in the run report,
+green — while checking nothing at all.
+
+*Fix:* `@axe-core/playwright` is a framework dependency, for exactly the reason
+Ajv already is. Contract validation puts the engine here and the schema in the
+target; accessibility puts the engine here and the standard in the profile.
+WCAG rules are identical for every application, which is the definition of
+something that belongs in framework code. Everything that decides *what gets
+checked* — the cumulative tag ladder, the waivers, the shaping of a result —
+is pure and tested without a browser; only the injection is not.
+
 **E · A diagram is a test of the design.** Neither of the above was found by
 reading code. Both were found by drawing the boxes and having someone ask why
 one of them was there. Worth remembering the next time a diagram feels like
@@ -348,6 +362,7 @@ documentation overhead.
 | 13 · No accessibility testing | `a11y` capability, project and kind | `main` |
 | 14 · A capability less configurable than the rest | `--a11y-standard`, `A11Y_STANDARD`, open union | `main` |
 | F · CLI logic must be importable | `parseScaffoldArgs` in `src/support/` | `main` |
+| 15 · a11y capability with no engine | `@axe-core/playwright` + `a11y` fixture | `main` |
 | E · A diagram tests the design | — | `main` |
 | D · Selection is not configuration | Unit-only when nothing is selected | `main` |
 

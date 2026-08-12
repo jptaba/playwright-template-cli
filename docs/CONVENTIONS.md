@@ -194,6 +194,25 @@ without holding a target to the list this repository happens to know — WCAG 2.
 became a Recommendation in 2023 and 3.0 is in draft, and adopting a newer
 standard must never require an edit to framework code.
 
+## Accessibility
+
+- The `a11y` fixture runs axe against the rule tags the profile's standard
+  resolves to, applies the profile's waivers, and **returns findings**. It
+  asserts nothing: "no critical violations" and "none at all" are different
+  products' answers, and that call belongs in a spec a reviewer can read.
+- WCAG conformance is cumulative. `wcag22aa` means every A and AA criterion
+  from 2.0 and 2.1 as well, and the tag mapping says so — testing only the
+  criteria 2.2 added would be a much smaller claim wearing the same name.
+- `scan.incomplete` is not a pass. Those are checks axe could not decide, and
+  a spec that ignores them overstates its result.
+- Scan a page a user actually reaches. Landing pages pass nearly everywhere;
+  the dialogs, tables and multi-step forms are where the problems are.
+- A permanent exception is a **waiver in the profile**, with a reason and a
+  review date — never a deleted assertion or a `disableRules` that outlives
+  the pull request. The scan still counts waived nodes, so an exception
+  accepted for three cannot quietly become ninety, and `target:doctor` reports
+  a waiver whose review date has passed.
+
 ## API, contract and database work
 
 - Specs call typed clients. No raw `request.*`, no `fetch`, no inline SQL.

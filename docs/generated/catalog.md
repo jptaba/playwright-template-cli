@@ -28,6 +28,7 @@ _Target-agnostic. Available in every spec, whichever application is under test._
 | `api` | `ApiClient` | The shared HTTP client, with response-schema validation inside it — so every API call in every test, including the setup calls inside UI tests, is a contract check for free (§05). |
 | `db` | `DbReader` | Read-only database access. |
 | `contracts` | `ContractRegistry \| null` | The vendored contract document, when the target publishes one. |
+| `a11y` | `A11yScanner` | Accessibility scanning against the standard the target declares. |
 
 ## Fixtures — example-app
 

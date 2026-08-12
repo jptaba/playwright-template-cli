@@ -907,8 +907,9 @@
       <div class="fact"><dt>Runner</dt><dd>Playwright 1.62.1</dd></div>
       <div class="fact"><dt>Language</dt><dd>TypeScript, strict</dd></div>
       <div class="fact"><dt>Guardrails</dt><dd>10 lint rules</dd></div>
-      <div class="fact"><dt>Self-tests</dt><dd>236 framework</dd></div>
-      <div class="fact"><dt>Suite</dt><dd>236 passing</dd></div>
+      <div class="fact"><dt>Engines</dt><dd>axe-core · Ajv</dd></div>
+      <div class="fact"><dt>Self-tests</dt><dd>250 framework</dd></div>
+      <div class="fact"><dt>Suite</dt><dd>250 passing</dd></div>
       <div class="fact"><dt>Target packs</dt><dd>example template</dd></div>
       <div class="fact"><dt>Agent tooling</dt><dd>playwright-cli</dd></div>
       <div class="fact"><dt>Status</dt><dd>Phases 0–7 built</dd></div>
@@ -961,7 +962,7 @@
       <pre><code>npm install
 npx playwright install chromium
 
-npm run verify          # lint + types + generated-file checks + 236 framework tests
+npm run verify          # lint + types + generated-file checks + 250 framework tests
 npx playwright test     # the framework's own suite; no application attached yet</code></pre>
 
       <p>If both are green you have a working framework, its guardrails, and every integration adapter exercised against in-process fakes. No credential, no network beyond the npm registry, and no Docker.</p>
@@ -1316,6 +1317,7 @@ test('TC-4907 · An approved claim posts to the ledger @smoke @expenses', {
             <tr><td class="mono">api</td><td>test</td><td>The shared HTTP client, with response-schema validation inside it.</td></tr>
             <tr><td class="mono">db</td><td>test</td><td>Read-only named queries. Disabled unless the target declares the capability.</td></tr>
             <tr><td class="mono">contracts</td><td>test</td><td>The vendored OpenAPI document, when the target publishes one.</td></tr>
+            <tr><td class="mono">a11y</td><td>test</td><td>Runs axe against the tags the profile’s standard resolves to, applies its waivers, and returns findings. Asserts nothing.</td></tr>
           </tbody>
         </table>
       </div>
@@ -1427,7 +1429,7 @@ if (target.name === 'acme-shop') …          // no — fails the build</code></
 │
 ├─ tools/                       # 22 CLIs — the pipeline's and the agents' entry points
 ├─ tests/
-│  ├─ framework/                # 236 tests — this repo, not the app
+│  ├─ framework/                # 250 tests — this repo, not the app
 │  └─ support/                  # in-process fakes: vault, practitest, jira, inbox
 ├─ cases/&lt;app&gt;/*.yaml           # the intermediate case format, both tracks
 ├─ stories/*.json               # normalised Jira stories (Track A input)
@@ -1665,7 +1667,7 @@ TARGET=&lt;app&gt; npx playwright test --project=setup:auth # prove sign-in work
             <tr><td class="mono">api.enabled: false</td><td>The <code>api</code> project does not exist, the fixture refuses with a reason, and the report says "not applicable" rather than showing a silent zero.</td></tr>
             <tr><td class="mono">db.enabled: false</td><td>Every named query fails with the question you should answer first: which facts genuinely need a database assertion?</td></tr>
             <tr><td class="mono">contracts.enabled: false</td><td>No schema validation hook, no contract project.</td></tr>
-            <tr><td class="mono">a11y.enabled: false</td><td>No accessibility project. It carries the standard the application is held to, so turning it on is a statement about the product rather than a preference about testing. Chosen at onboarding with <code>--a11y-standard</code>, overridable per environment with <code>A11Y_STANDARD</code>, and <b>any string is accepted</b> — the doctor spell-checks against the names it knows rather than gating on them, because a standard newer than this repository must never wait on a change to it.</td></tr>
+            <tr><td class="mono">a11y.enabled: false</td><td>No accessibility project, and the <code>a11y</code> fixture refuses with a reason rather than reporting a clean sweep it never ran. It carries the standard the application is held to, so turning it on is a statement about the product rather than a preference about testing. Chosen at onboarding with <code>--a11y-standard</code>, overridable per environment with <code>A11Y_STANDARD</code>, and <b>any string is accepted</b> — the doctor spell-checks against the names it knows rather than gating on them, because a standard newer than this repository must never wait on a change to it.</td></tr>
           </tbody>
         </table>
       </div>
@@ -1872,7 +1874,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
         <table>
           <thead><tr><th>Stage</th><th>Runs on</th><th>Contents</th></tr></thead>
           <tbody>
-            <tr><td class="mono">verify</td><td>Every MR</td><td>lint, tsc, catalog, instruction sync, agent definitions, hashes, case gate, 236 framework tests</td></tr>
+            <tr><td class="mono">verify</td><td>Every MR</td><td>lint, tsc, catalog, instruction sync, agent definitions, hashes, case gate, 250 framework tests</td></tr>
             <tr><td class="mono">test:smoke</td><td>Every MR</td><td><code>@smoke</code> subset against the target under test, JUnit to the MR widget</td></tr>
             <tr><td class="mono">test:full</td><td>Nightly</td><td>Sharded via <code>parallel:matrix</code>, blob reports as artifacts</td></tr>
             <tr><td class="mono">merge</td><td>Nightly</td><td><code>merge-reports</code>, then <code>report:normalise</code> → one <code>run-result.json</code></td></tr>
@@ -1895,7 +1897,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
 
     <section id="selftest">
       <h2><span class="num">Section 17</span>How the framework tests itself</h2>
-      <p class="lede">236 tests across 16 files, in a <code>framework</code> project with no browser, no network and no target. They are the reason any of the guarantees above can be stated as facts.</p>
+      <p class="lede">250 tests across 17 files, in a <code>framework</code> project with no browser, no network and no target. They are the reason any of the guarantees above can be stated as facts.</p>
       <p><b>These are not unit tests of the application.</b> Nothing in this suite reaches into the code of the application under test — that is a different job, done with different tools, by the people who own that code. The project is called <code>framework</code> for exactly that reason: a project named <code>unit</code> sitting beside <code>e2e</code> and <code>api</code> reads as a claim nobody here is making.</p>
 
       <div class="scroller">
@@ -2098,7 +2100,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
 
 <footer>
   <div class="footer-inner">
-    <p>Companion to <a href="plan.html">the architecture plan</a> and to <a href="CONVENTIONS.md">docs/CONVENTIONS.md</a>, which is the machine-readable source of the conventions described here. Where this document and a lint rule disagree, the lint rule is correct — that is the point of writing conventions as code. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, TypeScript 5.9, ESLint 9, and a suite of 236 passing tests.</p>
+    <p>Companion to <a href="plan.html">the architecture plan</a> and to <a href="CONVENTIONS.md">docs/CONVENTIONS.md</a>, which is the machine-readable source of the conventions described here. Where this document and a lint rule disagree, the lint rule is correct — that is the point of writing conventions as code. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, TypeScript 5.9, ESLint 9, and a suite of 250 passing tests.</p>
   </div>
 </footer>
 

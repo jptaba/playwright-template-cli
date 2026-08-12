@@ -408,6 +408,21 @@ test.describe('the target scaffolder', () => {
     expect(withAll).toContain('src/targets/new-app/contracts/README.md');
   });
 
+  test('the accessibility layer ships a spec, not an empty directory', () => {
+    // A directory with a .gitkeep in it teaches nobody the shape. The spec
+    // shows the one thing that matters: the fixture returns findings and the
+    // spec decides what counts as a failure.
+    const rendered = new Map(
+      planScaffold({ ...options, include: { a11y: true } }).files.map((f) => [f.path, f.contents]),
+    );
+    const spec = rendered.get('src/targets/new-app/tests/a11y/landing.spec.ts') ?? '';
+    expect(spec).toContain("from '../../fixtures'");
+    expect(spec).toContain('a11y.scan(authedPage)');
+    expect(spec).toContain('scan.incomplete');
+    expect(spec).toContain('@a11y');
+    expect(spec).toContain('practitest');
+  });
+
   test('refuses to scaffold an API capability with nowhere to call', () => {
     // Scaffolding the failure and letting the checker report it a minute later
     // is worse than refusing here, where the message can say what to pass.
