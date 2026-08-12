@@ -43,8 +43,40 @@ export interface ContractsCapability {
   spec: string | null;
 }
 
-/** Which accessibility standard this application has actually committed to. */
-export type A11yStandard = 'wcag2a' | 'wcag2aa' | 'wcag21aa' | 'wcag22aa';
+/**
+ * Accessibility standards this framework knows the names of. Used for the
+ * scaffolder's validation and the doctor's spell-check — not as a closed set.
+ */
+export const KNOWN_A11Y_STANDARDS = [
+  'wcag2a',
+  'wcag2aa',
+  'wcag2aaa',
+  'wcag21a',
+  'wcag21aa',
+  'wcag22a',
+  'wcag22aa',
+  'wcag22aaa',
+  'en301549',
+  'section508',
+] as const;
+
+export type KnownA11yStandard = (typeof KNOWN_A11Y_STANDARDS)[number];
+
+/**
+ * Which accessibility standard this application has actually committed to.
+ *
+ * Deliberately an *open* union: the known names give autocomplete and a
+ * spell-check, but any string is accepted. Standards outlive frameworks — WCAG
+ * 2.2 became a Recommendation in 2023 and 3.0 is in draft — and a target
+ * needing a newer one must not have to wait on an edit to a shared type in
+ * this repository. That is the same rule the rest of onboarding follows: if
+ * adding an application means editing framework code, the framework is wrong.
+ *
+ * `npm run target:doctor` warns when the value is not one it recognises, which
+ * catches the typo without blocking the standard that has not been invented
+ * yet.
+ */
+export type A11yStandard = KnownA11yStandard | (string & {});
 
 /**
  * Accessibility testing (§05).
@@ -56,6 +88,12 @@ export type A11yStandard = 'wcag2a' | 'wcag2aa' | 'wcag21aa' | 'wcag22aa';
  */
 export interface A11yCapability {
   enabled: boolean;
+  /**
+   * The standard this application is held to. Environment-overridable in a
+   * generated profile, like every other value here that can differ between
+   * deployments — a pipeline should be able to raise the bar for one
+   * environment without a code change.
+   */
   standard: A11yStandard;
   /**
    * Rules the product owner has accepted and dated, so a known exception is a

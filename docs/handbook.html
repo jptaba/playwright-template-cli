@@ -907,8 +907,8 @@
       <div class="fact"><dt>Runner</dt><dd>Playwright 1.62.1</dd></div>
       <div class="fact"><dt>Language</dt><dd>TypeScript, strict</dd></div>
       <div class="fact"><dt>Guardrails</dt><dd>10 lint rules</dd></div>
-      <div class="fact"><dt>Self-tests</dt><dd>230 framework</dd></div>
-      <div class="fact"><dt>Suite</dt><dd>230 passing</dd></div>
+      <div class="fact"><dt>Self-tests</dt><dd>236 framework</dd></div>
+      <div class="fact"><dt>Suite</dt><dd>236 passing</dd></div>
       <div class="fact"><dt>Target packs</dt><dd>example template</dd></div>
       <div class="fact"><dt>Agent tooling</dt><dd>playwright-cli</dd></div>
       <div class="fact"><dt>Status</dt><dd>Phases 0–7 built</dd></div>
@@ -961,7 +961,7 @@
       <pre><code>npm install
 npx playwright install chromium
 
-npm run verify          # lint + types + generated-file checks + 230 framework tests
+npm run verify          # lint + types + generated-file checks + 236 framework tests
 npx playwright test     # the framework's own suite; no application attached yet</code></pre>
 
       <p>If both are green you have a working framework, its guardrails, and every integration adapter exercised against in-process fakes. No credential, no network beyond the npm registry, and no Docker.</p>
@@ -1427,7 +1427,7 @@ if (target.name === 'acme-shop') …          // no — fails the build</code></
 │
 ├─ tools/                       # 22 CLIs — the pipeline's and the agents' entry points
 ├─ tests/
-│  ├─ framework/                # 230 tests — this repo, not the app
+│  ├─ framework/                # 236 tests — this repo, not the app
 │  └─ support/                  # in-process fakes: vault, practitest, jira, inbox
 ├─ cases/&lt;app&gt;/*.yaml           # the intermediate case format, both tracks
 ├─ stories/*.json               # normalised Jira stories (Track A input)
@@ -1568,7 +1568,7 @@ TARGET=&lt;app&gt; npx playwright test --project=setup:auth # prove sign-in work
         <div class="idx">1</div>
         <div>
           <h3>Scaffold the profile and the pack</h3>
-          <p><code>target:new</code> writes <code>config/targets/&lt;app&gt;.ts</code> and the whole of <code>src/targets/&lt;app&gt;/</code> — locators, actions, fixtures, and the <code>tests/auth.setup.ts</code> that is easy to forget and produces a baffling failure when it is missing. It never overwrites. <code>--with=api,db,contracts</code> adds the optional layers; the api layer also needs <code>--api-url</code>, because a profile that enables the API capability with nowhere to call is dead on arrival.</p>
+          <p><code>target:new</code> writes <code>config/targets/&lt;app&gt;.ts</code> and the whole of <code>src/targets/&lt;app&gt;/</code> — locators, actions, fixtures, and the <code>tests/auth.setup.ts</code> that is easy to forget and produces a baffling failure when it is missing. It never overwrites. <code>--with=api,db,contracts,a11y</code> adds the optional layers; the api layer also needs <code>--api-url</code>, because a profile that enables the API capability with nowhere to call is dead on arrival, and the accessibility layer takes <code>--a11y-standard</code> (default <code>wcag22aa</code>).</p>
           <p>The capability matrix is the important part of what it writes: it is how every downstream decision is made without anyone naming your application.</p>
           <pre><code>export const yourApp: TargetProfile = {
   name: 'your-app',
@@ -1584,6 +1584,7 @@ TARGET=&lt;app&gt; npx playwright test --project=setup:auth # prove sign-in work
     api:       { enabled: true, baseURL: process.env.API_BASE_URL },
     db:        { enabled: false },
     contracts: { enabled: true, spec: 'src/targets/your-app/contracts/openapi.yaml' },
+    a11y:      { enabled: true, standard: process.env.A11Y_STANDARD ?? 'wcag22aa' },
   },
 
   testIdAttribute: 'data-testid',    // your app's, not the framework's
@@ -1664,7 +1665,7 @@ TARGET=&lt;app&gt; npx playwright test --project=setup:auth # prove sign-in work
             <tr><td class="mono">api.enabled: false</td><td>The <code>api</code> project does not exist, the fixture refuses with a reason, and the report says "not applicable" rather than showing a silent zero.</td></tr>
             <tr><td class="mono">db.enabled: false</td><td>Every named query fails with the question you should answer first: which facts genuinely need a database assertion?</td></tr>
             <tr><td class="mono">contracts.enabled: false</td><td>No schema validation hook, no contract project.</td></tr>
-            <tr><td class="mono">a11y.enabled: false</td><td>No accessibility project. It carries the standard the application is held to, so turning it on is a statement about the product rather than a preference about testing.</td></tr>
+            <tr><td class="mono">a11y.enabled: false</td><td>No accessibility project. It carries the standard the application is held to, so turning it on is a statement about the product rather than a preference about testing. Chosen at onboarding with <code>--a11y-standard</code>, overridable per environment with <code>A11Y_STANDARD</code>, and <b>any string is accepted</b> — the doctor spell-checks against the names it knows rather than gating on them, because a standard newer than this repository must never wait on a change to it.</td></tr>
           </tbody>
         </table>
       </div>
@@ -1871,7 +1872,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
         <table>
           <thead><tr><th>Stage</th><th>Runs on</th><th>Contents</th></tr></thead>
           <tbody>
-            <tr><td class="mono">verify</td><td>Every MR</td><td>lint, tsc, catalog, instruction sync, agent definitions, hashes, case gate, 230 framework tests</td></tr>
+            <tr><td class="mono">verify</td><td>Every MR</td><td>lint, tsc, catalog, instruction sync, agent definitions, hashes, case gate, 236 framework tests</td></tr>
             <tr><td class="mono">test:smoke</td><td>Every MR</td><td><code>@smoke</code> subset against the target under test, JUnit to the MR widget</td></tr>
             <tr><td class="mono">test:full</td><td>Nightly</td><td>Sharded via <code>parallel:matrix</code>, blob reports as artifacts</td></tr>
             <tr><td class="mono">merge</td><td>Nightly</td><td><code>merge-reports</code>, then <code>report:normalise</code> → one <code>run-result.json</code></td></tr>
@@ -1894,7 +1895,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
 
     <section id="selftest">
       <h2><span class="num">Section 17</span>How the framework tests itself</h2>
-      <p class="lede">230 tests across 16 files, in a <code>framework</code> project with no browser, no network and no target. They are the reason any of the guarantees above can be stated as facts.</p>
+      <p class="lede">236 tests across 16 files, in a <code>framework</code> project with no browser, no network and no target. They are the reason any of the guarantees above can be stated as facts.</p>
       <p><b>These are not unit tests of the application.</b> Nothing in this suite reaches into the code of the application under test — that is a different job, done with different tools, by the people who own that code. The project is called <code>framework</code> for exactly that reason: a project named <code>unit</code> sitting beside <code>e2e</code> and <code>api</code> reads as a claim nobody here is making.</p>
 
       <div class="scroller">
@@ -1945,7 +1946,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
       <div class="scroller">
         <table>
           <tbody>
-            <tr><td class="mono">target:new -- --name= --url=</td><td>Scaffold a profile and a four-layer pack. Never overwrites. <code>--with=api,db,contracts</code>, <code>--roles=</code>, <code>--secrets=vault|local</code>, <code>--dry-run</code></td></tr>
+            <tr><td class="mono">target:new -- --name= --url=</td><td>Scaffold a profile and a four-layer pack. Never overwrites. <code>--with=api,db,contracts,a11y</code>, <code>--a11y-standard=</code>, <code>--roles=</code>, <code>--secrets=vault|local</code>, <code>--dry-run</code></td></tr>
             <tr><td class="mono">target:doctor</td><td>Check every profile's claims against the pack, the filesystem and the secret store. Exits non-zero on an error. <code>TARGET=</code> narrows it to one</td></tr>
             <tr><td class="mono">explore [-- /path]</td><td>Open the profile's host with <code>playwright-cli</code>, through the allowlist guard</td></tr>
             <tr><td class="mono">vault:check [path…]</td><td>Whether a credential path resolves and what fields it has — never a value</td></tr>
@@ -2011,6 +2012,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
             <tr><td class="mono">TARGET</td><td>Which profile to resolve. Defaults to <code>example-app</code>, the template.</td></tr>
             <tr><td class="mono">BASE_URL / TARGET_ENV</td><td>Override the profile's host and environment label</td></tr>
             <tr><td class="mono">SECRET_SOURCE</td><td><code>vault</code> or <code>local</code></td></tr>
+            <tr><td class="mono">A11Y_STANDARD</td><td>Raise or lower the accessibility bar for one environment without editing the profile</td></tr>
             <tr><td class="mono">GENERATION_HOST_ALLOWLIST</td><td>Widen the non-production allowlist for this pipeline</td></tr>
             <tr><td class="mono">TRIAGE_AGENT_ENABLED</td><td>Off by default. Measure rules alone first.</td></tr>
             <tr><td class="mono">JIRA_AUTOFILE</td><td>Off by default. An automated filer on a broken environment files hundreds.</td></tr>
@@ -2096,7 +2098,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
 
 <footer>
   <div class="footer-inner">
-    <p>Companion to <a href="plan.html">the architecture plan</a> and to <a href="CONVENTIONS.md">docs/CONVENTIONS.md</a>, which is the machine-readable source of the conventions described here. Where this document and a lint rule disagree, the lint rule is correct — that is the point of writing conventions as code. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, TypeScript 5.9, ESLint 9, and a suite of 230 passing tests.</p>
+    <p>Companion to <a href="plan.html">the architecture plan</a> and to <a href="CONVENTIONS.md">docs/CONVENTIONS.md</a>, which is the machine-readable source of the conventions described here. Where this document and a lint rule disagree, the lint rule is correct — that is the point of writing conventions as code. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, TypeScript 5.9, ESLint 9, and a suite of 236 passing tests.</p>
   </div>
 </footer>
 

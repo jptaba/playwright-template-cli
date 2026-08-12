@@ -292,6 +292,32 @@ Waivers live beside it with a reason and a review date, and the doctor reports
 one whose date has passed: a waiver nobody revisits is a defect with better
 paperwork.
 
+**14 · A new capability was less configurable than every old one.** The
+accessibility standard shipped as a hardcoded `'wcag22aa'` in a closed type
+union. Every other value in a profile that can differ between deployments —
+base URL, environment, test-id attribute, secret source, API host — reads from
+the environment with a default; this one did not. Worse, adopting a standard
+the union did not list would have meant editing a shared type in this
+repository, which is precisely the thing onboarding is supposed to never
+require.
+
+*Fix:* `--a11y-standard=` at scaffold time, `A11Y_STANDARD` afterwards, and an
+*open* union — the known names give autocomplete and the doctor spell-checks
+against them, but any string is accepted. Standards outlive frameworks: WCAG
+2.2 became a Recommendation in 2023 and 3.0 is in draft, and a target must
+never wait on this repository to adopt one.
+
+**F · A flag nobody ran is a flag that does not work.** `--a11y-standard`
+was rejected as an unrecognised argument by a parser matching flag names with
+`[a-z-]+` — no digits — while the CLI printed that exact flag in its own usage
+text. The unit tests called the planner directly and could not have caught it,
+because the parser lived in a file that runs `process.exit` on import.
+
+*Convention:* argument parsing moved to `src/support/onboarding/scaffold.ts`
+where it is testable, and the tool is I/O only. If a CLI's logic cannot be
+imported, it cannot be tested, and the usage text becomes the only place the
+flag exists.
+
 **E · A diagram is a test of the design.** Neither of the above was found by
 reading code. Both were found by drawing the boxes and having someone ask why
 one of them was there. Worth remembering the next time a diagram feels like
@@ -320,6 +346,8 @@ documentation overhead.
 | 11 · Guard lost in its own wrapper | `resolveExploreUrl` origin check | `main` |
 | 12 · `unit` project misnamed | `framework` project, directory and kind | `main` |
 | 13 · No accessibility testing | `a11y` capability, project and kind | `main` |
+| 14 · A capability less configurable than the rest | `--a11y-standard`, `A11Y_STANDARD`, open union | `main` |
+| F · CLI logic must be importable | `parseScaffoldArgs` in `src/support/` | `main` |
 | E · A diagram tests the design | — | `main` |
 | D · Selection is not configuration | Unit-only when nothing is selected | `main` |
 

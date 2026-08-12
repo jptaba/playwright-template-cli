@@ -1,5 +1,5 @@
 <!-- GENERATED FILE — DO NOT EDIT.
-     Source: docs/CONVENTIONS.md (sha256 3f91e58fefcc82fa)
+     Source: docs/CONVENTIONS.md (sha256 93c9d4c94d4bf661)
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 
@@ -195,6 +195,14 @@ held to WCAG 2.2 AA?" is a property of the application rather than of a spec —
 and an accessibility suite with no stated standard argues about every finding.
 Waivers live in the profile with a reason and a review date: a known exception
 should be a recorded decision, not a test somebody quietly deleted.
+
+The standard is chosen at onboarding (`--a11y-standard=`, default `wcag22aa`)
+and overridable per environment afterwards (`A11Y_STANDARD`), like every other
+profile value that can differ between deployments. **Any string is accepted.**
+`target:doctor` warns when it does not recognise one, which catches a typo
+without holding a target to the list this repository happens to know — WCAG 2.2
+became a Recommendation in 2023 and 3.0 is in draft, and adopting a newer
+standard must never require an edit to framework code.
 
 ## API, contract and database work
 

@@ -44,8 +44,13 @@ export const exampleApp: TargetProfile = {
     api: { enabled: false, baseURL: process.env.API_BASE_URL },
     db: { enabled: false, vaultRole: 'qa-readonly', dialect: 'postgres' },
     contracts: { enabled: false, spec: 'src/targets/example-app/contracts/openapi.yaml' },
-    // Name the standard the application is actually held to, then turn it on.
-    a11y: { enabled: false, standard: 'wcag22aa' },
+    a11y: {
+      enabled: false,
+      // The bar this application is held to. Any string is accepted — the
+      // doctor spell-checks it against the names it knows, so a newer
+      // standard never waits on a change to the framework.
+      standard: process.env.A11Y_STANDARD ?? 'wcag22aa',
+    },
   },
 
   // Which attribute `getByTestId` reads. Applications disagree: `data-test`,

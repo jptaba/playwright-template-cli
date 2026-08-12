@@ -133,10 +133,12 @@ async function main(): Promise<number> {
     console.log(`  test id      ${profile.testIdAttribute}`);
     console.log(`  roles        ${profile.roles.join(', ') || '(none)'}`);
     console.log(`  credentials  ${profile.credentials.source}`);
+    const a11y = profile.capabilities.a11y;
     console.log(
       `  capabilities mfa=${profile.capabilities.mfa} pool=${profile.capabilities.accountPool} ` +
         `api=${profile.capabilities.api.enabled} db=${profile.capabilities.db.enabled} ` +
-        `contracts=${profile.capabilities.contracts.enabled}`,
+        `contracts=${profile.capabilities.contracts.enabled} ` +
+        `a11y=${a11y.enabled ? a11y.standard : 'false'}`,
     );
     console.log(`  pack         ${pack.exists ? `${pack.files.length} file(s)` : 'MISSING'}`);
     if (credentials.note) console.log(`  secret store ${credentials.note}`);

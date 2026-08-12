@@ -7,13 +7,14 @@ import {
 } from '../../src/support/onboarding/diagnose';
 import {
   camelCase,
+  parseScaffoldArgs,
   defaultAllowlist,
   pascalCase,
   planScaffold,
   ScaffoldError,
 } from '../../src/support/onboarding/scaffold';
 import { resolveExploreUrl } from '../../src/support/onboarding/explore-url';
-import type { TargetProfile } from '../../config/targets/types';
+import { KNOWN_A11Y_STANDARDS, type TargetProfile } from '../../config/targets/types';
 
 /**
  * Onboarding an application is the moment this framework is judged. Everything
@@ -210,6 +211,46 @@ test.describe('the onboarding preflight', () => {
     expect(codes(found)).toContain('a11y-waiver-expired');
   });
 
+  test('an accessibility standard the framework does not know is a warning, not a block', () => {
+    // Standards outlive frameworks. A target needing one newer than this
+    // repository has heard of must not wait on a change here — the check
+    // exists to catch a typo.
+    const found = diagnose(
+      profile({
+        capabilities: {
+          ...profile().capabilities,
+          a11y: { enabled: true, standard: 'wcag30aa' },
+        },
+      }),
+      facts({ packFiles: [...HEALTHY_PACK, 'tests/a11y/nav.spec.ts'] }),
+    );
+    expect(codes(found)).toContain('a11y-unknown-standard');
+    expect(isRunnable(found)).toBe(true);
+  });
+
+  test('a known standard passes without comment', () => {
+    for (const standard of KNOWN_A11Y_STANDARDS) {
+      const found = diagnose(
+        profile({
+          capabilities: { ...profile().capabilities, a11y: { enabled: true, standard } },
+        }),
+        facts({ packFiles: [...HEALTHY_PACK, 'tests/a11y/nav.spec.ts'] }),
+      );
+      expect(codes(found), standard).not.toContain('a11y-unknown-standard');
+    }
+  });
+
+  test('enabling accessibility without naming a standard is an error', () => {
+    const found = diagnose(
+      profile({
+        capabilities: { ...profile().capabilities, a11y: { enabled: true, standard: '' } },
+      }),
+      facts({ packFiles: [...HEALTHY_PACK, 'tests/a11y/nav.spec.ts'] }),
+    );
+    expect(codes(found)).toContain('a11y-no-standard');
+    expect(isRunnable(found)).toBe(false);
+  });
+
   test('enabling the database capability is an error while no driver exists', () => {
     // The `db` fixture throws for every spec that takes it, so this is a trap
     // rather than a preference.
@@ -383,6 +424,49 @@ test.describe('the target scaffolder', () => {
     );
     const written = rendered.get('config/targets/new-app.ts') ?? '';
     expect(written).toContain("contracts: { enabled: false, spec: 'src/targets/new-app/contracts/openapi.yaml' }");
+  });
+
+  test('the accessibility standard is a choice at scaffold time and after it', () => {
+    // Asked at onboarding, and environment-overridable afterwards — the bar an
+    // application is held to can be raised for one environment before another,
+    // and it changes on the standards body's schedule, not this repository's.
+    const written = (options_: Parameters<typeof planScaffold>[0]): string =>
+      new Map(planScaffold(options_).files.map((f) => [f.path, f.contents])).get(
+        'config/targets/new-app.ts',
+      ) ?? '';
+
+    expect(written({ ...options, include: { a11y: true } })).toContain(
+      "standard: process.env.A11Y_STANDARD ?? 'wcag22aa'",
+    );
+    expect(
+      written({ ...options, include: { a11y: true }, a11yStandard: 'en301549' }),
+    ).toContain("standard: process.env.A11Y_STANDARD ?? 'en301549'");
+    // Not on the list is still accepted: the doctor spell-checks, it does not gate.
+    expect(written({ ...options, a11yStandard: 'wcag30aa' })).toContain("?? 'wcag30aa'");
+  });
+
+  test('parses flag names containing digits', () => {
+    // `--a11y-standard` was rejected as an unrecognised argument by a parser
+    // that matched flag names with [a-z-]+, while the CLI printed that exact
+    // flag in its own usage text. The parser lives in this module rather than
+    // in the tool so it can be tested at all.
+    const parsed = parseScaffoldArgs([
+      '--name=new-app',
+      '--url=https://app.new-app.test',
+      '--with=a11y',
+      '--a11y-standard=en301549',
+    ]);
+    expect(parsed.options.a11yStandard).toBe('en301549');
+    expect(parsed.options.include?.a11y).toBe(true);
+    expect(parsed.dryRun).toBe(false);
+  });
+
+  test('rejects arguments it does not understand, and says so', () => {
+    const base = ['--name=new-app', '--url=https://app.new-app.test'];
+    expect(() => parseScaffoldArgs([...base, '-name=x'])).toThrow(ScaffoldError);
+    expect(() => parseScaffoldArgs([...base, '--with=telepathy'])).toThrow(/telepathy/);
+    expect(() => parseScaffoldArgs([...base, '--secrets=guesswork'])).toThrow(/vault/);
+    expect(() => parseScaffoldArgs(['--url=https://app.new-app.test'])).toThrow(/--name/);
   });
 
   test('rejects a name that cannot be a directory, a TARGET value and a filename', () => {

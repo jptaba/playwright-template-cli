@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { REPO_ROOT } from '../src/support/paths';
-import { planScaffold, ScaffoldError, type ScaffoldOptions } from '../src/support/onboarding/scaffold';
+import { parseScaffoldArgs, planScaffold } from '../src/support/onboarding/scaffold';
 
 /**
  * `npm run target:new -- --name=<app> --url=<base-url>` — onboarding, step one.
@@ -14,11 +14,6 @@ import { planScaffold, ScaffoldError, type ScaffoldOptions } from '../src/suppor
  * There is no registration step. Profiles are discovered from
  * `config/targets/`, so dropping the file in is the whole of it.
  */
-interface Args {
-  options: ScaffoldOptions;
-  dryRun: boolean;
-}
-
 const USAGE = `Usage:
   npm run target:new -- --name=<app> --url=<base-url> [options]
 
@@ -33,60 +28,9 @@ Options:
   --secrets=vault|local   where credentials resolve from (default: vault)
   --with=api,db,contracts,a11y   optional layers to scaffold as well
   --api-url=<url>         service API base URL; required with --with=api
+  --a11y-standard=<name>  accessibility standard, e.g. wcag22aa (default), en301549
   --allow=a.com,b.com     host suffixes this target may drive (default: from --url)
   --dry-run               list what would be written, write nothing`;
-
-function parse(argv: readonly string[]): Args {
-  const flags = new Map<string, string>();
-  for (const argument of argv) {
-    const match = /^--([a-z-]+)(?:=(.*))?$/.exec(argument);
-    if (!match?.[1]) throw new ScaffoldError(`Unrecognised argument '${argument}'.\n\n${USAGE}`);
-    flags.set(match[1], match[2] ?? 'true');
-  }
-
-  const name = flags.get('name');
-  const url = flags.get('url');
-  if (!name || !url) {
-    throw new ScaffoldError(`--name and --url are both required.\n\n${USAGE}`);
-  }
-
-  const csv = (key: string): string[] =>
-    (flags.get(key) ?? '')
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-
-  const requested = csv('with');
-  const unknown = requested.filter((layer) => !['api', 'db', 'contracts', 'a11y'].includes(layer));
-  if (unknown.length > 0) {
-    throw new ScaffoldError(`--with does not know about: ${unknown.join(', ')}.\n\n${USAGE}`);
-  }
-
-  const secrets = flags.get('secrets') ?? 'vault';
-  if (secrets !== 'vault' && secrets !== 'local') {
-    throw new ScaffoldError(`--secrets must be 'vault' or 'local'.\n\n${USAGE}`);
-  }
-
-  return {
-    dryRun: flags.has('dry-run'),
-    options: {
-      name,
-      baseURL: url,
-      roles: csv('roles'),
-      hostAllowlist: csv('allow'),
-      testIdAttribute: flags.get('test-id'),
-      environment: flags.get('env'),
-      secretSource: secrets,
-      apiBaseURL: flags.get('api-url'),
-      include: {
-        api: requested.includes('api'),
-        db: requested.includes('db'),
-        contracts: requested.includes('contracts'),
-        a11y: requested.includes('a11y'),
-      },
-    },
-  };
-}
 
 /**
  * A local secret store entry is a placeholder, never a value. The agent writes
@@ -110,7 +54,7 @@ function addLocalSecretStubs(credentialPaths: readonly string[]): string[] {
 }
 
 function main(): number {
-  const { options, dryRun } = parse(process.argv.slice(2));
+  const { options, dryRun } = parseScaffoldArgs(process.argv.slice(2), USAGE);
   const plan = planScaffold(options);
 
   const existing = plan.files

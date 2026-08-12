@@ -1,4 +1,4 @@
-import type { TargetProfile } from '../../../config/targets/types';
+import { KNOWN_A11Y_STANDARDS, type TargetProfile } from '../../../config/targets/types';
 
 /**
  * Onboarding preflight — the checks that turn "it fails somewhere in the suite"
@@ -303,6 +303,27 @@ function checkCapabilities(
   }
 
   const { a11y } = profile.capabilities;
+  if (a11y.enabled && !a11y.standard) {
+    error(
+      'a11y-no-standard',
+      'capabilities.a11y is enabled but names no standard.',
+      'Say which bar this application is held to. An accessibility suite with no stated ' +
+        'standard argues about every finding it produces.',
+    );
+  } else if (
+    a11y.enabled &&
+    !(KNOWN_A11Y_STANDARDS as readonly string[]).includes(a11y.standard)
+  ) {
+    // A warning, not an error: standards outlive frameworks, and a target
+    // should never wait on this repository to adopt a newer one.
+    warn(
+      'a11y-unknown-standard',
+      `'${a11y.standard}' is not a standard this framework recognises.`,
+      `If it is newer than ${KNOWN_A11Y_STANDARDS.join(', ')}, carry on — this check exists to ` +
+        'catch a typo, not to hold you to the list. Add it to KNOWN_A11Y_STANDARDS to quieten ' +
+        'the warning.',
+    );
+  }
   if (a11y.enabled && !hasUnder('tests/a11y')) {
     warn(
       'a11y-no-specs',

@@ -28,6 +28,8 @@ export interface ScaffoldOptions {
   secretSource?: 'vault' | 'local';
   /** Base URL of the service API. Required when the api layer is included. */
   apiBaseURL?: string;
+  /** Accessibility standard this application is held to. */
+  a11yStandard?: string;
   /** Optional layers to scaffold. UI locators and actions are always written. */
   include?: { api?: boolean; db?: boolean; contracts?: boolean; a11y?: boolean };
 }
@@ -49,6 +51,76 @@ export interface ScaffoldPlan {
 const NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
 export class ScaffoldError extends Error {}
+
+/**
+ * Parse `--flag=value` arguments into scaffold options.
+ *
+ * Lives here rather than in the CLI so it can be tested. It earned that: the
+ * first version matched flag names with `[a-z-]+`, which silently rejected
+ * `--a11y-standard` — a flag with a digit in its name — and the CLI answered
+ * "unrecognised argument" while printing that exact flag in its own usage
+ * text. Nothing caught it, because the tests called the planner directly and
+ * the parser lived in a file that runs `process.exit` on import.
+ */
+export interface ParsedArgs {
+  options: ScaffoldOptions;
+  dryRun: boolean;
+}
+
+const FLAG = /^--([a-z][a-z0-9]*(?:-[a-z0-9]+)*)(?:=(.*))?$/;
+
+export function parseScaffoldArgs(argv: readonly string[], usage = ''): ParsedArgs {
+  const tail = usage ? `\n\n${usage}` : '';
+  const flags = new Map<string, string>();
+  for (const argument of argv) {
+    const match = FLAG.exec(argument);
+    if (!match?.[1]) throw new ScaffoldError(`Unrecognised argument '${argument}'.${tail}`);
+    flags.set(match[1], match[2] ?? 'true');
+  }
+
+  const name = flags.get('name');
+  const url = flags.get('url');
+  if (!name || !url) throw new ScaffoldError(`--name and --url are both required.${tail}`);
+
+  const csv = (key: string): string[] =>
+    (flags.get(key) ?? '')
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+
+  const requested = csv('with');
+  const layers = ['api', 'db', 'contracts', 'a11y'];
+  const unknown = requested.filter((layer) => !layers.includes(layer));
+  if (unknown.length > 0) {
+    throw new ScaffoldError(`--with does not know about: ${unknown.join(', ')}.${tail}`);
+  }
+
+  const secrets = flags.get('secrets') ?? 'vault';
+  if (secrets !== 'vault' && secrets !== 'local') {
+    throw new ScaffoldError(`--secrets must be 'vault' or 'local'.${tail}`);
+  }
+
+  return {
+    dryRun: flags.has('dry-run'),
+    options: {
+      name,
+      baseURL: url,
+      roles: csv('roles'),
+      hostAllowlist: csv('allow'),
+      testIdAttribute: flags.get('test-id'),
+      environment: flags.get('env'),
+      secretSource: secrets,
+      apiBaseURL: flags.get('api-url'),
+      a11yStandard: flags.get('a11y-standard'),
+      include: {
+        api: requested.includes('api'),
+        db: requested.includes('db'),
+        contracts: requested.includes('contracts'),
+        a11y: requested.includes('a11y'),
+      },
+    },
+  };
+}
 
 /** `acme-shop` → `acmeShop`. */
 export function camelCase(name: string): string {
@@ -122,6 +194,15 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
     }
   }
 
+  /*
+     The default is the current W3C Recommendation rather than the oldest
+     level that would pass: a scaffold's defaults are read as a suggestion,
+     and suggesting a 2008 standard in 2026 is the wrong suggestion. Any value
+     is accepted — the doctor spell-checks it against the names it knows,
+     which is what keeps a newer standard from needing a code change here.
+  */
+  const a11yStandard = options.a11yStandard?.trim() || 'wcag22aa';
+
   const root = `src/targets/${name}`;
   const camel = camelCase(name);
   const pascal = pascalCase(name);
@@ -142,6 +223,7 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
         credentialRoot,
         include,
         apiBaseURL,
+        a11yStandard,
       }),
     },
     { path: `${root}/locators/sign-in.ts`, contents: LOCATORS },
@@ -211,6 +293,7 @@ interface ProfileInput {
   credentialRoot: string;
   include: { api: boolean; db: boolean; contracts: boolean; a11y: boolean };
   apiBaseURL: string | null;
+  a11yStandard: string;
 }
 
 function list(values: readonly string[]): string {
@@ -262,8 +345,10 @@ export const ${input.camel}: TargetProfile = {
     db: { enabled: false, vaultRole: 'qa-readonly', dialect: 'postgres' },
     // Off until the published document is vendored to the path below.
     contracts: { enabled: false, spec: ${contractsSpec} },
-    // Turn on once someone can say which standard this application is held to.
-    a11y: { enabled: ${input.include.a11y}, standard: 'wcag22aa' },
+    a11y: {
+      enabled: ${input.include.a11y},
+      standard: process.env.A11Y_STANDARD ?? '${input.a11yStandard}',
+    },
   },
 
   // Which attribute \`getByTestId\` reads. Applications disagree — data-test,
