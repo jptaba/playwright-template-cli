@@ -28,6 +28,12 @@ export interface ScaffoldOptions {
   secretSource?: 'vault' | 'local';
   /** Base URL of the service API. Required when the api layer is included. */
   apiBaseURL?: string;
+  /**
+   * Further services this application is made of, by name. Applications
+   * routinely have more than one back end, and a suite that can only reach one
+   * grows a raw `fetch` the first time it needs the second.
+   */
+  apiServices?: Record<string, string>;
   /** Accessibility standard this application is held to. */
   a11yStandard?: string;
   /** Optional layers to scaffold. UI locators and actions are always written. */
@@ -300,6 +306,7 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
         credentialRoot,
         include,
         apiBaseURL,
+        apiServices: include.api ? (options.apiServices ?? {}) : {},
         a11yStandard,
         contractFilename: contractDocument?.filename ?? null,
       }),
@@ -384,6 +391,7 @@ interface ProfileInput {
   credentialRoot: string;
   include: { api: boolean; db: boolean; contracts: boolean; a11y: boolean };
   apiBaseURL: string | null;
+  apiServices: Record<string, string>;
   a11yStandard: string;
   /** Set when a published document has been vendored into the same plan. */
   contractFilename: string | null;
@@ -408,8 +416,25 @@ function profileFile(input: ProfileInput): string {
     ? `'src/targets/${input.name}/contracts/${specFile}'`
     : 'null';
   const contractsEnabled = Boolean(input.contractFilename);
+  /*
+     Additional back ends, rendered by name. The name is what a spec uses —
+     `apis.billing` — so the URL stays here, where `no-hardcoded-urls` can see
+     it, and does not migrate into a spec the first time a second service is
+     needed.
+  */
+  const services = Object.entries(input.apiServices);
+  const servicesBlock = services
+    .map(([name, url]) => {
+      // A plain identifier needs no quotes and reads as the vocabulary it is;
+      // anything else is quoted so a generated profile always parses, even
+      // though the dashboard refuses such a name upstream.
+      const key = /^[A-Za-z_$][\w$]*$/.test(name) ? name : `'${name.replace(/'/g, "\\'")}'`;
+      return `        ${key}: '${url}',`;
+    })
+    .join('\n');
+  const servicesLine = services.length ? `,\n      services: {\n${servicesBlock}\n      }` : '';
   const apiLine = input.apiBaseURL
-    ? `{ enabled: true, baseURL: process.env.API_BASE_URL ?? '${input.apiBaseURL}' }`
+    ? `{\n      enabled: true,\n      baseURL: process.env.API_BASE_URL ?? '${input.apiBaseURL}'${servicesLine},\n    }`
     : '{ enabled: false, baseURL: process.env.API_BASE_URL }';
   return `import type { TargetProfile } from './types';
 

@@ -125,6 +125,16 @@ export interface FrameworkTestFixtures {
    */
   api: ApiClient;
   /**
+   * The other services this application is made of, by name — `apis.billing`,
+   * `apis.search`. Each carries the same schema validation, cleanup tracking
+   * and trace as `api`.
+   *
+   * Named rather than addressed: a spec says which service it is talking to,
+   * and the URL stays in the profile where `no-hardcoded-urls` can see it.
+   * Without this, the first endpoint on a second host becomes a raw `fetch`.
+   */
+  apis: Record<string, ApiClient>;
+  /**
    * Read-only database access. Last on the list of ways to assert anything,
    * and disabled unless the target declares it (§05).
    */
@@ -398,6 +408,43 @@ export const test = base.extend<
     await client.cleanup(undefined, (message) =>
       testInfo.attach('cleanup-warning', { body: message, contentType: 'text/plain' }),
     );
+  },
+
+  /**
+   * One client per additional service the profile names.
+   *
+   * Built lazily-but-eagerly: an application with four back ends gets four
+   * clients whether or not the spec touches them, which costs nothing — an
+   * `ApiClient` holds no connection — and means `apis.billing` is either there
+   * or the profile never declared it, rather than sometimes undefined.
+   */
+  apis: async ({ request, target, run, contracts }, use, testInfo) => {
+    const capability = target.capabilities.api;
+    const services = capability.enabled ? (capability.services ?? {}) : {};
+
+    const clients: Record<string, ApiClient> = {};
+    for (const [name, baseURL] of Object.entries(services)) {
+      clients[name] = new ApiClient(request, {
+        baseURL,
+        runId: run.runId,
+        registry: contracts,
+        throwOnDrift: testInfo.project.name === 'contract',
+      });
+    }
+
+    await use(clients);
+
+    for (const [name, client] of Object.entries(clients)) {
+      await client.cleanup(undefined, (message) =>
+        testInfo.attach(`cleanup-warning-${name}`, { body: message, contentType: 'text/plain' }),
+      );
+      if (client.driftFound.length > 0 && testInfo.project.name !== 'contract') {
+        await testInfo.attach(`contract-drift-${name}`, {
+          body: client.driftFound.map((drift) => drift.message).join('\n\n'),
+          contentType: 'text/plain',
+        });
+      }
+    }
   },
 
   a11y: async ({ target }, use) => {

@@ -340,6 +340,95 @@ test('without a document the capability still ships off, with its path declared'
 });
 
 // ---------------------------------------------------------------------------
+// More than one back end
+// ---------------------------------------------------------------------------
+
+test('extra services are written into the profile by name', () => {
+  const plan = planScaffold({
+    name: 'acme-shop',
+    baseURL: 'https://staging.acme.example',
+    apiBaseURL: 'https://api.staging.acme.example',
+    apiServices: {
+      billing: 'https://billing.staging.acme.example',
+      search: 'https://search.staging.acme.example',
+    },
+    include: { api: true },
+  });
+
+  const profile = plan.files.find((file) => file.path === 'config/targets/acme-shop.ts')!.contents;
+  expect(profile).toContain('services: {');
+  expect(profile).toContain("billing: 'https://billing.staging.acme.example',");
+  expect(profile).toContain("search: 'https://search.staging.acme.example',");
+});
+
+test('extra services are dropped when the api layer is not included', () => {
+  // An `apis` entry nothing can reach is a URL that looks configured and is not.
+  const plan = planScaffold({
+    name: 'acme-shop',
+    baseURL: 'https://staging.acme.example',
+    apiServices: { billing: 'https://billing.staging.acme.example' },
+  });
+  const profile = plan.files.find((file) => file.path === 'config/targets/acme-shop.ts')!.contents;
+  expect(profile).not.toContain('billing');
+});
+
+test('a blank service row is ignored rather than refused', async () => {
+  // The operator clicked "add another" and changed their mind. Refusing to
+  // plan over an empty field is how a form becomes annoying.
+  const response = await handleDashboardRequest(
+    request({
+      body: {
+        name: 'acme-shop',
+        baseURL: 'https://staging.acme.example',
+        include: { api: true },
+        apiBaseURL: 'https://api.staging.acme.example',
+        apiServices: { '': '' },
+      },
+    }),
+    routing,
+  );
+  expect(response.status).toBe(200);
+});
+
+test('a service name that is not an identifier is refused with a reason', async () => {
+  // The name becomes an object key in generated source and `apis.<name>` in a
+  // spec, so it is constrained rather than accepted as free text.
+  for (const name of ['my service', 'bill-ing', "x'; process.exit(1); //"]) {
+    const response = await handleDashboardRequest(
+      request({
+        body: {
+          name: 'acme-shop',
+          baseURL: 'https://staging.acme.example',
+          include: { api: true },
+          apiBaseURL: 'https://api.staging.acme.example',
+          apiServices: { [name]: 'https://billing.staging.acme.example' },
+        },
+      }),
+      routing,
+    );
+    expect(response.status, `${name} is refused`).toBe(400);
+    expect(response.body).toContain('not a usable service name');
+  }
+});
+
+test('a service without an absolute URL is refused', async () => {
+  const response = await handleDashboardRequest(
+    request({
+      body: {
+        name: 'acme-shop',
+        baseURL: 'https://staging.acme.example',
+        include: { api: true },
+        apiBaseURL: 'https://api.staging.acme.example',
+        apiServices: { billing: '/billing' },
+      },
+    }),
+    routing,
+  );
+  expect(response.status).toBe(400);
+  expect(response.body).toContain('absolute http(s) base URL');
+});
+
+// ---------------------------------------------------------------------------
 // What the dashboard refuses
 // ---------------------------------------------------------------------------
 

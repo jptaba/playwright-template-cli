@@ -26,6 +26,7 @@ _Target-agnostic. Available in every spec, whichever application is under test._
 | `inbox` | `MailInbox \| null` | The mail sink, when one is configured. |
 | `authedPage` | `Page` | A page already carrying the role's session. |
 | `api` | `ApiClient` | The shared HTTP client, with response-schema validation inside it — so every API call in every test, including the setup calls inside UI tests, is a contract check for free (§05). |
+| `apis` | `Record<string, ApiClient>` | The other services this application is made of, by name — `apis.billing`, `apis.search`. |
 | `db` | `DbReader` | Read-only database access. |
 | `contracts` | `ContractRegistry \| null` | The vendored contract document, when the target publishes one. |
 | `a11y` | `A11yScanner` | Accessibility scanning against the standard the target declares. |

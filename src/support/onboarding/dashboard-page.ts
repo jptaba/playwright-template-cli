@@ -72,6 +72,13 @@ export function dashboardPage(token: string): string {
     background: var(--code); border: 1px solid var(--line); border-radius: 6px;
     padding: .75rem; overflow-x: auto; margin: .5rem 0 0;
   }
+  p.explain {
+    color: var(--muted); font-size: .88rem; margin: 0 0 1rem; max-width: 48rem;
+    border-left: 2px solid var(--line); padding-left: .8rem;
+  }
+  p.explain b { color: var(--ink); }
+  .service { display: grid; grid-template-columns: 10rem 1fr auto; gap: .5rem; margin: .4rem 0; }
+  .service button { margin: 0; padding: .4rem .7rem; }
   .note { border-left: 3px solid var(--warn); padding: .4rem 0 .4rem .7rem; margin: .5rem 0;
           color: var(--muted); font-size: .9rem; }
   .found { color: var(--ok); font-weight: 600; }
@@ -115,6 +122,9 @@ export function dashboardPage(token: string): string {
     <input type="text" id="baseURL" placeholder="https://staging.acme.example" autocomplete="off">
     <label for="apiBaseURL">Service API base URL <small>optional; often a different host</small></label>
     <input type="text" id="apiBaseURL" placeholder="https://api.staging.acme.example" autocomplete="off">
+    <label>Other services <small>applications usually have more than one back end &mdash; name each one, and a spec calls it as <code>apis.billing</code></small></label>
+    <div id="services"></div>
+    <button class="secondary" type="button" id="addService">Add another service</button>
     <label class="check">
       <input type="checkbox" id="confirmTest">
       <span>This is a test environment.
@@ -129,7 +139,22 @@ export function dashboardPage(token: string): string {
   <section id="s2" aria-disabled="true">
     <div class="step">Step 2</div>
     <h2>What it says about itself</h2>
+    <p class="explain">
+      These are read from the running application, not guessed. Correct anything that looks
+      wrong &mdash; what is here is what gets written into the pack.
+    </p>
     <div id="findings"></div>
+    <p class="explain">
+      <b>Test-id attribute</b> is what <code>getByTestId</code> reads on this application.
+      Applications disagree (<code>data-test</code>, <code>data-testid</code>,
+      <code>data-qa</code>), and it is a property of the app rather than of the framework.
+      <br>
+      <b>The three names</b> are <i>accessible names</i> &mdash; what a screen reader announces
+      and what <code>getByRole</code> matches. They are usually the field's label, and usually
+      <i>not</i> its placeholder. A name copied from a placeholder produces a locator that
+      times out on a field plainly on screen, which is the single commonest way a generated
+      pack arrives broken.
+    </p>
     <div class="row">
       <div>
         <label for="testId">Test-id attribute</label>
@@ -159,6 +184,13 @@ export function dashboardPage(token: string): string {
   <section id="s3" aria-disabled="true">
     <div class="step">Step 3</div>
     <h2>The shape of the pack</h2>
+    <p class="explain">
+      What gets generated. <b>Roles</b> are the identities the suite signs in as &mdash; each
+      gets its own stored session, and the first is the default for <code>authedPage</code>.
+      <b>Layers</b> are optional vocabularies: switch one on only if the application really has
+      it, because a capability declared on but absent fails obscurely, while one declared off is
+      reported as &ldquo;not applicable&rdquo; rather than as a silent zero.
+    </p>
     <label for="roles">Roles <small>comma separated; the first is the default identity for <code>authedPage</code></small></label>
     <input type="text" id="roles" value="standard" autocomplete="off">
     <div class="row">
@@ -185,6 +217,17 @@ export function dashboardPage(token: string): string {
   <section id="s4" aria-disabled="true">
     <div class="step">Step 4</div>
     <h2>Credentials</h2>
+    <p class="explain">
+      One login per role. Specs never see these &mdash; they resolve at run time through the
+      <code>secrets</code> fixture, and the generated code carries the <i>reference</i>, never
+      the value.
+      <br>
+      <b>Signing in once</b> is optional and does two things: it proves the locators above
+      actually work, and it derives the one locator nothing can read from a page at rest &mdash;
+      the control that only appears <i>after</i> you are signed in. It tries exactly once,
+      because repeated failures lock accounts and the account it would spend is the one the
+      whole suite depends on.
+    </p>
     <div id="credentials"></div>
     <button class="secondary" id="verify">Sign in once, to prove the locators work</button>
     <div class="status" id="verifyStatus"></div>
@@ -193,6 +236,12 @@ export function dashboardPage(token: string): string {
   <section id="s5" aria-disabled="true">
     <div class="step">Step 5</div>
     <h2>Write it</h2>
+    <p class="explain">
+      Nothing is written until you press the button, and nothing is ever overwritten &mdash; if
+      any of these files exist the whole thing is refused. Afterwards the same checks
+      <code>npm run target:doctor</code> runs are shown, so the target is known to be sound
+      before you leave the page.
+    </p>
     <div id="plan"></div>
     <button id="create">Create the target</button>
     <div class="status" id="result"></div>
@@ -238,6 +287,7 @@ function options() {
     name: $('name').value.trim(),
     baseURL: $('baseURL').value.trim(),
     apiBaseURL: $('apiBaseURL').value.trim() || undefined,
+    apiServices: collectServices(),
     environment: $('env').value.trim(),
     roles: list($('roles').value),
     testIdAttribute: $('testId').value.trim(),
@@ -255,6 +305,41 @@ function options() {
       : undefined,
   };
 }
+
+/*
+   Service rows are add/remove rather than a fixed count: an application has as
+   many back ends as it has, and a row added by accident has to be removable or
+   the form refuses to plan over a blank field somebody cannot get rid of.
+*/
+function addServiceRow(name, url) {
+  const row = el('div', 'service');
+  const nameInput = el('input');
+  nameInput.type = 'text'; nameInput.placeholder = 'billing'; nameInput.autocomplete = 'off';
+  nameInput.value = name || '';
+  nameInput.setAttribute('aria-label', 'Service name');
+  const urlInput = el('input');
+  urlInput.type = 'text'; urlInput.placeholder = 'https://billing.staging.acme.example';
+  urlInput.autocomplete = 'off'; urlInput.value = url || '';
+  urlInput.setAttribute('aria-label', 'Service base URL');
+  const remove = el('button', 'secondary', 'Remove');
+  remove.type = 'button';
+  remove.setAttribute('aria-label', 'Remove this service');
+  remove.onclick = () => row.remove();
+  row.append(nameInput, urlInput, remove);
+  $('services').append(row);
+}
+
+function collectServices() {
+  const services = {};
+  for (const row of $('services').children) {
+    const [nameInput, urlInput] = row.querySelectorAll('input');
+    const name = nameInput.value.trim(), url = urlInput.value.trim();
+    if (name || url) services[name] = url;
+  }
+  return services;
+}
+
+$('addService').onclick = () => addServiceRow();
 
 $('probe').onclick = async () => {
   const status = $('s1status');

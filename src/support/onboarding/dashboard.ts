@@ -279,6 +279,9 @@ function readScaffoldOptions(body: Record<string, unknown>): ScaffoldOptions {
       ? { secretSource: body.secretSource }
       : {}),
     ...(body.apiBaseURL ? { apiBaseURL: String(body.apiBaseURL).trim() } : {}),
+    ...(Object.keys(readServices(body.apiServices)).length > 0
+      ? { apiServices: readServices(body.apiServices) }
+      : {}),
     ...(body.a11yStandard ? { a11yStandard: String(body.a11yStandard).trim() } : {}),
     include: {
       api: include.api === true,
@@ -314,6 +317,36 @@ function readScaffoldOptions(body: Record<string, unknown>): ScaffoldOptions {
         }
       : {}),
   };
+}
+
+/**
+ * Additional services, name → base URL.
+ *
+ * The name is rendered into a generated profile as an object key and read back
+ * as `apis.<name>`, so it is constrained to an identifier rather than accepted
+ * as free text. A blank row — the operator clicked "add another" and changed
+ * their mind — is dropped rather than rejected: refusing to plan because of an
+ * empty field is how a form becomes annoying.
+ */
+function readServices(raw: unknown): Record<string, string> {
+  if (typeof raw !== 'object' || raw === null) return {};
+  const services: Record<string, string> = {};
+  for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
+    const url = String(value ?? '').trim();
+    const key = name.trim();
+    if (!key && !url) continue;
+    if (!/^[a-zA-Z][a-zA-Z0-9]*$/.test(key)) {
+      throw new ScaffoldError(
+        `'${key || '(blank)'}' is not a usable service name. Use a single word — it becomes ` +
+          '`apis.<name>` in a spec.',
+      );
+    }
+    if (!/^https?:\/\//.test(url)) {
+      throw new ScaffoldError(`Service '${key}' needs an absolute http(s) base URL.`);
+    }
+    services[key] = url.replace(/\/+$/, '');
+  }
+  return services;
 }
 
 function isMarker(

@@ -26,8 +26,25 @@ export type SqlDialect = 'postgres' | 'mysql' | 'mssql';
 
 export interface ApiCapability {
   enabled: boolean;
-  /** Base URL for the service API. Often a different host from the web front end. */
+  /**
+   * Base URL for the service API. Often a different host from the web front
+   * end, and the one the `api` fixture is bound to.
+   */
   baseURL?: string;
+  /**
+   * Additional services, by name — `{ billing: 'https://…', search: 'https://…' }`.
+   *
+   * Applications routinely have more than one back end, and a suite that can
+   * only call one of them ends up with a raw `fetch` in a spec the first time
+   * it needs the second. Each name here becomes an entry in the `apis` fixture,
+   * carrying the same schema validation, cleanup tracking and trace as the
+   * primary client.
+   *
+   * The name is the vocabulary: `apis.billing`, not a URL. Nothing outside
+   * `config/targets/` may name a host, and that does not stop being true
+   * because there are three of them.
+   */
+  services?: Record<string, string>;
 }
 
 export interface DbCapability {

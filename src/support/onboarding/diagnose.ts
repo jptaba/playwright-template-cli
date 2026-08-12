@@ -255,6 +255,34 @@ function checkCapabilities(
         'resolve against nothing, so every spec taking `api` fails.',
     );
   }
+  for (const [name, baseURL] of Object.entries(api.services ?? {})) {
+    if (!api.enabled) {
+      warn(
+        'api-services-unreachable',
+        `capabilities.api names the service '${name}' but the api capability is disabled.`,
+        'Enable it, or remove the service — an `apis` entry nothing can reach is a URL that ' +
+          'looks configured and is not.',
+      );
+      break;
+    }
+    if (!baseURL || !/^https?:\/\//.test(baseURL)) {
+      error(
+        'api-service-bad-url',
+        `capabilities.api.services.${name} is '${baseURL || '(empty)'}', which is not a URL.`,
+        'Give it an absolute http(s) base URL, or remove the service. A client built on this ' +
+          'resolves every call against nothing and fails where the endpoint is named.',
+      );
+    }
+    if (name === 'api') {
+      warn(
+        'api-service-shadows-primary',
+        "A service named 'api' is confusing beside the `api` fixture, which is the primary one.",
+        'Name it after the service — `billing`, `search` — so a spec taking `apis.billing` says ' +
+          'which back end it is talking to.',
+      );
+    }
+  }
+
   if (api.enabled && !hasUnder('tests/api')) {
     warn(
       'api-no-specs',
