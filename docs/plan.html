@@ -90,9 +90,15 @@
   }
 
   .shell {
-    max-width: 78rem;
+    /*
+       Wide, and the content fills it. The column used to stop at 78rem with
+       the prose capped again at 68ch inside that, which left a third of a
+       1400px screen empty and pushed every wide table into its own little
+       horizontal scrollbar. The gutter is the only reserved space now.
+    */
+    max-width: 100rem;
     margin: 0 auto;
-    padding: 0 1.5rem 6rem;
+    padding: 0 clamp(1.5rem, 3vw, 3rem) 3rem;
     display: grid;
     grid-template-columns: 14.5rem minmax(0, 1fr);
     gap: 3.5rem;
@@ -123,9 +129,9 @@
 
   .topbar-inner {
     position: relative;
-    max-width: 78rem;
+    max-width: 100rem;
     margin: 0 auto;
-    padding: 0 1.5rem;
+    padding: 0 clamp(1.5rem, 3vw, 3rem);
     height: var(--topbar);
     display: flex;
     align-items: center;
@@ -426,7 +432,7 @@
   }
 
   /* ---------- sections ---------- */
-  main { min-width: 0; max-width: 46rem; }
+  main { min-width: 0; }
 
   section { padding-top: 3.25rem; scroll-margin-top: calc(var(--topbar) + 1rem); }
 
@@ -468,13 +474,13 @@
     margin: 1.5rem 0 .5rem;
   }
 
-  p { margin: 0 0 1rem; max-width: 68ch; text-wrap: pretty; }
+  p { margin: 0 0 1rem; text-wrap: pretty; }
 
   a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 
-  ul, ol.body { margin: 0 0 1rem; padding-left: 1.15rem; max-width: 68ch; }
+  ul, ol.body { margin: 0 0 1rem; padding-left: 1.15rem; }
   li { margin-bottom: .45rem; }
   li::marker { color: var(--muted); }
 
@@ -516,6 +522,10 @@
   }
 
   /* ---------- tables ---------- */
+  /* A safety net for a genuinely un-wrappable table, not the normal case. */
+  /* A quiet aside under a table or figure. */
+  p.muted { font-size: .82rem; color: var(--muted); margin-top: -.9rem; }
+
   .scroller { overflow-x: auto; margin: 0 0 1.5rem; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
 
   table { border-collapse: collapse; width: 100%; font-size: .86rem; }
@@ -535,7 +545,27 @@
 
   tbody tr:last-child td { border-bottom: none; }
 
-  td.mono, th.mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: .8rem; white-space: nowrap; }
+  /*
+     Signatures and paths wrap rather than forcing the table wider than the
+     page. `nowrap` here was what put a horizontal scrollbar under half the
+     tables in this document: one long type signature and the whole table
+     went sideways, so the reader had to scroll to see a column that would
+     have fitted perfectly well on two lines.
+  */
+  td.mono, th.mono {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .8rem;
+    /* `break-word`, not `anywhere`: both wrap a long line, but `anywhere`
+       also lets the column shrink below its longest word, which chopped
+       identifiers in half mid-name. This breaks only where there is no
+       alternative. */
+    overflow-wrap: break-word;
+  }
+
+  td code, th code { overflow-wrap: break-word; }
+
+  /* Headers are short; keeping them on one line costs nothing. */
+  th.mono { white-space: nowrap; }
 
   /* ---------- layer stack ---------- */
   .stack { display: flex; flex-direction: column; gap: .4rem; margin: 0 0 1.5rem; }
@@ -690,15 +720,28 @@
 
   hr.rule { border: none; border-top: 1px solid var(--rule); margin: 2.5rem 0 0; }
 
+  /*
+     Outside the shell grid, deliberately.
+     Inside it, the footer shared a row boundary with the sticky contents
+     panel: scroll to the very bottom and the panel was still pinned over the
+     footer's left half, with the footer text running underneath it. A
+     full-width strip after the grid cannot overlap anything.
+  */
   footer {
-    grid-column: 1 / -1;
-    border-top: 1px solid var(--rule-strong);
-    margin-top: 4rem;
-    padding-top: 1.5rem;
-    font-size: .82rem;
+    border-top: 1px solid var(--rule);
+    background: var(--surface);
+    font-size: .72rem;
+    line-height: 1.55;
     color: var(--muted);
   }
 
+  .footer-inner {
+    max-width: 100rem;
+    margin: 0 auto;
+    padding: .85rem clamp(1.5rem, 3vw, 3rem);
+  }
+
+  footer p { margin: 0; }
   footer a { color: var(--muted); }
 
   @media (max-width: 62rem) {
@@ -714,6 +757,11 @@
 
   @media (max-width: 34rem) {
     :root { --topbar: 3rem; }
+    /* Tighter cells reclaim the last few pixels a dense table needs to fit
+       a phone, rather than handing it a scrollbar for the sake of padding. */
+    th, td { padding: .5rem .55rem; }
+    table { font-size: .8rem; }
+    td.mono, th.mono { font-size: .74rem; }
     .brand b { display: none; }
     .topbar .theme { width: 11rem; }
     .theme button { font-size: .68rem; }
@@ -2342,11 +2390,14 @@ JIRA_TLS      = NODE_EXTRA_CA_CERTS=&lt;internal root CA&gt;  # see section 17</
 
   </main>
 
-  <footer>
-    <p>Draft 7 · Adds API, contract and database testing alongside the UI suite, and removes the container and service-mock assumptions — every environment this framework touches is a real running system, and the only container in the plan is the GitLab job image. Draft 6 added the configurable target model with <code>www.saucedemo.com</code> as the reference target, and Track A — Jira story to AI-drafted test cases to automation, alongside the existing PractiTest-first track, both reporting results back to PractiTest. Carried forward from draft 5: GitLab CI, the Playwright CLI reversal, and identity / session / account lifecycle. Confirmed: GitLab CI with a separately-operated Vault, self-hosted Jira Data Center on <code>/rest/api/2/</code> with Bearer PAT, PractiTest as source of truth for execution, both AI clients first-class, internal mail tool. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, <code>@playwright/mcp</code> 0.0.79, PractiTest API v2 (20 instances/POST, 30 calls/min), Jira DC PAT support (8.14+), GitLab <code>id_tokens</code> + Vault JWT auth, and Outlook's Word-engine CSS limits. Both Playwright agent packages are pre-1.0 and will move — re-check at implementation time.</p>
-  </footer>
 
 </div>
+
+<footer>
+  <div class="footer-inner">
+    <p>Draft 7 · Adds API, contract and database testing alongside the UI suite, and removes the container and service-mock assumptions — every environment this framework touches is a real running system, and the only container in the plan is the GitLab job image. Draft 6 added the configurable target model with <code>www.saucedemo.com</code> as the reference target, and Track A — Jira story to AI-drafted test cases to automation, alongside the existing PractiTest-first track, both reporting results back to PractiTest. Carried forward from draft 5: GitLab CI, the Playwright CLI reversal, and identity / session / account lifecycle. Confirmed: GitLab CI with a separately-operated Vault, self-hosted Jira Data Center on <code>/rest/api/2/</code> with Bearer PAT, PractiTest as source of truth for execution, both AI clients first-class, internal mail tool. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, <code>@playwright/mcp</code> 0.0.79, PractiTest API v2 (20 instances/POST, 30 calls/min), Jira DC PAT support (8.14+), GitLab <code>id_tokens</code> + Vault JWT auth, and Outlook's Word-engine CSS limits. Both Playwright agent packages are pre-1.0 and will move — re-check at implementation time.</p>
+  </div>
+</footer>
 
 <script>
   /*
