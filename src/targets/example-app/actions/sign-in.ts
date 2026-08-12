@@ -33,6 +33,14 @@ export const signIn = {
     });
   },
 
+  /**
+   * Whether the page currently carries a session. Used by auth.setup.ts to
+   * fail loudly rather than write a storage state that holds no session.
+   */
+  async isSignedIn(page: Page): Promise<boolean> {
+    return signInLocators.signedInMarker(page).isVisible();
+  },
+
   /** The error the form reported, or null when it reported none. */
   async readError(page: Page): Promise<string | null> {
     const banner = signInLocators.error(page);

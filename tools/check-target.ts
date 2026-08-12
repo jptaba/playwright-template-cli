@@ -1,0 +1,179 @@
+#!/usr/bin/env tsx
+import fs from 'node:fs';
+import path from 'node:path';
+import { REPO_ROOT } from '../src/support/paths';
+import { resolveTarget, targetNames } from '../config/target';
+import { createSecretStore } from '../src/integrations/secrets';
+import { diagnose, isRunnable, type TargetFacts } from '../src/support/onboarding/diagnose';
+import type { TargetProfile } from '../config/targets/types';
+
+/**
+ * `npm run target:doctor` — onboarding, the last step and the one that saves
+ * the time.
+ *
+ * A target profile is a set of claims about an application: it has an API, it
+ * uses TOTP, these roles can sign in. Nothing checks those claims against the
+ * pack and the secret store until a spec runs and fails somewhere unhelpful —
+ * "No storage state for role 'standard'" when the real problem is a missing
+ * auth.setup.ts three directories away.
+ *
+ * This reads the profile, looks at what is actually on disk, asks the secret
+ * store what it can resolve, and prints the disagreements with the file to fix.
+ * It never prints a credential: existence and field names only.
+ */
+function listPack(targetName: string): { exists: boolean; files: string[] } {
+  const root = path.join(REPO_ROOT, 'src', 'targets', targetName);
+  if (!fs.existsSync(root)) return { exists: false, files: [] };
+
+  const files: string[] = [];
+  const walk = (directory: string, prefix: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        walk(path.join(directory, entry.name), relative);
+      } else {
+        files.push(relative);
+      }
+    }
+  };
+  walk(root, '');
+  return { exists: true, files };
+}
+
+/**
+ * Ask the store which roles resolve. `describe` returns existence and field
+ * names — there is no code path here that can reach a value.
+ */
+async function checkCredentials(
+  profile: TargetProfile,
+): Promise<{ checked: boolean; resolvable: string[]; note: string | null }> {
+  const roles = [...profile.roles, ...(profile.nonAuthenticatingRoles ?? [])];
+  if (roles.length === 0) return { checked: true, resolvable: [], note: null };
+
+  const { root, accountType } = profile.credentials;
+  let store;
+  try {
+    store = createSecretStore(profile);
+  } catch (error) {
+    return {
+      checked: false,
+      resolvable: [],
+      note: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  const resolvable: string[] = [];
+  try {
+    for (const role of roles) {
+      const described = await store.describe(`${root}/${accountType}/${role}/1`);
+      const hasBoth =
+        described.exists &&
+        described.fields.includes('username') &&
+        described.fields.includes('password');
+      if (hasBoth) resolvable.push(role);
+    }
+  } catch (error) {
+    // An unreachable Vault is not a broken profile, and reporting it as one
+    // would train people to ignore the checker.
+    return {
+      checked: false,
+      resolvable,
+      note: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    await store.close();
+  }
+  return { checked: true, resolvable, note: null };
+}
+
+function heading(text: string): void {
+  console.log(`\n${text}`);
+  console.log('─'.repeat(text.length));
+}
+
+async function main(): Promise<number> {
+  const names = process.env.TARGET ? [process.env.TARGET] : targetNames();
+  let worstExit = 0;
+
+  console.log(`Checking ${names.length} target(s): ${names.join(', ')}`);
+
+  for (const name of names) {
+    let profile: TargetProfile;
+    try {
+      profile = resolveTarget(name);
+    } catch (error) {
+      heading(name);
+      console.log(`  ERROR    ${error instanceof Error ? error.message : String(error)}`);
+      worstExit = 1;
+      continue;
+    }
+
+    const pack = listPack(name);
+    const credentials = await checkCredentials(profile);
+
+    const facts: TargetFacts = {
+      packExists: pack.exists,
+      packFiles: pack.files,
+      resolvableRoles: credentials.resolvable,
+      credentialsChecked: credentials.checked,
+      contractSpecExists: Boolean(
+        profile.capabilities.contracts.spec &&
+          fs.existsSync(path.join(REPO_ROOT, profile.capabilities.contracts.spec)),
+      ),
+      env: {
+        MAIL_API_URL: process.env.MAIL_API_URL,
+        GENERATION_HOST_ALLOWLIST: process.env.GENERATION_HOST_ALLOWLIST,
+      },
+    };
+
+    const diagnostics = diagnose(profile, facts);
+
+    heading(`${name} · ${profile.environment}`);
+    console.log(`  base URL     ${profile.baseURL}`);
+    console.log(`  test id      ${profile.testIdAttribute}`);
+    console.log(`  roles        ${profile.roles.join(', ') || '(none)'}`);
+    console.log(`  credentials  ${profile.credentials.source}`);
+    console.log(
+      `  capabilities mfa=${profile.capabilities.mfa} pool=${profile.capabilities.accountPool} ` +
+        `api=${profile.capabilities.api.enabled} db=${profile.capabilities.db.enabled} ` +
+        `contracts=${profile.capabilities.contracts.enabled}`,
+    );
+    console.log(`  pack         ${pack.exists ? `${pack.files.length} file(s)` : 'MISSING'}`);
+    if (credentials.note) console.log(`  secret store ${credentials.note}`);
+
+    if (diagnostics.length === 0) {
+      console.log('\n  OK — profile, pack and credentials agree. Nothing to fix.');
+      continue;
+    }
+
+    console.log('');
+    for (const diagnostic of diagnostics) {
+      const label = diagnostic.level === 'error' ? 'ERROR  ' : 'WARN   ';
+      console.log(`  ${label} [${diagnostic.code}] ${diagnostic.message}`);
+      console.log(`           → ${diagnostic.fix}`);
+    }
+
+    const errors = diagnostics.filter((diagnostic) => diagnostic.level === 'error').length;
+    const warnings = diagnostics.length - errors;
+    console.log(`\n  ${errors} error(s), ${warnings} warning(s).`);
+    if (!isRunnable(diagnostics)) worstExit = 1;
+  }
+
+  if (worstExit === 0) {
+    console.log('\nAll checked targets are runnable.');
+  } else {
+    console.log(
+      '\nAt least one target cannot run as configured. Every error above names the file to ' +
+        'fix;\nwarnings are smells that will not stop a run.',
+    );
+  }
+  return worstExit;
+}
+
+main().then(
+  (code) => process.exit(code),
+  (error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(2);
+  },
+);

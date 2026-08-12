@@ -79,7 +79,8 @@ carries on.
 Ground locators in a real page, not in priors:
 
 ```bash
-npx playwright-cli open <url>      # from the target profile, never typed in
+npm run explore                    # opens the profile's host — never a typed URL
+npm run explore -- /checkout       # a path on it, resolved against the profile
 npx playwright-cli snapshot        # accessibility tree to disk as YAML
 npx playwright-cli find "Checkout" # search the snapshot
 ```
@@ -181,19 +182,47 @@ if (target.name === 'acme-shop') …           // no  — `no-target-coupling`
 
 ### Adding an application under test
 
-1. `config/targets/<app>.ts` — base URL, credential refs, capability matrix,
-   `testIdAttribute`, `hostAllowlist`. Register it in `config/target.ts`.
-2. `src/targets/<app>/{locators,actions}/` — explore the running app with
-   `playwright-cli` first; write L1 from the snapshot.
-3. `src/targets/<app>/fixtures.ts` — extend the framework `test` with this
-   target's named actions and its `testData` builders.
-4. `src/targets/<app>/tests/{e2e,api,contract}/` — specs.
-5. `TARGET=<app> npx playwright test`.
+```bash
+npm run target:new -- --name=<app> --url=<base-url>   # profile + four-layer pack
+TARGET=<app> npm run explore                          # open it, snapshot to disk
+TARGET=<app> npm run target:doctor                    # profile vs pack vs credentials
+TARGET=<app> npx playwright test --project=setup:auth # prove sign-in works
+```
 
-Steps 1–4 are the whole surface. If you find yourself editing anything under
+`target:new` writes `config/targets/<app>.ts` and the whole of
+`src/targets/<app>/` — locators, actions, fixtures and `tests/auth.setup.ts` —
+and stops. It never overwrites. Add `--with=api,db,contracts` for the optional
+layers; the api layer also needs `--api-url`.
+
+**There is no registration step.** Profiles are discovered from
+`config/targets/`, so a new file is selectable the moment it lands.
+
+Then the work that cannot be generated:
+
+1. Credentials at `<root>/<accountType>/<role>/1` — Vault for anything real,
+   `config/secrets.local.json` only where they are genuinely public.
+2. Rewrite `locators/` from the snapshot `npm run explore` produced. **Every
+   locator in the scaffold is a guess**, and guessed locators are the largest
+   single source of dead-on-arrival tests.
+3. Name the real business verbs in `actions/`, and expose them from
+   `fixtures.ts`.
+4. Specs in `tests/{e2e,api,contract}/`, then `npm run catalog:build`.
+
+`target:doctor` is the preflight, and it is worth running after each of those.
+It checks the profile's claims against what is actually on disk and what the
+secret store can resolve — an enabled API with no base URL, a declared role with
+no credentials, a missing `auth.setup.ts`, `mfa: 'totp'` against a store that
+cannot issue codes, a leased pool that will silently degrade to a shared login.
+Every finding names the file to fix. Errors block a run; warnings are smells.
+
+Those steps are the whole surface. If you find yourself editing anything under
 `src/fixtures/`, `src/integrations/`, `src/support/` or `tools/` to make a new
 application work, that is a framework bug: the thing you need is a capability,
 not a special case.
+
+With more than one application in the repository, `TARGET` selects. Unset, and
+with several to choose from, only the framework's own `unit` project is built —
+alphabetical order does not get to decide which application gets tested.
 
 ## Never
 

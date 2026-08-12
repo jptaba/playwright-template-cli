@@ -1,0 +1,398 @@
+import { expect, test } from '@playwright/test';
+import {
+  diagnose,
+  isRunnable,
+  type Diagnostic,
+  type TargetFacts,
+} from '../../src/support/onboarding/diagnose';
+import {
+  camelCase,
+  defaultAllowlist,
+  pascalCase,
+  planScaffold,
+  ScaffoldError,
+} from '../../src/support/onboarding/scaffold';
+import { resolveExploreUrl } from '../../src/support/onboarding/explore-url';
+import type { TargetProfile } from '../../config/targets/types';
+
+/**
+ * Onboarding an application is the moment this framework is judged. Everything
+ * here is about the failures that used to happen *later* — at test time, three
+ * directories from their cause — being reported up front with the file to fix.
+ *
+ * The diagnostics are pure functions over a profile and a description of the
+ * filesystem, which is what lets every one of them be tested without a target
+ * on disk, a Vault, or a network.
+ */
+
+function profile(overrides: Partial<TargetProfile> = {}): TargetProfile {
+  return {
+    name: 'demo',
+    baseURL: 'https://demo.internal.corp',
+    environment: 'staging',
+    credentials: { source: 'local', root: 'qa/demo/pools', accountType: 'workforce' },
+    capabilities: {
+      mfa: 'none',
+      accountPool: 'static',
+      serverState: true,
+      api: { enabled: false },
+      db: { enabled: false },
+      contracts: { enabled: false, spec: null },
+    },
+    testIdAttribute: 'data-testid',
+    hostAllowlist: ['internal.corp'],
+    suites: ['smoke'],
+    roles: ['standard'],
+    ...overrides,
+  };
+}
+
+/** A pack that has everything a healthy UI-only target needs. */
+const HEALTHY_PACK = [
+  'fixtures.ts',
+  'locators/sign-in.ts',
+  'actions/sign-in.ts',
+  'tests/auth.setup.ts',
+  'tests/e2e/orders.spec.ts',
+];
+
+function facts(overrides: Partial<TargetFacts> = {}): TargetFacts {
+  return {
+    packExists: true,
+    packFiles: HEALTHY_PACK,
+    resolvableRoles: ['standard'],
+    credentialsChecked: true,
+    contractSpecExists: false,
+    env: {},
+    ...overrides,
+  };
+}
+
+const codes = (found: readonly Diagnostic[]): string[] => found.map((one) => one.code);
+
+test.describe('the onboarding preflight', () => {
+  test('says nothing when the profile, the pack and the credentials agree', () => {
+    expect(diagnose(profile(), facts())).toEqual([]);
+  });
+
+  test('every diagnostic names what to do, not just what is wrong', () => {
+    // A check that cannot say what to do is a check that gets ignored, so the
+    // fix text is part of the contract rather than a nicety.
+    const found = diagnose(
+      profile({ capabilities: { ...profile().capabilities, db: { enabled: true } } }),
+      facts({ packExists: false }),
+    );
+    expect(found.length).toBeGreaterThan(0);
+    for (const diagnostic of found) {
+      expect(diagnostic.fix.length, `${diagnostic.code} has no fix`).toBeGreaterThan(20);
+      expect(diagnostic.code).toMatch(/^[a-z][a-z0-9-]+$/);
+    }
+  });
+
+  test('errors sort ahead of warnings, because errors are what stop a run', () => {
+    const found = diagnose(profile({ baseURL: 'https://demo.other.corp' }), facts());
+    const levels = found.map((one) => one.level);
+    expect(levels).toEqual([...levels].sort((a, b) => (a === 'error' ? -1 : b === 'error' ? 1 : 0)));
+    expect(isRunnable(found)).toBe(false);
+  });
+
+  test('a missing auth.setup.ts is an error, not a warning', () => {
+    // Without it nothing writes a storage state, and every spec taking
+    // `authedPage` fails with "No storage state for role" — which points at
+    // the wrong thing entirely.
+    const found = diagnose(
+      profile(),
+      facts({ packFiles: HEALTHY_PACK.filter((file) => file !== 'tests/auth.setup.ts') }),
+    );
+    expect(codes(found)).toContain('auth-setup-missing');
+    expect(found.find((one) => one.code === 'auth-setup-missing')?.level).toBe('error');
+  });
+
+  test('a role with no credentials is reported with the exact path it looked at', () => {
+    const found = diagnose(
+      profile({ roles: ['standard', 'approver'] }),
+      facts({ resolvableRoles: ['standard'] }),
+    );
+    const missing = found.find((one) => one.code === 'credentials-missing');
+    expect(missing?.message).toContain('qa/demo/pools/workforce/approver/1');
+  });
+
+  test('an unreachable secret store is a warning, not a wall of missing roles', () => {
+    // Reporting an unreachable Vault as a broken profile is how a checker
+    // trains people to ignore it.
+    const found = diagnose(profile(), facts({ credentialsChecked: false, resolvableRoles: [] }));
+    expect(codes(found)).toEqual(['credentials-unchecked']);
+    expect(isRunnable(found)).toBe(true);
+  });
+
+  test('a role that both can and cannot sign in is a contradiction', () => {
+    const found = diagnose(
+      profile({ roles: ['standard'], nonAuthenticatingRoles: ['standard'] }),
+      facts(),
+    );
+    expect(codes(found)).toContain('role-overlap');
+  });
+
+  test('an enabled API with nowhere to call is an error', () => {
+    const found = diagnose(
+      profile({
+        capabilities: { ...profile().capabilities, api: { enabled: true } },
+      }),
+      facts({ packFiles: [...HEALTHY_PACK, 'api/orders.ts', 'tests/api/orders.spec.ts'] }),
+    );
+    expect(codes(found)).toContain('api-no-baseurl');
+  });
+
+  test('a vocabulary the capability matrix has switched off is reported as unreachable', () => {
+    const found = diagnose(profile(), facts({ packFiles: [...HEALTHY_PACK, 'api/orders.ts'] }));
+    expect(codes(found)).toContain('api-vocabulary-unreachable');
+  });
+
+  test('a contract document that is declared but absent is an error', () => {
+    const found = diagnose(
+      profile({
+        capabilities: {
+          ...profile().capabilities,
+          contracts: { enabled: true, spec: 'src/targets/demo/contracts/openapi.yaml' },
+        },
+      }),
+      facts({ contractSpecExists: false }),
+    );
+    expect(codes(found)).toContain('contracts-spec-missing');
+  });
+
+  test('a contract document that has landed prompts turning the capability on', () => {
+    const found = diagnose(
+      profile({
+        capabilities: {
+          ...profile().capabilities,
+          contracts: { enabled: false, spec: 'src/targets/demo/contracts/openapi.yaml' },
+        },
+      }),
+      facts({ contractSpecExists: true }),
+    );
+    expect(codes(found)).toContain('contracts-ready-not-enabled');
+  });
+
+  test('enabling the database capability is an error while no driver exists', () => {
+    // The `db` fixture throws for every spec that takes it, so this is a trap
+    // rather than a preference.
+    const found = diagnose(
+      profile({ capabilities: { ...profile().capabilities, db: { enabled: true } } }),
+      facts(),
+    );
+    const diagnostic = found.find((one) => one.code === 'db-no-driver');
+    expect(diagnostic?.level).toBe('error');
+  });
+
+  test('TOTP against the local secret store is an error, because it cannot issue codes', () => {
+    const found = diagnose(
+      profile({ capabilities: { ...profile().capabilities, mfa: 'totp' } }),
+      facts(),
+    );
+    expect(codes(found)).toContain('totp-needs-vault');
+  });
+
+  test('email OTP needs both an address to watch and an inbox to read', () => {
+    const found = diagnose(
+      profile({ capabilities: { ...profile().capabilities, mfa: 'email' } }),
+      facts(),
+    );
+    expect(codes(found)).toContain('email-otp-no-address');
+    expect(codes(found)).toContain('email-otp-no-inbox');
+
+    const configured = diagnose(
+      profile({
+        capabilities: { ...profile().capabilities, mfa: 'email' },
+        mailBaseAddress: 'qa@example.test',
+      }),
+      facts({ env: { MAIL_API_URL: 'http://127.0.0.1:8025' } }),
+    );
+    expect(codes(configured)).not.toContain('email-otp-no-address');
+    expect(codes(configured)).not.toContain('email-otp-no-inbox');
+  });
+
+  test('leasing against a store that cannot lease is called out as a silent degradation', () => {
+    // This one passes every test and looks fine until two workers collide on
+    // the same identity, which is exactly why it is worth naming.
+    const found = diagnose(
+      profile({ capabilities: { ...profile().capabilities, accountPool: 'leased' } }),
+      facts(),
+    );
+    const diagnostic = found.find((one) => one.code === 'leasing-degrades-silently');
+    expect(diagnostic?.message).toContain('compare-and-swap');
+  });
+
+  test('a base URL outside its own allowlist is an error before a browser opens', () => {
+    const found = diagnose(profile({ hostAllowlist: ['other.corp'] }), facts());
+    expect(codes(found)).toContain('host-not-allowed');
+  });
+
+  test('the environment may widen the allowlist without editing the profile', () => {
+    const found = diagnose(
+      profile({ hostAllowlist: [] }),
+      facts({ env: { GENERATION_HOST_ALLOWLIST: 'internal.corp' } }),
+    );
+    expect(codes(found)).not.toContain('allowlist-empty');
+    expect(codes(found)).not.toContain('host-not-allowed');
+  });
+
+  test('a reserved host is flagged as the scaffold default nobody replaced', () => {
+    const found = diagnose(
+      profile({ baseURL: 'https://app.example.invalid', hostAllowlist: ['example.invalid'] }),
+      facts(),
+    );
+    expect(codes(found)).toContain('baseurl-placeholder');
+    expect(isRunnable(found)).toBe(true);
+  });
+
+  test('rotation on a static pool, or without a policy, is a smell worth stating', () => {
+    const found = diagnose(
+      profile({
+        rotation: {
+          enabled: true,
+          maxAgeDays: 60,
+          jitterDays: 5,
+          blackout: { start: '18:00', end: '06:00' },
+          onFailure: 'quarantine',
+        },
+      }),
+      facts(),
+    );
+    expect(codes(found)).toContain('rotation-without-pool');
+    expect(codes(found)).toContain('rotation-without-policy');
+  });
+});
+
+test.describe('the target scaffolder', () => {
+  const options = { name: 'new-app', baseURL: 'https://app.new-app.test' };
+  const paths = (): string[] => planScaffold(options).files.map((file) => file.path);
+
+  test('writes a profile and a complete four-layer pack', () => {
+    expect(paths()).toEqual([
+      'config/targets/new-app.ts',
+      'src/targets/new-app/locators/sign-in.ts',
+      'src/targets/new-app/actions/sign-in.ts',
+      'src/targets/new-app/fixtures.ts',
+      'src/targets/new-app/tests/auth.setup.ts',
+      'src/targets/new-app/tests/e2e/.gitkeep',
+    ]);
+  });
+
+  test('the scaffolded pack passes its own preflight', () => {
+    // The scaffolder and the checker are the two halves of onboarding, and a
+    // scaffold that fails the check is worse than no scaffold at all.
+    const plan = planScaffold({ ...options, roles: ['shopper'] });
+    const packFiles = plan.files
+      .filter((file) => file.path.startsWith('src/targets/new-app/'))
+      .map((file) => file.path.replace('src/targets/new-app/', ''));
+
+    const found = diagnose(
+      profile({
+        name: 'new-app',
+        baseURL: options.baseURL,
+        hostAllowlist: ['new-app.test'],
+        roles: ['shopper'],
+        credentials: { source: 'vault', root: 'qa/new-app/pools', accountType: 'workforce' },
+      }),
+      facts({ packFiles, resolvableRoles: ['shopper'] }),
+    );
+    expect(found.filter((one) => one.level === 'error')).toEqual([]);
+  });
+
+  test('names the symbols after the target so two packs never collide', () => {
+    const rendered = new Map(planScaffold(options).files.map((file) => [file.path, file.contents]));
+    expect(rendered.get('config/targets/new-app.ts')).toContain('export const newApp: TargetProfile');
+    expect(rendered.get('src/targets/new-app/fixtures.ts')).toContain('interface NewAppFixtures');
+    expect(camelCase('new-app')).toBe('newApp');
+    expect(pascalCase('new-app')).toBe('NewApp');
+  });
+
+  test('derives the allowlist from the host rather than defaulting to something permissive', () => {
+    // A wildcard allowlist is how a suite ends up pointed at production with
+    // the check that would have caught it passing silently.
+    expect(defaultAllowlist('https://shop.staging.acme.test')).toEqual(['acme.test']);
+    expect(defaultAllowlist('https://intranet.test')).toEqual(['intranet.test']);
+    expect(defaultAllowlist('http://127.0.0.1:8080')).toEqual(['127.0.0.1']);
+  });
+
+  test('optional layers are opt-in, and each brings its own spec directory', () => {
+    const withAll = planScaffold({
+      ...options,
+      apiBaseURL: 'https://api.new-app.test',
+      include: { api: true, db: true, contracts: true },
+    }).files.map((file) => file.path);
+
+    expect(withAll).toContain('src/targets/new-app/endpoints/orders.ts');
+    expect(withAll).toContain('src/targets/new-app/api/orders.ts');
+    expect(withAll).toContain('src/targets/new-app/tests/api/.gitkeep');
+    expect(withAll).toContain('src/targets/new-app/queries/ledger.ts');
+    expect(withAll).toContain('src/targets/new-app/db/ledger.ts');
+    expect(withAll).toContain('src/targets/new-app/contracts/README.md');
+  });
+
+  test('refuses to scaffold an API capability with nowhere to call', () => {
+    // Scaffolding the failure and letting the checker report it a minute later
+    // is worse than refusing here, where the message can say what to pass.
+    expect(() => planScaffold({ ...options, include: { api: true } })).toThrow(ScaffoldError);
+    expect(() => planScaffold({ ...options, include: { api: true } })).toThrow(/--api-url/);
+  });
+
+  test('ships the contract capability off until the document is vendored', () => {
+    const rendered = new Map(
+      planScaffold({ ...options, include: { contracts: true } }).files.map((file) => [
+        file.path,
+        file.contents,
+      ]),
+    );
+    const written = rendered.get('config/targets/new-app.ts') ?? '';
+    expect(written).toContain("contracts: { enabled: false, spec: 'src/targets/new-app/contracts/openapi.yaml' }");
+  });
+
+  test('rejects a name that cannot be a directory, a TARGET value and a filename', () => {
+    for (const bad of ['New App', 'new_app', '-app', 'app-', '']) {
+      expect(() => planScaffold({ ...options, name: bad }), bad).toThrow(ScaffoldError);
+    }
+  });
+
+  test('rejects a base URL that is not one, rather than writing a broken profile', () => {
+    expect(() => planScaffold({ ...options, baseURL: 'app.new-app.test' })).toThrow(ScaffoldError);
+  });
+
+  test('the next steps put exploration before writing locators', () => {
+    // Locator hallucination is the largest single source of dead-on-arrival
+    // generated tests, and the order of these steps is the fix.
+    const steps = planScaffold(options).nextSteps;
+    const explore = steps.findIndex((step) => step.includes('explore'));
+    const write = steps.findIndex((step) => step.includes('locators/sign-in.ts'));
+    expect(explore).toBeGreaterThanOrEqual(0);
+    expect(explore).toBeLessThan(write);
+  });
+
+  test('exploration cannot be argued into a host the profile never allowed', () => {
+    // The host comes from the profile so that exploring runs through the same
+    // non-production guard as a test run. An argument that parses as an
+    // absolute URL would replace the origin and skip it — and this is not
+    // hypothetical: Git Bash rewrites a leading `/path` into a local
+    // filesystem path before the process ever sees it.
+    const base = 'https://app.internal.corp';
+    expect(resolveExploreUrl(base)).toBe(base);
+    expect(resolveExploreUrl(base, '/checkout')).toBe(`${base}/checkout`);
+    expect(resolveExploreUrl(base, 'orders?state=open')).toBe(`${base}/orders?state=open`);
+
+    expect(() => resolveExploreUrl(base, 'https://elsewhere.corp/x')).toThrow(/not the target/);
+    expect(() => resolveExploreUrl(base, 'C:/Program Files/Git/checkout')).toThrow(/not the target/);
+  });
+
+  test('no scaffolded file names a host outside the profile', () => {
+    const plan = planScaffold({
+      ...options,
+      apiBaseURL: 'https://api.new-app.test',
+      include: { api: true, db: true, contracts: true },
+    });
+    for (const file of plan.files) {
+      if (file.path.startsWith('config/targets/')) continue; // the one place a host may appear
+      expect(file.contents, file.path).not.toMatch(/https?:\/\//);
+    }
+  });
+});

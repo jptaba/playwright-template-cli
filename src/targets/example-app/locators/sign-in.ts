@@ -20,4 +20,6 @@ export const signInLocators = {
   password: (page: Page): Locator => page.getByRole('textbox', { name: 'Password' }),
   submit: (page: Page): Locator => page.getByRole('button', { name: 'Sign in' }),
   error: (page: Page): Locator => page.getByRole('alert'),
+  /** Something only a signed-in page shows. Used to verify a session, not to assert. */
+  signedInMarker: (page: Page): Locator => page.getByRole('button', { name: 'Account' }),
 };

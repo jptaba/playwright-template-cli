@@ -19,7 +19,7 @@ fix landed. New learnings go there.
 ```bash
 npm install
 npx playwright install chromium
-npm run verify        # lint + types + generated-file checks + 196 unit tests
+npm run verify        # lint + types + generated-file checks + 227 unit tests
 npx playwright test   # the framework's own suite; no application attached yet
 ```
 
@@ -84,18 +84,36 @@ The application is configuration. `src/fixtures/`, `src/integrations/`,
 `src/support/` and `tools/` never import, name, or special-case a target — and
 two lint rules fail the build if they start to.
 
-Adding an application is four steps, all inside its own directory:
+Onboarding one is scaffolded, and then checked:
 
-1. `config/targets/<app>.ts` — base URL, credential refs, capability matrix,
-   `testIdAttribute`, `hostAllowlist`; register it in `config/target.ts`
-2. `src/targets/<app>/{locators,actions}/` — explore with `playwright-cli`, then
-   write L1 from the snapshot
-3. `src/targets/<app>/fixtures.ts` — the target's named actions and `testData`
-4. `src/targets/<app>/tests/{e2e,api,contract}/` — specs
+```bash
+npm run target:new -- --name=<app> --url=<base-url>   # profile + four-layer pack
+TARGET=<app> npm run explore                          # open it, snapshot to disk
+TARGET=<app> npm run target:doctor                    # profile vs pack vs credentials
+TARGET=<app> npx playwright test --project=setup:auth # prove sign-in works
+```
 
-Then `TARGET=<app> npx playwright test`. If you find yourself editing framework
-code to make a new application work, that is a framework bug: the thing you need
-is a capability, not a special case.
+`target:new` writes the profile and the whole pack — locators, actions,
+fixtures, `auth.setup.ts` — and never overwrites. There is no registration
+step: profiles are discovered from `config/targets/`, so a new file is
+selectable the moment it lands. `--with=api,db,contracts` adds the optional
+layers.
+
+What it cannot generate is the part that matters: **every locator in the
+scaffold is a guess.** Explore the running application and rewrite L1 from the
+snapshot. Then name the real business verbs in `actions/`, expose them from
+`fixtures.ts`, and write specs.
+
+`target:doctor` is the preflight. It checks the profile's claims against what is
+on disk and what the secret store can resolve — an enabled API with no base URL,
+a declared role with no credentials, a missing `auth.setup.ts`, `mfa: 'totp'`
+against a store that cannot issue codes, a leased pool that will silently
+degrade to a shared login — and names the file to fix for each one. That is
+onboarding's whole failure surface, reported before a browser opens rather than
+as a confusing test failure three directories from its cause.
+
+If you find yourself editing framework code to make a new application work, that
+is a framework bug: the thing you need is a capability, not a special case.
 
 ## Layout
 
@@ -105,7 +123,7 @@ eslint-rules/         the ten executable conventions, with tests
 src/fixtures/         L3 — the closed vocabulary a generated spec may use
 src/targets/<app>/    L1 locators/endpoints/queries · L2 actions/api/db · L4 tests
 src/integrations/     vault · mail · practitest · jira · http · llm · db
-src/support/          redaction, cases, contracts, reporters, report, triage, heal
+src/support/          redaction, cases, contracts, onboarding, reporters, triage, heal
 tools/                the CLIs the pipeline and the agents call
 tests/unit/           the framework's own tests, incl. the lint rules
 cases/                the intermediate case format both authoring tracks produce

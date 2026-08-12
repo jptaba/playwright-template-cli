@@ -476,8 +476,8 @@
       <div class="fact"><dt>Runner</dt><dd>Playwright 1.62.1</dd></div>
       <div class="fact"><dt>Language</dt><dd>TypeScript, strict</dd></div>
       <div class="fact"><dt>Guardrails</dt><dd>10 lint rules</dd></div>
-      <div class="fact"><dt>Self-tests</dt><dd>196 unit</dd></div>
-      <div class="fact"><dt>Suite</dt><dd>196 passing</dd></div>
+      <div class="fact"><dt>Self-tests</dt><dd>227 unit</dd></div>
+      <div class="fact"><dt>Suite</dt><dd>227 passing</dd></div>
       <div class="fact"><dt>Target packs</dt><dd>example template</dd></div>
       <div class="fact"><dt>Agent tooling</dt><dd>playwright-cli</dd></div>
       <div class="fact"><dt>Status</dt><dd>Phases 0–7 built</dd></div>
@@ -518,7 +518,7 @@
       <pre><code>npm install
 npx playwright install chromium
 
-npm run verify          # lint + types + generated-file checks + 196 unit tests
+npm run verify          # lint + types + generated-file checks + 227 unit tests
 npx playwright test     # the framework's own suite; no application attached yet</code></pre>
 
       <p>If both are green you have a working framework, its guardrails, and every integration adapter exercised against in-process fakes. No credential, no network beyond the npm registry, and no Docker.</p>
@@ -529,7 +529,7 @@ npx playwright test     # the framework's own suite; no application attached yet
         <table>
           <thead><tr><th>Command</th><th>What it proves</th></tr></thead>
           <tbody>
-            <tr><td class="mono">npm run verify</td><td>The conventions execute, the types hold, the generated agent files are current, and the framework's own 191 tests pass. This is what CI runs on every merge request.</td></tr>
+            <tr><td class="mono">npm run verify</td><td>The conventions execute, the types hold, the generated agent files are current, and the framework's own 227 tests pass. This is what CI runs on every merge request.</td></tr>
             <tr><td class="mono">npx playwright test</td><td>Adds the browser projects: a session is established once, specs run against it, and the drift harness proves locator drift can be induced on demand.</td></tr>
             <tr><td class="mono">npm run report:render</td><td>Turns the run into a self-contained HTML report you can open from a file share.</td></tr>
             <tr><td class="mono">npm run vault:check</td><td>Confirms every credential path the target needs resolves — without ever printing a value.</td></tr>
@@ -767,10 +767,10 @@ if (target.name === 'acme-shop') …          // no — fails the build</code></
 ├─ eslint.config.js
 │
 ├─ config/
-│  ├─ target.ts                 # TARGET → profile, plus the non-production guard
+│  ├─ target.ts                 # profile discovery, TARGET → profile, host guard
 │  ├─ targets/
 │  │  ├─ types.ts               # TargetProfile: capabilities, roles, testIdAttribute
-│  │  └─ example-app.ts        # TEMPLATE — copy, rename, replace
+│  │  └─ example-app.ts         # TEMPLATE — or npm run target:new
 │  ├─ secrets.local.json        # public demo credentials only; Vault path shape
 │  └─ quarantine.json           # reviewed, committed, reported with its age
 │
@@ -792,12 +792,13 @@ if (target.name === 'acme-shop') …          // no — fails the build</code></
 │     ├─ reporters/ run-result.ts + run-result-reporter.ts
 │     ├─ report/    render-html · render-email · history
 │     ├─ triage/    cluster · rules · agent · types
+│     ├─ onboarding/ scaffold.ts · diagnose.ts    # target:new and target:doctor
 │     ├─ rotation/  policy · schedule · runner
 │     ├─ heal/brief.ts   quarantine.ts   drift/harness.ts
 │
-├─ tools/                       # 19 CLIs — the pipeline's and the agents' entry points
+├─ tools/                       # 22 CLIs — the pipeline's and the agents' entry points
 ├─ tests/
-│  ├─ unit/                     # 191 tests, 15 files
+│  ├─ unit/                     # 227 tests, 16 files
 │  └─ support/                  # in-process fakes: vault, practitest, jira, inbox
 ├─ cases/&lt;app&gt;/*.yaml           # the intermediate case format, both tracks
 ├─ stories/*.json               # normalised Jira stories (Track A input)
@@ -808,7 +809,7 @@ if (target.name === 'acme-shop') …          // no — fails the build</code></
 
       <h3>Three boundaries that carry weight</h3>
       <ul>
-        <li><b><code>src/targets/</code> makes the per-target boundary a directory</b>, not a convention — which is what lets a lint rule enforce it.</li>
+        <li><b><code>src/targets/</code> makes the per-target boundary a directory</b>, not a convention — which is what lets a lint rule enforce it, and what lets <code>config/targets/</code> be discovered rather than registered.</li>
         <li><b><code>cases/</code> is the junction.</b> Track A writes into it from a story, Track B fills it from PractiTest, and generation reads only from it. One input format regardless of origin.</li>
         <li><b><code>docs/generated/</code> is committed, deliberately.</b> The catalog and the run history are both derived, and both are checked into git so CI can diff them and so trends survive artifact expiry.</li>
       </ul>
@@ -883,19 +884,26 @@ npm run instructions:build  # only if you edited docs/CONVENTIONS.md</code></pre
       <h2><span class="num">Section 08</span>Adding an application under test</h2>
       <p class="lede">The application is configuration. Framework code never imports, names, or special-cases a target — and two lint rules fail the build if it starts to.</p>
 
-      <h3>Four steps, all inside the new application's own directory</h3>
+      <h3>Scaffold it, explore it, check it</h3>
+      <pre><code>npm run target:new -- --name=&lt;app&gt; --url=&lt;base-url&gt;   # profile + four-layer pack
+TARGET=&lt;app&gt; npm run explore                          # open it, snapshot to disk
+TARGET=&lt;app&gt; npm run target:doctor                    # profile vs pack vs credentials
+TARGET=&lt;app&gt; npx playwright test --project=setup:auth # prove sign-in works</code></pre>
+
+      <p><b>There is no registration step.</b> Profiles are discovered from <code>config/targets/</code> — every file there exporting a <code>TargetProfile</code> is a selectable target. That used to be a hand edit to a shared file, and it was the one step in onboarding that reached outside the new application's own directory. It was also the step people forgot, producing <code>Unknown TARGET</code> for a profile sitting right there.</p>
 
       <div class="step">
         <div class="idx">1</div>
         <div>
-          <h3>Declare the profile</h3>
-          <p><code>config/targets/&lt;app&gt;.ts</code>, then register it in <code>config/target.ts</code>. The capability matrix is the important part: it is how every downstream decision is made without anyone naming your application.</p>
+          <h3>Scaffold the profile and the pack</h3>
+          <p><code>target:new</code> writes <code>config/targets/&lt;app&gt;.ts</code> and the whole of <code>src/targets/&lt;app&gt;/</code> — locators, actions, fixtures, and the <code>tests/auth.setup.ts</code> that is easy to forget and produces a baffling failure when it is missing. It never overwrites. <code>--with=api,db,contracts</code> adds the optional layers; the api layer also needs <code>--api-url</code>, because a profile that enables the API capability with nowhere to call is dead on arrival.</p>
+          <p>The capability matrix is the important part of what it writes: it is how every downstream decision is made without anyone naming your application.</p>
           <pre><code>export const yourApp: TargetProfile = {
   name: 'your-app',
   baseURL: process.env.BASE_URL ?? PLACEHOLDER,
   environment: process.env.TARGET_ENV ?? 'staging',
 
-  credentials: { source: 'vault', root: 'qa/staging/pools', accountType: 'workforce' },
+  credentials: { source: 'vault', root: 'qa/your-app/pools', accountType: 'workforce' },
 
   capabilities: {
     mfa: 'totp',              // 'none' | 'totp' | 'email'
@@ -917,32 +925,62 @@ npm run instructions:build  # only if you edited docs/CONVENTIONS.md</code></pre
       <div class="step">
         <div class="idx">2</div>
         <div>
-          <h3>Write L1 and L2 from a snapshot</h3>
-          <p><code>src/targets/&lt;app&gt;/locators/</code> and <code>actions/</code>. Explore first with <code>playwright-cli</code>; write the locators from what you saw, not from what you expect.</p>
+          <h3>Explore, then rewrite every locator</h3>
+          <p><code>npm run explore</code> opens the host <em>from the resolved profile</em> and <code>playwright-cli</code> writes the accessibility tree to disk. Not typing the URL is not ceremony: resolving the profile runs the non-production allowlist check on the way through, so exploration is subject to the same guard as a test run. A typed URL bypasses it.</p>
+          <p class="exit"><b>Every locator in the scaffold is a guess.</b> They are placeholders shaped like the real thing so the file compiles and lints — nothing more. Locator hallucination is the largest single source of dead-on-arrival generated tests, and grounding L1 in a snapshot is the only real fix.</p>
         </div>
       </div>
 
       <div class="step">
         <div class="idx">3</div>
         <div>
-          <h3>Extend the fixture surface</h3>
-          <p><code>src/targets/&lt;app&gt;/fixtures.ts</code> takes the framework <code>test</code> and adds this target's named actions and <code>testData</code> builders. That file is what a spec imports.</p>
+          <h3>Name the business verbs, and expose them</h3>
+          <p>The scaffolded <code>actions/</code> shows the shape — compose locators, return data, assert nothing. Replace it with this application's real vocabulary, then expose it from <code>fixtures.ts</code>, which is the one file a spec imports.</p>
           <pre><code>export const test = framework.extend&lt;YourAppFixtures&gt;({
-  claims:   async ({}, use) =&gt; { await use(claims); },
+  claims:    async ({}, use) =&gt; { await use(claims); },
   approvals: async ({}, use) =&gt; { await use(approvals); },
-  testData: async ({ run }, use) =&gt; { await use(buildTestData(run)); },
+  testData:  async ({ run }, use) =&gt; { await use(buildTestData(run)); },
 });</code></pre>
+          <p>Then <code>npm run catalog:build</code>, so the agent's capability catalog lists the verbs that now exist.</p>
         </div>
       </div>
 
       <div class="step">
         <div class="idx">4</div>
         <div>
-          <h3>Add specs and run</h3>
-          <pre><code>TARGET=your-app npx playwright test</code></pre>
-          <p class="exit"><b>Rule of thumb:</b> if you find yourself editing <code>src/fixtures/</code>, <code>src/integrations/</code>, <code>src/support/</code> or <code>tools/</code> to make a new application work, that is a framework bug. The thing you need is a capability, not a special case.</p>
+          <h3>Check before you run</h3>
+          <pre><code>TARGET=your-app npm run target:doctor</code></pre>
+          <p>A profile is a set of <em>claims</em> about an application: it has an API, it uses TOTP, these roles can sign in. Nothing used to check those claims against the pack and the secret store until a spec ran and failed somewhere unhelpful — "No storage state for role 'approver'" when the real problem was a missing <code>auth.setup.ts</code> three directories away.</p>
+          <p>The doctor reads the profile, looks at what is actually on disk, asks the secret store what it can resolve, and prints the disagreements with the file to fix. It never prints a credential — existence and field names only. Errors block a run; warnings are smells that will not.</p>
         </div>
       </div>
+
+      <h3>What the preflight catches</h3>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Code</th><th>Level</th><th>The failure it replaces</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">auth-setup-missing</td><td>error</td><td>Roles declared but nothing writes a storage state, so every spec taking <code>authedPage</code> fails pointing at the wrong thing</td></tr>
+            <tr><td class="mono">credentials-missing</td><td>error</td><td>A declared role with no credentials — reported with the exact path that was looked at</td></tr>
+            <tr><td class="mono">api-no-baseurl</td><td>error</td><td><code>api.enabled</code> with nowhere to call; the fixture refuses mid-test</td></tr>
+            <tr><td class="mono">contracts-spec-missing</td><td>error</td><td>A schema declared in the profile but never vendored, throwing once per spec</td></tr>
+            <tr><td class="mono">db-no-driver</td><td>error</td><td><code>db.enabled</code> while no driver adapter exists — a trap, not a preference</td></tr>
+            <tr><td class="mono">totp-needs-vault</td><td>error</td><td><code>mfa: 'totp'</code> against a store that cannot issue codes</td></tr>
+            <tr><td class="mono">host-not-allowed</td><td>error</td><td>A base URL its own allowlist does not cover — caught before a browser opens</td></tr>
+            <tr><td class="mono">role-overlap</td><td>error</td><td>A role listed as both authenticating and non-authenticating</td></tr>
+            <tr><td class="mono">leasing-degrades-silently</td><td>warning</td><td>A leased pool on a store with no compare-and-swap: every worker quietly shares one identity, which looks fine until two collide</td></tr>
+            <tr><td class="mono">contracts-ready-not-enabled</td><td>warning</td><td>The document landed but the capability is still off, so nothing validates against it</td></tr>
+            <tr><td class="mono">baseurl-placeholder</td><td>warning</td><td>The scaffold's reserved host, never replaced</td></tr>
+            <tr><td class="mono">rotation-without-policy</td><td>warning</td><td>Rotation configured with no password policy — it fails half-way, after changing the account in one place</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Each one names what is true and what to do about it; a check that cannot say what to do is a check that gets ignored. They are pure functions over a profile and a description of the filesystem, so all of them are unit-tested without a target on disk, a Vault, or a network.</p>
+
+      <p class="exit"><b>Rule of thumb:</b> if you find yourself editing <code>src/fixtures/</code>, <code>src/integrations/</code>, <code>src/support/</code> or <code>tools/</code> to make a new application work, that is a framework bug. The thing you need is a capability, not a special case.</p>
+
+      <h3>More than one application in the repository</h3>
+      <p><code>TARGET</code> selects. Unset, with several to choose from, the browser projects are not built at all and only the framework's own <code>unit</code> project runs — alphabetical order does not get to decide which application gets tested, and <code>npm run verify</code> keeps working the moment a second application is onboarded. Only <em>selection</em> degrades that way: a target that is selected and misconfigured throws, because a suite that quietly skipped itself and reported green is worse than one that failed to start.</p>
 
       <h3>What a capability actually controls</h3>
       <div class="scroller">
@@ -1160,7 +1198,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
         <table>
           <thead><tr><th>Stage</th><th>Runs on</th><th>Contents</th></tr></thead>
           <tbody>
-            <tr><td class="mono">verify</td><td>Every MR</td><td>lint, tsc, catalog, instruction sync, agent definitions, hashes, case gate, 196 unit tests</td></tr>
+            <tr><td class="mono">verify</td><td>Every MR</td><td>lint, tsc, catalog, instruction sync, agent definitions, hashes, case gate, 227 unit tests</td></tr>
             <tr><td class="mono">test:smoke</td><td>Every MR</td><td><code>@smoke</code> subset against the target under test, JUnit to the MR widget</td></tr>
             <tr><td class="mono">test:full</td><td>Nightly</td><td>Sharded via <code>parallel:matrix</code>, blob reports as artifacts</td></tr>
             <tr><td class="mono">merge</td><td>Nightly</td><td><code>merge-reports</code>, then <code>report:normalise</code> → one <code>run-result.json</code></td></tr>
@@ -1183,7 +1221,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
 
     <section id="selftest">
       <h2><span class="num">Section 16</span>How the framework tests itself</h2>
-      <p class="lede">196 unit tests across 15 files, in a <code>unit</code> project with no browser and no network. They are the reason any of the guarantees above can be stated as facts.</p>
+      <p class="lede">227 unit tests across 16 files, in a <code>unit</code> project with no browser and no network. They are the reason any of the guarantees above can be stated as facts.</p>
 
       <div class="scroller">
         <table>
@@ -1225,6 +1263,18 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
             <tr><td class="mono">npm run test:smoke</td><td>The <code>@smoke</code> subset</td></tr>
             <tr><td class="mono">npm run test:unit</td><td>Framework self-tests only — no browser</td></tr>
             <tr><td class="mono">npm run lint:fix</td><td>Lint with autofix</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Onboarding an application</h4>
+      <div class="scroller">
+        <table>
+          <tbody>
+            <tr><td class="mono">target:new -- --name= --url=</td><td>Scaffold a profile and a four-layer pack. Never overwrites. <code>--with=api,db,contracts</code>, <code>--roles=</code>, <code>--secrets=vault|local</code>, <code>--dry-run</code></td></tr>
+            <tr><td class="mono">target:doctor</td><td>Check every profile's claims against the pack, the filesystem and the secret store. Exits non-zero on an error. <code>TARGET=</code> narrows it to one</td></tr>
+            <tr><td class="mono">explore [-- /path]</td><td>Open the profile's host with <code>playwright-cli</code>, through the allowlist guard</td></tr>
+            <tr><td class="mono">vault:check [path…]</td><td>Whether a credential path resolves and what fields it has — never a value</td></tr>
           </tbody>
         </table>
       </div>
@@ -1368,7 +1418,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
   </main>
 
   <footer>
-    <p>Companion to <a href="plan.html">the architecture plan</a> and to <a href="CONVENTIONS.md">docs/CONVENTIONS.md</a>, which is the machine-readable source of the conventions described here. Where this document and a lint rule disagree, the lint rule is correct — that is the point of writing conventions as code. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, TypeScript 5.9, ESLint 9, and a suite of 196 passing tests.</p>
+    <p>Companion to <a href="plan.html">the architecture plan</a> and to <a href="CONVENTIONS.md">docs/CONVENTIONS.md</a>, which is the machine-readable source of the conventions described here. Where this document and a lint rule disagree, the lint rule is correct — that is the point of writing conventions as code. Verified against Playwright 1.62.1, <code>@playwright/cli</code> 0.1.18, TypeScript 5.9, ESLint 9, and a suite of 227 passing tests.</p>
   </footer>
 
 </div>

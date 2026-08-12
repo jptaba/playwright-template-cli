@@ -181,6 +181,85 @@ demonstrates the wiring works, and nothing more.
 
 ---
 
+## What onboarding the second application taught the framework
+
+Stripping the target packs off `main` and putting one back exposed a category
+the first exercise could not: the friction is not in writing tests, it is in
+the hour before you can write the first one.
+
+**7 · The one step outside your own directory was the one people forgot.**
+Adding an application meant editing `config/target.ts` to register the profile
+— a shared file, unrelated to the new target, and the only step in a
+four-step process that reached outside the new pack. Forget it and you get
+`Unknown TARGET 'your-app'` for a profile sitting right there in
+`config/targets/`.
+
+*Fix:* profiles are **discovered**. Every file in `config/targets/` exporting a
+`TargetProfile` is selectable. Onboarding is now entirely additive.
+
+**8 · A profile is a set of claims, and nothing checked them.**
+`capabilities.api.enabled` with no `baseURL`; `mfa: 'totp'` against a store
+that cannot issue codes; roles declared with no credentials behind them; a
+contract document declared but never vendored. Each of these is a clear
+statement in one file contradicted by another file, and every one of them was
+discovered at test time, as a failure whose message pointed somewhere else. The
+worst was a missing `tests/auth.setup.ts` — nothing writes a storage state, and
+every spec taking `authedPage` fails with "No storage state for role", three
+directories from the cause.
+
+*Fix:* `npm run target:doctor`. It reads the profile, looks at what is on disk,
+asks the secret store what resolves, and prints each disagreement with the file
+to fix. The rules are pure functions over a profile and a description of the
+filesystem, so all of them are unit-tested with no target, no Vault and no
+network.
+
+**9 · One failure mode was silent rather than loud.** `accountPool: 'leased'`
+with `credentials.source: 'local'` does not fail — leasing needs
+compare-and-swap that only the Vault store provides, so it quietly falls back
+to a plain read. Every worker then shares one identity with no lease and no
+TTL. Everything passes until two workers collide, and the collision looks like
+a flaky test.
+
+*Fix:* a named warning, `leasing-degrades-silently`. A configuration that
+degrades rather than fails is worth more noise than one that stops.
+
+**10 · A scaffold that produces errors is worse than no scaffold.** The first
+version of `target:new` happily wrote a profile with `api.enabled: true` and no
+base URL, which the doctor then reported as an error a minute later.
+
+*Fix:* the scaffolder refuses at the point where the message can say what to
+pass (`--api-url`), and ships the contracts capability **off** with its path
+declared — the doctor notices the moment the document lands and says to switch
+it on. A unit test runs the scaffolder's output through the diagnostics: a
+scaffold that fails its own preflight fails the build.
+
+**11 · The tool that enforces a guard went around it.** `npm run explore`
+takes its host from the profile precisely so that exploring runs through the
+non-production allowlist check. It also accepted an optional path — and
+`new URL(argument, base)` silently replaces the origin when the argument parses
+as an absolute URL. A smoke test found it immediately: Git Bash on Windows
+rewrites a leading `/checkout` into `C:/Program Files/Git/checkout` before the
+process sees it, and that mangled value parsed as a URL with its own scheme.
+The tool cheerfully opened it.
+
+*Fix:* resolve the argument, then assert the origin still matches the profile's
+and refuse with a message that explains the shell behaviour. The check is a
+pure function with its own unit test. The general lesson is worth more than the
+bug: a convenience wrapper around a guard is a place the guard can be lost, and
+it is worth a test asserting the guard still holds *through* the wrapper.
+
+**D · Selection is not configuration.** With two applications in one repository
+and `TARGET` unset, picking alphabetically means silently testing the wrong
+one. Throwing means `npm run verify` breaks for everyone the day a second
+application is onboarded.
+
+*Convention:* no selection builds only the framework's own `unit` project, and
+says why. Only *selection* degrades that way — a target that is selected and
+misconfigured throws, because a suite that quietly skipped itself and reported
+green is worse than one that failed to start.
+
+---
+
 ## What landed where
 
 | Learning | Change | Lands on |
@@ -195,6 +274,12 @@ demonstrates the wiring works, and nothing more.
 | B · Derive identifiers | `docs/CONVENTIONS.md` | `main` |
 | C · Budgets, not load | `docs/CONVENTIONS.md` | `main` |
 | — · Ground-truth fixture | Opt-in `triage-fixture` project | `main` |
+| 7 · Forgotten registration | Profile discovery in `config/target.ts` | `main` |
+| 8 · Unchecked profile claims | `npm run target:doctor` | `main` |
+| 9 · Silent leasing fallback | `leasing-degrades-silently` warning | `main` |
+| 10 · Scaffold that fails its own check | `npm run target:new` guards | `main` |
+| 11 · Guard lost in its own wrapper | `resolveExploreUrl` origin check | `main` |
+| D · Selection is not configuration | Unit-only when nothing is selected | `main` |
 
 Every framework fix above ships with a unit test that fails without it. That is
 the point of writing them down here rather than in a commit message: the next

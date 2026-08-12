@@ -45,6 +45,7 @@ _L2 UI vocabulary. Composes locators, returns data, asserts nothing._
 | Name | Signature | What it does |
 |---|---|---|
 | `signIn.withCredentials` | `(page: Page, credentials: Credentials) => Promise<void>` | Submit the sign-in form. |
+| `signIn.isSignedIn` | `(page: Page) => Promise<boolean>` | Whether the page currently carries a session. |
 | `signIn.readError` | `(page: Page) => Promise<string \| null>` | The error the form reported, or null when it reported none. |
 
 ## api/ — example-app
