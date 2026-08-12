@@ -94,10 +94,18 @@
     */
     max-width: 100rem;
     margin: 0 auto;
-    padding: 0 clamp(1.5rem, 3vw, 3rem) 3rem;
+    padding: 0 clamp(3rem, 6vw, 6rem) 3rem clamp(1.5rem, 3vw, 3rem);
     display: grid;
-    grid-template-columns: 14.5rem minmax(0, 1fr);
-    gap: 3.5rem;
+    /*
+       Both fluid. A fixed 14.5rem column plus a 62rem breakpoint meant the
+       sidebar stopped being a sidebar at 150% browser zoom — zooming shrinks
+       the viewport in CSS pixels, the breakpoint fired, and the contents panel
+       stacked and scrolled away just when a reader had most need of it.
+       It now narrows instead of collapsing, and the breakpoint is far enough
+       down that the two-column layout survives 200%.
+    */
+    grid-template-columns: clamp(8.25rem, 15vw, 14.5rem) minmax(0, 1fr);
+    gap: clamp(1.1rem, 3vw, 3.5rem);
     align-items: start;
   }
 
@@ -127,7 +135,7 @@
     position: relative;
     max-width: 100rem;
     margin: 0 auto;
-    padding: 0 clamp(1.5rem, 3vw, 3rem);
+    padding: 0 clamp(3rem, 6vw, 6rem) 0 clamp(1.5rem, 3vw, 3rem);
     height: var(--topbar);
     display: flex;
     align-items: center;
@@ -138,13 +146,15 @@
     display: flex;
     align-items: center;
     gap: .6rem;
-    flex: none;
+    /* Shrinks rather than pushing the theme control off the edge. */
+    flex: 0 1 auto;
+    min-width: 0;
     color: var(--ink);
     text-decoration: none;
   }
 
   .brand .mark { width: 1.6rem; height: 1.6rem; display: block; flex: none; }
-  .brand b { font-weight: 650; font-size: .95rem; letter-spacing: -.01em; white-space: nowrap; }
+  .brand b { font-weight: 650; font-size: .95rem; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .brand .badge {
     font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -177,7 +187,7 @@
 
   /* `margin-left: auto` rather than relying on the crumb to grow: the control
      belongs at the right edge whether or not there is a crumb to push it. */
-  .topbar .theme { flex: none; width: 13.5rem; margin-left: auto; }
+  .topbar .theme { flex: none; width: clamp(10.5rem, 18vw, 13.5rem); margin-left: auto; }
 
   /* How far through the document you are. Two pixels, no layout cost. */
   .progress {
@@ -289,6 +299,13 @@
   }
 
   .toc-head { flex: none; }
+
+  @media (max-width: 68rem) {
+    nav.toc { font-size: .82rem; }
+    nav.toc a { padding-left: .55rem; }
+    .toc-search input { padding-left: 1.55rem; font-size: .78rem; }
+    .theme button { font-size: .68rem; letter-spacing: 0; }
+  }
 
   .toc-list {
     flex: 1 1 auto;
@@ -563,6 +580,61 @@
   /* Headers are short; keeping them on one line costs nothing. */
   th.mono { white-space: nowrap; }
 
+  /* ---------- diagrams ---------- */
+  /*
+     Inline SVG rather than an exported image: it follows the reader's theme,
+     it stays sharp at any zoom, and the page is still allowed to load nothing
+     from anywhere. Every colour is a token the document already defines.
+  */
+  .diagram {
+    margin: 0 0 1.75rem;
+    padding: 1rem 1rem .35rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+  }
+
+  .diagram svg { display: block; width: 100%; height: auto; }
+
+  figcaption {
+    margin-top: .6rem;
+    font-size: .82rem;
+    color: var(--muted);
+    text-wrap: pretty;
+  }
+
+  .d-band { fill: var(--surface-2); }
+
+  .d-band-label {
+    fill: var(--muted);
+    font: 600 11px ui-monospace, "Cascadia Mono", Consolas, monospace;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+
+  .d-box { fill: var(--surface); stroke: var(--rule-strong); stroke-width: 1; }
+  .d-accent { fill: var(--accent-soft); stroke: var(--accent); }
+  .d-gate { fill: var(--surface); stroke: var(--accent); stroke-dasharray: 4 3; }
+  .d-ext { fill: var(--surface-2); stroke: var(--rule-strong); stroke-dasharray: 5 3; }
+
+  .d-title { fill: var(--ink); font: 600 13.5px ui-sans-serif, system-ui, sans-serif; }
+  .d-sub { fill: var(--muted); font: 11px ui-monospace, "Cascadia Mono", Consolas, monospace; }
+
+  .d-edge {
+    fill: none;
+    stroke: var(--rule-strong);
+    stroke-width: 1.6;
+    marker-end: url(#d-arrow);
+  }
+  .d-edge-accent { stroke: var(--accent); marker-end: url(#d-arrow-accent); }
+  .d-dash { stroke-dasharray: 4 4; }
+
+  .d-head { fill: var(--rule-strong); }
+  .d-head-accent { fill: var(--accent); }
+
+  .d-edge-label { fill: var(--muted); font: 11px ui-sans-serif, system-ui, sans-serif; }
+  .d-note { fill: var(--muted); font: 12px ui-sans-serif, system-ui, sans-serif; }
+
   /* ---------- layer stack ---------- */
   .stack { display: flex; flex-direction: column; gap: .4rem; margin: 0 0 1.5rem; }
 
@@ -735,13 +807,20 @@
   .footer-inner {
     max-width: 100rem;
     margin: 0 auto;
-    padding: .85rem clamp(1.5rem, 3vw, 3rem);
+    padding: .85rem clamp(3rem, 6vw, 6rem) .85rem clamp(1.5rem, 3vw, 3rem);
   }
 
   footer p { margin: 0; }
   footer a { color: var(--muted); }
 
-  @media (max-width: 62rem) {
+  @media (max-width: 56rem) {
+    /* A doubled right gutter is a luxury of a wide screen. Under pressure the
+       content needs those pixels more than the margin does. */
+    .shell { padding-right: clamp(1.5rem, 3vw, 3rem); }
+    .topbar-inner, .footer-inner { padding-right: clamp(1.5rem, 3vw, 3rem); }
+  }
+
+  @media (max-width: 42rem) {
     .crumb { display: none; }
     .shell { grid-template-columns: minmax(0, 1fr); gap: 0; }
     nav.toc { position: static; display: block; max-height: none; margin-bottom: 1rem; border-bottom: 1px solid var(--rule); padding: 0 0 1.25rem; }
@@ -752,7 +831,7 @@
     main { max-width: none; }
   }
 
-  @media (max-width: 34rem) {
+  @media (max-width: 42rem) {
     :root { --topbar: 3rem; }
     /* Tighter cells reclaim the last few pixels a dense table needs to fit
        a phone, rather than handing it a scrollbar for the sake of padding. */
@@ -849,6 +928,7 @@
       <ol>
         <li><a href="#start">Start here</a></li>
         <li><a href="#loop">How it works</a></li>
+      <li><a href="#flow">End-to-end flow</a></li>
         <li><a href="#layers">The four layers</a></li>
         <li><a href="#vocabulary">The closed vocabulary</a></li>
         <li><a href="#guardrails">Executable guardrails</a></li>
@@ -885,7 +965,7 @@ npm run verify          # lint + types + generated-file checks + 227 unit tests
 npx playwright test     # the framework's own suite; no application attached yet</code></pre>
 
       <p>If both are green you have a working framework, its guardrails, and every integration adapter exercised against in-process fakes. No credential, no network beyond the npm registry, and no Docker.</p>
-      <p><b>There is no application attached yet.</b> <code>main</code> ships the framework plus one template pack, <code>src/targets/example-app/</code>, which has a deliberately unusable host and no specs — copy it, rename it, and replace its contents. <a href="#newapp">Section 08</a> is the four-step path; a worked implementation against a live public site lives on the <code>saucedemo/extensive-coverage</code> branch, and what it taught the framework is written up in <a href="learnings.md">docs/learnings.md</a>.</p>
+      <p><b>There is no application attached yet.</b> <code>main</code> ships the framework plus one template pack, <code>src/targets/example-app/</code>, which has a deliberately unusable host and no specs — copy it, rename it, and replace its contents. <a href="#newapp">Section 09</a> is the four-step path; a worked implementation against a live public site lives on the <code>saucedemo/extensive-coverage</code> branch, and what it taught the framework is written up in <a href="learnings.md">docs/learnings.md</a>.</p>
 
       <h3>What each command actually does</h3>
       <div class="scroller">
@@ -951,8 +1031,183 @@ npx playwright test     # the framework's own suite; no application attached yet
       </div>
     </section>
 
+    <section id="flow">
+      <h2><span class="num">Section 03</span>End-to-end flow</h2>
+      <p class="lede">One picture of the whole thing: where a test comes from, what turns it into code, what runs it, and what happens to the result. Every arrow is a file or a command that exists in this repository.</p>
+
+<figure class="diagram">
+  <svg viewBox="0 0 1180 838" role="img" aria-labelledby="flow-t flow-d" preserveAspectRatio="xMidYMid meet">
+    <title id="flow-t">End-to-end flow of the framework</title>
+    <desc id="flow-d">Five stages. Authoring turns a Jira story or a PractiTest case into a yaml case file, reviewed by a human. Generation turns that case into a spec, using the generated capability catalog and the conventions, with a lint, type-check and test gate feeding structured errors back to the agent. Execution resolves a target profile into Playwright projects, which sign in once per worker and drive the application under test using credentials from Vault. Results are written once to run-result.json, which the HTML report, the email digest, PractiTest, Jira and JUnit all read. Triage clusters failures, settles what rules can settle, asks a model only about the remainder, and produces a validated verdict that becomes a healing brief, a quarantine entry, or work for a person.</desc>
+    <defs>
+      <marker id="d-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path class="d-head" d="M 0 1 L 9 5 L 0 9 z"/>
+      </marker>
+      <marker id="d-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path class="d-head-accent" d="M 0 1 L 9 5 L 0 9 z"/>
+      </marker>
+    </defs>
+      <rect class="d-band" x="0" y="8" width="1180" height="132" rx="8"/>
+      <text class="d-band-label" x="16" y="29">Authoring</text>
+      <rect class="d-box" x="120" y="26" width="132" height="40" rx="7"/>
+      <text class="d-title" x="186" y="51" text-anchor="middle">Jira story</text>
+      <rect class="d-box" x="120" y="82" width="132" height="40" rx="7"/>
+      <text class="d-title" x="186" y="107" text-anchor="middle">PractiTest case</text>
+      <rect class="d-box" x="282" y="26" width="148" height="40" rx="7"/>
+      <text class="d-title" x="356" y="43" text-anchor="middle">cases:author</text>
+      <text class="d-sub" x="356" y="60" text-anchor="middle">AI drafts</text>
+      <rect class="d-box" x="282" y="82" width="148" height="40" rx="7"/>
+      <text class="d-title" x="356" y="99" text-anchor="middle">cases:pull</text>
+      <text class="d-sub" x="356" y="116" text-anchor="middle">as written</text>
+      <rect class="d-box d-accent" x="462" y="38" width="178" height="72" rx="7"/>
+      <text class="d-title" x="551" y="71" text-anchor="middle">cases/&lt;app&gt;/*.yaml</text>
+      <text class="d-sub" x="551" y="88" text-anchor="middle">the one input format</text>
+      <rect class="d-box" x="672" y="38" width="158" height="72" rx="7"/>
+      <text class="d-title" x="751" y="71" text-anchor="middle">Human review</text>
+      <text class="d-sub" x="751" y="88" text-anchor="middle">cases:gate</text>
+      <path class="d-edge" d="M 252 46 L 278 46"/>
+      <path class="d-edge" d="M 252 102 L 278 102"/>
+      <path class="d-edge d-edge-accent" d="M 430 46 L 458 62"/>
+      <path class="d-edge d-edge-accent" d="M 430 102 L 458 86"/>
+      <path class="d-edge d-edge-accent" d="M 640 74 L 668 74"/>
+      <text class="d-note" x="860" y="60">Two tracks, one format.</text>
+      <text class="d-note" x="860" y="78">Generation reads only</text>
+      <text class="d-note" x="860" y="96">the yaml, never a ticket.</text>
+      <rect class="d-band" x="0" y="148" width="1180" height="142" rx="8"/>
+      <text class="d-band-label" x="16" y="169">Generation</text>
+      <rect class="d-box d-accent" x="120" y="166" width="176" height="44" rx="7"/>
+      <text class="d-title" x="208" y="185" text-anchor="middle">catalog.md</text>
+      <text class="d-sub" x="208" y="202" text-anchor="middle">generated from the AST</text>
+      <rect class="d-box" x="120" y="222" width="176" height="44" rx="7"/>
+      <text class="d-title" x="208" y="241" text-anchor="middle">CONVENTIONS.md</text>
+      <text class="d-sub" x="208" y="258" text-anchor="middle">CLAUDE · AGENTS · copilot</text>
+      <rect class="d-box" x="326" y="182" width="150" height="72" rx="7"/>
+      <text class="d-title" x="401" y="215" text-anchor="middle">Coding agent</text>
+      <text class="d-sub" x="401" y="232" text-anchor="middle">selects, never invents</text>
+      <rect class="d-box" x="506" y="182" width="158" height="72" rx="7"/>
+      <text class="d-title" x="585" y="215" text-anchor="middle">*.spec.ts</text>
+      <text class="d-sub" x="585" y="232" text-anchor="middle">one case, one spec</text>
+      <rect class="d-box d-gate" x="694" y="182" width="186" height="72" rx="7"/>
+      <text class="d-title" x="787" y="215" text-anchor="middle">lint · tsc · playwright</text>
+      <text class="d-sub" x="787" y="232" text-anchor="middle">structured errors</text>
+      <rect class="d-box" x="910" y="182" width="150" height="72" rx="7"/>
+      <text class="d-title" x="985" y="215" text-anchor="middle">Merge request</text>
+      <text class="d-sub" x="985" y="232" text-anchor="middle">reviewed, not typed</text>
+      <path class="d-edge" d="M 296 188 L 322 206"/>
+      <path class="d-edge" d="M 296 244 L 322 230"/>
+      <path class="d-edge d-edge-accent" d="M 476 218 L 502 218"/>
+      <path class="d-edge d-edge-accent" d="M 664 218 L 690 218"/>
+      <path class="d-edge" d="M 880 218 L 906 218"/>
+      <path class="d-edge d-dash" d="M 787 254 V 272 H 401 V 258"/>
+      <text class="d-edge-label" x="594" y="268" text-anchor="middle">a failing gate is the repair loop, not a review comment</text>
+      <path class="d-edge d-edge-accent" d="M 751 110 V 146 H 401 V 182"/>
+      <rect class="d-band" x="0" y="298" width="1180" height="202" rx="8"/>
+      <text class="d-band-label" x="16" y="319">Execution</text>
+      <rect class="d-box d-accent" x="120" y="322" width="190" height="46" rx="7"/>
+      <text class="d-title" x="215" y="342" text-anchor="middle">config/targets/&lt;app&gt;.ts</text>
+      <text class="d-sub" x="215" y="359" text-anchor="middle">base URL · capabilities</text>
+      <rect class="d-box" x="120" y="384" width="190" height="46" rx="7"/>
+      <text class="d-title" x="215" y="404" text-anchor="middle">playwright.config.ts</text>
+      <text class="d-sub" x="215" y="421" text-anchor="middle">projects from capabilities</text>
+      <rect class="d-box" x="340" y="316" width="132" height="38" rx="7"/>
+      <text class="d-title" x="406" y="340" text-anchor="middle">setup:auth</text>
+      <rect class="d-box" x="340" y="362" width="132" height="38" rx="7"/>
+      <text class="d-title" x="406" y="386" text-anchor="middle">e2e</text>
+      <rect class="d-box" x="340" y="408" width="132" height="38" rx="7"/>
+      <text class="d-title" x="406" y="432" text-anchor="middle">auth-flows</text>
+      <rect class="d-box" x="492" y="316" width="122" height="38" rx="7"/>
+      <text class="d-title" x="553" y="340" text-anchor="middle">api</text>
+      <rect class="d-box" x="492" y="362" width="122" height="38" rx="7"/>
+      <text class="d-title" x="553" y="386" text-anchor="middle">contract</text>
+      <rect class="d-box" x="492" y="408" width="122" height="38" rx="7"/>
+      <text class="d-title" x="553" y="432" text-anchor="middle">unit</text>
+      <rect class="d-box d-ext" x="120" y="442" width="190" height="36" rx="7"/>
+      <text class="d-title" x="215" y="465" text-anchor="middle">Vault</text>
+      <rect class="d-box d-ext" x="680" y="348" width="180" height="64" rx="7"/>
+      <text class="d-title" x="770" y="377" text-anchor="middle">Application</text>
+      <text class="d-sub" x="770" y="394" text-anchor="middle">under test</text>
+      <path class="d-edge d-edge-accent" d="M 215 368 L 215 380"/>
+      <path class="d-edge" d="M 310 407 L 336 425"/>
+      <path class="d-edge" d="M 310 400 L 336 381"/>
+      <path class="d-edge" d="M 310 394 L 336 335"/>
+      <path class="d-edge" d="M 472 335 L 488 335"/>
+      <path class="d-edge" d="M 472 381 L 488 381"/>
+      <path class="d-edge" d="M 472 427 L 488 427"/>
+      <path class="d-edge" d="M 614 348 L 676 366"/>
+      <path class="d-edge d-dash" d="M 310 460 H 322 V 335 H 334"/>
+      <path class="d-edge d-edge-accent" d="M 985 254 V 288 H 215 V 322"/>
+      <text class="d-note" x="330" y="470">A capability declared off removes its project entirely; setup:auth signs in once per worker and every other project reuses that session.</text>
+      <rect class="d-band" x="0" y="508" width="1180" height="132" rx="8"/>
+      <text class="d-band-label" x="16" y="529">Results</text>
+      <rect class="d-box d-accent" x="120" y="534" width="186" height="72" rx="7"/>
+      <text class="d-title" x="213" y="567" text-anchor="middle">run-result.json</text>
+      <text class="d-sub" x="213" y="584" text-anchor="middle">canonical and versioned</text>
+      <rect class="d-box" x="336" y="534" width="150" height="72" rx="7"/>
+      <text class="d-title" x="411" y="567" text-anchor="middle">HTML report</text>
+      <text class="d-sub" x="411" y="584" text-anchor="middle">report:render</text>
+      <rect class="d-box" x="516" y="534" width="150" height="72" rx="7"/>
+      <text class="d-title" x="591" y="567" text-anchor="middle">Email digest</text>
+      <text class="d-sub" x="591" y="584" text-anchor="middle">notify:email</text>
+      <rect class="d-box" x="696" y="534" width="146" height="72" rx="7"/>
+      <text class="d-title" x="769" y="567" text-anchor="middle">PractiTest</text>
+      <text class="d-sub" x="769" y="584" text-anchor="middle">publish:practitest</text>
+      <rect class="d-box" x="872" y="534" width="132" height="72" rx="7"/>
+      <text class="d-title" x="938" y="567" text-anchor="middle">Jira</text>
+      <text class="d-sub" x="938" y="584" text-anchor="middle">publish:jira</text>
+      <rect class="d-box" x="1034" y="534" width="122" height="72" rx="7"/>
+      <text class="d-title" x="1095" y="567" text-anchor="middle">JUnit</text>
+      <text class="d-sub" x="1095" y="584" text-anchor="middle">MR widget</text>
+      <path class="d-edge d-edge-accent" d="M 306 570 L 332 570"/>
+      <path class="d-edge" d="M 486 570 L 512 570"/>
+      <path class="d-edge" d="M 666 570 L 692 570"/>
+      <path class="d-edge" d="M 842 570 L 868 570"/>
+      <path class="d-edge" d="M 1004 570 L 1030 570"/>
+      <path class="d-edge d-edge-accent" d="M 770 412 V 504 H 213 V 530"/>
+      <rect class="d-band" x="0" y="648" width="1180" height="182" rx="8"/>
+      <text class="d-band-label" x="16" y="669">Triage and repair</text>
+      <rect class="d-box" x="120" y="676" width="138" height="60" rx="7"/>
+      <text class="d-title" x="189" y="703" text-anchor="middle">cluster</text>
+      <text class="d-sub" x="189" y="720" text-anchor="middle">one row per incident</text>
+      <rect class="d-box" x="288" y="676" width="138" height="60" rx="7"/>
+      <text class="d-title" x="357" y="703" text-anchor="middle">rules</text>
+      <text class="d-sub" x="357" y="720" text-anchor="middle">evidence first</text>
+      <rect class="d-box" x="456" y="676" width="138" height="60" rx="7"/>
+      <text class="d-title" x="525" y="703" text-anchor="middle">model</text>
+      <text class="d-sub" x="525" y="720" text-anchor="middle">judgement calls only</text>
+      <rect class="d-box d-accent" x="624" y="676" width="150" height="60" rx="7"/>
+      <text class="d-title" x="699" y="703" text-anchor="middle">verdict</text>
+      <text class="d-sub" x="699" y="720" text-anchor="middle">schema-checked</text>
+      <rect class="d-box" x="812" y="660" width="156" height="40" rx="7"/>
+      <text class="d-title" x="890" y="685" text-anchor="middle">heal brief</text>
+      <rect class="d-box" x="812" y="712" width="156" height="40" rx="7"/>
+      <text class="d-title" x="890" y="737" text-anchor="middle">quarantine</text>
+      <rect class="d-box" x="1002" y="676" width="154" height="60" rx="7"/>
+      <text class="d-title" x="1079" y="703" text-anchor="middle">a person</text>
+      <text class="d-sub" x="1079" y="720" text-anchor="middle">when nothing settles it</text>
+      <path class="d-edge" d="M 258 706 L 284 706"/>
+      <path class="d-edge" d="M 426 706 L 452 706"/>
+      <path class="d-edge d-edge-accent" d="M 594 706 L 620 706"/>
+      <path class="d-edge" d="M 774 698 L 808 682"/>
+      <path class="d-edge" d="M 774 714 L 808 730"/>
+      <path class="d-edge" d="M 968 682 L 998 700"/>
+      <path class="d-edge d-edge-accent" d="M 213 606 V 641 H 189 V 676"/>
+      <text class="d-note" x="120" y="790">Rules settle what evidence can settle; the model is asked only about the rest, and its answer is validated before it is used.</text>
+      <text class="d-note" x="120" y="810">A cluster nothing can justify goes to a person. That is the design working, not the design failing.</text>
+  </svg>
+  <figcaption>Five stages, one artifact between each. The accented path is the spine: a case becomes a spec, a spec becomes a run, a run becomes <code>run-result.json</code>, and every consumer downstream reads that one file rather than re-deriving anything from raw output.</figcaption>
+</figure>
+
+      <h3>Reading it</h3>
+      <ul>
+        <li><b>The accented path is the spine.</b> A case becomes a spec, a spec becomes a run, a run becomes <code>run-result.json</code>. Each stage hands the next a file rather than a convention, which is what makes the joins testable.</li>
+        <li><b>The dashed edges are feedback, not flow.</b> The gate returns structured errors to the agent; the session written by <code>setup:auth</code> is read back by every other project.</li>
+        <li><b>Nothing crosses a stage boundary informally.</b> Generation cannot read a Jira ticket, only the yaml. Reporting cannot read Playwright's raw output, only <code>run-result.json</code>. That is what stops four renderings of the same run disagreeing about how many tests failed.</li>
+        <li><b>The dashed boxes are other people's systems</b> — the application under test and Vault. Everything else in the diagram is in this repository.</li>
+      </ul>
+    </section>
+
     <section id="layers">
-      <h2><span class="num">Section 03</span>The four layers</h2>
+      <h2><span class="num">Section 04</span>The four layers</h2>
       <p class="lede">Locators, actions, fixtures, specs. Each has one job and a hard rule about what it may not do — and each rule is enforced by <code>layer-boundaries</code> rather than by review.</p>
 
       <div class="stack">
@@ -1025,7 +1280,7 @@ test('TC-4907 · An approved claim posts to the ledger @smoke @expenses', {
       <ul>
         <li>Specs never import from <code>locators/</code>. If a spec needs an element, the missing thing is an action.</li>
         <li>Actions never assert. Assertions in specs keep intent readable when a human is reviewing generated code at volume.</li>
-        <li>Framework code never imports or names a target pack — see <a href="#newapp">section 08</a>.</li>
+        <li>Framework code never imports or names a target pack — see <a href="#newapp">section 09</a>.</li>
         <li>One target may not import another's code. Swapping targets selects a pack; it does not reuse one.</li>
         <li>Step titles are named for intent. <code>step-naming</code> rejects "click #submit-btn" and accepts "Submit the expense claim".</li>
       </ul>
@@ -1037,7 +1292,7 @@ test('TC-4907 · An approved claim posts to the ledger @smoke @expenses', {
     </section>
 
     <section id="vocabulary">
-      <h2><span class="num">Section 04</span>The closed vocabulary</h2>
+      <h2><span class="num">Section 05</span>The closed vocabulary</h2>
       <p class="lede">One import gives a spec everything it may use. If the verb it needs is not there, the correct move is to stop and ask — not to reach for <code>page.locator</code>.</p>
 
       <pre><code>import { expect, test } from '../../fixtures';   // the only import a spec needs</code></pre>
@@ -1089,7 +1344,7 @@ test('TC-4907 · An approved claim posts to the ledger @smoke @expenses', {
     </section>
 
     <section id="guardrails">
-      <h2><span class="num">Section 05</span>Executable guardrails</h2>
+      <h2><span class="num">Section 06</span>Executable guardrails</h2>
       <p class="lede">Ten custom ESLint rules in <code>eslint-rules/</code>, each with its own unit tests. These are the framework's real conventions; the markdown is a description of them.</p>
 
       <div class="scroller">
@@ -1129,7 +1384,7 @@ if (target.name === 'acme-shop') …          // no — fails the build</code></
     </section>
 
     <section id="layout">
-      <h2><span class="num">Section 06</span>Repository layout</h2>
+      <h2><span class="num">Section 07</span>Repository layout</h2>
       <p class="lede">Where everything lives, and which parts you are expected to touch.</p>
 
       <pre><code>playwright-template-cli/
@@ -1187,7 +1442,7 @@ if (target.name === 'acme-shop') …          // no — fails the build</code></
     </section>
 
     <section id="firstspec">
-      <h2><span class="num">Section 07</span>Your first spec, start to finish</h2>
+      <h2><span class="num">Section 08</span>Your first spec, start to finish</h2>
       <p class="lede">The intended workflow, whether you are a person or an agent. The order matters: explore before writing, because guessed locators are the single largest source of dead-on-arrival tests.</p>
 
       <div class="step">
@@ -1252,10 +1507,53 @@ npm run instructions:build  # only if you edited docs/CONVENTIONS.md</code></pre
     </section>
 
     <section id="newapp">
-      <h2><span class="num">Section 08</span>Adding an application under test</h2>
+      <h2><span class="num">Section 09</span>Adding an application under test</h2>
       <p class="lede">The application is configuration. Framework code never imports, names, or special-cases a target — and two lint rules fail the build if it starts to.</p>
 
       <h3>Scaffold it, explore it, check it</h3>
+
+<figure class="diagram">
+  <svg viewBox="0 0 1180 194" role="img" aria-labelledby="onboard-t onboard-d" preserveAspectRatio="xMidYMid meet">
+    <title id="onboard-t">Onboarding an application, in six steps</title>
+    <desc id="onboard-d">Six steps left to right: target:new writes the profile and the four-layer pack; explore opens the running application and snapshots it; the L1 locators are rewritten from that snapshot; target:doctor checks the profile’s claims against the pack and the secret store; the setup:auth project proves sign-in works; then the first spec is written and the catalog rebuilt.</desc>
+    <defs>
+      <marker id="d-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path class="d-head" d="M 0 1 L 9 5 L 0 9 z"/>
+      </marker>
+      <marker id="d-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path class="d-head-accent" d="M 0 1 L 9 5 L 0 9 z"/>
+      </marker>
+    </defs>
+      <rect class="d-box d-accent" x="45" y="44" width="160" height="64" rx="7"/>
+      <text class="d-title" x="125" y="73" text-anchor="middle">target:new</text>
+      <text class="d-sub" x="125" y="90" text-anchor="middle">profile + pack</text>
+      <rect class="d-box" x="231" y="44" width="160" height="64" rx="7"/>
+      <text class="d-title" x="311" y="73" text-anchor="middle">explore</text>
+      <text class="d-sub" x="311" y="90" text-anchor="middle">snapshot the app</text>
+      <path class="d-edge d-edge-accent" d="M 208 76 L 226 76"/>
+      <rect class="d-box" x="417" y="44" width="160" height="64" rx="7"/>
+      <text class="d-title" x="497" y="73" text-anchor="middle">rewrite L1</text>
+      <text class="d-sub" x="497" y="90" text-anchor="middle">from the snapshot</text>
+      <path class="d-edge d-edge-accent" d="M 394 76 L 412 76"/>
+      <rect class="d-box d-accent" x="603" y="44" width="160" height="64" rx="7"/>
+      <text class="d-title" x="683" y="73" text-anchor="middle">target:doctor</text>
+      <text class="d-sub" x="683" y="90" text-anchor="middle">claims vs reality</text>
+      <path class="d-edge d-edge-accent" d="M 580 76 L 598 76"/>
+      <rect class="d-box" x="789" y="44" width="160" height="64" rx="7"/>
+      <text class="d-title" x="869" y="73" text-anchor="middle">setup:auth</text>
+      <text class="d-sub" x="869" y="90" text-anchor="middle">prove sign-in</text>
+      <path class="d-edge d-edge-accent" d="M 766 76 L 784 76"/>
+      <rect class="d-box" x="975" y="44" width="160" height="64" rx="7"/>
+      <text class="d-title" x="1055" y="73" text-anchor="middle">first spec</text>
+      <text class="d-sub" x="1055" y="90" text-anchor="middle">catalog:build</text>
+      <path class="d-edge d-edge-accent" d="M 952 76 L 970 76"/>
+      <path class="d-edge d-dash" d="M 125 108 V 128 H 497 V 114"/>
+      <text class="d-edge-label" x="311" y="146" text-anchor="middle">every locator the scaffold writes is a guess</text>
+      <text class="d-note" x="45" y="176">Scaffolded, then checked. Nothing between these steps edits framework code — if it has to, that is a framework bug, not a special case.</text>
+  </svg>
+  <figcaption>The two accented steps are the ones the framework does for you. The rest is the part that needs the running application in front of you — above all rewriting the locators, because the scaffold only guesses at them.</figcaption>
+</figure>
+
       <pre><code>npm run target:new -- --name=&lt;app&gt; --url=&lt;base-url&gt;   # profile + four-layer pack
 TARGET=&lt;app&gt; npm run explore                          # open it, snapshot to disk
 TARGET=&lt;app&gt; npm run target:doctor                    # profile vs pack vs credentials
@@ -1371,7 +1669,7 @@ TARGET=&lt;app&gt; npx playwright test --project=setup:auth # prove sign-in work
     </section>
 
     <section id="secrets">
-      <h2><span class="num">Section 09</span>Secrets, sessions and identity</h2>
+      <h2><span class="num">Section 10</span>Secrets, sessions and identity</h2>
       <p class="lede">The agent writes the reference; the value resolves at runtime, inside the test process, and is registered for scrubbing the moment it arrives.</p>
 
       <h3>How a credential travels</h3>
@@ -1405,7 +1703,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
     </section>
 
     <section id="beyond">
-      <h2><span class="num">Section 10</span>API, contract and data</h2>
+      <h2><span class="num">Section 11</span>API, contract and data</h2>
       <p class="lede">The layers extend sideways, not downward. <code>actions/</code> is the UI vocabulary, <code>api/</code> is the HTTP vocabulary, <code>db/</code> is the read vocabulary — all L2, all returning data, none asserting.</p>
 
       <h3>Schema conformance lives inside the client</h3>
@@ -1427,7 +1725,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
     </section>
 
     <section id="authoring">
-      <h2><span class="num">Section 11</span>Authoring: two tracks, one spine</h2>
+      <h2><span class="num">Section 12</span>Authoring: two tracks, one spine</h2>
       <p class="lede">Track A starts at a Jira story and drafts cases. Track B picks up a case already written in PractiTest. Both converge on <code>cases/*.yaml</code>, so there is exactly one place where a case becomes a spec.</p>
 
       <div class="scroller">
@@ -1474,7 +1772,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
     </section>
 
     <section id="reporting">
-      <h2><span class="num">Section 12</span>Reporting</h2>
+      <h2><span class="num">Section 13</span>Reporting</h2>
       <p class="lede">One data model, three renderings. The reporter's only job is to emit facts; every consumer reads them.</p>
 
       <h3>Getting flaky right</h3>
@@ -1493,7 +1791,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
     </section>
 
     <section id="triage">
-      <h2><span class="num">Section 13</span>Triage</h2>
+      <h2><span class="num">Section 14</span>Triage</h2>
       <p class="lede">The most valuable component, and the one most likely to be built wrong — because the obvious implementation is to hand every failure to a model and ask what happened.</p>
 
       <ol class="flow">
@@ -1533,7 +1831,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
     </section>
 
     <section id="maintenance">
-      <h2><span class="num">Section 14</span>Rotation, quarantine and healing</h2>
+      <h2><span class="num">Section 15</span>Rotation, quarantine and healing</h2>
       <p class="lede">Three maintenance capabilities, each dangerous in its own way, each constrained accordingly.</p>
 
       <div class="card">
@@ -1562,7 +1860,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
     </section>
 
     <section id="ci">
-      <h2><span class="num">Section 15</span>The CI pipeline</h2>
+      <h2><span class="num">Section 16</span>The CI pipeline</h2>
       <p class="lede">Six stages in <code>.gitlab-ci.yml</code>. Every npm script it calls exists and runs; the pipeline shape itself has never executed, because no GitLab instance has been available.</p>
 
       <div class="scroller">
@@ -1591,7 +1889,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
     </section>
 
     <section id="selftest">
-      <h2><span class="num">Section 16</span>How the framework tests itself</h2>
+      <h2><span class="num">Section 17</span>How the framework tests itself</h2>
       <p class="lede">227 unit tests across 16 files, in a <code>unit</code> project with no browser and no network. They are the reason any of the guarantees above can be stated as facts.</p>
 
       <div class="scroller">
@@ -1623,7 +1921,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
     </section>
 
     <section id="commands">
-      <h2><span class="num">Section 17</span>Command reference</h2>
+      <h2><span class="num">Section 18</span>Command reference</h2>
 
       <h4>Daily</h4>
       <div class="scroller">
@@ -1719,7 +2017,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
     </section>
 
     <section id="state">
-      <h2><span class="num">Section 18</span>What is proven, and what is not</h2>
+      <h2><span class="num">Section 19</span>What is proven, and what is not</h2>
       <p class="lede">The distinction matters more than any line count, so it is stated plainly rather than implied by a green badge.</p>
 
       <div class="card">
@@ -1741,7 +2039,7 @@ secrets.account('approver')  →  SecretStore  →  Vault KV v2 (or the local st
     </section>
 
     <section id="gotchas">
-      <h2><span class="num">Section 19</span>Gotchas and house conventions</h2>
+      <h2><span class="num">Section 20</span>Gotchas and house conventions</h2>
 
       <h3>Things that will catch you once</h3>
       <ul>
