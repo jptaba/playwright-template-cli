@@ -32,6 +32,38 @@ export interface ScaffoldOptions {
   a11yStandard?: string;
   /** Optional layers to scaffold. UI locators and actions are always written. */
   include?: { api?: boolean; db?: boolean; contracts?: boolean; a11y?: boolean };
+
+  /**
+   * Accessible names read off the real sign-in form, when something has read
+   * them. Supplied by `npm run onboard`, which probes the application.
+   *
+   * This is the difference between a scaffold that needs rewriting before it
+   * can do anything and one whose `setup:auth` passes on the first run. Left
+   * out, the locators stay the documented placeholders and say so.
+   */
+  signIn?: {
+    username: string;
+    password: string;
+    submit: string;
+    path: string;
+    /**
+     * The control that appears once signed in, derived by signing in once and
+     * diffing the page. The one locator that cannot be read from a page at
+     * rest, because it is by definition only there afterwards.
+     */
+    signedInMarker?: { role: string; name: string; identitySpecific?: boolean };
+  };
+
+  /**
+   * The service's published API document, already fetched.
+   *
+   * When present the plan writes it into `contracts/` and generates the
+   * profile with `contracts.enabled: true` — because the reason the capability
+   * ships off is that the document has to be vendored first, and this is that
+   * having happened. Nothing is derived from observed traffic: this is the
+   * document the service publishes, or it is absent.
+   */
+  contractDocument?: { filename: string; contents: string };
 }
 
 export interface ScaffoldFile {
@@ -249,6 +281,10 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
   const pascal = pascalCase(name);
   const credentialRoot = `qa/${name}/pools`;
 
+  // A vendored document is the whole reason the contracts capability ships
+  // off, so having one flips it on and adds the file to the same plan.
+  const contractDocument = include.contracts ? options.contractDocument : undefined;
+
   const files: ScaffoldFile[] = [
     {
       path: `config/targets/${name}.ts`,
@@ -265,10 +301,11 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
         include,
         apiBaseURL,
         a11yStandard,
+        contractFilename: contractDocument?.filename ?? null,
       }),
     },
-    { path: `${root}/locators/sign-in.ts`, contents: LOCATORS },
-    { path: `${root}/actions/sign-in.ts`, contents: ACTIONS },
+    { path: `${root}/locators/sign-in.ts`, contents: locatorsFile(options.signIn) },
+    { path: `${root}/actions/sign-in.ts`, contents: actionsFile(options.signIn?.path) },
     { path: `${root}/fixtures.ts`, contents: fixturesFile(pascal) },
     { path: `${root}/tests/auth.setup.ts`, contents: AUTH_SETUP },
     { path: `${root}/tests/e2e/.gitkeep`, contents: '' },
@@ -292,6 +329,12 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
       { path: `${root}/contracts/README.md`, contents: contractsReadme(name) },
       { path: `${root}/tests/contract/.gitkeep`, contents: '' },
     );
+    if (contractDocument) {
+      files.push({
+        path: `${root}/contracts/${contractDocument.filename}`,
+        contents: contractDocument.contents,
+      });
+    }
   }
   if (include.a11y) {
     files.push({ path: `${root}/tests/a11y/landing.spec.ts`, contents: A11Y_SPEC });
@@ -342,6 +385,8 @@ interface ProfileInput {
   include: { api: boolean; db: boolean; contracts: boolean; a11y: boolean };
   apiBaseURL: string | null;
   a11yStandard: string;
+  /** Set when a published document has been vendored into the same plan. */
+  contractFilename: string | null;
 }
 
 function list(values: readonly string[]): string {
@@ -349,12 +394,20 @@ function list(values: readonly string[]): string {
 }
 
 function profileFile(input: ProfileInput): string {
-  // The path is declared even though the capability starts off: the document
-  // has to be vendored before it can be validated against, and `target:doctor`
-  // notices the moment it lands and says to switch the capability on.
+  /*
+     The path is declared even when the capability starts off: the document has
+     to be vendored before it can be validated against, and `target:doctor`
+     notices the moment it lands and says to switch the capability on.
+
+     When `npm run onboard` has already fetched the published document, it is
+     in this same plan and the capability ships on — the "vendor it first" step
+     is the only reason it was ever off.
+  */
+  const specFile = input.contractFilename ?? 'openapi.yaml';
   const contractsSpec = input.include.contracts
-    ? `'src/targets/${input.name}/contracts/openapi.yaml'`
+    ? `'src/targets/${input.name}/contracts/${specFile}'`
     : 'null';
+  const contractsEnabled = Boolean(input.contractFilename);
   const apiLine = input.apiBaseURL
     ? `{ enabled: true, baseURL: process.env.API_BASE_URL ?? '${input.apiBaseURL}' }`
     : '{ enabled: false, baseURL: process.env.API_BASE_URL }';
@@ -391,8 +444,12 @@ export const ${input.camel}: TargetProfile = {
     serverState: true, // does state need cross-test cleanup?
     api: ${apiLine},
     db: { enabled: false, vaultRole: 'qa-readonly', dialect: 'postgres' },
-    // Off until the published document is vendored to the path below.
-    contracts: { enabled: false, spec: ${contractsSpec} },
+    ${
+      contractsEnabled
+        ? '// The service’s published document, vendored and pinned at onboarding.'
+        : '// Off until the published document is vendored to the path below.'
+    }
+    contracts: { enabled: ${contractsEnabled}, spec: ${contractsSpec} },
     a11y: {
       enabled: ${input.include.a11y},
       standard: process.env.A11Y_STANDARD ?? '${input.a11yStandard}',
@@ -415,16 +472,54 @@ export const ${input.camel}: TargetProfile = {
 `;
 }
 
-const LOCATORS = `import type { Locator, Page } from '@playwright/test';
+/** Single-quoted TypeScript string literal, safe for any accessible name. */
+function quote(value: string): string {
+  return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+}
 
-/**
- * L1 — named locators, and nothing else. No logic, no waits, no assertions.
+function locatorsFile(signIn?: ScaffoldOptions['signIn']): string {
+  const provenance = signIn
+    ? ` * The three names below were **read off the running application** at
+ * \`${signIn.path}\` during onboarding: they are the accessible names, which is
+ * what \`getByRole\` matches and what a screen reader announces. They are not
+ * guesses, and they should not be "tidied" into something that reads better —
+ * a name taken from a placeholder or an id is a name \`getByRole\` will not
+ * find, and it fails as a bare timeout on a control plainly on screen.
  *
- * Replace these with what the application actually renders. Ground them in a
+ * \`error\` is still a guess: nothing can read it off a page that has not had a
+ * sign-in refused.${
+   signIn.signedInMarker
+     ? `\n *\n * \`signedInMarker\` was derived by signing in once and diffing the page — it
+ * is the control that appeared and was not there before.${
+   signIn.signedInMarker.identitySpecific
+     ? `\n *\n * **It carries that account's own name, so it is specific to one role.** It will
+ * establish that role's session and report every other role as signed out.
+ * Generalise it — the account menu usually has a stable test id or an
+ * \`aria-label\` — before this target has a second role.`
+     : ''
+ }`
+     : `\n *\n * \`signedInMarker\` is a guess too. Verifying the sign-in during onboarding
+ * derives it; that was skipped or did not succeed.`
+ }`
+    : ` * Replace these with what the application actually renders. Ground them in a
  * real page — \`npm run explore\` opens the profile's host and writes an
  * accessibility snapshot to disk — and write what the snapshot says rather
  * than what you expect it to say. Locator hallucination is the single largest
  * source of dead-on-arrival generated tests, and exploration is the only fix.
+ *
+ * \`npm run onboard\` reads these three names off the application for you.`;
+
+  const username = quote(signIn?.username ?? 'Username');
+  const password = quote(signIn?.password ?? 'Password');
+  const submit = quote(signIn?.submit ?? 'Sign in');
+  const marker = signIn?.signedInMarker ?? { role: 'button', name: 'Account' };
+
+  return `import type { Locator, Page } from '@playwright/test';
+
+/**
+ * L1 — named locators, and nothing else. No logic, no waits, no assertions.
+ *
+${provenance}
  *
  * Priority order, enforced by \`no-raw-locators\`:
  *   getByRole → getByLabel/getByPlaceholder/getByText → getByTestId → CSS with
@@ -434,16 +529,19 @@ const LOCATORS = `import type { Locator, Page } from '@playwright/test';
  * answers the wrong question with a plausible result.
  */
 export const signInLocators = {
-  username: (page: Page): Locator => page.getByRole('textbox', { name: 'Username' }),
-  password: (page: Page): Locator => page.getByRole('textbox', { name: 'Password' }),
-  submit: (page: Page): Locator => page.getByRole('button', { name: 'Sign in' }),
+  username: (page: Page): Locator => page.getByRole('textbox', { name: ${username} }),
+  password: (page: Page): Locator => page.getByRole('textbox', { name: ${password} }),
+  submit: (page: Page): Locator => page.getByRole('button', { name: ${submit} }),
   error: (page: Page): Locator => page.getByRole('alert'),
   /** Something only a signed-in page shows. Used to verify a session, not to assert. */
-  signedInMarker: (page: Page): Locator => page.getByRole('button', { name: 'Account' }),
+  signedInMarker: (page: Page): Locator =>
+    page.getByRole('${marker.role}', { name: ${quote(marker.name)} }),
 };
 `;
+}
 
-const ACTIONS = `import { test, type Page } from '@playwright/test';
+function actionsFile(signInPath = '/'): string {
+  return `import { test, type Page } from '@playwright/test';
 import { signInLocators } from '../locators/sign-in';
 
 export interface Credentials {
@@ -468,7 +566,7 @@ export const signIn = {
    */
   async withCredentials(page: Page, credentials: Credentials): Promise<void> {
     await test.step(\`Sign in as \${credentials.username}\`, async () => {
-      await page.goto('/');
+      await page.goto('${signInPath}');
       await signInLocators.username(page).fill(credentials.username);
       await signInLocators.password(page).fill(credentials.password);
       await signInLocators.submit(page).click();
@@ -498,6 +596,7 @@ export const signIn = {
   },
 };
 `;
+}
 
 function fixturesFile(pascal: string): string {
   return `import { test as framework } from '../../fixtures/base';

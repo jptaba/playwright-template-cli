@@ -288,12 +288,35 @@ if (target.name === 'acme-shop') …           // no  — `no-target-coupling`
 
 ### Adding an application under test
 
+Two ways in, onto the same scaffolder. **The dashboard is the shorter one:**
+
+```bash
+npm run onboard        # opens a local page; reads the application, then writes everything
+```
+
+It drives a browser at the running system and fills in what a person would
+otherwise have to look up: which attribute `getByTestId` reads here, the
+**accessible names** on the sign-in form, and whether the service publishes an
+OpenAPI document. It then writes the profile, the pack, the vendored contract
+document and the credential entries in one go, and offers to sign in once to
+prove the locators work — which also derives `signedInMarker`, the one locator
+that cannot be read from a page at rest.
+
+The intended outcome is that `setup:auth` passes with **no file edited by
+hand**. What it cannot read it says so about, rather than guessing.
+
+The CLI is unchanged and does the same job without a browser:
+
 ```bash
 npm run target:new -- --name=<app> --url=<base-url>   # profile + four-layer pack
 TARGET=<app> npm run explore                          # open it, snapshot to disk
 TARGET=<app> npm run target:doctor                    # profile vs pack vs credentials
 TARGET=<app> npx playwright test --project=setup:auth # prove sign-in works
 ```
+
+On Windows, run the CLI form from bash — npm's PowerShell shim eats the `--`
+separator and the flags never reach the script. `npx tsx tools/new-target.ts
+--name=… --url=…` works in every shell, and the tool says so when it happens.
 
 `target:new` writes `config/targets/<app>.ts` and the whole of
 `src/targets/<app>/` — locators, actions, fixtures and `tests/auth.setup.ts` —

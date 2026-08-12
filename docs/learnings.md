@@ -703,3 +703,72 @@ so out loud, and the framework change it forced is the one worth keeping.
 | L · Never assert on data you did not create | `docs/CONVENTIONS.md` | `main` |
 | 30 · Three defects in the application | reported; two a11y findings waived with dates | target pack |
 | 31 · Shared demo is not a home for an authed suite | `sharedEnvironment: true`, specs gated | target pack |
+
+---
+
+## What the manual edits cost, and the dashboard that removed them
+
+Onboarding Toolshop with `npm run target:new` produced a working scaffold and
+then needed **eight hand edits** before a single spec could run: the test-id
+attribute, the sign-in locators, the sign-in path, vendoring the OpenAPI
+document, flipping `contracts.enabled`, correcting the spec's file extension,
+the credentials, and `authFlowPattern`. Two of those were got wrong first time
+and cost an hour between them.
+
+Every one of the first six is a question the *application can answer*, so
+`npm run onboard` asks it.
+
+**32 · The scaffolder could not be given what a probe reads.** `planScaffold`
+had no way to accept "here are the real accessible names" or "here is the
+published document", so a scaffold was necessarily a set of placeholders.
+
+*Fix:* `ScaffoldOptions.signIn` and `.contractDocument`. The locator file is
+generated from names read off the application, the document is written into the
+pack, and the contracts capability ships **on** — since the only reason it ever
+shipped off was that the document had to be vendored first. → **`main`**
+
+**33 · A probe that reads too early does not fail — it lies.** The first version
+navigated with `domcontentloaded` and read immediately. Against the real
+application it reported one test-id attribute where there are ninety-six, and
+no sign-in form on a page that plainly has one. Both were returned as findings,
+with no complaint and no note.
+
+*Fix:* settle on `networkidle`, and anchor the sign-in search on the password
+field appearing rather than on a snapshot taken at an arbitrary moment. The
+same lesson as convention I, in a new place: the read has to wait for the fact.
+→ **`main`**
+
+**34 · "Is the form still there?" is the wrong question.** Asked straight after
+the click, it answers *yes* on any single-page application, because the router
+has not moved yet — so a correct credential was reported as refused.
+
+*Fix:* wait for the password field to **go**. The fact, not its negation, and
+it fails as a timeout rather than as a wrong verdict. → **`main`**
+
+**35 · A signed-in marker derived from one role is specific to that role.**
+Diffing a sign-in proposes whatever appeared, and on most applications the new
+control is the account menu carrying *the user's name*. It works perfectly for
+the role it came from: `button "Jane Doe"` established the customer's session
+and then reported that the administrator had not signed in.
+
+*Fix:* identity-shaped candidates rank last and are flagged, and the generated
+file carries the warning. The heuristic derives its hints from the credential,
+so it catches an account menu labelled from the email address and misses one
+whose display name is unrelated — which is why `setup:auth` also checks that the
+session it established names somebody. → **`main`**
+
+**M · Onboarding is a probe, not a questionnaire.** The framework already knew
+that guessed locators are the largest single source of dead-on-arrival tests,
+and its answer was to tell people to explore first. That is correct and it is
+not enough: exploration is manual, and the thing it produces has to be
+transcribed. The three facts that cost the most — the test-id attribute, the
+accessible names, the document's location — are all readable in ten seconds by
+something that opens the page. Read them.
+
+| Learning | Change | Lands on |
+|---|---|---|
+| 32 · Scaffolder could not accept probe results | `signIn` and `contractDocument` options | `main` |
+| 33 · Probe read before the application rendered | `settle`, and a password-field anchor | `main` |
+| 34 · Sign-in verified by the wrong question | wait for the form to go | `main` |
+| 35 · Derived marker was identity-specific | ranked last, flagged, warned in the file | `main` |
+| M · Onboarding is a probe | `npm run onboard` | `main` |
