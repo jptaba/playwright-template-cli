@@ -1,5 +1,5 @@
 <!-- GENERATED FILE — DO NOT EDIT.
-     Source: docs/CONVENTIONS.md (sha256 dc04db86f52b9c7d)
+     Source: docs/CONVENTIONS.md (sha256 19c588b087c49759)
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 
@@ -327,6 +327,33 @@ TARGET=<app> npx playwright test --project=setup:auth # prove sign-in works
 On Windows, run the CLI form from bash — npm's PowerShell shim eats the `--`
 separator and the flags never reach the script. `npx tsx tools/new-target.ts
 --name=… --url=…` works in every shell, and the tool says so when it happens.
+
+### Taking an application back out
+
+```bash
+npm run target:remove -- --name=<app>                   # plan only, removes nothing
+npm run target:remove -- --name=<app> --confirm=<app>   # actually remove it
+```
+
+Also in the dashboard, collapsed at the bottom under **Remove an application**.
+
+It removes the four places a target leaves something — the profile, the pack,
+the credential entries and the stored sessions — and nothing else. Framework
+code is never touched.
+
+This is what makes it reasonable to point `main` at a live application: try
+one, drive it, and put the repository back the way it was, with no branch to
+move between. Afterwards, with nothing selected, only the `framework` project
+builds and `npm run verify` keeps passing.
+
+**It is the one destructive operation here, so it is built the other way round
+from the scaffolder.** It plans and reports before it removes anything; it says
+how many of the files git has never seen and therefore cannot bring back; and
+it does nothing at all until the target's own name is typed back. A
+confirmation a stray click can satisfy is not a confirmation.
+
+Removing a target does not touch `docs/generated/catalog.md` — run
+`npm run catalog:build` afterwards, which the tool reminds you to do.
 
 `target:new` writes `config/targets/<app>.ts` and the whole of
 `src/targets/<app>/` — locators, actions, fixtures and `tests/auth.setup.ts` —

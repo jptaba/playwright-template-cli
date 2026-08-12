@@ -232,6 +232,28 @@ export function dashboardPage(token: string): string {
     break-inside: avoid; color: var(--ink-2);
   }
   .status { margin-top: .85rem; font-size: .89rem; color: var(--ink-2); }
+
+  /*
+     The offboarding panel is deliberately awkward to reach.
+
+     It is collapsed behind a <details>, it is at the bottom, its border is the
+     failure colour, and the button stays disabled until the target's own name
+     has been typed back. This is the one operation in the framework that
+     destroys work, and the cost of an accidental click is somebody's week.
+  */
+  details.danger { border-color: color-mix(in srgb, var(--fail) 40%, var(--rule)); }
+  details.danger > summary {
+    cursor: pointer; font-weight: 640; font-size: 1.05rem; color: var(--fail);
+    list-style: none; display: flex; align-items: center; gap: .6rem;
+  }
+  details.danger > summary::-webkit-details-marker { display: none; }
+  details.danger > summary::before { content: "▸"; font-size: .8em; }
+  details.danger[open] > summary::before { content: "▾"; }
+  details.danger .warn-strip {
+    border-left: 2px solid var(--fail); background: var(--fail-soft);
+    padding: .6rem .85rem; margin: 1rem 0; font-size: .89rem; border-radius: 0 4px 4px 0;
+  }
+  button.destructive { background: var(--fail); border-color: var(--fail); color: #fff; }
   .findings > div { font-size: .9rem; margin: .2rem 0; }
 </style>
 </head>
@@ -418,6 +440,31 @@ export function dashboardPage(token: string): string {
     <button id="create">Create the target</button>
     <div class="status" id="result"></div>
   </section>
+
+  <details class="danger">
+    <summary>Remove an application</summary>
+    <p class="explain">
+      Takes a target back out and leaves the agnostic framework behind: the profile, the
+      four-layer pack, the credential entries and the stored sessions. This is what makes it
+      reasonable to point this repository at a live application on <code>main</code> — try one,
+      drive it, and put the repository back the way it was, without a branch to move between.
+    </p>
+    <div class="warn-strip">
+      <b>This deletes files.</b> Anything committed comes back with <code>git checkout</code>;
+      anything never committed does not. Nothing happens until you have seen the plan and typed
+      the target's own name back.
+    </div>
+    <label for="offTarget">Target to remove</label>
+    <input type="text" id="offTarget" placeholder="acme-shop" autocomplete="off">
+    <button class="secondary" id="offPlan">Show me what would go</button>
+    <div class="status" id="offPlanOut"></div>
+    <div id="offConfirmBox" hidden>
+      <label for="offConfirm">Type <b id="offName" class="mono"></b> to confirm</label>
+      <input type="text" id="offConfirm" autocomplete="off">
+      <button class="destructive" id="offRemove" disabled>Remove it</button>
+    </div>
+    <div class="status" id="offResult"></div>
+  </details>
 </div>
 <script>
 const TOKEN = ${JSON.stringify(token)};
@@ -770,6 +817,82 @@ $('create').onclick = async () => {
     result.className = 'status error';
     result.textContent = error.message;
     $('create').disabled = false;
+  }
+};
+
+/*
+   Offboarding. Two calls, never one: planning is safe and shows everything that
+   would go, and removing is unreachable until the name has been typed back.
+*/
+let offPlanned = null;
+
+$('offPlan').onclick = async () => {
+  const out = $('offPlanOut');
+  out.className = 'status';
+  out.textContent = 'Working out what belongs to it…';
+  $('offConfirmBox').hidden = true;
+  try {
+    const plan = await post('/api/offboard/plan', { target: $('offTarget').value.trim() });
+    offPlanned = plan;
+    out.replaceChildren();
+
+    if (plan.alreadyGone) {
+      out.append(el('div', '', 'Nothing named "' + plan.target + '" is onboarded.'));
+      return;
+    }
+
+    const counts = [plan.removeFiles.length + ' file(s)'];
+    if (plan.removeSecretKeys.length) counts.push(plan.removeSecretKeys.length + ' credential entr(ies)');
+    if (plan.removeStorageStates.length) counts.push(plan.removeStorageStates.length + ' stored session(s)');
+    out.append(el('div', '', 'Would remove ' + counts.join(', ') + ':'));
+
+    const list = el('ul', 'files');
+    for (const file of plan.removeFiles) list.append(el('li', '', file));
+    out.append(list);
+    for (const warning of plan.warnings) out.append(el('div', 'note', warning));
+    for (const refusal of plan.refusals) out.append(el('div', 'error', refusal));
+
+    if (plan.refusals.length === 0) {
+      $('offName').textContent = plan.target;
+      $('offConfirm').value = '';
+      $('offRemove').disabled = true;
+      $('offConfirmBox').hidden = false;
+    }
+  } catch (error) {
+    out.className = 'status error';
+    out.textContent = error.message;
+  }
+};
+
+// The button is inert until the name matches exactly. A confirmation a stray
+// click can satisfy is not a confirmation.
+$('offConfirm').oninput = () => {
+  $('offRemove').disabled = !offPlanned || $('offConfirm').value.trim() !== offPlanned.target;
+};
+
+$('offRemove').onclick = async () => {
+  const out = $('offResult');
+  out.className = 'status';
+  out.textContent = 'Removing…';
+  $('offRemove').disabled = true;
+  try {
+    const done = await post('/api/offboard/remove', {
+      target: offPlanned.target,
+      confirm: $('offConfirm').value.trim(),
+    });
+    out.replaceChildren(el('div', 'found', 'Removed ' + done.removed.length + ' item(s).'));
+    const next = el('pre');
+    next.textContent = [
+      'npm run catalog:build   # drop it from the capability catalog',
+      'git status              # then commit',
+    ].join('\\n');
+    out.append(next);
+    $('offConfirmBox').hidden = true;
+    $('offPlanOut').replaceChildren();
+  } catch (error) {
+    out.className = 'status error';
+    out.textContent = error.message;
+    $('offRemove').disabled = false;
   }
 };
 

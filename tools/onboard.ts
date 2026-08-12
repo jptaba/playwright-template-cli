@@ -12,6 +12,8 @@ import {
   type DashboardService,
 } from '../src/support/onboarding/dashboard';
 import { diagnose, type TargetFacts } from '../src/support/onboarding/diagnose';
+import { planOffboard, type OffboardPlan } from '../src/support/onboarding/offboard';
+import { gatherFacts, removeTarget } from './offboard';
 import {
   probeTarget,
   verifySignIn,
@@ -252,6 +254,14 @@ const service: DashboardService = {
   probe,
   verify,
   existing,
+  /*
+     Offboarding shares its planner and its remover with `npm run target:remove`
+     rather than reimplementing them. There is one description of what a target
+     owns, and one thing that deletes it — a second copy of either is a second
+     chance to delete the wrong thing.
+  */
+  planRemoval: (target) => planOffboard(target, gatherFacts(target)),
+  remove: async (plan: OffboardPlan) => removeTarget(plan),
   create,
 };
 

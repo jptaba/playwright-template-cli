@@ -1,4 +1,6 @@
 import type { Diagnostic } from './diagnose';
+import type { OffboardPlan } from './offboard';
+import { confirmationMatches, isRemovable } from './offboard';
 import type { ProbedSignIn, ProbeResult, SignInVerification } from './probe';
 import { planScaffold, ScaffoldError, type ScaffoldOptions, type ScaffoldPlan } from './scaffold';
 
@@ -68,6 +70,10 @@ export interface DashboardService {
   }): Promise<SignInVerification>;
   /** Which of a plan's files are already on disk. Nothing is ever overwritten. */
   existing(paths: string[]): string[];
+  /** What removing a target would do. Plans only; removes nothing. */
+  planRemoval(target: string): OffboardPlan;
+  /** Actually remove it. Only ever reached through a matching confirmation. */
+  remove(plan: OffboardPlan): Promise<string[]>;
   create(
     plan: ScaffoldPlan,
     options: ScaffoldOptions,
@@ -208,6 +214,39 @@ export async function handleDashboardRequest(
             credentials,
           }),
         );
+      }
+
+      /*
+         Offboarding is the one destructive route here, so it is two calls, not
+         one. `/api/offboard/plan` is safe to call and shows everything that
+         would go; `/api/offboard/remove` is the only thing that deletes, and it
+         is unreachable without the target's own name typed back.
+      */
+      case '/api/offboard/plan':
+        return json(200, service.planRemoval(String(body.target ?? '').trim()));
+
+      case '/api/offboard/remove': {
+        const target = String(body.target ?? '').trim();
+        const plan = service.planRemoval(target);
+
+        if (!isRemovable(plan)) {
+          return failure(
+            409,
+            plan.alreadyGone
+              ? `Nothing named '${target}' is onboarded.`
+              : plan.refusals.join(' '),
+          );
+        }
+        if (!confirmationMatches(plan.target, String(body.confirm ?? ''))) {
+          // The pattern from deleting a repository, and here for the same
+          // reason: this is final for anything never committed, and a
+          // confirmation a stray click can satisfy is not a confirmation.
+          return failure(
+            400,
+            `To remove '${plan.target}', type its name exactly into the confirmation field.`,
+          );
+        }
+        return json(200, { removed: await service.remove(plan), plan });
       }
 
       case '/api/plan': {

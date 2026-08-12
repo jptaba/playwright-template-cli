@@ -772,3 +772,62 @@ something that opens the page. Read them.
 | 34 · Sign-in verified by the wrong question | wait for the form to go | `main` |
 | 35 · Derived marker was identity-specific | ranked last, flagged, warned in the file | `main` |
 | M · Onboarding is a probe | `npm run onboard` | `main` |
+
+---
+
+## What was missing at the other end
+
+**36 · Onboarding was additive and there was no way back.** `target:new` never
+overwrites and the dashboard refuses if a single file it would write exists —
+both correct, and together they meant that once a target was in, the only way
+out was deleting directories by hand and remembering the four other places a
+target leaves something. That is the "one shared file people forgot" problem
+that profile discovery was introduced to kill, in reverse.
+
+The cost was a branch. Trying an application meant scaffolding it somewhere
+`main` could not see, driving it, and moving back and forth to compare.
+
+*Fix:* `npm run target:remove`, and the same thing collapsed at the bottom of
+the dashboard. It removes the profile, the pack, the credential entries and the
+stored sessions, and nothing else. → **`main`**
+
+**37 · The obvious safety rule blocked the case the feature was for.** The
+first version refused to remove a target with uncommitted work, on the
+reasoning that git is the only undo. That is true and it is the wrong rule: a
+target scaffolded on `main` to try an application out is *never* committed, so
+every file of it is untracked and the refusal blocked the entire workflow. The
+way round it — commit a target you are about to delete — is worse than what it
+was protecting against.
+
+*Fix:* the distinction is tracked versus untracked, not committed versus
+modified. A tracked file comes back with `git checkout` however heavily edited;
+an untracked one does not. So the count of untracked files is a *warning*, and
+typing the target's name back is the confirmation. → **`main`**
+
+**38 · Protecting the template by name would have been coupling.** The obvious
+guard — refuse to remove `example-app` — puts an application's name in
+framework code, which is exactly what `no-target-coupling` forbids, and the
+rule caught it immediately.
+
+*Fix:* the property, not the name. A profile whose base URL is a host RFC 2606
+reserves was never pointed at a running application, so it is the shipped
+template or a scaffold nobody finished. That warns, catches half-built targets
+too, and names nothing. → **`main`**
+
+**39 · A stray newline killed every handler on the page, silently.** One
+single-quoted string in the inlined dashboard script gained a real newline. The
+server was fine, the markup rendered, the buttons were all there, and clicking
+them did nothing whatsoever. There was no error anywhere a person would look.
+
+*Fix:* a framework test extracts the inline script and runs `new Function` over
+it, which parses without executing. It costs one test and no browser, and it
+fails on exactly this. The general lesson is the one this repository keeps
+relearning: code that ships as a string has no compiler in front of it unless
+you put one there. → **`main`**
+
+| Learning | Change | Lands on |
+|---|---|---|
+| 36 · No way to remove a target | `npm run target:remove` and the dashboard panel | `main` |
+| 37 · Refusing on uncommitted work blocked the workflow | untracked is a warning; the name is the confirmation | `main` |
+| 38 · Protecting the template by name is coupling | reserved-host property instead | `main` |
+| 39 · Inlined script failed silently | `new Function` parse check in the framework tests | `main` |

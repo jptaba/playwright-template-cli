@@ -15,6 +15,7 @@ import {
   verifySignIn,
   type ProbePage,
 } from '../../src/support/onboarding/probe';
+import { dashboardPage } from '../../src/support/onboarding/dashboard-page';
 import { planScaffold } from '../../src/support/onboarding/scaffold';
 
 /**
@@ -449,6 +450,17 @@ function service(overrides: Partial<DashboardService> = {}): DashboardService {
       detail: 'Signed in.',
     }),
     existing: () => [],
+    planRemoval: (target) => ({
+      target,
+      removeFiles: ['config/targets/' + target + '.ts'],
+      removeDirectories: ['src/targets/' + target],
+      removeSecretKeys: [],
+      removeStorageStates: [],
+      warnings: [],
+      refusals: [],
+      alreadyGone: false,
+    }),
+    remove: async (plan) => plan.removeFiles,
     create: async (plan) => ({
       written: plan.files.map((file) => file.path),
       skipped: [],
@@ -587,6 +599,111 @@ test('the request body cannot set an option the dashboard does not offer', async
   );
   expect(response.status).toBe(200);
   expect(response.body).not.toContain('rm -rf');
+});
+
+// ---------------------------------------------------------------------------
+// Removing a target — the one destructive route
+// ---------------------------------------------------------------------------
+
+test('planning a removal is safe to call and removes nothing', async () => {
+  let removed = 0;
+  const response = await handleDashboardRequest(
+    request({ path: '/api/offboard/plan', body: { target: 'acme-shop' } }),
+    { token: 'the-token', service: service({ remove: async (plan) => { removed += 1; return plan.removeFiles; } }) },
+  );
+  expect(response.status).toBe(200);
+  expect(response.body).toContain('config/targets/acme-shop.ts');
+  expect(removed, 'planning never deletes').toBe(0);
+});
+
+test('removing without the name typed back is refused', async () => {
+  /*
+     The pattern from deleting a repository, and here for the same reason: this
+     is final for anything never committed, and a confirmation a stray click
+     can satisfy is not a confirmation.
+  */
+  let removed = 0;
+  const withCounter = service({
+    remove: async (plan) => { removed += 1; return plan.removeFiles; },
+  });
+
+  for (const confirm of ['', 'yes', 'acme', 'ACME-SHOP', 'example-app', undefined]) {
+    const response = await handleDashboardRequest(
+      request({ path: '/api/offboard/remove', body: { target: 'acme-shop', confirm } }),
+      { token: 'the-token', service: withCounter },
+    );
+    expect(response.status, `'${String(confirm)}' is refused`).toBe(400);
+  }
+  expect(removed).toBe(0);
+});
+
+test('removing with the name typed back goes ahead', async () => {
+  let removed = 0;
+  const response = await handleDashboardRequest(
+    request({ path: '/api/offboard/remove', body: { target: 'acme-shop', confirm: 'acme-shop' } }),
+    {
+      token: 'the-token',
+      service: service({ remove: async (plan) => { removed += 1; return plan.removeFiles; } }),
+    },
+  );
+  expect(response.status).toBe(200);
+  expect(removed).toBe(1);
+});
+
+test('a plan that refuses cannot be executed however it is confirmed', async () => {
+  let removed = 0;
+  const response = await handleDashboardRequest(
+    request({ path: '/api/offboard/remove', body: { target: 'acme-shop', confirm: 'acme-shop' } }),
+    {
+      token: 'the-token',
+      service: service({
+        planRemoval: (target) => ({
+          target,
+          removeFiles: [],
+          removeDirectories: [],
+          removeSecretKeys: [],
+          removeStorageStates: [],
+          warnings: [],
+          refusals: ['something is in the way'],
+          alreadyGone: false,
+        }),
+        remove: async (plan) => { removed += 1; return plan.removeFiles; },
+      }),
+    },
+  );
+  expect(response.status).toBe(409);
+  expect(removed).toBe(0);
+});
+
+test('the destructive route is behind the same token and host checks', async () => {
+  for (const overrides of [{ host: 'evil.example' }, { token: 'guessed' }]) {
+    const response = await handleDashboardRequest(
+      request({ path: '/api/offboard/remove', body: { target: 'acme-shop', confirm: 'acme-shop' }, ...overrides }),
+      routing,
+    );
+    expect(response.status).toBe(403);
+  }
+});
+
+test('the page it serves is syntactically valid JavaScript', () => {
+  /*
+     A stray newline inside a string literal in the inline script once killed
+     every handler on the page at parse time. Nothing said so: the server was
+     fine, the markup rendered, the buttons were there, and clicking them did
+     nothing at all. The only symptom was silence.
+
+     `new Function` parses without executing, so this catches it for the cost
+     of one test and no browser. The script references `document` and `fetch`,
+     which is fine — nothing here runs it.
+  */
+  const page = dashboardPage('test-token');
+  const script = /<script>([\s\S]*?)<\/script>/.exec(page)?.[1];
+  expect(script, 'the page has an inline script').toBeTruthy();
+  expect(() => new Function(script!)).not.toThrow();
+});
+
+test('the session token reaches the page it is minted for', () => {
+  expect(dashboardPage('abc123')).toContain('"abc123"');
 });
 
 test('GET / serves the page and nothing else answers a GET', async () => {
