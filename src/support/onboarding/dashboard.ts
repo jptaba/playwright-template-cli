@@ -1,3 +1,4 @@
+import { createRouter, failure, html, json, type Route, type UiRequest, type UiResponse } from '../ui/router';
 import type { Diagnostic } from './diagnose';
 import type { OffboardPlan } from './offboard';
 import { confirmationMatches, isRemovable } from './offboard';
@@ -27,22 +28,13 @@ import { planScaffold, ScaffoldError, type ScaffoldOptions, type ScaffoldPlan } 
  * the CLI around it calls `process.exit`.
  */
 
-export interface DashboardRequest {
-  method: string;
-  path: string;
-  /** Parsed JSON body, or null. */
-  body: unknown;
-  /** The value the page sent back in `x-onboard-token`. */
-  token: string | null;
-  /** The request's `Host` header, checked against loopback. */
-  host: string | null;
-}
-
-export interface DashboardResponse {
-  status: number;
-  contentType: string;
-  body: string;
-}
+/**
+ * Kept as names of their own because the whole test suite and the tool import
+ * them. They are the router's types — onboarding is one page among several now,
+ * and its request shape is not special.
+ */
+export type DashboardRequest = UiRequest;
+export type DashboardResponse = UiResponse;
 
 export interface CreateResult {
   written: string[];
@@ -81,26 +73,6 @@ export interface DashboardService {
   ): Promise<CreateResult>;
 }
 
-const JSON_TYPE = 'application/json; charset=utf-8';
-
-function json(status: number, value: unknown): DashboardResponse {
-  return { status, contentType: JSON_TYPE, body: JSON.stringify(value) };
-}
-
-function failure(status: number, message: string): DashboardResponse {
-  return json(status, { error: message });
-}
-
-/**
- * Hosts a request may claim to be for.
- *
- * The server binds to loopback, but a browser page on any origin can still
- * POST to `http://127.0.0.1:<port>` — and this endpoint writes files. Checking
- * `Host` and requiring a token minted at startup is what stops a page in
- * another tab scaffolding a target, or worse, reading back what it wrote.
- */
-const LOOPBACK = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
-
 /**
  * A URL the dashboard is willing to drive a browser at.
  *
@@ -132,29 +104,49 @@ export interface RouteOptions {
   service: DashboardService;
 }
 
+/**
+ * Every route onboarding owns, as a table the shared router can mount.
+ *
+ * The page routes are `public` because a browser asking for a page cannot carry
+ * a token it has not been given yet; everything else is behind the loopback and
+ * token checks the router applies.
+ */
+export function onboardingRoutes(service: DashboardService): Route[] {
+  const page: Route = { method: 'GET', path: '/', public: true, handle: () => html(service.page()) };
+  const apiPaths = [
+    '/api/targets',
+    '/api/probe',
+    '/api/verify',
+    '/api/plan',
+    '/api/create',
+    '/api/offboard/plan',
+    '/api/offboard/remove',
+  ];
+
+  return [
+    page,
+    { ...page, path: '/index.html' },
+    { ...page, path: '/onboard' },
+    ...apiPaths.map<Route>((path) => ({
+      method: 'POST',
+      path,
+      handle: (request) => onboardingApi(request, service),
+    })),
+  ];
+}
+
+/** Kept as its own export: the whole test suite drives onboarding through it. */
 export async function handleDashboardRequest(
   request: DashboardRequest,
   options: RouteOptions,
 ): Promise<DashboardResponse> {
-  const { service, token } = options;
+  return createRouter(onboardingRoutes(options.service), { token: options.token })(request);
+}
 
-  if (request.method === 'GET' && (request.path === '/' || request.path === '/index.html')) {
-    return { status: 200, contentType: 'text/html; charset=utf-8', body: service.page() };
-  }
-
-  if (request.method !== 'POST') {
-    return failure(405, `${request.method} ${request.path} is not something this serves.`);
-  }
-
-  // Both checks are cheap and both are load-bearing: this endpoint writes to
-  // the repository, so a page in another tab must not be able to reach it.
-  if (!request.host || !LOOPBACK.test(request.host)) {
-    return failure(403, 'This server answers loopback requests only.');
-  }
-  if (request.token !== token) {
-    return failure(403, 'Missing or stale session token. Reload the page.');
-  }
-
+async function onboardingApi(
+  request: UiRequest,
+  service: DashboardService,
+): Promise<UiResponse> {
   const body = (request.body ?? {}) as Record<string, unknown>;
 
   try {

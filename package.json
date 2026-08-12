@@ -16,6 +16,7 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "target:new": "tsx tools/new-target.ts",
+    "dashboard": "tsx tools/dashboard.ts",
     "onboard": "tsx tools/onboard.ts",
     "target:remove": "tsx tools/offboard.ts",
     "target:doctor": "tsx tools/check-target.ts",
