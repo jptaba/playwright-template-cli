@@ -104,6 +104,34 @@ export const toolshop: TargetProfile = {
           selector: 'checkbox',
           reviewBy: '2026-11-30',
         },
+        {
+          /*
+             A second `list` violation, in a different component, needing its
+             own waiver — which is the scoping working as intended. The filter
+             waiver above is scoped to `checkbox`, so it did not cover this one
+             and the registration form's failure was still reported. Under the
+             old rule-id-only matching, accepting the filter tree would have
+             silently hidden this the moment it appeared.
+          */
+          rule: 'list',
+          reason:
+            'The password-requirements hint on the registration form puts a <ul> directly ' +
+            'inside its help <div> (WCAG 1.3.1). Same upstream markup habit as the filter ' +
+            'tree, different component.',
+          selector: 'passwordHelp',
+          reviewBy: '2026-11-30',
+        },
+        {
+          rule: 'target-size',
+          reason:
+            'The "More information" links in the related-products cards are under the 24px ' +
+            'minimum (WCAG 2.2 success criterion 2.5.8). A real defect for touch users and an ' +
+            'upstream layout change; recorded rather than deleted so it stays visible. Worth ' +
+            'noting that this is a criterion 2.2 added — the cumulative tag ladder is what ' +
+            'makes the suite test it at all.',
+          urlPattern: '/product/',
+          reviewBy: '2026-11-30',
+        },
       ],
     },
   },
