@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { REPO_ROOT } from '../src/support/paths';
+import { ContractRegistry } from '../src/support/contracts/validator';
 import { resolveTarget, targetNames } from '../config/target';
 import { createSecretStore } from '../src/integrations/secrets';
 import { diagnose, isRunnable, type TargetFacts } from '../src/support/onboarding/diagnose';
@@ -21,6 +22,55 @@ import type { TargetProfile } from '../config/targets/types';
  * store what it can resolve, and prints the disagreements with the file to fix.
  * It never prints a credential: existence and field names only.
  */
+/**
+ * `METHOD /path` for every endpoint descriptor in the pack's `endpoints/`.
+ *
+ * Read by loading the modules rather than by parsing them: a descriptor is
+ * plain data, the files are already TypeScript this process can require, and a
+ * regular expression over source would miss anything built rather than
+ * written.
+ */
+function declaredEndpoints(targetName: string): string[] {
+  const directory = path.join(REPO_ROOT, 'src', 'targets', targetName, 'endpoints');
+  if (!fs.existsSync(directory)) return [];
+
+  const found: string[] = [];
+  for (const file of fs.readdirSync(directory).filter((entry) => entry.endsWith('.ts'))) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const module = require(path.join(directory, file)) as Record<string, unknown>;
+      for (const exported of Object.values(module)) {
+        if (typeof exported !== 'object' || exported === null) continue;
+        for (const descriptor of Object.values(exported as Record<string, unknown>)) {
+          const entry = descriptor as { method?: unknown; path?: unknown };
+          if (typeof entry?.method === 'string' && typeof entry?.path === 'string') {
+            found.push(`${entry.method.toUpperCase()} ${entry.path}`);
+          }
+        }
+      }
+    } catch {
+      // A pack that does not compile has louder problems than this check.
+    }
+  }
+  return [...new Set(found)];
+}
+
+/** `METHOD /path` for every operation the vendored document describes. */
+function documentedOperations(profile: TargetProfile): string[] {
+  const spec = profile.capabilities.contracts.spec;
+  if (!profile.capabilities.contracts.enabled || !spec) return [];
+  const full = path.join(REPO_ROOT, spec);
+  if (!fs.existsSync(full)) return [];
+
+  try {
+    return ContractRegistry.fromFile(full)
+      .operations()
+      .map((operation) => `${operation.method.toUpperCase()} ${operation.path}`);
+  } catch {
+    return [];
+  }
+}
+
 function listPack(targetName: string): { exists: boolean; files: string[] } {
   const root = path.join(REPO_ROOT, 'src', 'targets', targetName);
   if (!fs.existsSync(root)) return { exists: false, files: [] };
@@ -120,6 +170,8 @@ async function main(): Promise<number> {
         profile.capabilities.contracts.spec &&
           fs.existsSync(path.join(REPO_ROOT, profile.capabilities.contracts.spec)),
       ),
+      declaredEndpoints: declaredEndpoints(name),
+      documentedOperations: documentedOperations(profile),
       env: {
         MAIL_API_URL: process.env.MAIL_API_URL,
         GENERATION_HOST_ALLOWLIST: process.env.GENERATION_HOST_ALLOWLIST,

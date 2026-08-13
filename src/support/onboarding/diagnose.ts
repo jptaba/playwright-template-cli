@@ -44,6 +44,13 @@ export interface TargetFacts {
   credentialsChecked: boolean;
   /** Whether the declared contract document is on disk. */
   contractSpecExists: boolean;
+  /**
+   * `METHOD /path` for every endpoint descriptor in the pack, and every
+   * operation the vendored document describes. Both empty when the target has
+   * no API or no contract document, which is the commonest case.
+   */
+  declaredEndpoints?: string[];
+  documentedOperations?: string[];
   /** Environment values the framework reads at run time. */
   env: { MAIL_API_URL?: string; GENERATION_HOST_ALLOWLIST?: string };
 }
@@ -312,6 +319,38 @@ function checkCapabilities(
       'Vendor the published schema to that path. The registry reads it per test and will throw ' +
         'for every spec until it is there.',
     );
+  }
+
+  /*
+     Endpoint descriptors that the published document does not describe.
+
+     This is the API's version of grounding a locator in the accessibility
+     tree, and it exists because the same mistake happens: an endpoint written
+     from REST convention rather than from the document. `GET
+     /categories/{categoryId}` is the one that produced this check — a
+     collection has members, so a member must be readable. The service answers
+     405 and the document agrees with the service: that path declares `put`,
+     `delete` and `patch`, and no `get` at all.
+
+     A descriptor nobody documented is not always wrong — an undocumented
+     endpoint is a real thing — so this is a warning that names each one rather
+     than an error. What it stops is the version where the document was
+     vendored, sitting in the pack, and never consulted.
+  */
+  const declared = facts.declaredEndpoints ?? [];
+  const documented = new Set(facts.documentedOperations ?? []);
+  if (declared.length > 0 && documented.size > 0) {
+    const undocumented = declared.filter((endpoint) => !documented.has(endpoint));
+    if (undocumented.length > 0) {
+      warn(
+        'endpoint-not-documented',
+        `${undocumented.length} endpoint descriptor(s) are not in the published document: ` +
+          `${undocumented.join(', ')}.`,
+        'Check each against the vendored schema. An endpoint written from REST convention rather ' +
+          'than from the document is the API\'s version of a hallucinated locator — it fails as a ' +
+          '405 or a 404 that reads like an application fault (§05).',
+      );
+    }
   }
   if (!contracts.enabled && contracts.spec && facts.contractSpecExists) {
     warn(

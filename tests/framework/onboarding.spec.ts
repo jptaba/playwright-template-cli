@@ -163,6 +163,39 @@ test.describe('the onboarding preflight', () => {
     expect(codes(found)).toContain('contracts-spec-missing');
   });
 
+  test('an endpoint the published document does not describe is reported', () => {
+    /*
+       The API's version of a hallucinated locator, and it happened exactly
+       this way: `GET /categories/{categoryId}` written from REST convention —
+       a collection has members, so a member is readable. The service answers
+       405, and the document agrees with the service: that path declares
+       `put`, `delete` and `patch` and no `get` at all. The document was
+       already vendored in the pack; nothing had ever compared the two.
+    */
+    const found = diagnose(
+      profile(),
+      facts({
+        declaredEndpoints: ['GET /products', 'GET /categories/{categoryId}'],
+        documentedOperations: ['GET /products', 'PUT /categories/{categoryId}'],
+      }),
+    );
+
+    const warning = found.find((entry) => entry.code === 'endpoint-not-documented');
+    expect(warning?.message).toContain('GET /categories/{categoryId}');
+    expect(warning?.message, 'the documented one is not reported').not.toContain('GET /products,');
+    // A warning, not an error: an undocumented endpoint is a real thing, and
+    // the point is that somebody looked.
+    expect(warning?.level).toBe('warning');
+  });
+
+  test('with no contract document there is nothing to compare endpoints against', () => {
+    const found = diagnose(
+      profile(),
+      facts({ declaredEndpoints: ['GET /products'], documentedOperations: [] }),
+    );
+    expect(codes(found)).not.toContain('endpoint-not-documented');
+  });
+
   test('a contract document that has landed prompts turning the capability on', () => {
     const found = diagnose(
       profile({
