@@ -4,6 +4,7 @@ import type { OffboardPlan } from './offboard';
 import { confirmationMatches, isRemovable } from './offboard';
 import type { ProbedSignIn, ProbeResult, SignInVerification } from './probe';
 import { planScaffold, ScaffoldError, type ScaffoldOptions, type ScaffoldPlan } from './scaffold';
+import { sanitiseDraft, type OnboardedApp, type OnboardingDraft } from './draft';
 
 /**
  * The onboarding dashboard — a second front end onto the same scaffolder.
@@ -49,6 +50,14 @@ export interface CreateResult {
 export interface DashboardService {
   page(): string;
   existingTargets(): string[];
+  /**
+   * Applications already onboarded, most recently written first, with the
+   * values read back from their profiles.
+   */
+  onboarded(): OnboardedApp[];
+  /** The in-progress form, or an empty one. Never holds a credential. */
+  readDraft(): OnboardingDraft;
+  writeDraft(draft: OnboardingDraft): void;
   probe(input: { baseURL: string; apiBaseURL?: string }): Promise<ProbeResult>;
   /**
    * Sign in once with the credentials the operator supplied, to prove the
@@ -115,6 +124,8 @@ export function onboardingRoutes(service: DashboardService): Route[] {
   const page: Route = { method: 'GET', path: '/', public: true, handle: () => html(service.page()) };
   const apiPaths = [
     '/api/targets',
+    '/api/onboard/state',
+    '/api/onboard/draft',
     '/api/probe',
     '/api/verify',
     '/api/plan',
@@ -153,6 +164,26 @@ async function onboardingApi(
     switch (request.path) {
       case '/api/targets':
         return json(200, { targets: service.existingTargets() });
+
+      /*
+         Everything the form needs to come back to life: what has already been
+         onboarded, and whatever was half-typed before somebody clicked
+         another tab.
+      */
+      case '/api/onboard/state':
+        return json(200, {
+          applications: service.onboarded(),
+          draft: service.readDraft(),
+        });
+
+      case '/api/onboard/draft': {
+        // Sanitised on the way in as well as on the way out: the page is not a
+        // source of truth about what may be stored, and a draft that could
+        // carry a credential is a password written to disk (§11).
+        const draft = sanitiseDraft(body.draft);
+        service.writeDraft(draft);
+        return json(200, { saved: true, savedAt: draft.savedAt });
+      }
 
       case '/api/probe': {
         const baseURL = String(body.baseURL ?? '').trim();

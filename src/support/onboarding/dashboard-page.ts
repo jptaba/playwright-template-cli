@@ -51,6 +51,22 @@ const STYLES = `
 `;
 
 const BODY = `
+  <section id="s0">
+    <div class="head">
+      <h2>Which application</h2>
+      <span class="badge manual" id="draftState">nothing in progress</span>
+    </div>
+    <p class="explain">
+      Onboarding one already? Pick it here to see what its profile says. Otherwise this is a new
+      one, and <b>what you type is kept as you go</b> — moving to another tab and back no longer
+      empties the form. Credentials are the exception: those are never written down, so step 4 is
+      the one thing you re-enter.
+    </p>
+    <label for="pick">Application</label>
+    <select id="pick"></select>
+    <div class="status" id="pickStatus"></div>
+  </section>
+
   <section id="s1">
     <div class="head">
       <span class="step">Step 1</span>
@@ -245,6 +261,189 @@ const BODY = `
 const SCRIPT = `
 let probed = null;
 let marker = null;
+let applications = [];
+/** The new-application form, remembered between page loads. */
+let draft = { fields: {}, flags: {}, services: [], savedAt: '' };
+let restoring = false;
+
+/*
+   Every dashboard page is its own document, so clicking another tab is a full
+   navigation and anything held in an input is gone. The draft is what stops
+   that emptying the form — saved as you type, debounced, and deliberately
+   holding no credential: step 4's values are never written anywhere.
+*/
+const DRAFT_FIELDS = ['name','env','baseURL','testId','signInPath','uName','pName','sName','roles','secrets','a11y'];
+const DRAFT_FLAGS = ['confirmTest','lApi','lDb','lContracts','lA11y'];
+
+function collectDraft() {
+  const fields = {};
+  for (const id of DRAFT_FIELDS) {
+    const node = $(id);
+    if (node && node.value) fields[id] = node.value;
+  }
+  const flags = {};
+  for (const id of DRAFT_FLAGS) {
+    const node = $(id);
+    if (node) flags[id] = node.checked;
+  }
+  return { fields, flags, services: serviceRows(), savedAt: new Date().toISOString() };
+}
+
+let saveTimer = null;
+function saveDraft() {
+  // Only a new application has a draft. Selecting an onboarded one shows what
+  // its profile says, and that is not something to remember a copy of.
+  if (restoring || $('pick').value !== '') return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    draft = collectDraft();
+    post('/api/onboard/draft', { draft }).then(
+      () => setDraftState('kept'),
+      () => setDraftState('not kept'),
+    );
+  }, 400);
+}
+
+function setDraftState(what) {
+  const badge = $('draftState');
+  badge.textContent = what === 'kept' ? 'kept as you type' : what;
+  badge.className = 'badge ' + (what === 'kept' ? 'auto' : 'manual');
+}
+
+/**
+ * The form as it ships, captured before anything touches it.
+ *
+ * Restoring a draft has to *reset* as well as fill, or the values left behind
+ * by an onboarded application stay on screen and read as though they were
+ * typed — which is the same confusion this whole feature exists to remove.
+ */
+const DEFAULTS = { fields: {}, flags: {} };
+function captureDefaults() {
+  for (const id of DRAFT_FIELDS) {
+    const node = $(id);
+    if (node) DEFAULTS.fields[id] = node.value;
+  }
+  for (const id of DRAFT_FLAGS) {
+    const node = $(id);
+    if (node) DEFAULTS.flags[id] = node.checked;
+  }
+}
+
+/**
+ * An onboarded application is shown, not edited.
+ *
+ * Without this the fields look editable, typing in them does nothing — the
+ * draft only belongs to a new application — and the page silently discards
+ * what somebody just wrote. Disabled says "this is a view" in the one language
+ * a form has.
+ */
+function setFormEnabled(enabled) {
+  for (const id of DRAFT_FIELDS.concat(DRAFT_FLAGS)) {
+    const node = $(id);
+    if (node) node.disabled = !enabled;
+  }
+  for (const node of $('services').querySelectorAll('input')) node.disabled = !enabled;
+  $('addService').disabled = !enabled;
+  $('probe').disabled = !enabled;
+  $('skipProbe').disabled = !enabled;
+}
+
+function applyDraft(saved) {
+  restoring = true;
+  for (const id of DRAFT_FIELDS) {
+    const node = $(id);
+    if (!node) continue;
+    node.value = saved.fields[id] !== undefined ? saved.fields[id] : DEFAULTS.fields[id];
+  }
+  for (const id of DRAFT_FLAGS) {
+    const node = $(id);
+    if (!node) continue;
+    node.checked = saved.flags[id] !== undefined ? saved.flags[id] : DEFAULTS.flags[id];
+  }
+  $('services').replaceChildren();
+  const rows = (saved.services || []).length ? saved.services : [{ primary: true }];
+  for (const row of rows) addServiceRow(row);
+  renderCredentials();
+  setFormEnabled(true);
+  restoring = false;
+}
+
+/** Fill the form from a profile already on disk, and lock what cannot change. */
+function showApplication(app) {
+  restoring = true;
+  $('name').value = app.name;
+  $('env').value = app.environment;
+  $('baseURL').value = app.baseURL;
+  $('testId').value = app.testIdAttribute;
+  $('roles').value = app.roles.join(', ');
+  $('secrets').value = app.secretSource;
+  $('a11y').value = app.a11yStandard || '';
+  $('lApi').checked = app.include.api;
+  $('lDb').checked = app.include.db;
+  $('lContracts').checked = app.include.contracts;
+  $('lA11y').checked = app.include.a11y;
+  $('services').replaceChildren();
+  addServiceRow({ primary: true, name: 'api', url: app.apiBaseURL || '' });
+  renderCredentials();
+  setFormEnabled(false);
+  restoring = false;
+
+  const when = app.onboardedAt.slice(0, 16).replace('T', ' ');
+  $('pickStatus').className = 'status';
+  $('pickStatus').replaceChildren(
+    el('div', 'note',
+      app.name + ' was onboarded ' + when + ' and has ' + app.packFiles + ' file(s) in its pack. ' +
+      'These are the values its profile holds — onboarding is additive and never overwrites, so ' +
+      'change them in config/targets/' + app.name + '.ts, or remove the target and start again.'),
+  );
+  $('create').disabled = true;
+  setDraftState('showing an onboarded application');
+}
+
+function pickChanged() {
+  const chosen = $('pick').value;
+  if (chosen === '') {
+    $('pickStatus').replaceChildren();
+    $('create').disabled = false;
+    applyDraft(draft);
+    setDraftState(draft.savedAt ? 'kept as you type' : 'nothing in progress');
+    return;
+  }
+  const app = applications.find((candidate) => candidate.name === chosen);
+  if (app) showApplication(app);
+}
+
+async function loadState() {
+  const state = await post('/api/onboard/state', {});
+  applications = state.applications || [];
+  draft = state.draft || draft;
+
+  const select = $('pick');
+  select.replaceChildren();
+  const fresh = document.createElement('option');
+  fresh.value = '';
+  fresh.textContent = '— New application —';
+  select.append(fresh);
+  for (const app of applications) {
+    const option = document.createElement('option');
+    option.value = app.name;
+    option.textContent = app.name + ' · ' + app.environment + ' · onboarded ' + app.onboardedAt.slice(0, 10);
+    select.append(option);
+  }
+
+  /*
+     Half-typed work wins over the most recent application. Losing it is the
+     whole reason this exists, and an application already on disk can be looked
+     at any time.
+  */
+  const hasDraft = Object.keys(draft.fields || {}).length > 0;
+  select.value = hasDraft || applications.length === 0 ? '' : applications[0].name;
+  pickChanged();
+}
+
+$('pick').onchange = pickChanged;
+document.addEventListener('input', saveDraft);
+document.addEventListener('change', saveDraft);
 
 
 /*
@@ -654,6 +853,16 @@ $('offRemove').onclick = async () => {
 
 addServiceRow({ primary: true });
 renderCredentials();
+captureDefaults();
+
+/*
+   Last, and after the first service row exists: restoring a draft replaces the
+   rows, and there has to be something to replace.
+*/
+loadState().catch((error) => {
+  $('pickStatus').className = 'status error';
+  $('pickStatus').textContent = error.message;
+});
 `;
 
 export function onboardingPageContent(): DashboardPageContent {

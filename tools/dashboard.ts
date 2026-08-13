@@ -68,6 +68,12 @@ import {
   type SignInCredentials,
 } from '../src/support/onboarding/probe';
 import type { ScaffoldOptions, ScaffoldPlan } from '../src/support/onboarding/scaffold';
+import {
+  EMPTY_DRAFT,
+  sanitiseDraft,
+  type OnboardedApp,
+  type OnboardingDraft,
+} from '../src/support/onboarding/draft';
 import type { TargetProfile } from '../config/targets/types';
 
 /**
@@ -294,9 +300,98 @@ async function create(
   };
 }
 
+/**
+ * The half-typed form, kept between page loads.
+ *
+ * On disk rather than in the browser because the dashboard binds to a fresh
+ * random port each run, so `localStorage` is a different origin every time and
+ * would forget everything the moment you restarted it. Gitignored: it is
+ * scratch, not a record.
+ *
+ * Sanitised on the way out as well as in. A draft written by an older version
+ * of this file — or by hand — must not be able to reintroduce a field the
+ * allow-list now refuses.
+ */
+const DRAFT_PATH = path.join(REPO_ROOT, '.onboarding-draft.json');
+
+function readDraft(): OnboardingDraft {
+  if (!fs.existsSync(DRAFT_PATH)) return { ...EMPTY_DRAFT };
+  try {
+    return sanitiseDraft(JSON.parse(fs.readFileSync(DRAFT_PATH, 'utf8')));
+  } catch {
+    return { ...EMPTY_DRAFT };
+  }
+}
+
+/**
+ * Read every profile back as the form's own fields.
+ *
+ * Most recently written first, from the profile's modification time — which is
+ * what "the one I just onboarded" means in practice, and needs no extra file
+ * to record it.
+ */
+function onboarded(): OnboardedApp[] {
+  const directory = path.join(REPO_ROOT, 'config', 'targets');
+  if (!fs.existsSync(directory)) return [];
+
+  const found: OnboardedApp[] = [];
+  for (const name of existingTargets()) {
+    const file = path.join(directory, `${name}.ts`);
+    let profile: TargetProfile | undefined;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const module = require(file) as Record<string, unknown>;
+      profile = Object.values(module).find(
+        (value): value is TargetProfile =>
+          typeof value === 'object' && value !== null && 'capabilities' in value,
+      );
+    } catch {
+      // A profile that will not load is the doctor's business, not the form's.
+    }
+    if (!profile) continue;
+
+    const packRoot = path.join(REPO_ROOT, 'src', 'targets', name);
+    let packFiles = 0;
+    const walk = (directoryPath: string): void => {
+      for (const entry of fs.readdirSync(directoryPath, { withFileTypes: true })) {
+        if (entry.isDirectory()) walk(path.join(directoryPath, entry.name));
+        else packFiles += 1;
+      }
+    };
+    if (fs.existsSync(packRoot)) walk(packRoot);
+
+    const capabilities = profile.capabilities;
+    found.push({
+      name: profile.name,
+      baseURL: profile.baseURL,
+      environment: profile.environment,
+      testIdAttribute: profile.testIdAttribute,
+      roles: [...profile.roles],
+      secretSource: profile.credentials.source,
+      a11yStandard: capabilities.a11y.enabled ? capabilities.a11y.standard : null,
+      apiBaseURL: capabilities.api.enabled ? (capabilities.api.baseURL ?? null) : null,
+      include: {
+        api: capabilities.api.enabled,
+        db: capabilities.db.enabled,
+        contracts: capabilities.contracts.enabled,
+        a11y: capabilities.a11y.enabled,
+      },
+      onboardedAt: fs.statSync(file).mtime.toISOString(),
+      packFiles,
+    });
+  }
+
+  return found.sort((a, b) => b.onboardedAt.localeCompare(a.onboardedAt));
+}
+
 const service: DashboardService = {
   page: () => dashboardPage(TOKEN, { pages: PAGES, current: '/onboard' }),
   existingTargets,
+  onboarded,
+  readDraft,
+  writeDraft: (draft) => {
+    fs.writeFileSync(DRAFT_PATH, `${JSON.stringify(draft, null, 2)}\n`, 'utf8');
+  },
   probe,
   verify,
   existing,

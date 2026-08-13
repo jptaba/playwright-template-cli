@@ -43,3 +43,6 @@ Thumbs.db
 # Per-run artefacts, models and event streams from the dashboard.
 # Pruned on start against two caps together: 20 runs and 2 GB, oldest first.
 .runs/
+
+# The half-typed onboarding form, kept between page loads. Scratch, not a record.
+.onboarding-draft.json

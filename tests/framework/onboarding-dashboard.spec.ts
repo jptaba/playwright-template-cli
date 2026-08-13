@@ -18,6 +18,12 @@ import {
 } from '../../src/support/onboarding/probe';
 import { dashboardPage } from '../../src/support/onboarding/dashboard-page';
 import { planScaffold } from '../../src/support/onboarding/scaffold';
+import {
+  DRAFT_FIELDS,
+  EMPTY_DRAFT,
+  draftHasContent,
+  sanitiseDraft,
+} from '../../src/support/onboarding/draft';
 
 /**
  * The onboarding dashboard, tested with no socket, no browser and no
@@ -508,6 +514,9 @@ function service(overrides: Partial<DashboardService> = {}): DashboardService {
   return {
     page: () => '<!doctype html>',
     existingTargets: () => ['example-app'],
+    onboarded: () => [],
+    readDraft: () => ({ ...EMPTY_DRAFT }),
+    writeDraft: () => undefined,
     probe: async () => ({
       testIdAttribute: 'data-test',
       testIdCounts: { 'data-test': 12 },
@@ -790,4 +799,125 @@ test('GET / serves the page and nothing else answers a GET', async () => {
     routing,
   );
   expect(other.status).toBe(405);
+});
+
+// ---------------------------------------------------------------------------
+// The draft: what the form is allowed to remember
+// ---------------------------------------------------------------------------
+
+test.describe('the onboarding draft', () => {
+  test('never carries a credential, however it is offered one', () => {
+    /*
+       The rule the whole feature turns on. The form collects credentials in
+       step 4, and a draft that remembered them would write a password to disk
+       — which §11 forbids outright, and which a convenience feature is a
+       particularly poor reason to do.
+
+       An allow-list, not a deny-list: a field added to the form tomorrow is
+       invisible to the draft until somebody says what it is, rather than being
+       swept up by a rule that fails open the day a field is renamed.
+    */
+    const sanitised = sanitiseDraft({
+      fields: {
+        name: 'acme-shop',
+        password: 'hunter2',
+        'cred-standard-password': 'hunter2',
+        'cred-standard-username': 'jane@acme.example',
+        token: 'ghp_deadbeef',
+      },
+      flags: { confirmTest: true, somethingElse: true },
+      services: [{ name: 'billing', url: 'https://billing.acme.example', primary: false }],
+    });
+
+    expect(sanitised.fields).toEqual({ name: 'acme-shop' });
+    expect(JSON.stringify(sanitised), 'no credential survives in any position').not.toContain(
+      'hunter2',
+    );
+    expect(JSON.stringify(sanitised)).not.toContain('ghp_deadbeef');
+    expect(sanitised.flags).toEqual({ confirmTest: true });
+    expect(sanitised.services).toEqual([
+      { name: 'billing', url: 'https://billing.acme.example', primary: false },
+    ]);
+  });
+
+  test('the sign-in field names are not credentials, and are kept', () => {
+    // `uName`/`pName` hold the *accessible names* the probe read off the form
+    // — "Email address *", "Password *" — which is why they are on the list
+    // despite reading alarmingly next to a paragraph about secrets.
+    const sanitised = sanitiseDraft({
+      fields: { uName: 'Email address *', pName: 'Password *', sName: 'Login' },
+    });
+    expect(sanitised.fields.pName).toBe('Password *');
+  });
+
+  test('rubbish in any shape produces an empty draft rather than throwing', () => {
+    for (const rubbish of [null, undefined, 'a string', 42, [], { fields: 'no' }]) {
+      expect(sanitiseDraft(rubbish).fields).toEqual({});
+    }
+  });
+
+  test('an empty draft is not worth restoring, and says so', () => {
+    expect(draftHasContent(EMPTY_DRAFT)).toBe(false);
+    expect(draftHasContent(sanitiseDraft({ fields: { name: 'acme' } }))).toBe(true);
+  });
+
+  test('every field the page saves is one the allow-list permits', () => {
+    // The page keeps its own copy of the list, because it runs in a browser
+    // and cannot import this one. They have to agree, and this is what says so.
+    const page = dashboardPage('t');
+    const inPage = /const DRAFT_FIELDS = \[([^\]]+)\]/.exec(page)?.[1] ?? '';
+    const names = [...inPage.matchAll(/'([^']+)'/g)].map((match) => match[1]);
+    expect(names.sort()).toEqual([...DRAFT_FIELDS].sort());
+  });
+});
+
+test('the state route offers what has been onboarded and what was half-typed', async () => {
+  const response = await handleDashboardRequest(
+    request({ path: '/api/onboard/state', body: {} }),
+    {
+      token: 'the-token',
+      service: service({
+        onboarded: () => [
+          {
+            name: 'toolshop',
+            baseURL: 'https://shop.example',
+            environment: 'staging',
+            testIdAttribute: 'data-test',
+            roles: ['standard'],
+            secretSource: 'local',
+            a11yStandard: 'wcag22aa',
+            apiBaseURL: 'https://api.shop.example',
+            include: { api: true, db: false, contracts: true, a11y: true },
+            onboardedAt: '2026-08-13T09:00:00.000Z',
+            packFiles: 12,
+          },
+        ],
+        readDraft: () => sanitiseDraft({ fields: { name: 'half-typed' } }),
+      }),
+    },
+  );
+
+  expect(response.status).toBe(200);
+  const body = JSON.parse(response.body) as Record<string, unknown>;
+  expect(body.applications).toHaveLength(1);
+  expect(body.draft).toMatchObject({ fields: { name: 'half-typed' } });
+});
+
+test('a draft posted with a credential in it is stored without one', async () => {
+  const stored: unknown[] = [];
+  await handleDashboardRequest(
+    request({
+      path: '/api/onboard/draft',
+      body: { draft: { fields: { name: 'acme', 'cred-standard-password': 'hunter2' } } },
+    }),
+    {
+      token: 'the-token',
+      service: service({ writeDraft: (draft) => void stored.push(draft) }),
+    },
+  );
+
+  // Sanitised on the way in as well as out: the page is not a source of truth
+  // about what may be written to disk.
+  expect(JSON.stringify(stored)).not.toContain('hunter2');
+  expect(stored[0]).toMatchObject({ fields: { name: 'acme' } });
 });
