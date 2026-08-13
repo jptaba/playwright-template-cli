@@ -72,6 +72,7 @@ import {
 } from '../src/support/onboarding/probe';
 import type { ScaffoldOptions, ScaffoldPlan } from '../src/support/onboarding/scaffold';
 import { editProfileSource } from '../src/support/onboarding/edit-profile';
+import { describeBrowserLaunchFailure } from '../src/support/ui/failures';
 import {
   EMPTY_DRAFT,
   sanitiseDraft,
@@ -124,6 +125,25 @@ function existing(paths: string[]): string[] {
 }
 
 /**
+ * Every browser this tool starts, and the one place a failure to start is
+ * turned into a sentence.
+ *
+ * Playwright's launch failure is roughly four thousand characters of Chromium
+ * command line, and it went to the page whole — after which somebody
+ * reasonably concluded that the thing they had just edited had broken it. What
+ * it usually means on Windows is that the machine had no room for another
+ * browser, which is nobody's mistake and comes and goes.
+ */
+async function launchOrExplain<T>(launch: () => Promise<T>): Promise<T> {
+  try {
+    return await launch();
+  } catch (error) {
+    const advice = describeBrowserLaunchFailure(error);
+    throw advice ? new Error(advice) : error;
+  }
+}
+
+/**
  * Run something against a real browser pointed at the application.
  *
  * Chromium is launched per operation and closed again: onboarding is a
@@ -134,7 +154,7 @@ async function withProbePage<T>(work: (page: ProbePage) => Promise<T>): Promise<
   // Imported here rather than at module load so `npm run onboard` starts fast
   // and does not need a browser installed just to serve its own page.
   const { chromium } = await import('@playwright/test');
-  const browser = await chromium.launch();
+  const browser = await launchOrExplain(() => chromium.launch());
   try {
     const raw = await (await browser.newContext()).newPage();
 
@@ -435,7 +455,7 @@ const service: DashboardService = {
     await service.assistCancel();
 
     const { chromium } = await import('@playwright/test');
-    const browser = await chromium.launch({ headless: false });
+    const browser = await launchOrExplain(() => chromium.launch({ headless: false }));
     const context = await browser.newContext();
     const page = await context.newPage();
 
