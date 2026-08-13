@@ -283,22 +283,38 @@ test('auth-project-boundary stops a login spec inheriting a session', () => {
 });
 
 test('no-target-coupling stops the framework growing a special case for one application', () => {
+  /*
+     The names are supplied rather than discovered from `config/targets/`.
+     Reading them from disk meant this test asserted against whichever
+     application happened to be onboarded: it proved nothing in the state the
+     repository ships in — no targets at all — and failed the moment somebody
+     onboarded a different one. The framework's own suite was coupled to one
+     application, inside the tests of the rule that exists to stop exactly
+     that.
+  */
+  const options = [{ names: ['acme-shop'] }];
+
   ruleTester.run('no-target-coupling', plugin.rules['no-target-coupling'], {
     valid: [
-      { code: `if (target.capabilities.mfa === 'none') return skipProvider();`, filename: FIXTURE },
-      { code: `const dir = 'src/targets/' + target.name + '/tests';`, filename: INTEGRATION },
+      { code: `if (target.capabilities.mfa === 'none') return skipProvider();`, filename: FIXTURE, options },
+      { code: `const dir = 'src/targets/' + target.name + '/tests';`, filename: INTEGRATION, options },
       // Inside a target pack, naming the target is not coupling.
-      { code: `const name = 'example-app';`, filename: ACTION },
+      { code: `const name = 'acme-shop';`, filename: ACTION, options },
+      // With nothing onboarded there is no name to couple to, and the rule
+      // says so by finding nothing rather than by throwing.
+      { code: `if (target.name === 'acme-shop') skipMfa();`, filename: FIXTURE, options: [{ names: [] }] },
     ],
     invalid: [
       {
-        code: `if (target.name === 'example-app') skipMfa();`,
+        code: `if (target.name === 'acme-shop') skipMfa();`,
         filename: FIXTURE,
+        options,
         errors: [{ messageId: 'namesTarget' }],
       },
       {
-        code: `const dir = 'src/targets/example-app/tests';`,
+        code: `const dir = 'src/targets/acme-shop/tests';`,
         filename: INTEGRATION,
+        options,
         errors: [{ messageId: 'pathsIntoTarget' }],
       },
     ],

@@ -92,13 +92,15 @@ function profiles(): Map<string, TargetProfile> {
     }
   }
 
-  if (found.size === 0) {
-    throw new TargetSelectionError(
-      'No target profiles found in config/targets/. Run `npm run target:new -- --name=<app> ' +
-        '--url=<base-url>` to scaffold one.',
-    );
-  }
-
+  /*
+     An empty directory is not an error here. "Which applications are in this
+     repository?" has a valid answer of "none" — it is the state the repository
+     ships in, and the state `target:remove` leaves behind when the last target
+     goes. Discovery that threw instead took `npm run catalog:build` with it,
+     which is the very command offboarding tells you to run next, and
+     `npm run verify` with that. Selection is where the absence matters, so
+     that is where it is raised.
+  */
   discovered = found;
   return found;
 }
@@ -124,6 +126,12 @@ export class TargetSelectionError extends Error {
  */
 export function defaultTarget(): string {
   const names = targetNames();
+  if (names.length === 0) {
+    throw new TargetSelectionError(
+      'No target profiles found in config/targets/. Run `npm run target:new -- --name=<app> ' +
+        '--url=<base-url>` to scaffold one.',
+    );
+  }
   const only = names[0];
   if (names.length === 1 && only) return only;
   const preferred = process.env.DEFAULT_TARGET;

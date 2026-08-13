@@ -22,7 +22,25 @@ module.exports = {
   meta: {
     type: 'problem',
     docs: { description: 'Framework code branches on capabilities, never on a target name.' },
-    schema: [],
+    /**
+     * The names to treat as targets. Defaults to whatever is in
+     * `config/targets/`, which is what every real run uses — `eslint.config.js`
+     * passes nothing.
+     *
+     * It exists for this rule's own tests. They previously asserted against
+     * whichever application happened to be onboarded, so they proved nothing
+     * in the state the repository ships in (no targets at all) and broke the
+     * moment a different application was onboarded — the framework's own
+     * suite coupled to one application, inside the tests of the rule that
+     * exists to prevent exactly that.
+     */
+    schema: [
+      {
+        type: 'object',
+        additionalProperties: false,
+        properties: { names: { type: 'array', items: { type: 'string' } } },
+      },
+    ],
     messages: {
       namesTarget:
         "Framework code refers to the target '{{name}}' by name. Branch on a declared capability " +
@@ -38,7 +56,7 @@ module.exports = {
     const file = relPath(context);
     if (!isFramework(file)) return {};
 
-    const names = targetNames();
+    const names = context.options[0]?.names ?? targetNames();
     if (names.length === 0) return {};
 
     const check = (node, text) => {
