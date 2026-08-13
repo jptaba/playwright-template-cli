@@ -732,6 +732,13 @@ $('preview').onclick = async () => {
   try {
     const plan = await post('/api/plan', options());
     box.replaceChildren();
+    /*
+       Shown at the preview, which is the last moment before anything is
+       written and the one where somebody is already reading. A document URL
+       pasted where a base URL belongs is the mistake this catches, and the
+       failures it otherwise causes are 404s from a path nobody can find.
+    */
+    for (const warning of plan.warnings || []) box.append(el('div', 'note', warning));
     if (plan.conflicts.length) {
       box.append(el('div', 'error',
         'These already exist, so nothing will be written: ' + plan.conflicts.join(', ') +

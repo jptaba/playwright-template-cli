@@ -67,6 +67,7 @@ function harness(overrides: Partial<AuthoringService> = {}, drafts: DraftedCase[
     },
     targets: () => ['acme-shop'],
     model: async () => ({ identity: 'fake-author', draft: async () => drafts }),
+    modelStatus: () => ({ configured: true }),
     usage: () => ({ inputTokens: 1200, outputTokens: 800, estimatedCost: 0.0261 }),
     writeCase: (testCase, slug) => {
       const file = `cases/${testCase.target}/${slug}.yaml`;

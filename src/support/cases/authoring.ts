@@ -40,6 +40,14 @@ export interface AuthoringService {
   targets(): string[];
   /** The case author. Built on demand: no credential is needed to open the page. */
   model(): Promise<CaseAuthorModel>;
+  /**
+   * Whether drafting can work at all, asked before anything is offered.
+   *
+   * A button that fails on press is a worse answer than a button that says
+   * why it cannot run — especially here, where the failure arrives in the
+   * SDK's words from three layers down.
+   */
+  modelStatus(): { configured: boolean; reason?: string };
   /** What the last `model()` spent, when the model reports it. */
   usage(): AuthoringUsageView | null;
   /** Write one case. Says whether it replaced a file, and returns what it wrote. */
@@ -179,6 +187,7 @@ async function authoringApi(request: UiRequest, service: AuthoringService): Prom
         stories: service.storedStories().map((story) => storyView(story, service)),
         jira: service.jira(),
         targets: service.targets(),
+        model: service.modelStatus(),
       });
 
     case '/api/stories/pull':

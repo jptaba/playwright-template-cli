@@ -805,6 +805,27 @@ const authoring: AuthoringService = {
     }
   },
 
+  modelStatus: () => {
+    /*
+       Asked before the button is offered rather than after it is pressed. The
+       SDK resolves its credential at request time, so looking at the
+       environment is the only way to answer this early — and early is where
+       the answer is worth having, because the failure otherwise arrives in
+       the client's own words from three layers down.
+    */
+    const credential =
+      credentialFromEnv('ANTHROPIC_API_KEY') ?? credentialFromEnv('ANTHROPIC_AUTH_TOKEN');
+    if (credential) return { configured: true };
+    return {
+      configured: false,
+      reason:
+        'Drafting needs an Anthropic credential. Set ANTHROPIC_API_KEY and restart ' +
+        '`npm run dashboard` — this server reads the environment it was started with, so ' +
+        'exporting the key in another terminal will not reach a dashboard already running. ' +
+        'Everything else on this page works without one.',
+    };
+  },
+
   usage: () => (lastAuthor ? { ...lastAuthor.usage } : null),
 
   writeCase: (testCase, slug) => {

@@ -127,6 +127,7 @@ const BODY = `
     <label for="sTarget">Application</label>
     <select id="sTarget"></select>
     <button id="sDraftGo">Draft cases and write them to cases/</button>
+    <div class="status" id="sModel"></div>
     <div class="status" id="sDraftStatus"></div>
     <p class="counts-line" id="sCounts"></p>
   </section>
@@ -184,7 +185,16 @@ async function refreshStories(keepSelection) {
     option.textContent = target;
     select.append(option);
   }
-  $('sDraftGo').disabled = data.targets.length === 0;
+  /*
+     Drafting is the one thing on this page that needs a credential, and the
+     failure without one arrives in the SDK's words from three layers down.
+     Asked and answered before the button is offered.
+  */
+  const model = data.model || { configured: true };
+  const noModel = $('sModel');
+  noModel.className = model.configured ? 'status' : 'status error';
+  noModel.textContent = model.configured ? '' : model.reason;
+  $('sDraftGo').disabled = data.targets.length === 0 || !model.configured;
 
   const list = $('sList');
   list.replaceChildren();

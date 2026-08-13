@@ -159,6 +159,52 @@ export function validateProbeTarget(raw: string): { url: URL } | { error: string
   return { url };
 }
 
+/**
+ * A URL that is a service's **root**, not a document it publishes.
+ *
+ * Trapped because it is the mistake somebody actually made: the OpenAPI
+ * document lives at `…/docs?api-docs.json`, so that is the URL on screen when
+ * you go looking for the API, and it is the one that gets pasted into "Service
+ * APIs". The profile then holds a document URL where a base URL belongs, every
+ * request in the pack is built onto it, and the failures are 404s from a path
+ * nobody can find in the service.
+ *
+ * A warning rather than a refusal, and returned as text rather than thrown: a
+ * service genuinely mounted under `/api/v2` is normal, and only the shapes
+ * that are never a base URL are worth naming.
+ */
+export function checkApiBaseURL(raw: string): string | null {
+  if (!raw.trim()) return null;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return `'${raw}' is not a URL. Include the scheme — https or http.`;
+  }
+
+  if (url.search) {
+    return (
+      `'${raw}' has a query string, so it is a request rather than a base URL. The base is ` +
+      `probably ${url.origin}${url.pathname.replace(/\/[^/]*$/, '')} — the part every endpoint ` +
+      'is built onto.'
+    );
+  }
+  if (/\.(json|ya?ml)$/i.test(url.pathname)) {
+    return (
+      `'${raw}' points at a document rather than at the service. That file is the contract to ` +
+      'vendor — set it as the contract document, and give the API the root every endpoint hangs ' +
+      `off, probably ${url.origin}.`
+    );
+  }
+  if (/\/(docs?|swagger|api-docs|documentation|redoc)\/?$/i.test(url.pathname)) {
+    return (
+      `'${raw}' looks like the documentation viewer rather than the service. The base URL is the ` +
+      `one endpoints are built onto, probably ${url.origin}.`
+    );
+  }
+  return null;
+}
+
 export interface RouteOptions {
   token: string;
   service: DashboardService;
@@ -375,6 +421,19 @@ async function onboardingApi(
           conflicts: service.existing(plan.files.map((file) => file.path)),
           credentialPaths: plan.credentialPaths,
           nextSteps: plan.nextSteps,
+          /*
+             Checked at the preview, which is the last moment before anything
+             is written and the one where somebody is already reading. Warnings,
+             not refusals — a service mounted under a path is normal, and only
+             the shapes that are never a base URL are worth naming.
+          */
+          warnings: [
+            checkApiBaseURL(scaffoldOptions.apiBaseURL ?? ''),
+            ...Object.entries(scaffoldOptions.apiServices ?? {}).map(([name, url]) => {
+              const problem = checkApiBaseURL(url);
+              return problem ? `${name}: ${problem}` : null;
+            }),
+          ].filter((entry): entry is string => Boolean(entry)),
         });
       }
 

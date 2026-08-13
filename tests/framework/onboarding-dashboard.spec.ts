@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import {
+  checkApiBaseURL,
   handleDashboardRequest,
   validateProbeTarget,
   type DashboardRequest,
@@ -932,4 +933,52 @@ test('a draft posted with a credential in it is stored without one', async () =>
   // about what may be written to disk.
   expect(JSON.stringify(stored)).not.toContain('hunter2');
   expect(stored[0]).toMatchObject({ fields: { name: 'acme' } });
+});
+
+test.describe('trapping a base URL that is not one', () => {
+  test('the document URL is caught, because it is the one people paste', () => {
+    /*
+       The mistake somebody actually made. The OpenAPI document lives at
+       `…/docs?api-docs.json`, so that is the URL on screen when you go looking
+       for the API — and it ended up in a profile as the API base. Every
+       request in the pack is then built onto a document, and the failures are
+       404s from a path nobody can find in the service.
+    */
+    const caught = checkApiBaseURL('https://api.practicesoftwaretesting.com/docs?api-docs.json');
+    expect(caught).toContain('query string');
+    expect(caught, 'and it says what the base probably is').toContain(
+      'https://api.practicesoftwaretesting.com',
+    );
+
+    expect(checkApiBaseURL('https://api.example.com/openapi.json')).toContain('a document');
+    expect(checkApiBaseURL('https://api.example.com/api/documentation')).toContain(
+      'documentation viewer',
+    );
+  });
+
+  test('a service genuinely mounted under a path is left alone', () => {
+    // Warnings, not refusals: `/api/v2` is a perfectly ordinary base URL, and
+    // a check that complained about it would be turned off within a week.
+    expect(checkApiBaseURL('https://api.example.com')).toBeNull();
+    expect(checkApiBaseURL('https://api.example.com/api/v2')).toBeNull();
+    expect(checkApiBaseURL('')).toBeNull();
+  });
+
+  test('the plan carries the warning, at the last moment before anything is written', async () => {
+    const response = await handleDashboardRequest(
+      request({
+        path: '/api/plan',
+        body: {
+          name: 'demo',
+          baseURL: 'https://demo.example',
+          apiBaseURL: 'https://api.demo.example/docs?api-docs.json',
+          include: { api: true },
+        },
+      }),
+      routing,
+    );
+
+    const body = JSON.parse(response.body) as { warnings: string[] };
+    expect(body.warnings.join(' ')).toContain('query string');
+  });
 });
