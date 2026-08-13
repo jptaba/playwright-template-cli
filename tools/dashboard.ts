@@ -71,6 +71,7 @@ import {
   type SignInCredentials,
 } from '../src/support/onboarding/probe';
 import type { ScaffoldOptions, ScaffoldPlan } from '../src/support/onboarding/scaffold';
+import { editProfileSource } from '../src/support/onboarding/edit-profile';
 import {
   EMPTY_DRAFT,
   sanitiseDraft,
@@ -571,6 +572,19 @@ const service: DashboardService = {
   probe,
   verify,
   existing,
+
+  updateProfile: (target, edits) => {
+    const file = path.join(REPO_ROOT, 'config', 'targets', `${target}.ts`);
+    const outcome = editProfileSource(fs.readFileSync(file, 'utf8'), edits);
+    /*
+       Written only when something actually changed, so an edit that applied
+       nothing leaves the file's timestamp — and with it the application's
+       place in "most recently onboarded" — alone.
+    */
+    if (outcome.applied.length > 0) fs.writeFileSync(file, outcome.source, 'utf8');
+    return outcome;
+  },
+
   /*
      Offboarding shares its planner and its remover with `npm run target:remove`
      rather than reimplementing them. There is one description of what a target

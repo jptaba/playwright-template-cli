@@ -6,6 +6,7 @@ import type { ProbedSignIn, ProbeResult, SignedInMarker, SignInCredentials, Sign
 import { planScaffold, ScaffoldError, type ScaffoldOptions, type ScaffoldPlan } from './scaffold';
 import { sanitiseDraft, type OnboardedApp, type OnboardingDraft } from './draft';
 import type { GauntletStep } from './gauntlet';
+import type { EditOutcome, ProfileEdits } from './edit-profile';
 
 /**
  * The onboarding dashboard — a second front end onto the same scaffolder.
@@ -122,6 +123,14 @@ export interface DashboardService {
   }): Promise<SignInVerification>;
   /** Which of a plan's files are already on disk. Nothing is ever overwritten. */
   existing(paths: string[]): string[];
+  /**
+   * Correct values in an existing profile.
+   *
+   * Separate from `create`, which never overwrites: this is the other half of
+   * that rule, and the one that was missing. Values only — the profile's
+   * structure and its comments are not this to rewrite.
+   */
+  updateProfile(target: string, edits: ProfileEdits): EditOutcome;
   /** What removing a target would do. Plans only; removes nothing. */
   planRemoval(target: string): OffboardPlan;
   /** Actually remove it. Only ever reached through a matching confirmation. */
@@ -223,6 +232,7 @@ export function onboardingRoutes(service: DashboardService): Route[] {
     '/api/targets',
     '/api/onboard/state',
     '/api/onboard/draft',
+    '/api/onboard/update',
     '/api/assist/start',
     '/api/assist/poll',
     '/api/assist/finish',
@@ -325,6 +335,31 @@ async function onboardingApi(
       case '/api/assist/cancel':
         await service.assistCancel();
         return json(200, { cancelled: true });
+
+      case '/api/onboard/update': {
+        const target = String(body.target ?? '').trim();
+        if (!service.existingTargets().includes(target)) {
+          return failure(400, `'${target}' is not an application in this repository.`);
+        }
+
+        const edits = (body.edits ?? {}) as ProfileEdits;
+        /*
+           The same check the preview makes, applied again here. Onboarding is
+           not the only way a document URL reaches a profile — correcting one
+           by hand is the other, and it would be a poor joke to trap the
+           mistake on the way in and not on the way back.
+        */
+        const apiProblem = checkApiBaseURL(edits.apiBaseURL ?? '');
+        if (apiProblem) return failure(400, apiProblem);
+
+        const outcome = service.updateProfile(target, edits);
+        return json(200, {
+          applied: outcome.applied,
+          unchanged: outcome.unchanged,
+          refused: outcome.refused,
+          warnings: outcome.warnings,
+        });
+      }
 
       case '/api/probe': {
         const baseURL = String(body.baseURL ?? '').trim();

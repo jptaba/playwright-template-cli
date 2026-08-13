@@ -64,7 +64,11 @@ const BODY = `
     </p>
     <label for="pick">Application</label>
     <select id="pick"></select>
+    <button class="secondary" id="editApp" hidden>Change its settings</button>
+    <button id="saveApp" hidden>Save the changes</button>
+    <button class="secondary" id="cancelEdit" hidden>Cancel</button>
     <div class="status" id="pickStatus"></div>
+    <div id="editOut"></div>
   </section>
 
   <section id="s1">
@@ -411,8 +415,90 @@ function showApplication(app) {
   setDraftState('showing an onboarded application');
 }
 
+/*
+   Showing an onboarded application read-only was half an answer: the value
+   most often needing correction is the one hardest to get right first time,
+   and sending somebody to a TypeScript file to change one string is a poor
+   reply from a page that has just displayed it.
+
+   Editing is explicit — a button, then Save — so nothing is changed by
+   wandering through the form, and only values move: the profile's comments
+   are the reasoning behind each setting and are not this page's to rewrite.
+*/
+$('editApp').onclick = () => {
+  setFormEnabled(true);
+  $('editApp').hidden = true;
+  $('saveApp').hidden = false;
+  $('cancelEdit').hidden = false;
+  $('pickStatus').replaceChildren(
+    el('div', 'note',
+      'Editing ' + $('pick').value + '. Only the values below are written — every comment in ' +
+      'the profile stays as it is. Anything this cannot find, it says so rather than guessing.'),
+  );
+};
+
+$('cancelEdit').onclick = () => pickChanged();
+
+$('saveApp').onclick = async () => {
+  const target = $('pick').value;
+  const status = $('pickStatus');
+  status.className = 'status';
+  status.replaceChildren(el('div', '', 'Saving…'));
+  $('saveApp').disabled = true;
+  try {
+    const result = await post('/api/onboard/update', {
+      target,
+      edits: {
+        baseURL: $('baseURL').value.trim(),
+        environment: $('env').value.trim(),
+        testIdAttribute: $('testId').value.trim(),
+        apiBaseURL: primaryServiceURL(),
+        a11yStandard: $('a11y').value.trim(),
+        secretSource: $('secrets').value,
+        roles: $('roles').value.split(',').map((s) => s.trim()).filter(Boolean),
+        include: {
+          api: $('lApi').checked, db: $('lDb').checked,
+          contracts: $('lContracts').checked, a11y: $('lA11y').checked,
+        },
+      },
+    });
+
+    /*
+       Reloaded first, then reported. loadState runs pickChanged, which
+       rewrites pickStatus — so filling it before reloading showed what
+       changed for about a second and then replaced it with the description of
+       the application. The reload matters: the values on screen have to come
+       back from the file that was just written, not from the form.
+    */
+    status.replaceChildren();
+    await loadState();
+
+    const out = $('editOut');
+    out.replaceChildren();
+    if (result.applied.length === 0) {
+      out.append(el('div', 'note', 'Nothing changed — every value was already what you asked for.'));
+    }
+    for (const change of result.applied) {
+      out.append(el('div', 'diag', change.field + ': ' + (change.from || '(empty)') + ' → ' + change.to));
+    }
+    for (const warning of result.warnings) out.append(el('div', 'note', warning));
+    for (const refusal of result.refused) {
+      out.append(el('div', 'diag error', refusal.field + ' — ' + refusal.reason));
+    }
+  } catch (error) {
+    status.className = 'status error';
+    status.textContent = error.message;
+  } finally {
+    $('saveApp').disabled = false;
+  }
+};
+
 function pickChanged() {
   const chosen = $('pick').value;
+  $('editOut').replaceChildren();
+  $('editApp').hidden = chosen === '';
+  $('saveApp').hidden = true;
+  $('cancelEdit').hidden = true;
   if (chosen === '') {
     $('pickStatus').replaceChildren();
     $('create').disabled = false;

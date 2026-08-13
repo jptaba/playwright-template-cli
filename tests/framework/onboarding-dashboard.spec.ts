@@ -530,6 +530,13 @@ function service(overrides: Partial<DashboardService> = {}): DashboardService {
       unattended: { possible: true, reason: 'nothing stood in the way' },
     }),
     assistCancel: async () => undefined,
+    updateProfile: () => ({
+      source: '',
+      applied: [{ field: 'apiBaseURL', from: 'old', to: 'new' }],
+      unchanged: [],
+      refused: [],
+      warnings: [],
+    }),
     probe: async () => ({
       testIdAttribute: 'data-test',
       testIdCounts: { 'data-test': 12 },
