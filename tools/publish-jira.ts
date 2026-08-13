@@ -2,6 +2,15 @@
 import fs from 'node:fs';
 import { RUN_RESULT_PATH, TRIAGE_RESULT_PATH } from '../src/support/paths';
 import { JiraClient, defectFingerprint } from '../src/integrations/jira/client';
+import {
+  defectDescription,
+  defectLabels,
+  defectSummary,
+  reopenComment,
+  repeatComment,
+  REOPEN_TRANSITIONS,
+  type DefectCluster,
+} from '../src/support/publish/payloads';
 import type { RunResult, TestRecord } from '../src/support/reporters/run-result';
 import type { TriageResult } from '../src/support/triage/types';
 
@@ -19,26 +28,6 @@ const PROJECT_KEY = process.env.JIRA_DEFECT_PROJECT ?? '';
 function loadTriage(): TriageResult | null {
   if (!fs.existsSync(TRIAGE_RESULT_PATH)) return null;
   return JSON.parse(fs.readFileSync(TRIAGE_RESULT_PATH, 'utf8')) as TriageResult;
-}
-
-function describe(cluster: { summary: string; category: string; tests: TestRecord[] }): string {
-  const first = cluster.tests[0];
-  return [
-    'h3. What failed',
-    `${cluster.tests.length} test(s) failed with the same signature.`,
-    '',
-    'h3. Triage',
-    `Category: ${cluster.category}`,
-    `Summary: ${cluster.summary}`,
-    '',
-    'h3. Affected tests',
-    ...cluster.tests.map((test) => `* ${test.caseId ? `${test.caseId} — ` : ''}${test.title}`),
-    '',
-    'h3. Error',
-    '{noformat}',
-    (first?.error?.message ?? 'No error message recorded.').slice(0, 2_000),
-    '{noformat}',
-  ].join('\n');
 }
 
 async function main(): Promise<number> {
@@ -95,31 +84,24 @@ async function main(): Promise<number> {
 
       if (existing && !existing.resolved) {
         // One ticket with a failure count, not forty tickets (§15).
-        await client.comment(
-          existing.key,
-          `Failed again in run ${run.run.id} (${run.run.environment}), ${cluster.tests.length} test(s).`,
-        );
+        await client.comment(existing.key, repeatComment(run, cluster));
         console.log(`  updated ${existing.key}`);
         continue;
       }
 
       if (existing?.resolved) {
-        const applied = await client.transitionByName(existing.key, ['Reopen Issue', 'Reopen', 'Back to Open']);
-        await client.comment(
-          existing.key,
-          `Reopened by run ${run.run.id}: this failure signature returned.` +
-            (applied ? '' : ' (No reopen transition available in this workflow — please triage.)'),
-        );
+        const applied = await client.transitionByName(existing.key, REOPEN_TRANSITIONS);
+        await client.comment(existing.key, reopenComment(run, Boolean(applied)));
         console.log(`  reopened ${existing.key}${applied ? '' : ' (comment only)'}`);
         continue;
       }
 
       const key = await client.createDefect({
         projectKey: PROJECT_KEY,
-        summary: `[${cluster.category}] ${cluster.summary}`.slice(0, 200),
-        description: describe(cluster),
+        summary: defectSummary(cluster),
+        description: defectDescription(cluster),
         fingerprint: cluster.fingerprint,
-        labels: [`env-${run.run.environment}`, `target-${run.run.target}`],
+        labels: defectLabels(run),
       });
       console.log(`  created ${key}`);
     }
@@ -135,12 +117,7 @@ async function main(): Promise<number> {
   return 0;
 }
 
-function groupByFingerprint(failures: TestRecord[]): Array<{
-  summary: string;
-  category: string;
-  fingerprint: string;
-  tests: TestRecord[];
-}> {
+function groupByFingerprint(failures: TestRecord[]): DefectCluster[] {
   const groups = new Map<string, TestRecord[]>();
   for (const record of failures) {
     const fingerprint = defectFingerprint(record.title, record.error?.message ?? '');

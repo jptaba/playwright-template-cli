@@ -48,6 +48,15 @@ import {
 } from '../src/support/quarantine';
 import { readHistory } from '../src/support/report/history';
 import type { RunResult } from '../src/support/reporters/run-result';
+import { publishPageContent } from '../src/support/ui/publish-page';
+import {
+  publishRoutes,
+  type DestinationStatus,
+  type PublishService,
+} from '../src/support/publish/dashboard';
+import { buildReview } from '../src/support/triage/review';
+import { PractiTestClient } from '../src/integrations/practitest/client';
+import { REOPEN_TRANSITIONS } from '../src/support/publish/payloads';
 import { diagnose, type TargetFacts } from '../src/support/onboarding/diagnose';
 import { planOffboard, type OffboardPlan } from '../src/support/onboarding/offboard';
 import { gatherFacts, removeTarget } from './offboard';
@@ -347,6 +356,7 @@ const runManager = new RunManager();
 const PAGES = [
   { href: '/runs', label: 'Runs' },
   { href: '/triage', label: 'Triage' },
+  { href: '/publish', label: 'Publish' },
   { href: '/stories', label: 'Stories' },
   { href: '/cases', label: 'Cases' },
   { href: '/onboard', label: 'Onboard' },
@@ -607,6 +617,97 @@ const triage: TriageService = {
   now: () => new Date().toISOString(),
 };
 
+/**
+ * Publishing's I/O. Both clients are built per call and disposed: this page is
+ * used rarely, and a long-lived client holding a token in a process that also
+ * serves a browser is a worse trade than reconnecting.
+ */
+const withJira = async <T>(work: (client: JiraClient) => Promise<T>): Promise<T> => {
+  const client = JiraClient.fromEnvironment();
+  try {
+    return await work(client);
+  } finally {
+    await client.dispose();
+  }
+};
+
+const jiraProject = (): string => process.env.JIRA_DEFECT_PROJECT ?? '';
+
+const publish: PublishService = {
+  runs: () => triage.runs(),
+  run: (id) => triage.run(id),
+
+  review: (runId) => {
+    const run = triage.run(runId);
+    if (!run) return null;
+    return buildReview({
+      run,
+      existing: triage.existingVerdicts(runId),
+      human: triage.humanVerdicts(),
+      quarantine: triage.quarantine(),
+    });
+  },
+
+  practitest: (): DestinationStatus => {
+    const baseURL = process.env.PRACTITEST_URL;
+    const projectId = process.env.PRACTITEST_PROJECT_ID;
+    const token = credentialFromEnv('PRACTITEST_TOKEN');
+    if (baseURL && projectId && token) {
+      // The destination, never the credential.
+      return { configured: true, destination: `project ${projectId} at ${new URL(baseURL).host}` };
+    }
+    const missing = [
+      ...(baseURL ? [] : ['PRACTITEST_URL']),
+      ...(projectId ? [] : ['PRACTITEST_PROJECT_ID']),
+      ...(token ? [] : ['PRACTITEST_TOKEN']),
+    ];
+    return { configured: false, reason: `Posting results needs ${missing.join(', ')}.` };
+  },
+
+  jira: (): DestinationStatus => {
+    const baseURL = process.env.JIRA_BASE_URL;
+    const token = credentialFromEnv('JIRA_PAT');
+    const project = jiraProject();
+    if (baseURL && token && project) {
+      return { configured: true, destination: `project ${project} at ${new URL(baseURL).host}` };
+    }
+    const missing = [
+      ...(baseURL ? [] : ['JIRA_BASE_URL']),
+      ...(token ? [] : ['JIRA_PAT']),
+      ...(project ? [] : ['JIRA_DEFECT_PROJECT']),
+    ];
+    return { configured: false, reason: `Filing defects needs ${missing.join(', ')}.` };
+  },
+
+  findDefect: (fingerprint) =>
+    withJira((client) => client.findDefectByFingerprint(jiraProject(), fingerprint)),
+
+  postResults: async (results) => {
+    const client = PractiTestClient.fromEnvironment();
+    try {
+      return await client.postRunResults(results, (message) => console.warn(`  ${message}`));
+    } finally {
+      await client.dispose();
+    }
+  },
+
+  createDefect: (input) =>
+    withJira((client) => client.createDefect({ ...input, projectKey: jiraProject() })),
+  comment: (key, body) => withJira((client) => client.comment(key, body)),
+  reopen: (key) => withJira((client) => client.transitionByName(key, REOPEN_TRANSITIONS)),
+};
+
+const publishViewRoutes: Route[] = [
+  {
+    method: 'GET',
+    path: '/publish',
+    public: true,
+    handle: () =>
+      html(renderPage(publishPageContent(), { token: TOKEN, pages: PAGES, current: '/publish' })),
+  },
+  ...publishRoutes(publish),
+];
+
 const triageViewRoutes: Route[] = [
   {
     method: 'GET',
@@ -660,7 +761,14 @@ const caseRoutes: Route[] = [
 ];
 
 const handle = createRouter(
-  [...runRoutes, ...triageViewRoutes, ...storyRoutes, ...caseRoutes, ...onboardingRoutes(service)],
+  [
+    ...runRoutes,
+    ...triageViewRoutes,
+    ...publishViewRoutes,
+    ...storyRoutes,
+    ...caseRoutes,
+    ...onboardingRoutes(service),
+  ],
   { token: TOKEN },
 );
 
