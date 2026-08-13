@@ -152,6 +152,14 @@ export function parseSignInFields(ariaSnapshot: string): Omit<ProbedSignIn, 'pat
   };
 }
 
+/** The one locator that cannot be read from a page at rest. */
+export interface SignedInMarker {
+  role: string;
+  name: string;
+  /** True when it is this account's own name, which does not generalise. */
+  identitySpecific: boolean;
+}
+
 /**
  * Propose a `signedInMarker` by diffing the page before and after a sign-in.
  *
@@ -171,7 +179,7 @@ export function proposeSignedInMarker(
   before: string,
   after: string,
   identityHints: readonly string[] = [],
-): { role: string; name: string; identitySpecific: boolean } | null {
+): SignedInMarker | null {
   const controls = (snapshot: string): { role: string; name: string }[] => {
     const found: { role: string; name: string }[] = [];
     for (const line of snapshot.split('\n')) {
@@ -326,7 +334,7 @@ export interface SignInVerification {
    * be generalised by hand, and the dashboard says so rather than leaving it
    * to be discovered by `setup:auth` failing for the second role.
    */
-  marker: { role: string; name: string; identitySpecific: boolean } | null;
+  marker: SignedInMarker | null;
   /** What happened, in words that belong in the dashboard rather than a log. */
   detail: string;
 }

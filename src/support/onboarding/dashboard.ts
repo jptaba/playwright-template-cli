@@ -2,9 +2,10 @@ import { createRouter, failure, html, json, type Route, type UiRequest, type UiR
 import type { Diagnostic } from './diagnose';
 import type { OffboardPlan } from './offboard';
 import { confirmationMatches, isRemovable } from './offboard';
-import type { ProbedSignIn, ProbeResult, SignInVerification } from './probe';
+import type { ProbedSignIn, ProbeResult, SignedInMarker, SignInCredentials, SignInVerification } from './probe';
 import { planScaffold, ScaffoldError, type ScaffoldOptions, type ScaffoldPlan } from './scaffold';
 import { sanitiseDraft, type OnboardedApp, type OnboardingDraft } from './draft';
+import type { GauntletStep } from './gauntlet';
 
 /**
  * The onboarding dashboard — a second front end onto the same scaffolder.
@@ -37,6 +38,39 @@ import { sanitiseDraft, type OnboardedApp, type OnboardingDraft } from './draft'
 export type DashboardRequest = UiRequest;
 export type DashboardResponse = UiResponse;
 
+export interface AssistPollResult {
+  /** False once the browser has gone — closed by hand, or finished. */
+  open: boolean;
+  /** Distinct pages seen between the password and now. */
+  observed: number;
+  /** Whether something that looks like a session marker is on screen yet. */
+  looksSignedIn: boolean;
+  /** One line per page met so far, for the operator to watch. */
+  summary: string[];
+}
+
+export interface AssistedSignIn {
+  ok: boolean;
+  detail: string;
+  /** Where the working session was written, when one was established. */
+  storageState: string | null;
+  /** Proposed from the page the person finished on — never from a challenge. */
+  marker: SignedInMarker | null;
+  /** One handler per interstitial, ready to be written into the pack. */
+  gauntlet: GauntletStep[];
+  /** What each handler will do, in a sentence, before anything is written. */
+  describes: string[];
+  /**
+   * Whether this could ever run unattended.
+   *
+   * A person completing a challenge proves the pack's locators work; it does
+   * not make the suite automatable. That needs a second factor a machine can
+   * obtain — and saying so here, rather than in CI three weeks later, is the
+   * point of asking.
+   */
+  unattended: { possible: boolean; reason: string };
+}
+
 export interface CreateResult {
   written: string[];
   /** Files that already existed and were therefore left alone. */
@@ -58,6 +92,23 @@ export interface DashboardService {
   /** The in-progress form, or an empty one. Never holds a credential. */
   readDraft(): OnboardingDraft;
   writeDraft(draft: OnboardingDraft): void;
+  /**
+   * Assisted sign-in: open a browser the operator can see and use.
+   *
+   * Three calls rather than one, because the middle of it is a person reading
+   * a code off their phone. A single request would hold a socket open for
+   * minutes and time out somewhere unhelpful.
+   */
+  assistStart(input: {
+    baseURL: string;
+    signIn: ProbedSignIn;
+    credentials: SignInCredentials;
+  }): Promise<{ started: boolean; detail: string }>;
+  /** What the browser is showing now. Called while the person works. */
+  assistPoll(): Promise<AssistPollResult>;
+  /** Take the session, and everything learned on the way to it. */
+  assistFinish(input: { target: string; role: string }): Promise<AssistedSignIn>;
+  assistCancel(): Promise<void>;
   probe(input: { baseURL: string; apiBaseURL?: string }): Promise<ProbeResult>;
   /**
    * Sign in once with the credentials the operator supplied, to prove the
@@ -126,6 +177,10 @@ export function onboardingRoutes(service: DashboardService): Route[] {
     '/api/targets',
     '/api/onboard/state',
     '/api/onboard/draft',
+    '/api/assist/start',
+    '/api/assist/poll',
+    '/api/assist/finish',
+    '/api/assist/cancel',
     '/api/probe',
     '/api/verify',
     '/api/plan',
@@ -184,6 +239,46 @@ async function onboardingApi(
         service.writeDraft(draft);
         return json(200, { saved: true, savedAt: draft.savedAt });
       }
+
+      /*
+         Assisted sign-in. The dashboard opens a browser the operator can see,
+         fills what it read from the form, and then gets out of the way: the
+         code on somebody's phone, the "password expires in five days" notice
+         and the security question are not things to guess at.
+      */
+      case '/api/assist/start': {
+        const baseURL = String(body.baseURL ?? '').trim();
+        const checked = validateProbeTarget(baseURL);
+        if ('error' in checked) return failure(400, checked.error);
+
+        const signIn = body.signIn as ProbedSignIn | undefined;
+        if (!signIn?.username || !signIn.password) {
+          return failure(
+            400,
+            'Assisted sign-in needs the two field names the probe read, so it can fill the form ' +
+              'the same way the generated pack will.',
+          );
+        }
+        const credentials = body.credentials as SignInCredentials | undefined;
+        if (!credentials?.username || !credentials.password) {
+          return failure(400, 'Fill in the credentials for this role first.');
+        }
+        return json(200, await service.assistStart({ baseURL, signIn, credentials }));
+      }
+
+      case '/api/assist/poll':
+        return json(200, await service.assistPoll());
+
+      case '/api/assist/finish': {
+        const target = String(body.target ?? '').trim();
+        if (!target) return failure(400, 'Name the target before taking its session.');
+        const role = String(body.role ?? '').trim() || 'standard';
+        return json(200, await service.assistFinish({ target, role }));
+      }
+
+      case '/api/assist/cancel':
+        await service.assistCancel();
+        return json(200, { cancelled: true });
 
       case '/api/probe': {
         const baseURL = String(body.baseURL ?? '').trim();

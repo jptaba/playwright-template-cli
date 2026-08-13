@@ -210,7 +210,18 @@ const BODY = `
     </p>
     <div id="credentials"></div>
     <button class="secondary" id="verify">Sign in once, to prove the locators work</button>
+    <button class="secondary" id="assist">Sign in with a browser you can see</button>
+    <button class="secondary" id="assistDone" hidden>I am on the home page</button>
+    <button class="secondary" id="assistCancel" hidden>Cancel</button>
+    <p class="explain" id="assistExplain" hidden>
+      Use this when anything stands between the password and the home page — a one-time code, a
+      password-expiry notice, a security question, "remember this device?". A browser opens with
+      the form already filled; <b>do whatever the application asks</b>, then press the button. It
+      takes the session, works out the signed-in marker from the page you finished on, and turns
+      each thing it met into a handler.
+    </p>
     <div class="status" id="verifyStatus"></div>
+    <div id="assistOut"></div>
   </section>
 
   <section id="s5" inert>
@@ -848,6 +859,114 @@ $('offRemove').onclick = async () => {
     out.className = 'status error';
     out.textContent = error.message;
     $('offRemove').disabled = false;
+  }
+};
+
+/*
+   Assisted sign-in. The dashboard fills the form and then gets out of the way:
+   the code on somebody's phone and the "password expires in five days" notice
+   are not things to guess at, and a headless browser cannot ask.
+*/
+let assistTimer = null;
+/** Handlers for what stood between the password and the home page. */
+let gauntlet = [];
+
+function firstRole() {
+  return ($('roles').value.split(',')[0] || 'standard').trim();
+}
+
+/** The credentials typed for one role. Read here, never stored anywhere. */
+function credentialsFor(role) {
+  const user = $('cu-' + role);
+  const pass = $('cp-' + role);
+  return { username: user ? user.value : '', password: pass ? pass.value : '' };
+}
+
+$('assist').onclick = async () => {
+  const status = $('verifyStatus');
+  status.className = 'status';
+  status.textContent = 'Opening a browser…';
+  $('assistOut').replaceChildren();
+  try {
+    const started = await post('/api/assist/start', {
+      baseURL: $('baseURL').value.trim(),
+      signIn: { username: $('uName').value, password: $('pName').value, submit: $('sName').value, path: $('signInPath').value },
+      credentials: credentialsFor(firstRole()),
+    });
+    status.textContent = started.detail;
+    $('assist').hidden = true;
+    $('assistDone').hidden = false;
+    $('assistCancel').hidden = false;
+    $('assistExplain').hidden = false;
+
+    assistTimer = setInterval(async () => {
+      try {
+        const state = await post('/api/assist/poll', {});
+        if (!state.open) return stopAssist();
+        const box = $('assistOut');
+        box.replaceChildren(
+          el('div', 'note', state.observed + ' page(s) met so far between the password and now.'),
+        );
+        for (const line of state.summary) box.append(el('div', 'diag', line));
+      } catch {
+        stopAssist();
+      }
+    }, 1500);
+  } catch (error) {
+    status.className = 'status error';
+    status.textContent = error.message;
+  }
+};
+
+function stopAssist() {
+  clearInterval(assistTimer);
+  assistTimer = null;
+  $('assist').hidden = false;
+  $('assistDone').hidden = true;
+  $('assistCancel').hidden = true;
+  $('assistExplain').hidden = true;
+}
+
+$('assistCancel').onclick = async () => {
+  await post('/api/assist/cancel', {}).catch(() => undefined);
+  stopAssist();
+};
+
+$('assistDone').onclick = async () => {
+  const status = $('verifyStatus');
+  status.className = 'status';
+  status.textContent = 'Taking the session…';
+  clearInterval(assistTimer);
+  assistTimer = null;
+  try {
+    const result = await post('/api/assist/finish', { target: $('name').value.trim(), role: firstRole() });
+    stopAssist();
+    status.textContent = result.detail;
+    if (result.marker) marker = result.marker;
+    gauntlet = result.gauntlet || [];
+
+    const box = $('assistOut');
+    box.replaceChildren();
+    if (result.storageState) {
+      box.append(el('div', 'note', 'Session written to ' + result.storageState + '. It expires — this proves the pack works, it does not make the suite unattended.'));
+    }
+    if (result.marker) {
+      box.append(el('div', 'diag', 'Signed-in marker: ' + result.marker.role + ' "' + result.marker.name + '" — taken from the page you finished on, not from a challenge.'));
+    }
+    for (const line of result.describes) box.append(el('div', 'diag', line));
+
+    /*
+       The sentence that keeps this honest. A person completing a challenge
+       proves the locators work; it does not make CI able to do the same.
+    */
+    box.append(
+      el('div', result.unattended.possible ? 'note' : 'diag error',
+        (result.unattended.possible ? 'Unattended runs: ' : 'Unattended runs will NOT work yet: ') +
+        result.unattended.reason),
+    );
+  } catch (error) {
+    status.className = 'status error';
+    status.textContent = error.message;
   }
 };
 

@@ -6,10 +6,12 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import os from 'node:os';
 import {
+  AUTH_DIR,
   CASES_DIR,
   REPO_ROOT,
   RUN_RESULT_PATH,
   STORIES_DIR,
+  storageStatePath,
   TRIAGE_RESULT_PATH,
 } from '../src/support/paths';
 import { dashboardPage } from '../src/support/onboarding/dashboard-page';
@@ -62,6 +64,7 @@ import { planOffboard, type OffboardPlan } from '../src/support/onboarding/offbo
 import { gatherFacts, removeTarget } from './offboard';
 import {
   probeTarget,
+  proposeSignedInMarker,
   verifySignIn,
   type ProbedSignIn,
   type ProbePage,
@@ -74,6 +77,13 @@ import {
   type OnboardedApp,
   type OnboardingDraft,
 } from '../src/support/onboarding/draft';
+import {
+  classify,
+  controlsIn,
+  describeGauntlet,
+  planGauntlet,
+  type GauntletObservation,
+} from '../src/support/onboarding/gauntlet';
 import type { TargetProfile } from '../config/targets/types';
 
 /**
@@ -384,6 +394,33 @@ function onboarded(): OnboardedApp[] {
   return found.sort((a, b) => b.onboardedAt.localeCompare(a.onboardedAt));
 }
 
+/**
+ * The assisted sign-in session: a browser the operator can see, kept open
+ * across three requests because the middle of it is a person reading a code
+ * off their phone.
+ *
+ * Headed on purpose, and the one place in this tool that is. Everything else
+ * runs headless because nobody needs to watch a probe; this exists precisely
+ * so somebody can.
+ */
+let assisted: {
+  close(): Promise<void>;
+  snapshot(): Promise<string>;
+  url(): string;
+  storageState(file: string): Promise<void>;
+  before: string;
+  observations: GauntletObservation[];
+} | null = null;
+
+/** A page counts as new when its named controls differ from the last one. */
+function noteObservation(snapshot: string, url: string): void {
+  if (!assisted) return;
+  const previous = assisted.observations[assisted.observations.length - 1];
+  const shape = (text: string) => JSON.stringify(controlsIn(text));
+  if (previous && shape(previous.snapshot) === shape(snapshot)) return;
+  assisted.observations.push({ snapshot, url });
+}
+
 const service: DashboardService = {
   page: () => dashboardPage(TOKEN, { pages: PAGES, current: '/onboard' }),
   existingTargets,
@@ -391,6 +428,145 @@ const service: DashboardService = {
   readDraft,
   writeDraft: (draft) => {
     fs.writeFileSync(DRAFT_PATH, `${JSON.stringify(draft, null, 2)}\n`, 'utf8');
+  },
+
+  assistStart: async ({ baseURL, signIn, credentials }) => {
+    await service.assistCancel();
+
+    const { chromium } = await import('@playwright/test');
+    const browser = await chromium.launch({ headless: false });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    const base = baseURL.replace(/\/+$/, '');
+    await page.goto(`${base}${signIn.path}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined);
+    const before = await page.locator('body').ariaSnapshot();
+
+    assisted = {
+      close: () => browser.close(),
+      snapshot: () => page.locator('body').ariaSnapshot(),
+      url: () => page.url(),
+      storageState: async (file) => {
+        await context.storageState({ path: file });
+      },
+      before,
+      observations: [],
+    };
+
+    /*
+       Filled through the same `getByRole` lookups the generated pack will use.
+       If this fills, the pack fills — it is the same call with the same names,
+       which is the whole reason to do it here rather than let the operator
+       type the password too.
+    */
+    try {
+      await page.getByRole('textbox', { name: signIn.username }).fill(credentials.username);
+      await page.getByRole('textbox', { name: signIn.password }).fill(credentials.password);
+      await page.getByRole('button', { name: signIn.submit }).click();
+    } catch (error) {
+      return {
+        started: true,
+        detail:
+          'The browser is open, but the form could not be filled with the names read from it: ' +
+          `${error instanceof Error ? error.message : String(error)}. Sign in by hand and carry ` +
+          'on — the names in step 2 need correcting.',
+      };
+    }
+
+    return {
+      started: true,
+      detail:
+        'The browser is open and the password has been submitted. Do whatever the application ' +
+        'asks — the code, any prompts — then press "I am on the home page".',
+    };
+  },
+
+  assistPoll: async () => {
+    if (!assisted) return { open: false, observed: 0, looksSignedIn: false, summary: [] };
+    try {
+      const snapshot = await assisted.snapshot();
+      noteObservation(snapshot, assisted.url());
+      const steps = planGauntlet(assisted.observations);
+      return {
+        open: true,
+        observed: assisted.observations.length,
+        // Only a hint for the operator; the marker is derived at the end, from
+        // the page they say they finished on.
+        looksSignedIn: steps.length > 0 && classify(snapshot) === null,
+        summary: describeGauntlet(steps),
+      };
+    } catch {
+      // The operator closed the window. That is a way of cancelling.
+      assisted = null;
+      return { open: false, observed: 0, looksSignedIn: false, summary: [] };
+    }
+  },
+
+  assistFinish: async ({ target, role }) => {
+    if (!assisted) {
+      return {
+        ok: false,
+        detail: 'No assisted sign-in is open.',
+        storageState: null,
+        marker: null,
+        gauntlet: [],
+        describes: [],
+        unattended: { possible: false, reason: 'nothing was observed' },
+      };
+    }
+
+    const finalSnapshot = await assisted.snapshot();
+    noteObservation(finalSnapshot, assisted.url());
+
+    /*
+       The last page is where the operator says they are — the home page — so
+       it is not an interstitial and must not become one. This is the whole
+       reason the marker is derived here rather than in `verifySignIn`: that
+       one proposed the "Verify" button on an OTP challenge and called it a
+       session.
+    */
+    const gauntlet = planGauntlet(assisted.observations.slice(0, -1));
+    const marker = proposeSignedInMarker(assisted.before, finalSnapshot, []);
+
+    fs.mkdirSync(AUTH_DIR, { recursive: true });
+    const statePath = storageStatePath(role, target);
+    await assisted.storageState(statePath);
+    await assisted.close();
+    assisted = null;
+
+    const needsAValue = gauntlet.filter((step) => step.safety === 'needs-value');
+    const refuses = gauntlet.filter((step) => step.safety === 'refuse');
+
+    return {
+      ok: true,
+      detail:
+        `Session captured to ${path.relative(REPO_ROOT, statePath)}, and ${gauntlet.length} ` +
+        'page(s) between the password and the home page were recognised.',
+      storageState: path.relative(REPO_ROOT, statePath).split(path.sep).join('/'),
+      marker,
+      gauntlet,
+      describes: describeGauntlet(gauntlet),
+      unattended: {
+        possible: needsAValue.length === 0 && refuses.length === 0,
+        reason:
+          refuses.length > 0
+            ? `${refuses.map((step) => step.kind).join(', ')} cannot be automated at all — the ` +
+              'suite will stop there and say why.'
+            : needsAValue.length > 0
+              ? `${needsAValue.map((step) => step.kind).join(', ')} needs a value a machine can ` +
+                'obtain: a TOTP seed in Vault, a readable mail sink, or the answer in the secret ' +
+                'store. Until one exists, this session works and CI will not.'
+              : 'Nothing stood between the password and the home page, so setup:auth can do this ' +
+                'unattended.',
+      },
+    };
+  },
+
+  assistCancel: async () => {
+    if (!assisted) return;
+    await assisted.close().catch(() => undefined);
+    assisted = null;
   },
   probe,
   verify,

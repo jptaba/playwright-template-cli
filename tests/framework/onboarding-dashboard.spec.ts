@@ -517,6 +517,18 @@ function service(overrides: Partial<DashboardService> = {}): DashboardService {
     onboarded: () => [],
     readDraft: () => ({ ...EMPTY_DRAFT }),
     writeDraft: () => undefined,
+    assistStart: async () => ({ started: true, detail: 'open' }),
+    assistPoll: async () => ({ open: true, observed: 0, looksSignedIn: false, summary: [] }),
+    assistFinish: async () => ({
+      ok: true,
+      detail: 'done',
+      storageState: '.auth/demo.standard.json',
+      marker: null,
+      gauntlet: [],
+      describes: [],
+      unattended: { possible: true, reason: 'nothing stood in the way' },
+    }),
+    assistCancel: async () => undefined,
     probe: async () => ({
       testIdAttribute: 'data-test',
       testIdCounts: { 'data-test': 12 },
