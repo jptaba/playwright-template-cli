@@ -13,6 +13,7 @@ import {
   probeTarget,
   proposeSignedInMarker,
   verifySignIn,
+  SIGN_IN_PATHS,
   type ProbePage,
 } from '../../src/support/onboarding/probe';
 import { dashboardPage } from '../../src/support/onboarding/dashboard-page';
@@ -121,6 +122,76 @@ test.describe('finding the published contract', () => {
     expect(contractFilename('https://api.example.com/docs?api-docs.json')).toBe('openapi.json');
     expect(contractFilename('https://api.example.com/openapi.yaml')).toBe('openapi.yaml');
   });
+});
+
+test('the sign-in form is looked for on the landing page, not only behind a route', async () => {
+  /*
+     ParaBank, and a great many banking and line-of-business applications, put
+     the sign-in panel on the home page. The candidate list began at
+     `/auth/login`, so the probe reported "no sign-in form found" for an
+     application whose form it had already loaded and counted test-ids on —
+     leaving the operator to write by hand the one thing the probe exists to
+     read for them.
+  */
+  expect(SIGN_IN_PATHS[0]).toBe('/');
+
+  const visited: string[] = [];
+  const page: ProbePage = {
+    goto: async (url) => {
+      visited.push(url);
+      return undefined;
+    },
+    evaluate: async () => ({ 'data-testid': 0 }),
+    ariaSnapshot: async () =>
+      '- textbox "Username"\n- textbox "Password"\n- button "Log In"',
+    settle: async () => undefined,
+    // Only the landing page has one, as on ParaBank.
+    hasPasswordField: async () => visited[visited.length - 1] === 'https://bank.example/',
+    waitForPasswordGone: async () => true,
+    submitSignIn: async () => undefined,
+    url: () => 'https://bank.example/',
+  };
+
+  const result = await probeTarget(page, async () => ({ status: 404, body: '' }), {
+    baseURL: 'https://bank.example',
+  });
+
+  expect(result.signIn).toMatchObject({ path: '/', username: 'Username', submit: 'Log In' });
+});
+
+test('a form whose fields have no accessible names is a different finding', async () => {
+  /*
+     ParaBank again, and it is the commoner of the two failures. Its username
+     and password inputs carry no id, no label, no aria-label and no
+     placeholder — the visible "Username" is a sibling paragraph — so the
+     accessibility tree is an unnamed textbox twice over.
+
+     Reporting that as "no sign-in form found" sent the operator looking for a
+     login page that was in front of them the whole time. The two need
+     different answers: one means keep looking, the other means write the
+     locators by hand and go and tell somebody their form is unlabelled.
+  */
+  const page: ProbePage = {
+    goto: async () => undefined,
+    evaluate: async () => ({ 'data-testid': 0 }),
+    ariaSnapshot: async () =>
+      '- paragraph: Username\n- textbox\n- paragraph: Password\n- textbox\n- button "Log In"',
+    settle: async () => undefined,
+    hasPasswordField: async () => true,
+    waitForPasswordGone: async () => true,
+    submitSignIn: async () => undefined,
+    url: () => 'https://bank.example/',
+  };
+
+  const result = await probeTarget(page, async () => ({ status: 404, body: '' }), {
+    baseURL: 'https://bank.example',
+  });
+
+  expect(result.signIn, 'a name guessed from the text beside a field is a dead locator').toBeNull();
+  const note = result.notes.join(' ');
+  expect(note).toContain('no accessible names');
+  expect(note).not.toContain('No sign-in form found');
+  expect(note, 'unlabelled inputs are the application\'s defect too').toContain('WCAG');
 });
 
 test('the probe reports what it could not establish instead of failing', async () => {

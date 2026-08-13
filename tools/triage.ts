@@ -5,7 +5,7 @@ import { clusterFailures } from '../src/support/triage/cluster';
 import { classifyByRule, flakyVerdicts } from '../src/support/triage/rules';
 import { buildEvidence, guarded } from '../src/support/triage/agent';
 import { AnthropicTriageAgent } from '../src/integrations/llm/triage-agent';
-import { TRIAGE_SCHEMA_VERSION, type TriageResult, type TriageVerdict } from '../src/support/triage/types';
+import { TRIAGE_SCHEMA_VERSION, triageIsForRun, type TriageResult, type TriageVerdict } from '../src/support/triage/types';
 import type { RunResult } from '../src/support/reporters/run-result';
 
 /**
@@ -49,7 +49,7 @@ async function main(): Promise<number> {
     } satisfies TriageResult);
 
   // A stale triage file from a previous run must not leak into this one.
-  if (result.runId !== run.run.id) {
+  if (!triageIsForRun(result, run.run.id)) {
     result = {
       schemaVersion: TRIAGE_SCHEMA_VERSION,
       runId: run.run.id,

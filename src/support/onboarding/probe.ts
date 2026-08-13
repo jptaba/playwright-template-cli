@@ -81,6 +81,16 @@ export function detectTestIdAttribute(
 
 /** Paths a sign-in form lives on, in the order worth trying. */
 export const SIGN_IN_PATHS = [
+  /*
+     The landing page first, and it is not an afterthought: banking demos,
+     intranet portals and plenty of line-of-business applications put the
+     sign-in form in a panel on the home page rather than behind a route.
+     This list began at `/auth/login` and the probe reported "no sign-in form
+     found" for an application whose form it had already loaded, counted
+     test-ids on, and navigated away from — the one thing the probe exists to
+     save you from typing by hand.
+  */
+  '/',
   '/auth/login',
   '/login',
   '/signin',
@@ -454,6 +464,8 @@ export async function probeTarget(
 
   // ---- the sign-in form -------------------------------------------------
   let signIn: ProbedSignIn | null = null;
+  /** Where a password field was seen but the fields could not be named. */
+  let unnamedFormAt: string | null = null;
   for (const path of options.signInPaths ?? SIGN_IN_PATHS) {
     try {
       await page.goto(`${base}${path}`);
@@ -470,11 +482,38 @@ export async function probeTarget(
         signIn = { ...fields, path };
         break;
       }
+      unnamedFormAt ??= path;
     } catch {
       // A path that does not exist is not an error; it is the next candidate.
     }
   }
-  if (!signIn) {
+  if (!signIn && unnamedFormAt) {
+    /*
+       A different finding from "there is no sign-in form", and it needs a
+       different answer from the person reading it.
+
+       ParaBank is the case that produced this message: its username and
+       password inputs carry no id, no label, no aria-label and no
+       placeholder, and the visible "Username" text is a sibling paragraph. So
+       the accessibility tree is `- textbox` twice, with no name to read. The
+       probe was right to refuse — a name invented from the neighbouring text
+       would produce exactly the hallucinated locator §Locators warns about —
+       but reporting it as "no sign-in form anywhere" sends the operator
+       looking for a login page that was in front of them.
+
+       It is also a genuine defect in the application: an input a screen
+       reader cannot name fails WCAG 1.3.1 and 4.1.2, and it is worth saying
+       so to whoever owns it.
+    */
+    notes.push(
+      `A sign-in form is on ${unnamedFormAt}, but its fields have no accessible names — the ` +
+        'accessibility tree shows an unnamed textbox where a screen reader needs a label. ' +
+        'Nothing can be derived from that, and a name guessed from the text beside the field is ' +
+        'a locator that will not match. Write the locators by hand from `npm run explore`, with ' +
+        'a `// locator-justification:` comment where CSS is the only option — and raise the ' +
+        'missing labels with whoever owns the application: they fail WCAG 1.3.1 and 4.1.2.',
+    );
+  } else if (!signIn) {
     notes.push(
       `No sign-in form found on any of ${(options.signInPaths ?? SIGN_IN_PATHS).join(', ')}. ` +
         'The scaffolded locators stay as placeholders — explore the application and replace them.',

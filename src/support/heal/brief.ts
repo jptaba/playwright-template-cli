@@ -43,6 +43,16 @@ const ASSERTION_SHAPED = /(toBe\b|toEqual|toHaveText|toMatchObject|toBeCloseTo|E
 
 export const HEAL_CONSTRAINTS = [
   'Locator and timing repairs only.',
+  /*
+     The brief names the spec, because that is what the run model records as
+     having failed. In this repository a locator is never in the spec — specs
+     may not even import `locators/` — so a healer that opens the named file
+     looking for a selector finds a business verb and no selector at all. Said
+     here rather than left to be rediscovered.
+  */
+  'The failing file named below is the spec. A locator repair belongs in ' +
+    'src/targets/<target>/locators/ and a wait in actions/ — specs contain assertions, ' +
+    'never selectors.',
   'Never change an assertion or an expected value.',
   'Label every healed test with what changed, so review is a diff read rather than an act of faith.',
   'Open a merge request. Never push to a protected branch, and never auto-merge.',

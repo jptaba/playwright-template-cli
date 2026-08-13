@@ -94,6 +94,20 @@ export interface TriageResult {
 export const TRIAGE_SCHEMA_VERSION = 1;
 
 /**
+ * Whether a triage result describes the run in front of you.
+ *
+ * `triage-result.json` is a fixed path, so what is sitting there is whatever
+ * the last triage produced. Everything that reads it has to ask this, and the
+ * report is the one that hurts: the first green run after a red one rendered
+ * "All passed" above four failures and a network-infrastructure verdict
+ * belonging to a different run. Every figure on that page is supposed to come
+ * from one run.
+ */
+export function triageIsForRun(triage: { runId: string } | null | undefined, runId: string): boolean {
+  return Boolean(triage) && triage!.runId === runId;
+}
+
+/**
  * Validates an agent's reply before it is allowed anywhere near a report.
  * @returns the problems found, empty when the verdict is acceptable.
  */

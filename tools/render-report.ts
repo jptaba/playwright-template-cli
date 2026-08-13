@@ -6,7 +6,7 @@ import { appendHistory, buildTrend, readHistory, summarise } from '../src/suppor
 import { renderReport, type CoverageSummary } from '../src/support/report/render-html';
 import { loadCases } from '../src/support/cases/store';
 import type { RunResult } from '../src/support/reporters/run-result';
-import type { TriageResult } from '../src/support/triage/types';
+import { triageIsForRun, type TriageResult } from '../src/support/triage/types';
 
 /**
  * `npm run report:render` — §18.
@@ -45,9 +45,29 @@ function main(): number {
     return 1;
   }
   const run = JSON.parse(fs.readFileSync(RUN_RESULT_PATH, 'utf8')) as RunResult;
-  const triage = fs.existsSync(TRIAGE_RESULT_PATH)
+
+  /*
+     Only this run's triage. `triage-result.json` is a fixed path, so the file
+     sitting there is whatever the last `npm run triage:cluster` produced —
+     and on the first green run after a red one, that is a report headed "All
+     passed" carrying four failures and a network-infrastructure verdict from
+     a different run entirely. Every figure on this page is supposed to come
+     from one run.
+
+     `tools/triage.ts` already refuses to carry a stale file forward; the
+     renderer has to make the same check, because it reads the file rather
+     than producing it.
+  */
+  const onDisk = fs.existsSync(TRIAGE_RESULT_PATH)
     ? (JSON.parse(fs.readFileSync(TRIAGE_RESULT_PATH, 'utf8')) as TriageResult)
     : null;
+  const triage = triageIsForRun(onDisk, run.run.id) ? onDisk : null;
+  if (onDisk && !triage) {
+    console.warn(
+      `Ignoring ${path.basename(TRIAGE_RESULT_PATH)}: it is for run ${onDisk.runId}, not ` +
+        `${run.run.id}. Run \`npm run triage:cluster\` for this run to include a triage panel.`,
+    );
+  }
 
   const entry = summarise(run);
   const trend = buildTrend(entry, readHistory());

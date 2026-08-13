@@ -3,7 +3,11 @@ import { fixtureRun } from '../support/fixture-run';
 import { clusterFailures, normaliseError } from '../../src/support/triage/cluster';
 import { classifyByRule, flakyVerdicts } from '../../src/support/triage/rules';
 import { buildEvidence, guarded, type TriageAgent } from '../../src/support/triage/agent';
-import { validateVerdict, type TriageVerdict } from '../../src/support/triage/types';
+import {
+  triageIsForRun,
+  validateVerdict,
+  type TriageVerdict,
+} from '../../src/support/triage/types';
 import { registerSecret, resetSecretRegistry } from '../../src/support/redact';
 import { tally, type RunResult, type TestRecord } from '../../src/support/reporters/run-result';
 
@@ -259,5 +263,22 @@ test.describe('the agent contract', () => {
     const run = runWith(tests);
     const evidence = buildEvidence(clusterFailures(run)[0]!, run, [tests[0]!]);
     expect(evidence.otherFailuresInWindow).toBe(1);
+  });
+});
+
+test.describe('a triage result belongs to one run', () => {
+  test('a file from a different run is not this run\'s triage', () => {
+    /*
+       `triage-result.json` is a fixed path, so what is sitting there is
+       whatever the last triage produced. The report read it without asking,
+       and the first green run after a red one rendered "All passed" above
+       four failures and a network-infrastructure verdict from a different
+       run. Every figure on that page comes from one run, or the page is not
+       worth reading.
+    */
+    expect(triageIsForRun({ runId: 'run-b' }, 'run-a')).toBe(false);
+    expect(triageIsForRun({ runId: 'run-a' }, 'run-a')).toBe(true);
+    expect(triageIsForRun(null, 'run-a')).toBe(false);
+    expect(triageIsForRun(undefined, 'run-a')).toBe(false);
   });
 });
