@@ -764,6 +764,28 @@ const authoring: AuthoringService = {
      watch a run should not wait for a client it may never use.
   */
   model: async (): Promise<CaseAuthorModel> => {
+    /*
+       Checked here, before anything else happens.
+
+       The SDK resolves its credential when the request is made rather than
+       when the client is built, so constructing one proves nothing and the
+       failure arrives later wearing the SDK's own words. Reading the
+       environment through the redaction helper answers the question up front,
+       and gets the answer wrong only in the direction that costs nothing — a
+       Bedrock or Vertex setup falls through to the same message from
+       `describeModelAuthFailure` a moment later.
+    */
+    const credential =
+      credentialFromEnv('ANTHROPIC_API_KEY') ?? credentialFromEnv('ANTHROPIC_AUTH_TOKEN');
+    if (!credential) {
+      throw new Error(
+        'The case author has no credential, so nothing was drafted and nothing was written. ' +
+          'Set ANTHROPIC_API_KEY in the environment and restart `npm run dashboard` — the server ' +
+          'reads the environment it was started with, so exporting the key in another terminal ' +
+          'will not reach it. Everything else on this page works without one.',
+      );
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { AnthropicCaseAuthor } = require('../src/integrations/llm/case-author-model') as {
       AnthropicCaseAuthor: typeof CaseAuthorClass;

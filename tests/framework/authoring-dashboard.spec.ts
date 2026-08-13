@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { FakeJiraServer } from '../support/fake-jira-server';
 import { JiraClient } from '../../src/integrations/jira/client';
-import { authoringRoutes, type AuthoringService } from '../../src/support/cases/authoring';
+import {
+  authoringRoutes,
+  describeModelAuthFailure,
+  type AuthoringService,
+} from '../../src/support/cases/authoring';
 import { normaliseStory, type DraftedCase, type NormalisedStory } from '../../src/support/cases/author';
 import { createRouter, type UiRequest } from '../../src/support/ui/router';
 import { storiesPageContent } from '../../src/support/ui/stories-page';
@@ -347,5 +351,60 @@ test.describe('the page', () => {
     for (const id of new Set(referenced)) {
       expect(page.body, `#${id} is used by the script`).toContain(`id="${id}"`);
     }
+  });
+});
+
+test.describe('when the case author has no credential', () => {
+  test('the SDK sentence becomes something to act on', () => {
+    /*
+       What reached the page was the client's own words: "Could not resolve
+       authentication method. Expected one of apiKey, authToken, credentials,
+       config, or profile to be set." True, and no use to somebody who has
+       just pressed a button in a dashboard.
+
+       The guard was originally around `new AnthropicCaseAuthor()`, which
+       never fired: the SDK resolves its credential when the request is made,
+       not when the client is built.
+    */
+    const guidance = describeModelAuthFailure(
+      new Error(
+        'Could not resolve authentication method. Expected one of apiKey, authToken, ' +
+          'credentials, config, or profile to be set.',
+      ),
+    );
+
+    expect(guidance).toContain('nothing was drafted and nothing was written');
+    expect(guidance).toContain('ANTHROPIC_API_KEY');
+    // The gotcha worth stating: the server reads the environment it started
+    // with, so exporting the key elsewhere does not reach it.
+    expect(guidance).toContain('restart');
+    expect(guidance, 'and the original is kept, not swallowed').toContain(
+      'Could not resolve authentication method',
+    );
+  });
+
+  test('a failure that is not about credentials is left alone', () => {
+    expect(describeModelAuthFailure(new Error('The reply was cut off at 16000 tokens'))).toBeNull();
+    expect(describeModelAuthFailure(new Error('socket hang up'))).toBeNull();
+  });
+
+  test('drafting reports it as a refusal, and writes nothing', async () => {
+    const { service, written } = harness({
+      model: async () => ({
+        identity: 'fake-author',
+        draft: async () => {
+          throw new Error('Could not resolve authentication method.');
+        },
+      }),
+    });
+
+    const response = await call(service, '/api/stories/draft', {
+      key: 'FIN-2210',
+      target: 'acme-shop',
+    });
+
+    expect(response.status).toBe(400);
+    expect(String(response.body.error)).toContain('ANTHROPIC_API_KEY');
+    expect(written, 'a credential failure leaves nothing half-written').toEqual([]);
   });
 });

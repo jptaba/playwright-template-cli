@@ -113,6 +113,36 @@ export interface DraftReview {
  */
 const ISSUE_KEY = /^[A-Za-z][A-Za-z0-9_]*-\d+$/;
 
+/**
+ * Turn a credential failure from the model into something to act on.
+ *
+ * The SDK resolves its credential **when the request is made**, not when the
+ * client is constructed — so a guard around `new AnthropicCaseAuthor()` never
+ * fires, and what reached the page was the SDK's own sentence: *"Could not
+ * resolve authentication method. Expected one of apiKey, authToken,
+ * credentials, config, or profile to be set."* True, and no use at all to
+ * somebody who has just pressed a button in a dashboard.
+ *
+ * @returns what to do about it, or null when the failure is something else.
+ */
+export function describeModelAuthFailure(error: unknown): string | null {
+  const message = error instanceof Error ? error.message : String(error);
+  const looksLikeAuth =
+    /could not resolve authentication|authentication[_ ]error|invalid[_ ]api[_ ]key|x-api-key|anthropic_api_key|\b401\b/i.test(
+      message,
+    );
+  if (!looksLikeAuth) return null;
+
+  return (
+    'The case author has no credential, so nothing was drafted and nothing was written. ' +
+    'Set ANTHROPIC_API_KEY in the environment and **restart `npm run dashboard`** — the server ' +
+    'reads the environment it was started with, so exporting the key in another terminal will ' +
+    'not reach it. Everything else on this page works without one: stories can be read and ' +
+    'coverage, runs and triage need no model at all.\n\n' +
+    `The client reported: ${message}`
+  );
+}
+
 /** The wording `story:pull` uses, because it is the same refusal (§09). */
 export const NO_CRITERIA_REASON =
   'has no identifiable acceptance criteria, so it is rejected at extraction rather than ' +
@@ -209,7 +239,20 @@ async function draft(
   }
 
   const model = await service.model();
-  const result = await authorCases(story, model, target);
+
+  /*
+     Drafting is the one thing here that costs money and needs a credential,
+     and it is the last thing to run — so a failure means nothing was written
+     and the message can say so plainly.
+  */
+  let result;
+  try {
+    result = await authorCases(story, model, target);
+  } catch (error) {
+    const guidance = describeModelAuthFailure(error);
+    if (guidance) return failure(400, guidance);
+    throw error;
+  }
 
   const cases: DraftedCaseView[] = [];
   let written = 0;
