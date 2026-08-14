@@ -235,10 +235,18 @@ test.describe('the signed-in marker', () => {
   const signedIn = '- link "Home"\n- link "Contact"\n- button "Jane Doe"\n- link "Sign out"';
 
   test('is whatever appeared once signed in', () => {
+    /*
+       Identity-specific with no hints given at all: "Jane Doe" is two
+       capitalised words and no interface vocabulary, which is what a person's
+       name looks like. Toolshop is why — its credential is
+       `admin@practicesoftwaretesting.com` and its account menu says
+       "John Doe", so matching against the login alone said "generic" about the
+       marker least likely to survive a second role using it.
+    */
     expect(proposeSignedInMarker(signedOut, signedIn)).toEqual({
       role: 'button',
       name: 'Jane Doe',
-      identitySpecific: false,
+      identitySpecific: true,
     });
   });
 

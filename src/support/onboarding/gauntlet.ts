@@ -57,7 +57,7 @@ export interface GauntletStep {
   /** The control that resolves it, when one was found. */
   resolution: { role: string; name: string } | null;
   /** Everything on screen, so a wrong pick can be corrected by reading. */
-  controls: { textboxes: string[]; buttons: string[]; headings: string[] };
+  controls: { textboxes: string[]; buttons: string[]; headings: string[]; links: string[] };
   /** Why this handler is shaped the way it is. Becomes a comment. */
   note: string;
 }
@@ -66,8 +66,16 @@ interface Recogniser {
   kind: InterstitialKind;
   safety: Safety;
   locatorName: string;
-  /** Matched against the whole snapshot. */
+  /** Matched against the headings, fields and buttons — never links or prose. */
   page: RegExp;
+  /**
+   * A button that must also be present for the claim to hold.
+   *
+   * The words "privacy policy" and "terms" appear in the footer of most of the
+   * web. A page that *demands* acceptance has a button that says so, and this
+   * is what separates the two.
+   */
+  demandsButton?: RegExp;
   /** Which control names resolve it, best first. */
   resolves?: RegExp;
   note: string;
@@ -137,6 +145,7 @@ const RECOGNISERS: Recogniser[] = [
     safety: 'refuse',
     locatorName: 'termsAcceptance',
     page: /terms (of|and)|privacy (policy|notice)|accept.*(terms|agreement)|end user licence/i,
+    demandsButton: /accept|agree/i,
     resolves: /accept|agree|continue/i,
     note:
       'REFUSED by default. Clicking this accepts something on behalf of whoever owns the account. ' +
@@ -150,23 +159,43 @@ export function controlsIn(snapshot: string): GauntletStep['controls'] {
   const textboxes: string[] = [];
   const buttons: string[] = [];
   const headings: string[] = [];
+  const links: string[] = [];
 
   for (const line of snapshot.split('\n')) {
     const match = /-\s+(textbox|button|link|heading|checkbox|combobox)\s+"([^"]*)"/.exec(line);
     if (!match?.[1] || match[2] === undefined) continue;
     if (match[1] === 'textbox' || match[1] === 'combobox') textboxes.push(match[2]);
-    else if (match[1] === 'button' || match[1] === 'link') buttons.push(match[2]);
+    else if (match[1] === 'button') buttons.push(match[2]);
+    else if (match[1] === 'link') links.push(match[2]);
     else if (match[1] === 'heading') headings.push(match[2]);
   }
-  return { textboxes, buttons, headings };
+  return { textboxes, buttons, headings, links };
 }
 
 /**
- * What kind of page this is, from what it says rather than from where it sits
- * in a sequence. Position in the flow is exactly the thing that is not stable.
+ * What kind of page this is, from what it *demands* rather than from what it
+ * happens to mention.
+ *
+ * Matched against the headings, fields and buttons only — never against the
+ * whole snapshot, and never against links. Toolshop is why: its footer carries
+ * a "Privacy Policy" link on every page including the sign-in form, so a
+ * recogniser reading the whole page classified **every** page as a terms
+ * interstitial, reported three of them on a sign-in that has none, and told
+ * the operator their suite could never run unattended.
+ *
+ * An interstitial is a page that demands something. A word in a footer is not
+ * a demand, and the accessibility tree already says which is which.
  */
 export function classify(snapshot: string): Recogniser | null {
-  return RECOGNISERS.find((candidate) => candidate.page.test(snapshot)) ?? null;
+  const controls = controlsIn(snapshot);
+  const demands = [...controls.headings, ...controls.textboxes, ...controls.buttons].join('\n');
+  return (
+    RECOGNISERS.find(
+      (candidate) =>
+        candidate.page.test(demands) &&
+        (!candidate.demandsButton || controls.buttons.some((b) => candidate.demandsButton!.test(b))),
+    ) ?? null
+  );
 }
 
 function pick(names: string[], pattern: RegExp | undefined): string | null {
@@ -187,8 +216,25 @@ export function planGauntlet(observations: readonly GauntletObservation[]): Gaun
 
   for (const observation of observations) {
     const controls = controlsIn(observation.snapshot);
+
     const known = classify(observation.snapshot);
     const kind = known?.kind ?? 'unknown';
+
+    /*
+       The sign-in form is not an interstitial, and polling starts the instant
+       the password is submitted — so the first observation is routinely the
+       form itself, still on screen while the navigation is in flight.
+
+       "Has a password field" is the wrong test for it: a forced password
+       change has one too, and dropping *that* would lose the one page here
+       that must never be automated. A sign-in form is a password field beside
+       somewhere to put an identifier, on a page that demands nothing else.
+    */
+    const identifier = controls.textboxes.some((name) =>
+      /e-?mail|user ?name|user ?id|login|account/i.test(name),
+    );
+    const password = controls.textboxes.some((name) => /password/i.test(name));
+    if (kind === 'unknown' && identifier && password) continue;
 
     // The same page can be observed twice — a poll either side of a click.
     const fingerprint = `${kind}:${controls.headings.join('|')}:${controls.buttons.join('|')}`;
@@ -214,8 +260,13 @@ export function planGauntlet(observations: readonly GauntletObservation[]): Gaun
         name: recogniserName ?? '',
       },
       resolution: (() => {
-        const name = pick(controls.buttons, known?.resolves);
-        return name ? { role: 'button', name } : null;
+        // A button first, because that is what these usually are — but "Not
+        // now" is a link often enough that only looking at buttons emitted a
+        // `getByRole('button')` for something that is not one.
+        const button = pick(controls.buttons, known?.resolves);
+        if (button) return { role: 'button', name: button };
+        const link = pick(controls.links, known?.resolves);
+        return link ? { role: 'link', name: link } : null;
       })(),
       controls,
       note:

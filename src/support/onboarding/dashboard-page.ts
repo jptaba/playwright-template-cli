@@ -825,18 +825,29 @@ $('preview').onclick = async () => {
        failures it otherwise causes are 404s from a path nobody can find.
     */
     for (const warning of plan.warnings || []) box.append(el('div', 'note', warning));
+    /*
+       Conflicts end the preview. Listing what "will be written" underneath a
+       message saying nothing will be is how this read before, and the two
+       halves named the same thirteen files — the operator could reasonably
+       take either one as the truth.
+    */
     if (plan.conflicts.length) {
       box.append(el('div', 'error',
-        'These already exist, so nothing will be written: ' + plan.conflicts.join(', ') +
-        '. Onboarding is additive — choose another name.'));
+        plan.name + ' is already onboarded, so nothing will be written. ' +
+        plan.conflicts.length + ' file(s) exist already, starting with ' + plan.conflicts[0] + '.'));
+      box.append(el('div', 'note',
+        'Onboarding only ever adds. To change this application, pick it in ' +
+        '"Already onboarded" at the top and edit it there. To replace it, remove it first: ' +
+        'npm run target:remove -- --name=' + plan.name + ' --confirm=' + plan.name + '. ' +
+        'To keep both, choose another name.'));
       $('create').disabled = true;
     } else {
       $('create').disabled = false;
+      box.append(el('div', '', plan.files.length + ' file(s) will be written:'));
+      const list = el('ul', 'files');
+      for (const file of plan.files) list.append(el('li', '', file));
+      box.append(list);
     }
-    box.append(el('div', '', plan.files.length + ' file(s) will be written:'));
-    const list = el('ul', 'files');
-    for (const file of plan.files) list.append(el('li', '', file));
-    box.append(list);
     renderCredentials();
     enable('s4'); enable('s5');
   } catch (error) {

@@ -1,0 +1,13 @@
+{
+  "key": "TOOL-3",
+  "summary": "Sign in to my account",
+  "description": "Returning customers sign in with the email address they registered. A refusal has to be visible and has to say nothing about which half of the credential was wrong.",
+  "acceptanceCriteria": [
+    "The sign-in form labels its fields \"Email address *\" and \"Password *\".",
+    "Signing in with a valid email and password opens the account page at the path /account.",
+    "Once signed in, the navigation shows the account menu in place of the \"Sign in\" link.",
+    "Signing in with a wrong password leaves the customer on the sign-in page and shows an error message.",
+    "The error message for a wrong password does not say whether the email address is registered."
+  ],
+  "contentHash": "a2492db70ae09485"
+}

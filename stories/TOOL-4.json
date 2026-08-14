@@ -1,0 +1,13 @@
+{
+  "key": "TOOL-4",
+  "summary": "Narrow the catalogue by category and price",
+  "description": "The catalogue spans hand tools, power tools and rentals at a wide range of prices. A shopper with a budget and a job in mind needs both filters, and needs them to be honest.",
+  "acceptanceCriteria": [
+    "Filtering by a category returns only products belonging to that category.",
+    "Filtering by a price range returns only products priced inside that range, inclusive of both ends.",
+    "The catalogue is paginated at 9 products per page.",
+    "A product appears on exactly one page of a paginated result, never on two.",
+    "Every page of a paginated result reports the same total number of products."
+  ],
+  "contentHash": "7f4c16a1fa9a04e1"
+}

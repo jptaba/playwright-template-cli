@@ -222,16 +222,66 @@ export function proposeSignedInMarker(
     .map((hint) => hint.trim().toLowerCase())
     .filter((hint) => hint.length > 2);
 
-  const identityShaped = (name: string): boolean =>
-    hints.some((hint) => name.toLowerCase().includes(hint) || hint.includes(name.toLowerCase()));
+  /*
+     The hints alone are not enough, and Toolshop is the proof: the credential
+     is `admin@practicesoftwaretesting.com` and the account menu says
+     "John Doe". Nothing about the one appears in the other, so the marker was
+     proposed as generic — and a marker that names one person is the single
+     locator most likely to break the moment a second role uses it.
 
-  // A `button` is a likelier account menu than a `link`, which is likelier to
-  // be a navigation item that happens to be new.
-  const ranked = [...appeared].sort(
-    (a, b) =>
-      Number(identityShaped(a.name)) - Number(identityShaped(b.name)) ||
-      Number(b.role === 'button') - Number(a.role === 'button'),
-  );
+     So a name is also identity-shaped when it simply *looks* like a person:
+     two or three capitalised words, none of them interface vocabulary. It is a
+     heuristic and it is allowed to be — being told "this may be this account's
+     own name" about a menu labelled "My Orders" costs a glance, and not being
+     told about "John Doe" costs a debugging session in somebody else's run.
+  */
+  const INTERFACE_WORDS =
+    /^(my|your|the|sign|log|account|profile|settings|dashboard|home|menu|user|admin|out|in|orders?|cart|basket|messages?|notifications?|help|support|search|new|add|edit|view|more|all)$/i;
+
+  const looksLikeAPersonsName = (name: string): boolean => {
+    const words = name.trim().split(/\s+/);
+    if (words.length < 2 || words.length > 3) return false;
+    return words.every((word) => /^[A-Z][\p{L}'’-]+$/u.test(word) && !INTERFACE_WORDS.test(word));
+  };
+
+  const identityShaped = (name: string): boolean =>
+    hints.some((hint) => name.toLowerCase().includes(hint) || hint.includes(name.toLowerCase())) ||
+    looksLikeAPersonsName(name);
+
+  /*
+     An account control that names nobody — "My account", "Profile" — is the
+     best marker there is: it means "somebody is signed in" and it says the
+     same thing for every role.
+  */
+  const accountShaped = (name: string): boolean =>
+    /\b(account|profile|my (orders|details|profile)|dashboard|settings)\b/i.test(name);
+
+  /*
+     Ranking, best first:
+
+       1. an account control naming nobody   — generalises across every role
+       2. a name that looks like a person    — an account menu, but this one's
+       3. any other button                   — arbitrary, and usually wrong
+       4. a link                             — usually navigation that moved
+
+     Identity-shaped used to rank below *everything*, which is right only when
+     the alternative is better. On Toolshop the alternatives were the
+     "Previous" and "Next" buttons of a chart's pagination, so demoting the
+     account menu picked a control that disappears when the dashboard has one
+     page of data. It is flagged rather than discarded: on a single-role target
+     it is still the right answer, and saying so beats choosing worse silently.
+  */
+  const rank = (control: { role: string; name: string }): number => {
+    // What the control *says* decides first, whatever role it wears: an
+    // account menu is as much an account menu for being a link.
+    if (accountShaped(control.name) && !identityShaped(control.name)) return 0;
+    if (identityShaped(control.name)) return 1;
+    // Then role, because an arbitrary new button is a likelier session marker
+    // than an arbitrary new link, which is usually navigation that moved.
+    return control.role === 'button' || control.role === 'menuitem' ? 2 : 3;
+  };
+
+  const ranked = [...appeared].sort((a, b) => rank(a) - rank(b));
   const chosen = ranked[0];
   if (!chosen) return null;
   return { ...chosen, identitySpecific: identityShaped(chosen.name) };

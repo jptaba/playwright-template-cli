@@ -430,6 +430,12 @@ let assisted: {
   url(): string;
   storageState(file: string): Promise<void>;
   before: string;
+  /**
+   * The username, and only the username. It is needed at the end to tell an
+   * identity-specific marker from a generic one, and it is not a secret — the
+   * password is never held here.
+   */
+  username: string;
   observations: GauntletObservation[];
 } | null = null;
 
@@ -472,6 +478,7 @@ const service: DashboardService = {
         await context.storageState({ path: file });
       },
       before,
+      username: credentials.username,
       observations: [],
     };
 
@@ -546,9 +553,19 @@ const service: DashboardService = {
        reason the marker is derived here rather than in `verifySignIn`: that
        one proposed the "Verify" button on an OTP challenge and called it a
        session.
+
+       Dropping one observation is not enough. The home page is observed
+       repeatedly while it renders, and each poll that catches it half-drawn
+       has a different set of controls, so it is a different observation. On
+       Toolshop that reported three interstitials for a sign-in that has none.
+       Everything already at the URL the operator finished on is that page.
     */
-    const gauntlet = planGauntlet(assisted.observations.slice(0, -1));
-    const marker = proposeSignedInMarker(assisted.before, finalSnapshot, []);
+    const finalURL = assisted.url();
+    const trimmed = [...assisted.observations];
+    while (trimmed.length && trimmed[trimmed.length - 1]!.url === finalURL) trimmed.pop();
+
+    const gauntlet = planGauntlet(trimmed);
+    const marker = proposeSignedInMarker(assisted.before, finalSnapshot, [assisted.username]);
 
     fs.mkdirSync(AUTH_DIR, { recursive: true });
     const statePath = storageStatePath(role, target);

@@ -67,9 +67,15 @@ test.describe('recognising what is on screen', () => {
   });
 
   test('reads every named control, so a wrong pick can be corrected by reading', () => {
+    /*
+       Links are kept apart from buttons. Folding them together emitted
+       `getByRole('button', { name: 'Not now' })` for something that is a link,
+       and it let a footer full of links decide what kind of page this is.
+    */
     expect(controlsIn(OTP_PAGE)).toEqual({
       textboxes: ['One-time code'],
-      buttons: ['Verify', 'Use a different method'],
+      buttons: ['Verify'],
+      links: ['Use a different method'],
       headings: ['Two-factor authentication'],
     });
   });

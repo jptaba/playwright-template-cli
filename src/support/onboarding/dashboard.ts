@@ -452,6 +452,7 @@ async function onboardingApi(
         const scaffoldOptions = readScaffoldOptions(body);
         const plan = planScaffold(scaffoldOptions);
         return json(200, {
+          name: scaffoldOptions.name,
           files: plan.files.map((file) => file.path),
           conflicts: service.existing(plan.files.map((file) => file.path)),
           credentialPaths: plan.credentialPaths,
