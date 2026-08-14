@@ -568,7 +568,74 @@ function readScaffoldOptions(body: Record<string, unknown>): ScaffoldOptions {
           },
         }
       : {}),
+    ...(readGauntlet(body.gauntlet).length > 0 ? { gauntlet: readGauntlet(body.gauntlet) } : {}),
   };
+}
+
+/**
+ * The interstitial handlers, as the assisted sign-in worked them out.
+ *
+ * Read back rather than trusted: this arrives over HTTP and every field of it
+ * is rendered into TypeScript source that this repository then executes. The
+ * kinds and safeties are checked against the sets the generator knows, and a
+ * step naming anything else is dropped rather than written.
+ */
+function readGauntlet(raw: unknown): GauntletStep[] {
+  if (!Array.isArray(raw)) return [];
+
+  const KINDS = new Set<GauntletStep['kind']>([
+    'otp',
+    'password-expiring',
+    'password-change-forced',
+    'remember-device',
+    'security-question',
+    'terms',
+    'unknown',
+  ]);
+  const SAFETIES = new Set<GauntletStep['safety']>(['safe', 'needs-value', 'refuse']);
+  const ROLES = new Set(['button', 'link', 'menuitem', 'textbox', 'heading', 'checkbox', 'combobox']);
+
+  const names = (value: unknown): string[] =>
+    Array.isArray(value) ? value.map((entry) => String(entry)) : [];
+
+  const control = (value: unknown): { role: string; name: string } | null => {
+    if (typeof value !== 'object' || value === null) return null;
+    const candidate = value as { role?: unknown; name?: unknown };
+    if (typeof candidate.role !== 'string' || !ROLES.has(candidate.role)) return null;
+    if (typeof candidate.name !== 'string') return null;
+    return { role: candidate.role, name: candidate.name };
+  };
+
+  const steps: GauntletStep[] = [];
+  for (const entry of raw.slice(0, 12)) {
+    if (typeof entry !== 'object' || entry === null) continue;
+    const step = entry as Record<string, unknown>;
+    const recogniser = control(step.recogniser);
+    if (!recogniser) continue;
+    if (!KINDS.has(step.kind as GauntletStep['kind'])) continue;
+    if (!SAFETIES.has(step.safety as GauntletStep['safety'])) continue;
+    // The locator name becomes an identifier in generated source.
+    if (typeof step.locatorName !== 'string' || !/^[a-zA-Z][a-zA-Z0-9]*$/.test(step.locatorName)) {
+      continue;
+    }
+
+    const controls = (step.controls ?? {}) as Record<string, unknown>;
+    steps.push({
+      kind: step.kind as GauntletStep['kind'],
+      safety: step.safety as GauntletStep['safety'],
+      locatorName: step.locatorName,
+      recogniser,
+      resolution: control(step.resolution),
+      controls: {
+        textboxes: names(controls.textboxes),
+        buttons: names(controls.buttons),
+        headings: names(controls.headings),
+        links: names(controls.links),
+      },
+      note: String(step.note ?? ''),
+    });
+  }
+  return steps;
 }
 
 /**

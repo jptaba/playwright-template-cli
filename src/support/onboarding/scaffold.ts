@@ -13,6 +13,12 @@
  * repository's own lint rules.
  */
 
+import {
+  renderGauntletAction,
+  renderGauntletLocators,
+  type GauntletStep,
+} from './gauntlet';
+
 export interface ScaffoldOptions {
   /** Directory-safe target name, e.g. `acme-shop`. */
   name: string;
@@ -70,6 +76,17 @@ export interface ScaffoldOptions {
    * document the service publishes, or it is absent.
    */
   contractDocument?: { filename: string; contents: string };
+
+  /**
+   * The pages between the password and the home page, as an assisted sign-in
+   * met them — one handler each.
+   *
+   * Written into the pack rather than only shown, because a handler the
+   * operator was told about and that is not in the generated code leaves them
+   * with a sign-in that worked once, by hand, and a `setup:auth` that hangs on
+   * the same page the next time it runs.
+   */
+  gauntlet?: readonly GauntletStep[];
 }
 
 export interface ScaffoldFile {
@@ -311,8 +328,14 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
         contractFilename: contractDocument?.filename ?? null,
       }),
     },
-    { path: `${root}/locators/sign-in.ts`, contents: locatorsFile(options.signIn) },
-    { path: `${root}/actions/sign-in.ts`, contents: actionsFile(options.signIn?.path) },
+    {
+      path: `${root}/locators/sign-in.ts`,
+      contents: locatorsFile(options.signIn, options.gauntlet ?? []),
+    },
+    {
+      path: `${root}/actions/sign-in.ts`,
+      contents: actionsFile(options.signIn?.path, options.gauntlet ?? []),
+    },
     { path: `${root}/fixtures.ts`, contents: fixturesFile(pascal) },
     { path: `${root}/tests/auth.setup.ts`, contents: AUTH_SETUP },
     { path: `${root}/tests/e2e/.gitkeep`, contents: '' },
@@ -502,7 +525,10 @@ function quote(value: string): string {
   return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
-function locatorsFile(signIn?: ScaffoldOptions['signIn']): string {
+function locatorsFile(
+  signIn: ScaffoldOptions['signIn'] | undefined,
+  gauntlet: readonly GauntletStep[],
+): string {
   const provenance = signIn
     ? ` * The three names below were **read off the running application** at
  * \`${signIn.path}\` during onboarding: they are the accessible names, which is
@@ -562,17 +588,36 @@ export const signInLocators = {
   signedInMarker: (page: Page): Locator =>
     page.getByRole('${marker.role}', { name: ${quote(marker.name)} }),
 };
-`;
+${renderGauntletLocators(gauntlet)}`;
 }
 
-function actionsFile(signInPath = '/'): string {
+function actionsFile(signInPath = '/', gauntlet: readonly GauntletStep[] = []): string {
+  const context = gauntlet.length
+    ? `
+/**
+ * What the gauntlet needs that the code must not hold.
+ *
+ * The one-time code comes from the \`otp\` fixture, the security answer from the
+ * secret store beside the password. \`mark\` is the watermark taken *before* the
+ * password was submitted, so polling an inbox cannot return the previous run's
+ * message (§12).
+ */
+export interface GauntletContext {
+  otp: { get(mark: unknown): Promise<string> };
+  mark: unknown;
+  answers: { securityAnswer: string };
+}
+`
+    : '';
+
   return `import { test, type Page } from '@playwright/test';
-import { signInLocators } from '../locators/sign-in';
+import { signInLocators${gauntlet.length ? ', gauntletLocators' : ''} } from '../locators/sign-in';
 
 export interface Credentials {
   username: string;
   password: string;
 }
+${context}
 
 /**
  * L2 — named business verbs.
@@ -619,7 +664,7 @@ export const signIn = {
     if (!(await banner.isVisible())) return null;
     return (await banner.textContent())?.trim() ?? null;
   },
-};
+${gauntlet.length ? renderGauntletAction(gauntlet) : ''}};
 `;
 }
 

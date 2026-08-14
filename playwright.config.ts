@@ -47,6 +47,26 @@ const projects: Project<FrameworkOptions>[] = [
     name: 'framework',
     testDir: 'tests/framework',
   },
+  {
+    /*
+       The framework's own *pages*, driven by a browser.
+
+       Same job as `framework` and the same rule about what it may touch — no
+       target, no network, and every service behind an in-process fake. It is a
+       separate project only because it needs a browser, and `framework` is
+       deliberately the project that does not.
+
+       It exists because the onboarding dashboard is half server and half a few
+       hundred lines of DOM code, and the defects were all in the second half:
+       fields that kept a previous application's values, a button left enabled
+       after a preview refused, a form that emptied when you came back to it.
+       None of that is reachable by asserting on the string the page is
+       rendered from.
+    */
+    name: 'dashboard',
+    testDir: 'tests/dashboard',
+    use: { ...devices['Desktop Chrome'] },
+  },
 ];
 
 if (!target) {

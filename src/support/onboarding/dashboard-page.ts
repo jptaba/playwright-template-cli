@@ -383,9 +383,39 @@ function applyDraft(saved) {
   restoring = false;
 }
 
+/**
+ * Everything step 1 read off the application, put back the way it shipped.
+ *
+ * Called wherever the reading stops being true: a second read that found no
+ * form, a skip after a read, an onboarded application selected. Without it the
+ * three accessible names stay on screen and read as though they belonged to
+ * whatever is on screen now — and they are exactly what the pack's sign-in
+ * locators get built from, so the failure arrives much later as a timeout on a
+ * field that is plainly there on some other application.
+ */
+function clearWhatWasRead() {
+  probed = null;
+  marker = null;
+  for (const id of ['uName', 'pName', 'sName']) $(id).value = '';
+  $('signInPath').value = DEFAULTS.fields.signInPath !== undefined ? DEFAULTS.fields.signInPath : '/';
+  $('testId').value = DEFAULTS.fields.testId !== undefined ? DEFAULTS.fields.testId : 'data-testid';
+  /*
+     Only what the reading switched on comes back off. A layer somebody ticked
+     themselves is their decision, and undoing it because a probe was re-run
+     would be the same class of surprise in the other direction.
+  */
+  for (const id of switchedOnByReading) $(id).checked = false;
+  switchedOnByReading.clear();
+}
+
+/** Which layer checkboxes the last read switched on, so only those come off. */
+const switchedOnByReading = new Set();
+
 /** Fill the form from a profile already on disk, and lock what cannot change. */
 function showApplication(app) {
   restoring = true;
+  clearWhatWasRead();
+  $('findings').replaceChildren();
   $('name').value = app.name;
   $('env').value = app.environment;
   $('baseURL').value = app.baseURL;
@@ -427,6 +457,14 @@ function showApplication(app) {
 */
 $('editApp').onclick = () => {
   setFormEnabled(true);
+  /*
+     Everything but the name. updateProfile is keyed on the target that was
+     picked, so a new name here would be typed, saved, reported as saved, and
+     written nowhere — a change somebody believes they made. Renaming a target
+     means moving a directory, a TARGET value and a storage-state filename, and
+     that is target:remove followed by onboarding again.
+  */
+  $('name').disabled = true;
   $('editApp').hidden = true;
   $('saveApp').hidden = false;
   $('cancelEdit').hidden = false;
@@ -471,7 +509,7 @@ $('saveApp').onclick = async () => {
        back from the file that was just written, not from the form.
     */
     status.replaceChildren();
-    await loadState();
+    await loadState(true);
 
     const out = $('editOut');
     out.replaceChildren();
@@ -510,12 +548,13 @@ function pickChanged() {
   if (app) showApplication(app);
 }
 
-async function loadState() {
+async function loadState(keepSelection) {
   const state = await post('/api/onboard/state', {});
   applications = state.applications || [];
   draft = state.draft || draft;
 
   const select = $('pick');
+  const wanted = keepSelection ? select.value : null;
   select.replaceChildren();
   const fresh = document.createElement('option');
   fresh.value = '';
@@ -533,6 +572,20 @@ async function loadState() {
      whole reason this exists, and an application already on disk can be looked
      at any time.
   */
+  /*
+     A caller that asked to keep the selection gets it, when it still exists.
+     Saving an edit reloads — and landing on a *different* application after
+     pressing Save reads as "it did not work", which is how somebody presses it
+     twice. A removal reloads too, and there the target is gone, so the fall
+     through to the default is the right answer rather than a special case.
+  */
+  const stillThere = wanted && applications.some((app) => app.name === wanted);
+  if (stillThere) {
+    select.value = wanted;
+    pickChanged();
+    return;
+  }
+
   const hasDraft = Object.keys(draft.fields || {}).length > 0;
   select.value = hasDraft || applications.length === 0 ? '' : applications[0].name;
   pickChanged();
@@ -633,7 +686,28 @@ const primaryServiceURL = () => (serviceRows().find((row) => row.primary) || {})
 */
 function collectServices() {
   const services = {};
+  /*
+     The primary is published as api whether or not it is named, so it
+     occupies that name and a second row claiming it is a collision.
+
+     Two rows with one name is not a cosmetic problem: an object key holds one
+     value, so the row lower down silently wins and the one above it vanishes.
+     The reader typed two back ends, got one, and apis.billing reaches
+     whichever host happened to be second in the form.
+  */
+  const seen = new Set();
   for (const row of serviceRows()) {
+    const name = row.primary && !row.name ? 'api' : row.name;
+    if (name) {
+      if (seen.has(name)) {
+        throw new Error(
+          "Two services are called '" + name + "'. A name is how a spec asks for a back end — " +
+          'apis.' + name + ' — so it can only mean one of them. Rename one, or remove it.' +
+          (name === 'api' ? ' The primary row is already published as api.' : ''),
+        );
+      }
+      seen.add(name);
+    }
     if (row.primary && (!row.name || row.name === 'api')) continue;
     if (!row.name && !row.url) continue;
     services[row.name] = row.url;
@@ -649,12 +723,20 @@ $('probe').onclick = async () => {
   status.textContent = 'Loading the application…';
   $('probe').disabled = true;
   try {
-    probed = await post('/api/probe', {
+    const result = await post('/api/probe', {
       baseURL: $('baseURL').value.trim(),
       apiBaseURL: primaryServiceURL(),
       confirmedTestEnvironment: $('confirmTest').checked,
     });
+    // Cleared before the new reading is applied, so a second read that finds
+    // less than the first cannot leave the first one's answers behind.
+    clearWhatWasRead();
+    probed = result;
     renderFindings(probed);
+    // Nothing above fires an input event — the values were assigned, not
+    // typed — so without this the whole of step 2 is lost by clicking a tab,
+    // which is the one thing the draft exists to prevent.
+    saveDraft();
     status.textContent = 'Read the application. Step 2 is filled in below.';
     enable('s2'); enable('s3');
   } catch (error) {
@@ -666,7 +748,15 @@ $('probe').onclick = async () => {
 };
 
 $('skipProbe').onclick = () => {
-  probed = null;
+  /*
+     Skipping after a read has to undo the read, not merely stop using it.
+     Dropping the probe result on its own left the contracts capability switched on
+     with the document gone — a contract suite that reports coverage and
+     validates against nothing — and left the sign-in names from a host that is
+     no longer the one being onboarded.
+  */
+  clearWhatWasRead();
+  saveDraft();
   $('findings').replaceChildren(el('div', 'note',
     'Skipped. Every locator in the pack will be a placeholder, and the sign-in vocabulary has to ' +
     'be rewritten from an accessibility snapshot before anything runs.'));
@@ -707,8 +797,27 @@ function renderFindings(result) {
   if (result.contract) {
     contract.append(el('span', 'found', result.contract.url));
     contract.append(text(' — it will be vendored and the contracts capability switched on'));
+    if (!$('lContracts').checked) switchedOnByReading.add('lContracts');
+    if (!$('lApi').checked) switchedOnByReading.add('lApi');
     $('lContracts').checked = true;
     $('lApi').checked = true;
+
+    /*
+       Switching the API layer on without a base URL for it is a dead end: the
+       very next button refuses with "the api layer needs a service base URL",
+       and the reader has been given no way to know what to put there. The
+       document is published *by* the service, so its origin is the service —
+       proposed here, in a field somebody can correct, rather than left blank
+       for them to work out.
+    */
+    const primary = [...$('services').children].find((row) => row.dataset.primary === 'true');
+    const url = primary && primary.querySelectorAll('input')[1];
+    if (url && !url.value.trim()) {
+      url.value = new URL(result.contract.url).origin;
+      box.append(el('div', 'note',
+        'The API base URL was set to ' + url.value + ', the host publishing that document. ' +
+        'Correct it if the service is mounted somewhere else.'));
+    }
   } else {
     contract.append(el('span', 'missing', 'none found'));
   }
@@ -745,16 +854,40 @@ function options() {
     contractDocument: probed && probed.contract
       ? { filename: probed.contract.filename, contents: probed.contract.contents }
       : undefined,
+    /*
+       What stood between the password and the home page, as handlers. Showing
+       the operator a handler and then writing a pack without it leaves them
+       with a sign-in that worked once, by hand, and a setup:auth that hangs
+       on the same page in CI.
+    */
+    gauntlet: gauntlet.length ? gauntlet : undefined,
   };
 }
 
 $('secrets').onchange = renderCredentials;
 $('roles').oninput = renderCredentials;
 
+/**
+ * The roles, as a set.
+ *
+ * Typed twice, they are still one role: each one becomes a credential path and
+ * a storage-state file, and both of those are keyed by name. Left duplicated,
+ * the page renders two inputs sharing an id — and a lookup by that id returns
+ * the first, so the second is a box somebody types a password into that
+ * nothing ever reads.
+ */
+function rolesTyped() {
+  const seen = [];
+  for (const role of $('roles').value.split(',').map((s) => s.trim()).filter(Boolean)) {
+    if (!seen.includes(role)) seen.push(role);
+  }
+  return seen;
+}
+
 function renderCredentials() {
   const box = $('credentials');
   box.replaceChildren();
-  const roles = $('roles').value.split(',').map((s) => s.trim()).filter(Boolean);
+  const roles = rolesTyped();
   if ($('secrets').value === 'vault') {
     box.append(el('div', 'note',
       'Vault holds these. Nothing is written here — the agent writes the reference, a person ' +
@@ -781,17 +914,45 @@ function renderCredentials() {
   }
 }
 
+/**
+ * Why signing in from here is not possible yet, or null when it is.
+ *
+ * Three different situations produced one message, and two of them pointed at
+ * fields that were not on the page: with no roles typed it read "fill in the
+ * undefined credentials first", and with Vault selected it named a role whose
+ * inputs deliberately do not exist.
+ */
+function whyCannotSignIn() {
+  const roles = rolesTyped();
+  if (roles.length === 0) {
+    return 'Name at least one role in step 3 first — the sign-in is tried as one of them.';
+  }
+  if ($('secrets').value === 'vault') {
+    return (
+      'Credentials for this target live in Vault, so there is nothing to type here and nothing ' +
+      'for this button to send. Switch step 3 to a local file to sign in from this page, or ' +
+      'prove the sign-in afterwards with: TARGET=<name> npx playwright test --project=setup:auth'
+    );
+  }
+  const user = $('cu-' + roles[0]), pass = $('cp-' + roles[0]);
+  if (!user || !pass || !user.value || !pass.value) {
+    return 'Fill in the ' + roles[0] + ' credentials first.';
+  }
+  return null;
+}
+
 $('verify').onclick = async () => {
   const status = $('verifyStatus');
-  const roles = $('roles').value.split(',').map((s) => s.trim()).filter(Boolean);
+  const roles = rolesTyped();
   const first = roles[0];
-  const u = $('cu-' + first), p = $('cp-' + first);
   status.className = 'status';
-  if (!u || !u.value || !p.value) {
+  const blocked = whyCannotSignIn();
+  if (blocked) {
     status.className = 'status error';
-    status.textContent = 'Fill in the ' + first + ' credentials first.';
+    status.textContent = blocked;
     return;
   }
+  const u = $('cu-' + first), p = $('cp-' + first);
   status.textContent = 'Signing in once…';
   $('verify').disabled = true;
   try {
@@ -959,6 +1120,13 @@ $('offRemove').onclick = async () => {
     out.append(next);
     $('offConfirmBox').hidden = true;
     $('offPlanOut').replaceChildren();
+    /*
+       The picker still listed it otherwise, and clicking it showed a profile
+       that is not there any more — every field on screen describing something
+       that had just been deleted.
+    */
+    offPlanned = null;
+    await loadState(true).catch(() => undefined);
   } catch (error) {
     out.className = 'status error';
     out.textContent = error.message;
@@ -1056,6 +1224,20 @@ $('assistDone').onclick = async () => {
     }
     if (result.marker) {
       box.append(el('div', 'diag', 'Signed-in marker: ' + result.marker.role + ' "' + result.marker.name + '" — taken from the page you finished on, not from a challenge.'));
+      /*
+         The flag was derived and then not shown, which is the same as not
+         deriving it. A marker carrying one person's name works perfectly for
+         the role it came from and reports every other role as signed out —
+         and that failure arrives on whichever spec happens to use the second
+         role, long after anybody is looking at this page.
+      */
+      if (result.marker.identitySpecific) {
+        box.append(el('div', 'diag error',
+          'That is this account\\'s own name, so it is specific to one role: it will establish ' +
+          'this session and report every other role as signed out. Generalise it before this ' +
+          'target has a second role — an account menu usually has a stable test id or an ' +
+          'aria-label. The generated locator file says so too.'));
+      }
     }
     for (const line of result.describes) box.append(el('div', 'diag', line));
 
