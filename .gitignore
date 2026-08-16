@@ -46,3 +46,8 @@ Thumbs.db
 
 # The half-typed onboarding form, kept between page loads. Scratch, not a record.
 .onboarding-draft.json
+
+# Real test-user credentials, kept out of git. The shared
+# config/secrets.local.json is tracked and is only for logins a vendor already
+# publishes; anything real goes here and takes precedence over it.
+config/secrets.private.json

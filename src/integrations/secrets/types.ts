@@ -35,6 +35,12 @@ export interface SecretDescription {
   /** Field names present at the path. Values are never included. */
   fields: string[];
   version?: number;
+  /**
+   * Where the value came from — a file path for a local store, absent for
+   * Vault. With more than one local file and precedence between them, "it
+   * exists" does not answer the question somebody debugging actually has.
+   */
+  origin?: string;
 }
 
 export interface TotpCode {

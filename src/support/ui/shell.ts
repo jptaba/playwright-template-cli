@@ -104,6 +104,7 @@ export interface DashboardPageContent {
  * shape, and this one explained it backwards.
  *
  *   Onboard   nothing exists until an application is registered
+ *   Users     the logins it signs in with, and where they are kept
  *   Stories   a story arrives and is normalised
  *   Cases     the story becomes test cases
  *   Runs      the cases are run
@@ -125,6 +126,12 @@ export const DASHBOARD_PAGES: readonly PageLink[] = [
     label: 'Applications',
     group: 'Set up',
     hint: 'Read an application and write its pack',
+  },
+  {
+    href: '/users',
+    label: 'Test users',
+    group: 'Set up',
+    hint: 'Where each login lives, and how',
   },
   { href: '/stories', label: 'Stories', group: 'Author', hint: 'What the work is meant to do' },
   { href: '/cases', label: 'Cases', group: 'Author', hint: 'Stories, turned into test cases' },

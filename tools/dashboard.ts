@@ -28,6 +28,10 @@ import {
   type TargetContext,
 } from '../src/support/ui/shell';
 import { runsPageContent } from '../src/support/ui/runs-page';
+import { usersPageContent } from '../src/support/ui/users-page';
+import { testUsersRoutes, type TestUsersService } from '../src/support/secrets/dashboard';
+import { forgetCredential, writeCredential } from '../src/support/secrets/file-store';
+import { createSecretStore } from '../src/integrations/secrets';
 import { casesPageContent } from '../src/support/ui/cases-page';
 import { storiesPageContent } from '../src/support/ui/stories-page';
 import { collectCoverage } from '../src/support/cases/collect';
@@ -767,6 +771,60 @@ function chrome(): { badges: Record<string, NavBadge>; target: TargetContext } {
 /** The shell options every page render shares. */
 const shell = (current: string) => ({ token: TOKEN, pages: PAGES, current, ...chrome() });
 
+/**
+ * Test users. Reads through the *real* secret store the profile names, so what
+ * the page reports is what a run would actually resolve — and describes only,
+ * because a page that fetched payloads to decide whether to show a tick would
+ * have the password in a response body and in a browser's memory (§11).
+ */
+const testUsersService: TestUsersService = {
+  targets: existingTargets,
+  credentialRefs: (target) => {
+    try {
+      const profile = resolveTarget(target);
+      return {
+        source: profile.credentials.source,
+        root: profile.credentials.root,
+        accountType: profile.credentials.accountType,
+        roles: profile.roles,
+        ...(profile.credentials.poolSize ? { poolSize: profile.credentials.poolSize } : {}),
+        ...(profile.sharedEnvironment ? { sharedEnvironment: true } : {}),
+      };
+    } catch {
+      return null;
+    }
+  },
+  describe: async (target, secretPath) => {
+    const store = createSecretStore(resolveTarget(target));
+    try {
+      const found = await store.describe(secretPath);
+      return {
+        exists: found.exists,
+        fields: found.fields,
+        // Repo-relative: the absolute path is this machine's, and the reader
+        // is asking "which of the two files", not "where is my checkout".
+        ...(found.origin
+          ? { origin: path.relative(REPO_ROOT, found.origin).split(path.sep).join('/') }
+          : {}),
+      };
+    } finally {
+      await store.close().catch(() => undefined);
+    }
+  },
+  write: async (input) => writeCredential(input),
+  forget: async (input) => forgetCredential(input),
+};
+
+const usersRoutes: Route[] = [
+  {
+    method: 'GET',
+    path: '/users',
+    public: true,
+    handle: () => html(renderPage(usersPageContent(), shell('/users'))),
+  },
+  ...testUsersRoutes(testUsersService),
+];
+
 const runRoutes: Route[] = [
   {
     method: 'GET',
@@ -1210,6 +1268,7 @@ const caseRoutes: Route[] = [
 
 const handle = createRouter(
   [
+    ...usersRoutes,
     ...runRoutes,
     ...triageViewRoutes,
     ...publishViewRoutes,

@@ -46,6 +46,7 @@ test.describe('the rail', () => {
     await expect(rail.getByRole('link')).toHaveText([
       'Test framework',
       /Applications/,
+      /Test users/,
       /Stories/,
       /Cases/,
       /Runs/,

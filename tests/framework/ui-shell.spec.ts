@@ -180,6 +180,7 @@ test.describe('the destinations', () => {
     */
     expect(DASHBOARD_PAGES.map((page) => page.href)).toEqual([
       '/onboard',
+      '/users',
       '/stories',
       '/cases',
       '/runs',
