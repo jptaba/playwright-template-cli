@@ -1,4 +1,9 @@
-import { renderPage, type DashboardPageContent, type ShellOptions } from '../ui/shell';
+import {
+  DASHBOARD_PAGES,
+  renderPage,
+  type DashboardPageContent,
+  type ShellOptions,
+} from '../ui/shell';
 
 /**
  * The onboarding page.
@@ -48,6 +53,37 @@ const STYLES = `
     border-left: 2px solid var(--fail); background: var(--fail-soft);
     padding: .6rem .85rem; margin: 1rem 0; font-size: .89rem; border-radius: 0 4px 4px 0;
   }
+
+  /* ---------- the step rail ---------- */
+  .rail-title {
+    margin: 0 0 .6rem; font-size: .68rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted); font-weight: 700;
+  }
+  ol.steps { list-style: none; margin: 0 0 1rem; padding: 0; counter-reset: step; }
+  ol.steps li {
+    counter-increment: step; position: relative;
+    padding: .3rem 0 .3rem 1.75rem; line-height: 1.35;
+  }
+  ol.steps li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: .35rem;
+    width: 1.2rem; height: 1.2rem; border-radius: 50%;
+    border: 1px solid var(--rule-strong); background: var(--surface);
+    font-family: ui-monospace, Consolas, monospace; font-size: .68rem;
+    display: flex; align-items: center; justify-content: center; color: var(--muted);
+  }
+  ol.steps a { color: var(--muted); text-decoration: none; font-size: .84rem; }
+  ol.steps li[data-state="open"] a { color: var(--ink); font-weight: 620; }
+  ol.steps li[data-state="open"]::before {
+    border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft);
+  }
+  /* Done is a tick rather than a number: the number is which step, and a
+     finished step no longer needs to say which one it was. */
+  ol.steps li[data-state="done"]::before {
+    content: "✓"; border-color: var(--pass); background: var(--pass-soft); color: var(--pass);
+  }
+  ol.steps li[data-state="done"] a { color: var(--ink-2); }
+  .rail-note { color: var(--muted); font-size: .78rem; line-height: 1.5; margin: 0; }
 `;
 
 const BODY = `
@@ -271,6 +307,27 @@ const BODY = `
     </div>
     <div class="status" id="offResult"></div>
   </details>
+`;
+
+/**
+ * The right rail: where you are in the five steps.
+ *
+ * This page is two screens tall and gates each step on the one before it, and
+ * the only way to answer "which step am I on" was to scroll until a section
+ * stopped saying Locked. The rail says it without moving, and each entry is a
+ * link to its section, so it is a way *back* as well as a status.
+ */
+const ASIDE = `
+  <p class="rail-title">Where you are</p>
+  <ol class="steps" id="stepRail">
+    <li data-for="s1"><a href="#s1">The application</a></li>
+    <li data-for="s2"><a href="#s2">What it says</a></li>
+    <li data-for="s3"><a href="#s3">Shape of the pack</a></li>
+    <li data-for="s4"><a href="#s4">Credentials</a></li>
+    <li data-for="s5"><a href="#s5">Write it</a></li>
+  </ol>
+  <p class="rail-note" id="railNote">Steps unlock as the one before them is done. Nothing is
+  written until step 5, and nothing is ever overwritten.</p>
 `;
 
 const SCRIPT = `
@@ -608,6 +665,26 @@ document.addEventListener('change', saveDraft);
    A locked section that already claims to need your input is a contradiction,
    and it was the first thing a reader noticed about this page.
 */
+/**
+ * The step rail, from the sections themselves.
+ *
+ * Derived rather than tracked. A second variable saying which step you are on
+ * is a second thing that can disagree with the page, and the page already
+ * knows: a section with the inert attribute is locked, and one left behind
+ * by a later unlocked section is done.
+ */
+function refreshStepRail() {
+  const ids = ['s1', 's2', 's3', 's4', 's5'];
+  const open = ids.map((id) => !$(id).hasAttribute('inert'));
+  const lastOpen = open.lastIndexOf(true);
+
+  for (let i = 0; i < ids.length; i += 1) {
+    const entry = document.querySelector('#stepRail li[data-for="' + ids[i] + '"]');
+    if (!entry) continue;
+    entry.dataset.state = !open[i] ? 'locked' : i < lastOpen ? 'done' : 'open';
+  }
+}
+
 function enable(id) {
   const section = $(id);
   if (!section.hasAttribute('inert')) return;
@@ -619,6 +696,7 @@ function enable(id) {
   }
   const hint = section.querySelector('.lockhint');
   if (hint) hint.remove();
+  refreshStepRail();
 }
 
 /*
@@ -1259,6 +1337,7 @@ $('assistDone').onclick = async () => {
 addServiceRow({ primary: true });
 renderCredentials();
 captureDefaults();
+refreshStepRail();
 
 /*
    Last, and after the first service row exists: restoring a draft replaces the
@@ -1288,18 +1367,23 @@ export function onboardingPageContent(): DashboardPageContent {
     ],
     styles: STYLES,
     body: BODY,
+    aside: ASIDE,
     script: SCRIPT,
   };
 }
 
 /** Kept for the tool and the tests, which serve this page on its own. */
 export function dashboardPage(token: string, options?: Partial<ShellOptions>): string {
+  /*
+     Spread, not rebuilt. Naming each field meant every option added to the
+     shell afterwards was silently dropped on this one page — which is how the
+     context bar and the rail's badges rendered empty here and correctly
+     everywhere else.
+  */
   return renderPage(onboardingPageContent(), {
+    ...options,
     token,
-    pages: options?.pages ?? [
-      { href: '/runs', label: 'Runs' },
-      { href: '/onboard', label: 'Onboard' },
-    ],
+    pages: options?.pages ?? DASHBOARD_PAGES,
     current: options?.current ?? '/onboard',
   });
 }

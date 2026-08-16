@@ -21,7 +21,12 @@ import {
   type DashboardService,
 } from '../src/support/onboarding/dashboard';
 import { createRouter, failure, html, json, type Route } from '../src/support/ui/router';
-import { renderPage } from '../src/support/ui/shell';
+import {
+  DASHBOARD_PAGES,
+  renderPage,
+  type NavBadge,
+  type TargetContext,
+} from '../src/support/ui/shell';
 import { runsPageContent } from '../src/support/ui/runs-page';
 import { casesPageContent } from '../src/support/ui/cases-page';
 import { storiesPageContent } from '../src/support/ui/stories-page';
@@ -86,6 +91,7 @@ import {
   planGauntlet,
   type GauntletObservation,
 } from '../src/support/onboarding/gauntlet';
+import { resolveTarget } from '../config/target';
 import type { TargetProfile } from '../config/targets/types';
 
 /**
@@ -449,7 +455,7 @@ function noteObservation(snapshot: string, url: string): void {
 }
 
 const service: DashboardService = {
-  page: () => dashboardPage(TOKEN, { pages: PAGES, current: '/onboard' }),
+  page: () => dashboardPage(TOKEN, shell('/onboard')),
   existingTargets,
   onboarded,
   readDraft,
@@ -675,14 +681,79 @@ function open(url: string): void {
 const runManager = new RunManager();
 
 /** Every page the dashboard serves. The navigation is built from this. */
-const PAGES = [
-  { href: '/runs', label: 'Runs' },
-  { href: '/triage', label: 'Triage' },
-  { href: '/publish', label: 'Publish' },
-  { href: '/stories', label: 'Stories' },
-  { href: '/cases', label: 'Cases' },
-  { href: '/onboard', label: 'Onboard' },
-];
+const PAGES = DASHBOARD_PAGES;
+
+/**
+ * What the rail and the context bar show, read fresh on every page render.
+ *
+ * These are small local files and an in-memory list, so reading them per
+ * request costs nothing worth measuring — and a badge computed once at
+ * start-up would be wrong by the second page anybody opened.
+ *
+ * Every read is guarded. A dashboard that will not render because a triage
+ * result is half-written is a worse failure than a missing badge, and the
+ * pages themselves report their own state properly.
+ */
+function chrome(): { badges: Record<string, NavBadge>; target: TargetContext } {
+  const badges: Record<string, NavBadge> = {};
+
+  try {
+    const running = runManager
+      .list()
+      .filter((run) => run.state === 'running' || run.state === 'starting').length;
+    if (running > 0) {
+      badges['/runs'] = { count: running, tone: 'busy', label: `${running} run(s) in progress` };
+    }
+  } catch {
+    // A run manager that cannot list is a problem for the Runs page to report.
+  }
+
+  try {
+    if (fs.existsSync(TRIAGE_RESULT_PATH)) {
+      const result = JSON.parse(fs.readFileSync(TRIAGE_RESULT_PATH, 'utf8')) as TriageResult;
+      /*
+         A cluster is waiting when neither the rules nor the agent settled it
+         and no person has ruled on it either. That is the number the whole
+         triage stage exists to drive down, and it was previously invisible
+         from every page except the one it is on.
+
+         The verdict store is append-only, so the same cluster can appear more
+         than once and only the distinct set means anything.
+      */
+      const settled = new Set((result.verdicts ?? []).map((verdict) => verdict.clusterId));
+      const answered = new Set(
+        readVerdicts()
+          .filter((verdict) => verdict.runId === result.runId)
+          .map((verdict) => verdict.clusterId),
+      );
+      const waiting = (result.clusters ?? []).filter(
+        (cluster) => !settled.has(cluster.id) && !answered.has(cluster.id),
+      ).length;
+      if (waiting > 0) {
+        badges['/triage'] = {
+          count: waiting,
+          tone: 'attention',
+          label: `${waiting} failure group(s) waiting for a verdict`,
+        };
+      }
+    }
+  } catch {
+    // Same reasoning: the Triage page says what is wrong with its own file.
+  }
+
+  let target: TargetContext = { name: null };
+  try {
+    const profile = resolveTarget();
+    target = { name: profile.name, environment: profile.environment };
+  } catch {
+    // Nothing selected, or several and no choice made. Both say "none".
+  }
+
+  return { badges, target };
+}
+
+/** The shell options every page render shares. */
+const shell = (current: string) => ({ token: TOKEN, pages: PAGES, current, ...chrome() });
 
 const runRoutes: Route[] = [
   {
@@ -690,7 +761,7 @@ const runRoutes: Route[] = [
     path: '/runs',
     public: true,
     handle: () =>
-      html(renderPage(runsPageContent(), { token: TOKEN, pages: PAGES, current: '/runs' })),
+      html(renderPage(runsPageContent(), shell('/runs'))),
   },
   {
     method: 'POST',
@@ -1068,7 +1139,7 @@ const publishViewRoutes: Route[] = [
     path: '/publish',
     public: true,
     handle: () =>
-      html(renderPage(publishPageContent(), { token: TOKEN, pages: PAGES, current: '/publish' })),
+      html(renderPage(publishPageContent(), shell('/publish'))),
   },
   ...publishRoutes(publish),
 ];
@@ -1079,7 +1150,7 @@ const triageViewRoutes: Route[] = [
     path: '/triage',
     public: true,
     handle: () =>
-      html(renderPage(triagePageContent(), { token: TOKEN, pages: PAGES, current: '/triage' })),
+      html(renderPage(triagePageContent(), shell('/triage'))),
   },
   ...triageRoutes(triage),
 ];
@@ -1090,7 +1161,7 @@ const storyRoutes: Route[] = [
     path: '/stories',
     public: true,
     handle: () =>
-      html(renderPage(storiesPageContent(), { token: TOKEN, pages: PAGES, current: '/stories' })),
+      html(renderPage(storiesPageContent(), shell('/stories'))),
   },
   ...authoringRoutes(authoring),
 ];
@@ -1101,7 +1172,7 @@ const caseRoutes: Route[] = [
     path: '/cases',
     public: true,
     handle: () =>
-      html(renderPage(casesPageContent(), { token: TOKEN, pages: PAGES, current: '/cases' })),
+      html(renderPage(casesPageContent(), shell('/cases'))),
   },
   {
     method: 'POST',

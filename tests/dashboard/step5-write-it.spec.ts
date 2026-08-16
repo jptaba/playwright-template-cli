@@ -26,7 +26,10 @@ test.describe('the preview', () => {
   test('lists what will be written', async ({ dashboard }) => {
     const { page } = dashboard;
     await readyToWrite(dashboard);
+    // Anchored on a waiting read first: `count()` answers for the DOM as it
+    // is, and a truthful zero for a list still rendering reads as a defect.
     await expect(page.locator('#plan')).toContainText('file(s) will be written');
+    await expect(page.locator('#plan li').first()).toBeVisible();
     expect(await page.locator('#plan li').count()).toBeGreaterThan(0);
     await expect(page.locator('#create')).toBeEnabled();
   });
@@ -106,13 +109,24 @@ test.describe('writing', () => {
   });
 
   test('sends the credentials but never gets them back', async ({ dashboard }) => {
+    /*
+       Every step waits for the one before it to have finished, rather than for
+       the click that starts it to have been dispatched. Without the two
+       explicit anchors this passed alone and failed under parallel load: a
+       click returns as soon as it is delivered, and the handler behind it is
+       still in flight.
+    */
     const { page } = dashboard;
     await page.fill('#name', 'shop');
     await page.fill('#baseURL', 'https://staging.shop.test');
     await page.check('#confirmTest');
     await page.click('#probe');
+    await expect(page.locator('#s3')).not.toHaveAttribute('inert', '');
+
     await page.selectOption('#secrets', 'local');
     await page.click('#preview');
+    await expect(page.locator('#s4')).not.toHaveAttribute('inert', '');
+
     await page.fill('#cu-standard', 'shopper@shop.test');
     await page.fill('#cp-standard', 'the-secret-value');
     await page.click('#create');

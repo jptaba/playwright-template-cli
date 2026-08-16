@@ -1,6 +1,20 @@
 import { expect, test } from '@playwright/test';
 import { createRouter, failure, html, json, type Route } from '../../src/support/ui/router';
-import { escapeHtml, renderPage } from '../../src/support/ui/shell';
+import { dashboardPage } from '../../src/support/onboarding/dashboard-page';
+import {
+  DASHBOARD_PAGES,
+  escapeHtml,
+  renderPage,
+  type PageLink,
+} from '../../src/support/ui/shell';
+
+/** A link with the fields a test does not care about filled in. */
+const aLink = (href: string, label: string): PageLink => ({
+  href,
+  label,
+  group: 'Execute',
+  hint: 'what this page is for',
+});
 
 /**
  * The dashboard shell and its router — phase 0.
@@ -78,7 +92,7 @@ test.describe('the shell', () => {
   test('renders one document with the shared stylesheet and the token', () => {
     const rendered = renderPage(content, {
       token: 'abc123',
-      pages: [{ href: '/runs', label: 'Runs' }],
+      pages: [aLink('/runs', 'Runs')],
       current: '/runs',
     });
     expect(rendered).toContain('<!doctype html>');
@@ -98,15 +112,15 @@ test.describe('the shell', () => {
   });
 
   test('shows navigation only when there is somewhere else to go', () => {
-    const alone = renderPage(content, { token: 't', pages: [{ href: '/runs', label: 'Runs' }], current: '/runs' });
+    const alone = renderPage(content, { token: 't', pages: [aLink('/runs', 'Runs')], current: '/runs' });
     expect(alone, 'a nav with one entry is furniture pretending to be a choice').not.toContain('<nav');
 
     const several = renderPage(content, {
       token: 't',
-      pages: [{ href: '/runs', label: 'Runs' }, { href: '/onboard', label: 'Onboard' }],
+      pages: [aLink('/runs', 'Runs'), aLink('/onboard', 'Onboard')],
       current: '/runs',
     });
-    expect(several).toContain('<nav class="pages"');
+    expect(several).toContain('<nav class="rail"');
     expect(several).toContain('aria-current="page"');
   });
 
@@ -123,4 +137,214 @@ test.describe('the shell', () => {
     const script = /<script>([\s\S]*?)<\/script>/.exec(rendered)?.[1];
     expect(() => new Function(script!)).not.toThrow();
   });
+});
+
+
+// ---------------------------------------------------------------------------
+// The shape of the navigation
+// ---------------------------------------------------------------------------
+
+const aPage = {
+  title: 'Runs',
+  eyebrow: 'Results',
+  heading: 'What happened',
+  lede: 'The last run and the ones before it.',
+  body: '<section><p>body</p></section>',
+};
+
+const render = (
+  options: Partial<Parameters<typeof renderPage>[1]> = {},
+  content: Partial<typeof aPage> = {},
+) =>
+  renderPage(
+    { ...aPage, ...content },
+    { token: 't', pages: DASHBOARD_PAGES, current: '/runs', ...options },
+  );
+
+/**
+ * The markup, without the stylesheet.
+ *
+ * Every class name in the design system appears in the `<style>` block too,
+ * so `not.toContain('nav-badge')` against the whole document is always false
+ * and the assertion proves nothing. Asked a second time, that is exactly how a
+ * test passes while the thing it describes is broken.
+ */
+const markup = (html: string) => html.slice(html.indexOf('<body>'));
+
+test.describe('the destinations', () => {
+  test('read top to bottom as the order the work happens in', () => {
+    /*
+       Not alphabetical, and not the order the pages were built — which is what
+       it was, and which put the end of the pipeline first: Runs, Triage,
+       Publish, then Stories, Cases, Onboard.
+    */
+    expect(DASHBOARD_PAGES.map((page) => page.href)).toEqual([
+      '/onboard',
+      '/stories',
+      '/cases',
+      '/runs',
+      '/triage',
+      '/publish',
+    ]);
+  });
+
+  test('are grouped into the four stages, in order and without repeating one', () => {
+    // A group that appears twice renders two headings with the same name, and
+    // the grouping stops meaning anything.
+    const seen: string[] = [];
+    for (const page of DASHBOARD_PAGES) {
+      if (seen[seen.length - 1] !== page.group) seen.push(page.group);
+    }
+    expect(seen).toEqual(['Set up', 'Author', 'Execute', 'Report']);
+  });
+
+  test('every one of them is there exactly once, and says what it is for', () => {
+    const hrefs = DASHBOARD_PAGES.map((page) => page.href);
+    expect(new Set(hrefs).size, 'a duplicate renders two identical links').toBe(hrefs.length);
+    for (const page of DASHBOARD_PAGES) {
+      expect(page.hint.length, `${page.href} has no hint`).toBeGreaterThan(10);
+    }
+  });
+
+  test('are words, not icons — a word is worth a thousand pictures in a nav', () => {
+    const html = render();
+    for (const page of DASHBOARD_PAGES) {
+      expect(html).toContain(`<span class="nav-label">${page.label}</span>`);
+    }
+  });
+
+  test('mark the one being looked at, and only that one', () => {
+    const html = markup(render({ current: '/triage' }));
+    expect(html).toContain('href="/triage" aria-current="page"');
+    expect(html.match(/aria-current="page"/g)).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// What is waiting
+// ---------------------------------------------------------------------------
+
+test.describe('the badges', () => {
+  test('put what is waiting against the page it is waiting on', () => {
+    const html = render({
+      badges: {
+        '/triage': { count: 4, tone: 'attention', label: '4 failure group(s) waiting' },
+      },
+    });
+    expect(html).toContain('nav-badge attention');
+    expect(html).toContain('>4</span>');
+    expect(html, 'the number alone is not a sentence').toContain(
+      'aria-label="4 failure group(s) waiting"',
+    );
+  });
+
+  test('a count of zero is no badge at all', () => {
+    // "0 waiting" is a thing to read and dismiss on every page load.
+    const html = render({
+      badges: { '/triage': { count: 0, tone: 'attention', label: 'nothing waiting' } },
+    });
+    expect(markup(html)).not.toContain('nav-badge');
+  });
+
+  test('a page with nothing waiting carries nothing', () => {
+    expect(markup(render())).not.toContain('nav-badge');
+  });
+
+  test('a number too big for the space is capped rather than breaking the row', () => {
+    const html = render({
+      badges: { '/triage': { count: 412, tone: 'attention', label: '412 waiting' } },
+    });
+    expect(html).toContain('>99+</span>');
+    expect(html, 'and the real number is still announced').toContain('aria-label="412 waiting"');
+  });
+
+  test('a badge on a page that is not in the navigation is ignored', () => {
+    const html = render({ badges: { '/nowhere': { count: 9, tone: 'busy', label: 'x' } } });
+    expect(markup(html)).not.toContain('nav-badge');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Which application this is all about
+// ---------------------------------------------------------------------------
+
+test.describe('the context bar', () => {
+  test('names the selected application on every page', () => {
+    // Every page but Onboard is scoped to one, and none of them said which.
+    const html = render({ target: { name: 'acme-shop', environment: 'staging' } });
+    expect(html).toContain('acme-shop');
+    expect(html).toContain('staging');
+  });
+
+  test('says so plainly when nothing is selected', () => {
+    expect(render({ target: { name: null } })).toContain('none selected');
+  });
+
+  test('an application without an environment still renders', () => {
+    const html = markup(render({ target: { name: 'acme-shop' } }));
+    expect(html).toContain('acme-shop');
+    expect(html).not.toContain('ctx-env');
+  });
+
+  test('a target name is escaped, like every other value', () => {
+    expect(render({ target: { name: 'a<script>&' } })).toContain('a&lt;script&gt;&amp;');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The right rail
+// ---------------------------------------------------------------------------
+
+test.describe('the right rail', () => {
+  test('is rendered only by a page that supplies one', () => {
+    // A rail with nothing in it is chrome charging rent.
+    expect(markup(render())).not.toContain('class="sidecar"');
+    expect(renderPage({ ...aPage, aside: '<p>where you are</p>' }, {
+      token: 't',
+      pages: DASHBOARD_PAGES,
+      current: '/runs',
+    })).toContain('class="sidecar"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Getting past it
+// ---------------------------------------------------------------------------
+
+test('a keyboard user can skip the rail', () => {
+  // Six links plus four headings on every page is a lot to tab through.
+  const html = render();
+  expect(html).toContain('class="skip"');
+  expect(html).toContain('href="#content"');
+  expect(html).toContain('id="content"');
+});
+
+test('the section name is said once, not twice forty pixels apart', () => {
+  /*
+     It was in the context bar and again above the heading. A distinctive value
+     on purpose: the first version of this test used the fixture's own
+     "Results", which also appears inside the Publish link's hint, and counted
+     that as the duplicate it was looking for.
+  */
+  const body = markup(render({}, { eyebrow: 'Zzyzx' }));
+  expect(body.match(/Zzyzx/g), 'the eyebrow appears exactly once').toHaveLength(1);
+  expect(body).toContain('class="crumb"');
+});
+
+test('the shell forwards every option the onboarding page is given', () => {
+  /*
+     `dashboardPage` rebuilt the options object field by field, so each option
+     added to the shell afterwards was silently dropped on that one page: the
+     context bar and the badges rendered empty there and correctly everywhere
+     else, which is the hardest kind of difference to notice.
+  */
+  const html = dashboardPage('t', {
+    pages: DASHBOARD_PAGES,
+    current: '/onboard',
+    target: { name: 'acme-shop', environment: 'uat' },
+    badges: { '/triage': { count: 3, tone: 'attention', label: '3 waiting' } },
+  });
+  expect(html).toContain('acme-shop');
+  expect(html).toContain('uat');
+  expect(markup(html)).toContain('nav-badge');
 });

@@ -2,6 +2,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test as base, type Page } from '@playwright/test';
 import { createRouter } from '../../src/support/ui/router';
+import { DASHBOARD_PAGES } from '../../src/support/ui/shell';
 import { dashboardPage } from '../../src/support/onboarding/dashboard-page';
 import {
   onboardingRoutes,
@@ -187,7 +188,7 @@ export const test = base.extend<{ dashboard: Harness }>({
 
     // The same function `tools/dashboard.ts` calls, with the same shell.
     const service = fakeService(recorder, () =>
-      dashboardPage(TOKEN, { pages: [{ href: '/onboard', label: 'Onboard' }], current: '/onboard' }),
+      dashboardPage(TOKEN, { pages: DASHBOARD_PAGES, current: '/onboard' }),
     );
 
     const handle = createRouter(onboardingRoutes(service), { token: TOKEN });

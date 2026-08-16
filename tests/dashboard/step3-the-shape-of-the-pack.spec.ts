@@ -121,27 +121,39 @@ test.describe('the optional layers', () => {
     await expect(page.locator('#plan')).toContainText('needs a service base URL');
   });
 
+  /*
+     `count()` is the one read in Playwright that does not wait — it answers
+     for the DOM as it is at that instant. Called straight after a click that
+     starts a round trip, it returns a truthful zero for a list that has not
+     rendered, and the assertion then reads "expected > 6, received 0" and
+     points at the application. Anchor on something that *does* wait first.
+  */
+  const planned = async (page: Parameters<Parameters<typeof test>[2]>[0]['dashboard']['page']) => {
+    await expect(page.locator('#plan')).toContainText('file(s) will be written');
+    return page.locator('#plan li').count();
+  };
+
   test('each layer switched on adds files to the plan', async ({ dashboard }) => {
     const { page } = dashboard;
     await reachStep3(dashboard);
     await page.click('#preview');
-    const bare = await page.locator('#plan li').count();
+    const bare = await planned(page);
 
     await page.check('#lA11y');
     await page.check('#lDb');
     await page.click('#preview');
 
-    expect(await page.locator('#plan li').count()).toBeGreaterThan(bare);
+    await expect.poll(() => page.locator('#plan li').count()).toBeGreaterThan(bare);
   });
 
   test('previewing twice shows one list, not two', async ({ dashboard }) => {
     const { page } = dashboard;
     await reachStep3(dashboard);
     await page.click('#preview');
-    const first = await page.locator('#plan li').count();
+    const first = await planned(page);
     await page.click('#preview');
 
-    expect(await page.locator('#plan li').count()).toBe(first);
+    expect(await planned(page)).toBe(first);
     await expect(page.locator('#plan ul')).toHaveCount(1);
   });
 });
@@ -200,5 +212,48 @@ test.describe('previewing', () => {
 
     await expect(page.locator('#plan')).toContainText('Something went wrong upstream.');
     await expect(page.locator('#s5')).toHaveAttribute('inert', '');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The step rail
+// ---------------------------------------------------------------------------
+
+test.describe('where you are', () => {
+  /*
+     This page is two screens tall and gates each step on the one before it,
+     and the only way to answer "which step am I on" was to scroll until a
+     section stopped saying Locked.
+  */
+  const state = (dashboard: Parameters<Parameters<typeof test>[2]>[0]['dashboard'], step: string) =>
+    dashboard.page.locator(`#stepRail li[data-for="${step}"]`);
+
+  test('starts with step 1 open and the rest locked', async ({ dashboard }) => {
+    await expect(state(dashboard, 's1')).toHaveAttribute('data-state', 'open');
+    for (const step of ['s2', 's3', 's4', 's5']) {
+      await expect(state(dashboard, step)).toHaveAttribute('data-state', 'locked');
+    }
+  });
+
+  test('moves as the steps unlock, and ticks what is behind', async ({ dashboard }) => {
+    await reachStep3(dashboard);
+
+    await expect(state(dashboard, 's1')).toHaveAttribute('data-state', 'done');
+    await expect(state(dashboard, 's2')).toHaveAttribute('data-state', 'done');
+    await expect(state(dashboard, 's3')).toHaveAttribute('data-state', 'open');
+    await expect(state(dashboard, 's4')).toHaveAttribute('data-state', 'locked');
+  });
+
+  test('reaches the end once the preview has run', async ({ dashboard }) => {
+    await reachStep3(dashboard);
+    await dashboard.page.click('#preview');
+    await expect(state(dashboard, 's5')).toHaveAttribute('data-state', 'open');
+    await expect(state(dashboard, 's4')).toHaveAttribute('data-state', 'done');
+  });
+
+  test('each entry is a way back to its step', async ({ dashboard }) => {
+    await reachStep3(dashboard);
+    await dashboard.page.getByRole('link', { name: 'The application' }).click();
+    await expect(dashboard.page.locator('#s1')).toBeInViewport();
   });
 });

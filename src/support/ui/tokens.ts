@@ -83,7 +83,30 @@ export const DASHBOARD_STYLES = `
   }
   code { background: var(--code-bg); padding: .05em .35em; border-radius: 3px; font-size: .86em; }
 
+  /* ---------- the app shell ---------- */
+  /*
+     Three regions: a rail that never moves, a slim bar saying which
+     application everything is about, and the page.
+
+     The rail is a grid column rather than a fixed-position overlay, so the
+     page's own scrollbar stays the page's and nothing has to be padded around
+     an element that is out of flow.
+  */
+  .app { display: grid; grid-template-columns: 16.5rem minmax(0, 1fr); min-height: 100vh; }
+  .main { min-width: 0; }
   .shell { max-width: 68rem; margin: 0 auto; padding: 0 clamp(1.25rem, 4vw, 3rem) 5rem; }
+
+  /*
+     A keyboard user's way past the rail. Six links plus their group headings
+     is a lot to tab through on every page, and this is the one-line fix that
+     has been the answer since long before anybody called it a design system.
+  */
+  .skip {
+    position: absolute; left: -9999px; top: 0; z-index: 100;
+    background: var(--accent-soft); color: var(--accent-ink);
+    padding: .6rem 1rem; border-radius: 0 0 6px 0; font-weight: 640;
+  }
+  .skip:focus { left: 0; }
 
   /* ---------- masthead ---------- */
   .masthead {
@@ -137,20 +160,152 @@ export const DASHBOARD_STYLES = `
   }
   .fact dd { margin: 0; font-size: .95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-  /* ---------- navigation ---------- */
-  /* Rendered only when there is more than one page. A nav with one entry is
-     furniture pretending to be a choice. */
-  nav.pages {
-    display: flex; gap: .35rem; flex-wrap: wrap;
-    border-bottom: 1px solid var(--rule); margin-bottom: 2rem; padding-bottom: .1rem;
+  /* ---------- the rail ---------- */
+  /*
+     Rendered only when there is more than one page: a nav with one entry is
+     furniture pretending to be a choice.
+
+     Sticky and full height. Every page here is taller than a window and
+     several are much taller — step 5 of onboarding, a run's event stream, a
+     triage cluster list — and from the bottom of any of them the way anywhere
+     else used to be scrolling all the way back.
+  */
+  nav.rail {
+    position: sticky; top: 0; align-self: start;
+    height: 100vh; overflow-y: auto; overscroll-behavior: contain;
+    background: var(--surface); border-right: 1px solid var(--rule);
+    padding: 1.15rem 0 2rem;
   }
-  nav.pages a {
-    padding: .45rem .85rem; font-size: .89rem; font-weight: 620;
-    color: var(--muted); text-decoration: none;
-    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  .wordmark {
+    display: block; margin: 0 1.15rem 1.4rem; padding-bottom: 1rem;
+    border-bottom: 1px solid var(--rule);
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .74rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--muted); text-decoration: none; font-weight: 600;
   }
-  nav.pages a:hover { color: var(--ink); }
-  nav.pages a[aria-current="page"] { color: var(--accent-ink); border-bottom-color: var(--accent); }
+  .wordmark:hover { color: var(--ink); }
+
+  .nav-group {
+    margin: 1.25rem 1.15rem .3rem;
+    font-size: .68rem; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700;
+  }
+  .nav-group:first-of-type { margin-top: 0; }
+  nav.rail ul { list-style: none; margin: 0; padding: 0; }
+  nav.rail a {
+    display: grid; grid-template-columns: 1fr auto; align-items: baseline;
+    gap: 0 .5rem; padding: .5rem 1.15rem;
+    color: var(--ink-2); text-decoration: none;
+    border-left: 2px solid transparent;
+  }
+  .nav-label { font-size: .95rem; font-weight: 620; }
+  /*
+     The one-line description under each label. It is the difference between a
+     rail that names six routes and one that explains what the tool does, and
+     it costs a line each — worth it on a screen somebody meets once.
+  */
+  .nav-hint {
+    grid-column: 1 / -1; font-size: .76rem; line-height: 1.4;
+    color: var(--muted);
+  }
+  nav.rail a:hover { background: var(--surface-2); color: var(--ink); }
+  nav.rail a[aria-current="page"] {
+    background: var(--accent-soft); border-left-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  nav.rail a[aria-current="page"] .nav-hint { color: var(--accent-ink); opacity: .85; }
+
+  /*
+     What is waiting, against the page it is waiting on — the reason a rail is
+     worth its width. Four failures nobody has looked at is the most useful
+     fact this tool holds, and it used to be two navigations away from every
+     page that was not Triage.
+  */
+  .nav-badge {
+    justify-self: end; align-self: center;
+    min-width: 1.45rem; padding: .05rem .4rem; border-radius: 999px;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .72rem; font-weight: 700; text-align: center;
+  }
+  .nav-badge.attention { background: var(--fail-soft); color: var(--fail); }
+  .nav-badge.busy { background: var(--accent-soft); color: var(--accent-ink); }
+
+  /* ---------- the context bar ---------- */
+  /*
+     Which application everything below is about. Every page but Onboard is
+     scoped to one and not one of them said which, so a run, a triage cluster
+     and a set of cases were all read without the application named anywhere.
+  */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: .55rem clamp(1.25rem, 4vw, 3rem);
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    backdrop-filter: saturate(1.6) blur(10px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .crumb {
+    margin: 0; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+  }
+  .ctx { display: flex; align-items: center; gap: .5rem; font-size: .82rem; }
+  .ctx-label { color: var(--muted); }
+  .ctx-name { font-weight: 640; color: var(--ink); }
+  .ctx-env {
+    padding: .05rem .45rem; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--rule);
+    font-size: .72rem; color: var(--muted);
+  }
+  .ctx-none { color: var(--muted); font-style: italic; }
+
+  /* ---------- the right rail ---------- */
+  /*
+     Only where a page supplies one. It holds what is *about* the page — where
+     you are in a long flow — rather than more of the page, and it stays put
+     while the content beside it scrolls.
+  */
+  .content-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+  .content-row:has(.sidecar) { grid-template-columns: minmax(0, 1fr) 15rem; }
+  .sidecar { position: sticky; top: 4.5rem; align-self: start; font-size: .85rem; }
+
+  /*
+     Anchored below the context bar rather than under it. Without this every
+     in-page jump lands with its heading hidden, which is the classic way a
+     sticky header breaks a table of contents.
+  */
+  section, .masthead { scroll-margin-top: 4.5rem; }
+
+  /*
+     Narrow: the rail goes above the page and stops being sticky. A 16rem
+     column out of a 40rem window is chrome winning an argument it should
+     lose, and the guidance against hiding navigation is about hiding it —
+     moving it is different.
+  */
+  @media (max-width: 60rem) {
+    .app { grid-template-columns: minmax(0, 1fr); }
+    nav.rail {
+      position: static; height: auto; border-right: 0;
+      border-bottom: 1px solid var(--rule); padding: 1rem 0;
+    }
+    nav.rail ul { display: flex; flex-wrap: wrap; gap: .25rem; padding: 0 .6rem; }
+    nav.rail a { border-left: 0; border-radius: 6px; padding: .35rem .7rem; }
+    .nav-hint { display: none; }
+    .content-row:has(.sidecar) { grid-template-columns: minmax(0, 1fr); }
+    .sidecar { position: static; }
+  }
+
+  /*
+     Nothing sticks when the window is too short for it: on a laptop held in
+     landscape, a pinned bar plus a pinned rail is most of the screen.
+  */
+  @media (max-height: 26rem) {
+    .topbar, nav.rail, .sidecar { position: static; }
+    nav.rail { height: auto; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html { scroll-behavior: smooth; }
+  }
 
   /* ---------- shared furniture ---------- */
   section {
