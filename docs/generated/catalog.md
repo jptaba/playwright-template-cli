@@ -67,32 +67,3 @@ _L2 read vocabulary. Named, parameterised queries. Read-only._
 | Name | Signature | What it does |
 |---|---|---|
 | `ledgerDb.entryFor` | `(reference: string) => Promise<LedgerEntry \| null>` | The ledger posting for an order reference, or null when nothing has posted yet. |
-
-## Fixtures — practice-software-testing
-
-_Added on top of the framework fixtures when TARGET=practice-software-testing._
-
-| Name | Signature | What it does |
-|---|---|---|
-| `signIn` | `named actions — see the table below` | Signing in, and reading what the form reported. |
-| `testData` | `PracticeSoftwareTestingTestData` | Builders for the data a spec needs. |
-
-## actions/ — practice-software-testing
-
-_L2 UI vocabulary. Composes locators, returns data, asserts nothing._
-
-| Name | Signature | What it does |
-|---|---|---|
-| `signIn.withCredentials` | `(page: Page, credentials: Credentials) => Promise<void>` | Submit the sign-in form. |
-| `signIn.isSignedIn` | `(page: Page) => Promise<boolean>` | Whether the page currently carries a session. |
-| `signIn.signedInAs` | `(page: Page) => Promise<string \| null>` | Who the session belongs to, or null when signed out. |
-| `signIn.readError` | `(page: Page) => Promise<string \| null>` | The error the form reported, or null when it reported none. |
-
-## api/ — practice-software-testing
-
-_L2 HTTP vocabulary. Typed clients with response-schema validation._
-
-| Name | Signature | What it does |
-|---|---|---|
-| `ordersApi.create` | `(order: NewOrder) => Promise<Order>` | Create an order and register it for cleanup at the end of the test. |
-| `ordersApi.get` | `(id: string) => Promise<Order>` | Read one order. |

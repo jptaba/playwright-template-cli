@@ -28,6 +28,8 @@
  * the deleting.
  */
 
+import { describeOrphanedSessions, orphanedSessions } from './sessions';
+
 export interface OffboardFacts {
   /** Targets with a profile in `config/targets/`. */
   knownTargets: string[];
@@ -165,6 +167,18 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
         'worth keeping, commit or stash it first.',
     );
   }
+
+  /*
+     Sessions belonging to some *other* target that is no longer here. Off
+     topic for this removal and exactly the right moment to say it: removing a
+     target is when somebody is already thinking about what is left behind, and
+     a session outliving its target is how these appear in the first place.
+  */
+  const orphans = orphanedSessions(
+    facts.storageStateFiles,
+    facts.knownTargets.filter((known) => known !== target),
+  ).filter((session) => session.target !== target);
+  if (orphans.length > 0) warnings.push(describeOrphanedSessions(orphans));
 
   if (removeStorageStates.length > 0) {
     warnings.push(

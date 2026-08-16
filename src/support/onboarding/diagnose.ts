@@ -1,3 +1,4 @@
+import { describeOrphanedSessions, orphanedSessions } from './sessions';
 import { KNOWN_A11Y_STANDARDS, type TargetProfile } from '../../../config/targets/types';
 
 /**
@@ -51,6 +52,13 @@ export interface TargetFacts {
    */
   declaredEndpoints?: string[];
   documentedOperations?: string[];
+  /**
+   * Every file in `.auth/`, and every target this repository has a profile
+   * for. Together they answer a question no per-target check can: which
+   * stored sessions belong to nothing at all.
+   */
+  storageStateFiles?: string[];
+  knownTargets?: string[];
   /** Environment values the framework reads at run time. */
   env: { MAIL_API_URL?: string; GENERATION_HOST_ALLOWLIST?: string };
 }
@@ -78,6 +86,7 @@ export function diagnose(profile: TargetProfile, facts: TargetFacts): Diagnostic
   checkCapabilities(profile, facts, hasUnder, error, warn);
   checkAuthentication(profile, facts, error, warn);
   checkRotation(profile, warn);
+  checkOrphanedSessions(facts, warn);
 
   // Errors first: a run cannot start until they are gone, and burying them
   // under a list of smells is how a checker gets skimmed.
@@ -508,6 +517,32 @@ function checkAuthentication(
      vocabulary: partition by `run.workerIndex`, or make the verb tolerate
      contention instead of assuming it owns the account.
   */
+}
+
+/**
+ * Sessions in `.auth/` belonging to no application here.
+ *
+ * The one check in this file that is not about the target being doctored, and
+ * it is here because this is the only thing anybody runs routinely that looks
+ * at the repository rather than at one pack. A session outlives its target
+ * easily — a rename, a removal by hand, a branch switched underneath a
+ * gitignored directory — and then nothing ever looks at it again. Two were
+ * found here for applications this repository had not known about for weeks.
+ *
+ * A warning, not an error: a stale credential is a real thing to deal with and
+ * it does not stop the run in front of you.
+ */
+function checkOrphanedSessions(facts: TargetFacts, warn: Report): void {
+  if (!facts.storageStateFiles || !facts.knownTargets) return;
+  const orphans = orphanedSessions(facts.storageStateFiles, facts.knownTargets);
+  if (orphans.length === 0) return;
+
+  warn(
+    'session-orphaned',
+    describeOrphanedSessions(orphans),
+    `Delete them: ${orphans.map((session) => `.auth/${session.file}`).join(', ')}. ` +
+      'Nothing is lost — `setup:auth` writes a fresh session per run.',
+  );
 }
 
 function checkRotation(profile: TargetProfile, warn: Report): void {

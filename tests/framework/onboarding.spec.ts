@@ -564,3 +564,57 @@ test.describe('the target scaffolder', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Sessions belonging to nothing
+// ---------------------------------------------------------------------------
+
+test.describe('stored sessions with no application', () => {
+  /*
+     The one check in `diagnose` that is not about the target being doctored.
+     It is here because this is the only thing anybody runs routinely that
+     looks at the repository rather than at one pack — a session belonging to
+     no target is invisible to every per-target check by definition. Two were
+     found in this repository for applications it had not known about for
+     weeks, and a storage state is a live credential.
+  */
+  test('are reported, with the file to delete named', () => {
+    const found = diagnose(
+      profile(),
+      facts({
+        storageStateFiles: ['demo.standard.json', 'saucedemo.standard.json'],
+        knownTargets: ['demo'],
+      }),
+    );
+    const orphan = found.find((one) => one.code === 'session-orphaned')!;
+
+    expect(orphan).toBeDefined();
+    expect(orphan.level, 'a stale credential does not stop the run in front of you').toBe(
+      'warning',
+    );
+    expect(orphan.message).toContain('saucedemo.standard.json');
+    expect(orphan.fix).toContain('.auth/saucedemo.standard.json');
+    expect(orphan.fix, 'and says why deleting one costs nothing').toContain('setup:auth');
+  });
+
+  test('are not reported when every session belongs to something', () => {
+    expect(
+      codes(diagnose(profile(), facts({ storageStateFiles: ['demo.standard.json'], knownTargets: ['demo'] }))),
+    ).not.toContain('session-orphaned');
+  });
+
+  test('a caller with no repository-wide facts gets no finding, not a wrong one', () => {
+    // The dashboard reports on a target it has just written and has no reason
+    // to have read `.auth/`. Absent facts must not become a false positive.
+    expect(codes(diagnose(profile(), facts()))).not.toContain('session-orphaned');
+  });
+
+  test('something in .auth that is not a session is left alone', () => {
+    // The directory is gitignored, which makes it somewhere people put things.
+    expect(
+      codes(
+        diagnose(profile(), facts({ storageStateFiles: ['notes.txt', '.DS_Store'], knownTargets: ['demo'] })),
+      ),
+    ).not.toContain('session-orphaned');
+  });
+});

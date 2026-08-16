@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 import fs from 'node:fs';
 import path from 'node:path';
-import { REPO_ROOT } from '../src/support/paths';
+import { AUTH_DIR, REPO_ROOT } from '../src/support/paths';
 import { ContractRegistry } from '../src/support/contracts/validator';
 import { resolveTarget, targetNames } from '../config/target';
 import { createSecretStore } from '../src/integrations/secrets';
@@ -172,6 +172,13 @@ async function main(): Promise<number> {
       ),
       declaredEndpoints: declaredEndpoints(name),
       documentedOperations: documentedOperations(profile),
+      /*
+         Repository-wide rather than pack-wide, and the only two facts here
+         that are. A session belonging to no target is invisible to every
+         per-target check by definition, and this is the thing people run.
+      */
+      storageStateFiles: fs.existsSync(AUTH_DIR) ? fs.readdirSync(AUTH_DIR) : [],
+      knownTargets: targetNames(),
       env: {
         MAIL_API_URL: process.env.MAIL_API_URL,
         GENERATION_HOST_ALLOWLIST: process.env.GENERATION_HOST_ALLOWLIST,
