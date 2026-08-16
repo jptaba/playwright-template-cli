@@ -81,11 +81,18 @@ const BODY = `
       <span class="badge manual" id="pRunBadge">—</span>
     </div>
     <p class="explain">
-      This is the one page here that leaves the building. Everything else writes into the
-      repository, where a mistake is undone with <code>git checkout</code>; results posted against
-      somebody's test cases and tickets opened in their project are read by other teams and stay
-      read. Both actions show the exact payload first and both need the run's id typed back.
+      Pick the run to publish.
     </p>
+    <details class="more">
+      <summary>Why this page asks twice</summary>
+      <div class="body">
+        <p>Everything else here writes into the repository, where a mistake is undone with
+        <code>git checkout</code>.</p>
+        <p>Results posted against somebody's test cases, and tickets opened in their project, are
+        read by other teams and stay read. So both actions show the exact payload first, and both
+        need the run's own id typed back.</p>
+      </div>
+    </details>
     <label for="pRun">Run</label>
     <select id="pRun"></select>
     <div class="dest" id="pDest"></div>
@@ -98,10 +105,17 @@ const BODY = `
       <span class="badge manual" id="rCount">0</span>
     </div>
     <p class="explain">
-      One post for the whole run, exactly as the merge job sends it — the same builder, so this is
-      the payload rather than a description of it. A case id that PractiTest cannot resolve is
-      reported loudly and skipped; it never fails anything.
+      One post for the whole run, exactly as the merge job sends it.
     </p>
+    <details class="more">
+      <summary>What happens to an id PractiTest cannot resolve</summary>
+      <div class="body">
+        <p>It is reported loudly and skipped. It never fails anything — a publish step that fails
+        the build over a stale id teaches people to stop publishing.</p>
+        <p>The payload below is built by the same code the merge job uses, so it is the payload
+        rather than a description of one.</p>
+      </div>
+    </details>
     <div class="results" id="rList"></div>
     <div id="rSkipped"></div>
     <div class="confirm">
@@ -123,11 +137,17 @@ const BODY = `
       <span class="badge manual" id="dCount">0</span>
     </div>
     <p class="explain">
-      One ticket per <b>cluster</b>, never per test, deduplicated on the fingerprint — so a second
-      run comments on the existing ticket instead of opening a second one. A cluster nobody has
-      triaged cannot be filed at all: an automated filer pointed at a broken environment can open
-      hundreds of tickets in a night, and a human verdict is what stops it.
+      One ticket per <b>cluster</b>, never per test. A cluster nobody has triaged cannot be filed.
     </p>
+    <details class="more">
+      <summary>Why a human verdict is required first</summary>
+      <div class="body">
+        <p>An automated filer pointed at a broken environment can open hundreds of tickets in a
+        night. Requiring a verdict is what stops it.</p>
+        <p>Tickets are deduplicated on the fingerprint, so a second run comments on the existing
+        ticket rather than opening another.</p>
+      </div>
+    </details>
     <div id="dList"></div>
     <div class="confirm">
       <div class="row">
@@ -377,9 +397,8 @@ export function publishPageContent(): DashboardPageContent {
     eyebrow: 'Publish',
     heading: 'The part that leaves the building',
     lede:
-      'Results against their cases, defects in their project — one ticket per cluster, ' +
-      'deduplicated on the fingerprint. Both show the exact payload first, and both need the ' +
-      'run’s own id typed back, because a mistake here cannot be undone with git.',
+      'Send results to PractiTest and defects to Jira. <b>The one page here that leaves the ' +
+      'building</b> — both show the payload first and need the run’s id typed back.',
     styles: STYLES,
     body: BODY,
     script: SCRIPT,

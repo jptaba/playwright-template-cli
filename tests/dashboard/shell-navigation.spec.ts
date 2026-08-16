@@ -165,3 +165,61 @@ test('with nothing selected, the bar says so rather than saying nothing', async 
   await p.setContent(page({ target: { name: null } }));
   await expect(p.locator('.topbar')).toContainText('none selected');
 });
+
+// ---------------------------------------------------------------------------
+// Notes that stay out of the way
+// ---------------------------------------------------------------------------
+
+test.describe('the disclosures', () => {
+  /*
+     Every page carried its reasoning inline and it had grown into an essay —
+     onboarding's step 2 opened with 108 words above the three fields it was
+     describing. The reasoning is worth keeping: it is why a rule exists, and
+     somebody meeting a refusal wants it. It is now opt-in.
+  */
+  const withNotes = renderPage(
+    {
+      title: 'Notes',
+      eyebrow: 'Notes',
+      heading: 'A page with a note on it',
+      lede: 'Short.',
+      body:
+        '<section><p class="explain">Do the thing.</p>' +
+        '<details class="more"><summary>Why the thing works this way</summary>' +
+        '<div class="body"><p>Because of the reason.</p></div></details></section>',
+    },
+    { token: 't', pages: DASHBOARD_PAGES, current: '/runs' },
+  );
+
+  test.beforeEach(async ({ page: p }) => {
+    await p.setViewportSize({ width: 1280, height: 800 });
+    await p.setContent(withNotes);
+  });
+
+  test('cost one line until somebody wants them', async ({ page: p }) => {
+    await expect(p.getByText('Why the thing works this way')).toBeVisible();
+    await expect(p.getByText('Because of the reason.')).toBeHidden();
+  });
+
+  test('open on a click and stay open', async ({ page: p }) => {
+    await p.getByText('Why the thing works this way').click();
+    await expect(p.getByText('Because of the reason.')).toBeVisible();
+  });
+
+  test('open from the keyboard, because a details element is a real control', async ({ page: p }) => {
+    // The reason this is `details` rather than a div and a click handler: it
+    // is focusable, operable and announced without a line of JavaScript.
+    await p.keyboard.press('Tab'); // skip link
+    await p.getByText('Why the thing works this way').focus();
+    await p.keyboard.press('Enter');
+    await expect(p.getByText('Because of the reason.')).toBeVisible();
+  });
+
+  test('never push the instruction off the top of the section', async ({ page: p }) => {
+    // The instruction is what somebody came for; the note is optional. Closed
+    // or open, the instruction stays first.
+    const instruction = (await p.getByText('Do the thing.').boundingBox())!;
+    const summary = (await p.getByText('Why the thing works this way').boundingBox())!;
+    expect(instruction.y).toBeLessThan(summary.y);
+  });
+});

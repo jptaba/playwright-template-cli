@@ -99,10 +99,15 @@ const BODY = `
       <span class="badge manual" id="slots">2 slots free</span>
     </div>
     <p class="explain">
-      Two at a time, and both are on screen. A third is refused rather than queued — a queued run
-      starts unattended some minutes later against an application whose state has moved, and nobody
-      is watching when it does.
+      Two at a time. A third is <b>refused</b> rather than queued.
     </p>
+    <details class="more">
+      <summary>Why a third is refused instead of queued</summary>
+      <div class="body">
+        <p>A queued run starts unattended some minutes later, against an application whose state
+        has moved — and nobody is watching when it does.</p>
+      </div>
+    </details>
     <div class="starter">
       <div>
         <label for="rTarget">Application</label>
@@ -348,9 +353,8 @@ export function runsPageContent(): DashboardPageContent {
     eyebrow: 'Runs',
     heading: 'Start one, and watch it',
     lede:
-      'Two runs at a time, both on screen. Every number here is folded from the event stream the ' +
-      'run itself wrote, which is what stops this page and the run report ever disagreeing about ' +
-      'what happened.',
+      'Start a run and watch it. Every number here comes from the run’s own event stream, so this ' +
+      'page and the report cannot disagree.',
     styles: STYLES,
     body: BODY,
     script: SCRIPT,

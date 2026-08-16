@@ -86,11 +86,17 @@ const BODY = `
       <span class="badge manual" id="tSource">—</span>
     </div>
     <p class="explain">
-      Forty tests failing on one connection error is one incident, not forty defects — so failures
-      are clustered by normalised error, failing step and time window <b>before</b> anything is
-      classified. Breadth is itself the evidence for an infrastructure cause, and a per-test view
-      cannot see it.
+      Failures are grouped <b>before</b> anything is classified.
     </p>
+    <details class="more">
+      <summary>Why grouping comes first</summary>
+      <div class="body">
+        <p>Forty tests failing on one connection error is one incident, not forty defects. They
+        are clustered by normalised error, failing step and time window.</p>
+        <p>Breadth is itself the evidence for an infrastructure cause, and a per-test view cannot
+        see it.</p>
+      </div>
+    </details>
     <label for="tRun">Run</label>
     <select id="tRun"></select>
     <p class="counts-line" id="tCounts"></p>
@@ -100,11 +106,18 @@ const BODY = `
   <section id="tAgreement">
     <div class="head"><h2>Agreement</h2></div>
     <p class="explain">
-      How often the automated verdict matched the person who looked. A rule that classified
-      something wrongly is a defect in the rule and is listed below. A rule that <b>declined</b> a
-      genuine judgement call was right to — those are counted separately, because scoring them as
-      misses would push whoever tunes the rules towards guessing.
+      How often the automated verdict matched the person who looked.
     </p>
+    <details class="more">
+      <summary>What counts as the rule being wrong</summary>
+      <div class="body">
+        <p>A rule that classified something wrongly is a defect in the rule, and is listed
+        below.</p>
+        <p>A rule that <b>declined</b> a genuine judgement call was right to. Those are counted
+        separately, because scoring them as misses would push whoever tunes the rules towards
+        guessing.</p>
+      </div>
+    </details>
     <div class="rate" id="tRate"></div>
     <div id="tDisagreements"></div>
   </section>
@@ -135,10 +148,16 @@ const BODY = `
       <span class="badge manual" id="qCount">0</span>
     </div>
     <p class="explain">
-      Candidates are ranked by <b>rate, not count</b>: a test that fails one run in three matters far
-      more than one that failed twice ever. Nothing here quarantines anything — an entry needs a
-      reason, a named owner and a date, and that is a reviewed decision rather than a click.
+      Ranked by <b>rate, not count</b>. Nothing here quarantines anything.
     </p>
+    <details class="more">
+      <summary>Why rate, and why not a button</summary>
+      <div class="body">
+        <p>A test that fails one run in three matters far more than one that failed twice ever.</p>
+        <p>Quarantining needs a reason, a named owner and a review date — a reviewed decision
+        rather than a click.</p>
+      </div>
+    </details>
     <div id="qCandidates"></div>
     <h3 style="font-size:.9rem;margin:1.3rem 0 0">Already quarantined</h3>
     <div id="qList"></div>
@@ -491,9 +510,8 @@ export function triagePageContent(): DashboardPageContent {
     eyebrow: 'Triage',
     heading: 'What broke, and whether the rules were right',
     lede:
-      'Cluster, then rules, then a person — and the person’s answer is recorded beside the ' +
-      'machine’s rather than replacing it. That comparison is the agreement measurement, and ' +
-      'it is a number on this page rather than an exercise nobody runs.',
+      'Why the failures failed. Grouped first, classified second, and a person’s answer is kept ' +
+      'beside the machine’s rather than replacing it.',
     styles: STYLES,
     body: BODY,
     script: SCRIPT,

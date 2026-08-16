@@ -140,15 +140,14 @@ export async function buildTestUsersView(
   const shared = slots.filter((slot) => slot.origin && slot.origin.includes('secrets.local.json'));
   if (shared.length > 0) {
     warnings.push(
-      `${shared.length} credential(s) resolve from config/secrets.local.json, which is tracked in ` +
-        'git. That is correct only for logins the vendor already publishes. Anything real should ' +
-        'be moved to the private file, which is gitignored.',
+      `${shared.length} credential(s) live in config/secrets.local.json, which is tracked in git. ` +
+        'Fine for logins the vendor publishes; move anything real to the private file.',
     );
   }
   if (refs.sharedEnvironment) {
     warnings.push(
-      'This deployment is declared as shared with people outside the team. Treat its accounts as ' +
-        'shared too: a locked account or a rotated password is somebody else’s next test run.',
+      'Shared with people outside the team — a locked account or a rotated password is somebody ' +
+        'else’s next test run.',
     );
   }
 

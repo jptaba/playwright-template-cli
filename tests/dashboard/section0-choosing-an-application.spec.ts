@@ -38,7 +38,7 @@ test.describe('the picker, with applications onboarded', () => {
     await expect(page.locator('#pick')).toHaveValue('shop-two');
     await expect(page.locator('#env')).toHaveValue('uat');
     await expect(page.locator('#baseURL')).toHaveValue('https://one.shop.test');
-    await expect(page.locator('#pickStatus')).toContainText('shop-two was onboarded');
+    await expect(page.locator('#pickStatus')).toContainText('read-only');
   });
 
   test('shows it, rather than pretending it can be typed over', async ({ dashboard }) => {

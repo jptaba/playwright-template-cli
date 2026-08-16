@@ -92,11 +92,18 @@ const BODY = `
       <span class="badge manual" id="sJira">checking Jira…</span>
     </div>
     <p class="explain">
-      Stories are pulled once and kept in <code>stories/</code>, which is what makes a drafting run
-      reproducible and gives the content hash somewhere to live. A story whose acceptance criteria
-      cannot be identified is <b>refused here</b> rather than drafted from — a title and a paragraph
-      of context is exactly what a model invents against.
+      Pulled once and kept on disk. A story with no acceptance criteria is <b>refused</b> rather
+      than drafted from.
     </p>
+    <details class="more">
+      <summary>Why it is refused rather than attempted</summary>
+      <div class="body">
+        <p>A title and a paragraph of context is exactly what a model invents against — it will
+        produce fluent cases for behaviour nobody ever specified.</p>
+        <p>Keeping the story on disk is also what makes a drafting run reproducible, and gives the
+        content hash somewhere to live so drift is detectable later.</p>
+      </div>
+    </details>
     <label for="sKey">Read a story from Jira <small>an issue key, like FIN-2210</small></label>
     <input type="text" id="sKey" placeholder="FIN-2210" autocomplete="off">
     <button id="sPull">Read it</button>
@@ -118,12 +125,17 @@ const BODY = `
   <section id="sDraft" hidden>
     <div class="head"><h2>Draft cases from it</h2></div>
     <p class="explain">
-      The case author sees requirement text and nothing else — no browser, no tools, no filesystem.
-      A model shown the running application writes cases describing what the application currently
-      does, and those pass on a broken build. Every draft is checked afterwards for a criterion
-      cited and quoted <b>verbatim</b>, because a model cannot be trusted to enforce its own
-      citation rules.
+      The author sees the requirement and nothing else — no browser, no tools, no filesystem.
     </p>
+    <details class="more">
+      <summary>Why it is kept away from the application</summary>
+      <div class="body">
+        <p>A model shown the running application writes cases describing what the application
+        currently <i>does</i> — and those pass on a broken build.</p>
+        <p>Every draft is then checked for a criterion cited and quoted <b>verbatim</b>, because a
+        model cannot be trusted to enforce its own citation rules.</p>
+      </div>
+    </details>
     <label for="sTarget">Application</label>
     <select id="sTarget"></select>
     <button id="sDraftGo">Draft cases and write them to cases/</button>
@@ -138,9 +150,8 @@ const BODY = `
       <span class="badge auto" id="rCount">0</span>
     </div>
     <p class="explain">
-      Nothing has been published and nothing has been committed. Review these as a diff —
-      <code>git diff</code> — then merge, then <code>npm run cases:push -- --dry-run</code> before
-      anything reaches PractiTest.
+      Nothing is published or committed yet. Review as a diff, merge, then
+      <code>cases:push -- --dry-run</code>.
     </p>
     <div id="rList"></div>
   </section>
@@ -151,11 +162,18 @@ const BODY = `
       <span class="badge manual" id="xCount">0</span>
     </div>
     <p class="explain">
-      Quarantined cases cited no criterion, or quoted one that is not in the story — a paraphrase is
-      how a requirement quietly changes meaning. They are written to <code>speculative-</code>
-      files and never published unexamined. Cases the quality gate refused are <b>not written at
-      all</b>, so they are shown here in full.
+      Cited no criterion, or misquoted one. Written to <code>speculative-</code> files and never
+      published unexamined.
     </p>
+    <details class="more">
+      <summary>Why a paraphrase is not close enough</summary>
+      <div class="body">
+        <p>A paraphrase is how a requirement quietly changes meaning — and once a case is
+        published it stops looking like a draft and starts looking like a requirement.</p>
+        <p>Cases the quality gate refused are <b>not written at all</b>, so they are shown here in
+        full.</p>
+      </div>
+    </details>
     <div id="xList"></div>
   </section>
 `;
@@ -420,9 +438,8 @@ export function storiesPageContent(): DashboardPageContent {
     eyebrow: 'Stories',
     heading: 'A story, and the cases it will admit to',
     lede:
-      'Track A, with the two mechanical guards visible rather than promised: every case cites a ' +
-      'criterion and quotes it verbatim, and every criterion is checked for a case behind it. ' +
-      'It writes files and stops — a person and git stay in the loop.',
+      'Turn a requirement into draft test cases. It writes files and stops — you review them as ' +
+      'a diff, like any other change.',
     styles: STYLES,
     body: BODY,
     script: SCRIPT,

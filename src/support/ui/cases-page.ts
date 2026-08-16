@@ -69,11 +69,17 @@ const BODY = `
       <span class="badge manual" id="cScope">every application</span>
     </div>
     <p class="explain">
-      Read from the repository as it stands: cases are files under <code>cases/</code>, specs are
-      files under a pack's <code>tests/</code>, and the link between them is the annotation the spec
-      carries. Nothing here comes from a run — a case with a passing spec and a case with a spec
-      nobody has run yet are the same answer to <b>is this automated</b>.
+      Read from the repository as it stands, not from a run.
     </p>
+    <details class="more">
+      <summary>What counts as covered here</summary>
+      <div class="body">
+        <p>Cases are files under <code>cases/</code>, specs are files under a pack's
+        <code>tests/</code>, and the link between them is the annotation the spec carries.</p>
+        <p>Nothing here comes from a run: a case with a passing spec and a case with a spec nobody
+        has run yet are the same answer to <b>is this automated</b>.</p>
+      </div>
+    </details>
     <label for="cTarget">Application</label>
     <select id="cTarget"></select>
     <p class="counts-line" id="cCounts"></p>
@@ -83,15 +89,17 @@ const BODY = `
   <section id="cNothing" hidden>
     <div class="head"><h2>No cases in the repository yet</h2></div>
     <p class="explain">
-      <code>cases/</code> is the junction both tracks write into, and it is empty. Until something
-      lands there, every spec in the repository cites a case this cannot see, and calling those
-      specs wrong would be the report's own gap talking.
+      <code>cases:pull</code> brings a PractiTest set in; <code>cases:author</code> writes them
+      from a story. Either way they arrive as files, reviewed as a diff.
     </p>
-    <p class="explain">
-      <code>npm run cases:pull</code> brings a PractiTest set in; <code>npm run cases:author</code>
-      writes them from a story. Either way they land as files on a branch and are reviewed as a
-      diff.
-    </p>
+    <details class="more">
+      <summary>Why nothing below is flagged as wrong yet</summary>
+      <div class="body">
+        <p>Until something lands in <code>cases/</code>, every spec in the repository cites a case
+        this page cannot see — and calling those specs wrong would be the report's own gap
+        talking.</p>
+      </div>
+    </details>
   </section>
 
   <section id="cUncovered">
@@ -100,10 +108,15 @@ const BODY = `
       <span class="badge manual" id="uCount">0</span>
     </div>
     <p class="explain">
-      Somebody decided each of these was worth testing. Where the gate below is unhappy, that is
-      usually the reason there is no spec — a case a machine cannot automate is generally one a
-      person could not follow either.
+      Somebody decided each of these was worth testing, and no spec covers it yet.
     </p>
+    <details class="more">
+      <summary>Why some of these have no spec</summary>
+      <div class="body">
+        <p>Usually the quality gate is unhappy with the case itself: one a machine cannot
+        automate is generally one a person could not follow either.</p>
+      </div>
+    </details>
     <div id="uList"></div>
   </section>
 
@@ -113,10 +126,16 @@ const BODY = `
       <span class="badge manual" id="oCount">0</span>
     </div>
     <p class="explain">
-      Each of these runs and reports a result against an id that matches nothing. Either the case
-      was never pulled into the repository, or the annotation is a typo — and both look exactly
-      like a passing test until somebody reconciles the numbers.
+      Each of these reports a result against an id that matches nothing — a missing case, or a
+      typo in the annotation.
     </p>
+    <details class="more">
+      <summary>Why this is worse than a failure</summary>
+      <div class="body">
+        <p>Both look exactly like a passing test until somebody reconciles the numbers, which is
+        usually a quarter later and usually not the person who wrote it.</p>
+      </div>
+    </details>
     <div id="oList"></div>
   </section>
 
@@ -308,9 +327,8 @@ export function casesPageContent(): DashboardPageContent {
     eyebrow: 'Cases',
     heading: 'What is covered, and what only looks it',
     lede:
-      'Cases with no spec is a backlog, and a team knows roughly what is in it. Specs citing a ' +
-      'case that is not there is the list nobody has — those specs run, pass, and report against ' +
-      'an id that will never reconcile.',
+      'Which test cases have a spec, which do not, and which specs cite a case that is not ' +
+      'there.',
     styles: STYLES,
     body: BODY,
     script: SCRIPT,

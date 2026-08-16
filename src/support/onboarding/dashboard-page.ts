@@ -93,11 +93,18 @@ const BODY = `
       <span class="badge manual" id="draftState">nothing in progress</span>
     </div>
     <p class="explain">
-      Onboarding one already? Pick it here to see what its profile says. Otherwise this is a new
-      one, and <b>what you type is kept as you go</b> — moving to another tab and back no longer
-      empties the form. Credentials are the exception: those are never written down, so step 4 is
-      the one thing you re-enter.
+      Pick an application to see its settings, or leave this on <b>New application</b> to add one.
     </p>
+    <details class="more">
+      <summary>What is kept when you leave this page</summary>
+      <div class="body">
+        <p>What you type is saved as you go, so switching to another tab and back no longer empties
+        the form.</p>
+        <p><b>Credentials are the exception.</b> They are never written to the draft, because a
+        draft that remembered one would be a password on disk. Step 4 is the only thing you
+        re-enter.</p>
+      </div>
+    </details>
     <label for="pick">Application</label>
     <select id="pick"></select>
     <button class="secondary" id="editApp" hidden>Change its settings</button>
@@ -114,8 +121,7 @@ const BODY = `
       <span class="badge manual">Needs your input</span>
     </div>
     <p class="explain">
-      The only things nothing can work out on its own: what to call this target, and where the
-      application lives. Everything in steps 2 and 5 is derived from what you put here.
+      Name it, and say where it runs. Everything below is worked out from these two.
     </p>
     <div class="row">
       <div>
@@ -153,18 +159,21 @@ const BODY = `
     </div>
     <p class="lockhint">Unlocks once step 1 has read the application.</p>
     <p class="explain">
-      <b>Nothing to do here unless something looks wrong.</b> These were read from the running
-      application and are already in the fields below.
-      <br><br>
-      <b>Test-id attribute</b> is what <code>getByTestId</code> reads on this application.
-      Applications disagree — <code>data-test</code>, <code>data-testid</code>,
-      <code>data-qa</code> — and it is a property of the app, not of the framework.
-      <br>
-      <b>The three names</b> are <i>accessible names</i>: what a screen reader announces and what
-      <code>getByRole</code> matches. They are usually the field's label and usually <i>not</i> its
-      placeholder — a name copied from a placeholder produces a locator that times out on a field
-      plainly on screen, which is the commonest way a generated pack arrives broken.
+      Read from the running application and already filled in.
+      <b>Nothing to do here unless something looks wrong.</b>
     </p>
+    <details class="more">
+      <summary>What these two things are</summary>
+      <div class="body">
+        <p><b>Test-id attribute</b> — what <code>getByTestId</code> reads on this application.
+        Applications disagree (<code>data-test</code>, <code>data-testid</code>,
+        <code>data-qa</code>), and it is a property of the app rather than of the framework.</p>
+        <p><b>The three names</b> are <i>accessible names</i>: what a screen reader announces and
+        what <code>getByRole</code> matches. Usually the field's label, and usually <i>not</i> its
+        placeholder — a name copied from a placeholder produces a locator that times out on a field
+        plainly on screen, which is the commonest way a generated pack arrives broken.</p>
+      </div>
+    </details>
     <div class="findings" id="findings"></div>
     <div class="row">
       <div>
@@ -200,13 +209,18 @@ const BODY = `
     </div>
     <p class="lockhint">Unlocks once step 1 has read the application.</p>
     <p class="explain">
-      Sensible defaults are already set; change them only where they are wrong for this
-      application. <b>Roles</b> are the identities the suite signs in as — each gets its own
-      stored session, and the first is the default for <code>authedPage</code>. <b>Layers</b> are
-      optional vocabularies: switch one on only if the application really has it, because a
-      capability declared on but absent fails obscurely, while one declared off is reported as
-      “not applicable” rather than as a silent zero.
+      Defaults are set. Change only what is wrong for this application.
     </p>
+    <details class="more">
+      <summary>Roles and layers, and why a wrong one hurts</summary>
+      <div class="body">
+        <p><b>Roles</b> are the identities the suite signs in as. Each gets its own stored session,
+        and the first is the default for <code>authedPage</code>.</p>
+        <p><b>Layers</b> are optional vocabularies. Switch one on only if the application really
+        has it: a capability declared on but absent fails obscurely, while one declared off is
+        reported as “not applicable” rather than as a silent zero.</p>
+      </div>
+    </details>
     <label for="roles">Roles <small>comma separated</small></label>
     <input type="text" id="roles" value="standard" autocomplete="off">
     <div class="row">
@@ -238,27 +252,29 @@ const BODY = `
     </div>
     <p class="lockhint">Unlocks once step 3 has previewed what will be written.</p>
     <p class="explain">
-      One login per role. Specs never see these — they resolve at run time through the
-      <code>secrets</code> fixture, and the generated code carries the <i>reference</i>, never the
-      value. Nothing you type here appears in any response from this page.
-      <br><br>
-      <b>Signing in once</b> is optional and does two things: it proves the locators in step 2
-      actually work, and it derives the one locator nothing can read from a page at rest — the
-      control that only appears <i>after</i> you are signed in. It tries exactly once, because
-      repeated failures lock accounts and the account it would spend is the one the whole suite
-      depends on.
+      One login per role. <b>Nothing typed here appears in any response from this page.</b>
+      Signing in once is optional, and worth it.
     </p>
+    <details class="more">
+      <summary>Where these go, and what signing in proves</summary>
+      <div class="body">
+        <p>Specs never see a credential. They resolve at run time through the <code>secrets</code>
+        fixture, and the generated code carries the <i>reference</i> rather than the value.</p>
+        <p><b>Signing in once</b> does two things: it proves the locators read in step 2 actually
+        work, and it derives the one locator nothing can read from a page at rest — the control
+        that only appears <i>after</i> you are signed in.</p>
+        <p>It tries <b>exactly once</b>. Repeated failures lock accounts, and the account it would
+        spend is the one the whole suite depends on.</p>
+      </div>
+    </details>
     <div id="credentials"></div>
     <button class="secondary" id="verify">Sign in once, to prove the locators work</button>
     <button class="secondary" id="assist">Sign in with a browser you can see</button>
     <button class="secondary" id="assistDone" hidden>I am on the home page</button>
     <button class="secondary" id="assistCancel" hidden>Cancel</button>
     <p class="explain" id="assistExplain" hidden>
-      Use this when anything stands between the password and the home page — a one-time code, a
-      password-expiry notice, a security question, "remember this device?". A browser opens with
-      the form already filled; <b>do whatever the application asks</b>, then press the button. It
-      takes the session, works out the signed-in marker from the page you finished on, and turns
-      each thing it met into a handler.
+      A browser opens with the form filled. <b>Do whatever the application asks</b> — a code, a
+      prompt, a security question — then press the button.
     </p>
     <div class="status" id="verifyStatus"></div>
     <div id="assistOut"></div>
@@ -272,12 +288,17 @@ const BODY = `
     </div>
     <p class="lockhint">Unlocks once step 3 has previewed what will be written.</p>
     <p class="explain">
-      <b>Nothing to fill in.</b> Press the button and the whole target is written from what is
-      above. Nothing is ever overwritten — if any of these files already exist the whole thing is
-      refused, because onboarding is additive. Afterwards the same checks
-      <code>npm run target:doctor</code> runs are shown, so the target is known to be sound before
-      you leave the page.
+      <b>Nothing to fill in.</b> Press the button and everything above is written in one go.
     </p>
+    <details class="more">
+      <summary>What it will and will not do</summary>
+      <div class="body">
+        <p><b>Nothing is ever overwritten.</b> If any of these files already exist the whole thing
+        is refused, because onboarding only ever adds.</p>
+        <p>Afterwards the same checks <code>npm run target:doctor</code> runs are shown, so the
+        target is known to be sound before you leave the page.</p>
+      </div>
+    </details>
     <div id="plan"></div>
     <button id="create">Create the target</button>
     <div class="status" id="result"></div>
@@ -286,11 +307,17 @@ const BODY = `
   <details class="danger">
     <summary>Remove an application</summary>
     <p class="explain">
-      Takes a target back out and leaves the agnostic framework behind: the profile, the
-      four-layer pack, the credential entries and the stored sessions. This is what makes it
-      reasonable to point this repository at a live application on <code>main</code> — try one,
-      drive it, and put the repository back the way it was, without a branch to move between.
+      Removes the profile, the pack, the credential entries, the stored sessions and the cases.
+      Nothing else.
     </p>
+    <details class="more">
+      <summary>Why removing one is a normal thing to do</summary>
+      <div class="body">
+        <p>It leaves the application-agnostic framework behind, which is what makes it reasonable
+        to point this repository at a live application on <code>main</code>: try one, drive it, and
+        put the repository back the way it was — with no branch to move between.</p>
+      </div>
+    </details>
     <div class="warn-strip">
       <b>This deletes files.</b> Anything committed comes back with <code>git checkout</code>;
       anything never committed does not. Nothing happens until you have seen the plan and typed
@@ -494,9 +521,8 @@ function showApplication(app) {
   $('pickStatus').className = 'status';
   $('pickStatus').replaceChildren(
     el('div', 'note',
-      app.name + ' was onboarded ' + when + ' and has ' + app.packFiles + ' file(s) in its pack. ' +
-      'These are the values its profile holds — onboarding is additive and never overwrites, so ' +
-      'change them in config/targets/' + app.name + '.ts, or remove the target and start again.'),
+      'Onboarded ' + when + ' · ' + app.packFiles + ' file(s) · read-only. ' +
+      'Use "Change its settings" to edit.'),
   );
   $('create').disabled = true;
   setDraftState('showing an onboarded application');
@@ -1105,13 +1131,11 @@ $('preview').onclick = async () => {
     */
     if (plan.conflicts.length) {
       box.append(el('div', 'error',
-        plan.name + ' is already onboarded, so nothing will be written. ' +
-        plan.conflicts.length + ' file(s) exist already, starting with ' + plan.conflicts[0] + '.'));
+        plan.name + ' is already onboarded, so nothing will be written — ' +
+        plan.conflicts.length + ' of its file(s) exist.'));
       box.append(el('div', 'note',
-        'Onboarding only ever adds. To change this application, pick it in ' +
-        '"Already onboarded" at the top and edit it there. To replace it, remove it first: ' +
-        'npm run target:remove -- --name=' + plan.name + ' --confirm=' + plan.name + '. ' +
-        'To keep both, choose another name.'));
+        'Edit it at the top of this page, choose another name, or remove it first: ' +
+        'npm run target:remove -- --name=' + plan.name + ' --confirm=' + plan.name));
       $('create').disabled = true;
     } else {
       $('create').disabled = false;
@@ -1388,10 +1412,8 @@ export function onboardingPageContent(): DashboardPageContent {
     eyebrow: 'Onboarding',
     heading: 'Add an application under test',
     lede:
-      'Reads the running application, then writes the profile, the four-layer pack, the vendored ' +
-      'contract document and the credential entries in one go. This is <code>npm run ' +
-      'target:new</code> with the application in front of it, so the answers it would otherwise ' +
-      'ask you for are read rather than guessed.',
+      'Reads the running application, then writes its profile and its whole four-layer pack in one ' +
+      'go — so the answers onboarding would otherwise ask you for are read rather than guessed.',
     facts: [
       { label: 'You fill in', value: 'Steps 1, 3 and 4' },
       { label: 'Filled in for you', value: 'Steps 2 and 5' },

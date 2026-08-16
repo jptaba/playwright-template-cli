@@ -48,11 +48,17 @@ const BODY = `
   <section>
     <div class="head"><h2>Which application</h2></div>
     <p class="explain">
-      Every login this application signs in as, whether the store can resolve it, and which file
-      answered. <b>No value is ever shown here</b> — not on the page, not in a response, not in a
-      screenshot of it. What you get is existence, field names and provenance, which is what a
-      credential problem actually needs.
+      Pick the application whose logins you want to look at.
     </p>
+    <details class="more">
+      <summary>Why no value is ever shown</summary>
+      <div class="body">
+        <p>Not on the page, not in a response, not in a screenshot of it. What you get instead is
+        whether it resolves, which fields are present, and which file answered.</p>
+        <p>That is what a credential problem actually needs — and making the safe answer the easy
+        one is what stops somebody reaching for a tool that prints the secret.</p>
+      </div>
+    </details>
     <label for="pick">Application</label>
     <select id="pick"></select>
     <div class="status" id="pickStatus"></div>
@@ -70,9 +76,7 @@ const BODY = `
   <section>
     <div class="head"><h2>Set a credential</h2></div>
     <p class="explain">
-      Choose where it goes <i>before</i> you type it. The options are ordered safest-first, and each
-      one states what it does with the value, how it is read back, and what happens when the
-      password changes.
+      Choose where it goes <i>before</i> you type it. Safest first.
     </p>
     <div id="options"></div>
     <div class="row">
@@ -258,9 +262,8 @@ export function usersPageContent(): DashboardPageContent {
     eyebrow: 'Test users',
     heading: 'Where the logins live',
     lede:
-      'Every account this application signs in as, whether it resolves, and which store answered. ' +
-      'Choose where a credential is kept before you type it — the options are ordered safest-first, ' +
-      'and each says what it does with the value. <b>Nothing here ever displays one.</b>',
+      'Every login this application signs in as, and where each one is kept. ' +
+      '<b>No value is ever shown here.</b>',
     facts: [
       { label: 'Shows', value: 'Existence and provenance' },
       { label: 'Never shows', value: 'A value' },

@@ -258,6 +258,52 @@ export const DASHBOARD_STYLES = `
   }
   .ctx-none { color: var(--muted); font-style: italic; }
 
+  /* ---------- notes that stay out of the way ---------- */
+  /*
+     Every page carried its reasoning inline, and the reasoning is worth
+     keeping: it is why a rule exists, and somebody meeting a refusal wants it.
+     It is not worth a hundred words above the field they came to fill in —
+     onboarding's step 2 opened with a 108-word paragraph.
+     So the instruction stays inline in one line, and the reasoning goes behind
+     a disclosure that costs one line closed. A native details element, so it is
+     keyboard-operable and announced without a line of JavaScript.
+  */
+  details.more { margin: .5rem 0 0; }
+  details.more > summary {
+    cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: .4rem;
+    font-size: .82rem; color: var(--muted); border-bottom: 1px dotted var(--rule-strong);
+    width: fit-content;
+  }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more > summary::before { content: "?"; 
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.05rem; height: 1.05rem; border-radius: 50%;
+    border: 1px solid var(--rule-strong); font-size: .7rem; font-weight: 700;
+  }
+  details.more > summary:hover { color: var(--ink); }
+  details.more[open] > summary { margin-bottom: .5rem; }
+  details.more .body {
+    font-size: .87rem; line-height: 1.6; color: var(--ink-2);
+    border-left: 2px solid var(--rule); padding: .1rem 0 .1rem .8rem;
+  }
+  details.more .body p { margin: 0 0 .5rem; }
+  details.more .body p:last-child { margin-bottom: 0; }
+
+  /*
+     A single word that needs a gloss, inline in a sentence. Same mechanism at
+     a smaller size, so there is one thing to learn rather than two.
+  */
+  details.gloss { display: inline; }
+  details.gloss > summary {
+    display: inline; cursor: pointer; list-style: none;
+    border-bottom: 1px dotted var(--accent); color: var(--accent-ink);
+  }
+  details.gloss > summary::-webkit-details-marker { display: none; }
+  details.gloss .body {
+    display: block; margin: .4rem 0; font-size: .85rem; color: var(--ink-2);
+    background: var(--surface-2); border-radius: 6px; padding: .5rem .7rem;
+  }
+
   /* ---------- the right rail ---------- */
   /*
      Only where a page supplies one. It holds what is *about* the page — where

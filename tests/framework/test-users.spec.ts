@@ -171,7 +171,7 @@ test.describe('the view', () => {
       }),
       'shop',
     );
-    expect(view.warnings.join(' ')).toContain('shared');
+    expect(view.warnings.join(' ')).toContain('outside the team');
   });
 
   test('a store that cannot be reached is a missing account, not a crash', async () => {
