@@ -61,9 +61,23 @@ wrong and have been deleted — see "Deleted guesses" at the bottom.
 
 ## Ranked items
 
-### 1. The derived signed-in marker is never checked for uniqueness — `ready`
+### 1. The derived signed-in marker is never checked for uniqueness — `done`
 
-**This is the one that is actually broken, so it outranks the UX work.**
+Shipped on `agent/2026-08-16-marker-uniqueness`. Uniqueness now outranks every
+quality judgement in the ranking, because it is not one: a duplicated name
+cannot resolve, so the dullest unique control beats the best-named ambiguous
+one. When every candidate is duplicated the marker is still returned, carrying
+`ambiguous: true`, and the page and the generated file both say why it will
+fail rather than claiming success.
+
+Verified end to end: onboarding saucedemo through the dashboard now derives
+`button "Open Menu"` instead of the duplicated `link "Sauce Labs Backpack"`, and
+**`setup:auth` passes with no file edited by hand** — the stated aim, met on
+this application for the first time.
+
+The original text follows, because the failure is worth keeping.
+
+**This was the one that was actually broken, so it outranked the UX work.**
 
 `proposeSignedInMarker` (`src/support/onboarding/probe.ts:178`) diffs the
 before/after aria snapshots and proposes a control that appeared, ranking
@@ -179,21 +193,33 @@ If the draft has probe results, the sections they fill should open. This is the
 recoverability item that survived contact with the running system; the rest of
 the original item 5 was wrong.
 
-### 10. Pick a live application to hold the framework to, end to end — `hypothesis`
+### 10. Keep a second, deliberately unlike target — `ready`
 
 Owner's ask, 2026-08-16: find a real application on the internet usable for a
 comprehensive end-to-end run, so the framework is exercised as a whole rather
 than at the seams.
 
-`toolshop` (practicesoftwaretesting.com) is already the committed target and has
-a UI, a published API and a database story. saucedemo is much simpler but proved
-useful precisely because it is *different* — item 1 exists because saucedemo
-breaks an assumption toolshop does not.
+**Decision taken by the owner, 2026-08-16: keep two unlike targets.** Deepen
+`toolshop` (practicesoftwaretesting.com — UI, published API, database story) as
+the comprehensive one, and keep a second, simpler, deliberately different target
+permanently so agnosticism is tested continuously rather than assumed.
 
-The decision to take: whether "comprehensive" means deepening toolshop, or
-keeping a second, deliberately unlike target so agnosticism is continuously
-tested. **Needs a sentence from the owner before it becomes work** — the wrong
-answer costs a lot of specs. Everything ranked above it is independent of it.
+The case for it is already proven: item 1 exists *only* because saucedemo breaks
+an assumption toolshop does not. One target would have shipped that bug
+indefinitely.
+
+Scope for the first PR — keep it small:
+
+- Commit `saucedemo` as the second target. It onboards cleanly in about a
+  minute and `setup:auth` passes; the recipe is in `journey-notes.md`.
+- Its credentials are printed on its own login page, so `secretSource: local`
+  is legitimate here and the profile should say so.
+- One `@smoke` e2e spec, no more. The point of this PR is the second shape
+  existing, not coverage.
+- Check `npm run verify` still passes with two targets, and that an unset
+  `TARGET` still builds only the `framework` project.
+
+Do **not** fold item 11 into this.
 
 ### 11. A repeatable learn-fix-optimise loop over a full run — `hypothesis`
 
@@ -212,7 +238,9 @@ cheap and all independent:
   available on day one.
 - Only then decide what "optimise" means here, in numbers.
 
-Depends on item 10. Do not start it before that sentence exists.
+Depends on item 10, which is now decided but not yet built. Do not start this
+before a second target is committed — with one target there is nothing to
+measure agnosticism against.
 
 ---
 

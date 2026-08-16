@@ -158,6 +158,14 @@ export interface SignedInMarker {
   name: string;
   /** True when it is this account's own name, which does not generalise. */
   identitySpecific: boolean;
+  /**
+   * True when the name matches more than one control on the signed-in page, so
+   * `getByRole` cannot resolve it at all.
+   *
+   * Only ever set when *every* candidate was duplicated. A unique marker is
+   * always preferred, however ordinary — see the ranking below.
+   */
+  ambiguous?: true;
 }
 
 /**
@@ -189,13 +197,39 @@ export function proposeSignedInMarker(
     return found;
   };
 
-  const was = new Set(controls(before).map((control) => `${control.role}|${control.name}`));
-  const appeared = controls(after).filter(
+  const key = (control: { role: string; name: string }): string =>
+    `${control.role}|${control.name}`;
+
+  const was = new Set(controls(before).map(key));
+  const afterControls = controls(after);
+  const appeared = afterControls.filter(
     (control) =>
-      !was.has(`${control.role}|${control.name}`) &&
-      !/sign\s*out|log\s*out|logout|signout/i.test(control.name),
+      !was.has(key(control)) && !/sign\s*out|log\s*out|logout|signout/i.test(control.name),
   );
   if (appeared.length === 0) return null;
+
+  /*
+     How many controls each name matches on the signed-in page.
+
+     A marker is a `getByRole` call, and `getByRole` is strict: a name matching
+     two controls does not pick one, it throws. Saucedemo is the ordinary case
+     rather than an exotic one — every product renders an image link and a title
+     link carrying the same accessible name, so the first shop-shaped
+     application offers six duplicates before it offers anything unique.
+
+     What made that bite was the ranking below rather than the duplication
+     itself: "Sauce Labs Backpack" is three capitalised words, so
+     `looksLikeAPersonsName` read it as an account menu and ranked it *above*
+     the `button "Open Menu"` that only exists once and only when signed in.
+     The pack was written with a locator that could not resolve, `setup:auth`
+     died on a strict-mode violation, and the page had already said "Signed in."
+  */
+  const occurrences = new Map<string, number>();
+  for (const control of afterControls) {
+    occurrences.set(key(control), (occurrences.get(key(control)) ?? 0) + 1);
+  }
+  const duplicated = (control: { role: string; name: string }): boolean =>
+    (occurrences.get(key(control)) ?? 0) > 1;
 
   /*
      A marker that is the signed-in person's own name is not a marker.
@@ -281,10 +315,26 @@ export function proposeSignedInMarker(
     return control.role === 'button' || control.role === 'menuitem' ? 2 : 3;
   };
 
-  const ranked = [...appeared].sort((a, b) => rank(a) - rank(b));
+  /*
+     Uniqueness outranks every quality judgement above it, because it is not a
+     quality judgement: a duplicated name cannot resolve, so the dullest unique
+     control beats the best-named ambiguous one. An arbitrary new button that
+     works is worth more than an account menu that throws.
+  */
+  const ranked = [...appeared].sort(
+    (a, b) => Number(duplicated(a)) - Number(duplicated(b)) || rank(a) - rank(b),
+  );
   const chosen = ranked[0];
   if (!chosen) return null;
-  return { ...chosen, identitySpecific: identityShaped(chosen.name) };
+
+  return {
+    ...chosen,
+    identitySpecific: identityShaped(chosen.name),
+    // Reached only when every candidate was duplicated. Said plainly rather
+    // than written silently: the callers turn this into a sentence, and the
+    // scaffold marks the locator as needing a scope.
+    ...(duplicated(chosen) ? { ambiguous: true as const } : {}),
+  };
 }
 
 /** Paths a published OpenAPI document is served from, in order of likelihood. */
@@ -437,22 +487,33 @@ export async function verifySignIn(
     };
   }
 
+  /*
+     The sentences below no longer open with "Signed in." — the page prints its
+     own "Signed in." badge in front of them, and both runs of the onboarding
+     journey showed the result as "Signed in. Signed in. The only new control…".
+  */
   const marker = proposeSignedInMarker(before, after, [options.credentials.username]);
   return marker
     ? {
         ok: true,
         marker,
-        detail: marker.identitySpecific
-          ? `Signed in. The only new control is the ${marker.role} "${marker.name}", which is ` +
-            'this account’s own name — it will establish this role’s session and report every ' +
-            'other role as signed out. Generalise it before adding a second role.'
-          : `Signed in. The ${marker.role} "${marker.name}" appeared, and is proposed as the signed-in marker.`,
+        detail: marker.ambiguous
+          ? `Every control that appeared shares its name with another on the same page, so the ` +
+            `best available marker — the ${marker.role} "${marker.name}" — matches more than one ` +
+            'control and getByRole will refuse it rather than pick one. It has been written with ' +
+            'that said against it: scope it to the container you mean, or replace it with ' +
+            'something the signed-in page shows exactly once.'
+          : marker.identitySpecific
+            ? `The only new control is the ${marker.role} "${marker.name}", which is ` +
+              'this account’s own name — it will establish this role’s session and report every ' +
+              'other role as signed out. Generalise it before adding a second role.'
+            : `The ${marker.role} "${marker.name}" appeared, and is proposed as the signed-in marker.`,
       }
     : {
         ok: true,
         marker: null,
         detail:
-          'Signed in, but nothing new and named appeared to use as a signed-in marker. ' +
+          'Nothing new and named appeared to use as a signed-in marker. ' +
           'Fill it in by hand from a snapshot of the signed-in page.',
       };
 }

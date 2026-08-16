@@ -92,3 +92,45 @@ strings, and it needs no target. Items 2–4 are the ordering trap and its
 signposting and should follow as one or two small PRs. Items 10 and 11 came
 from the owner mid-run and are `hypothesis` pending one decision from them —
 recorded in the item.
+
+## 2026-08-16 · run 2 · The marker that could not resolve
+
+**Picked:** backlog item 1 — uniqueness of the derived signed-in marker.
+**Did:** `proposeSignedInMarker` now counts how many controls each `role|name`
+matches in the after-snapshot and sorts unique candidates ahead of duplicated
+ones, *before* the existing quality ranking. When every candidate is duplicated
+the best one is still returned, carrying a new optional `ambiguous: true`, and
+three surfaces say so: `verifySignIn`'s detail, the dashboard's assisted sign-in
+panel, and the generated `locators/sign-in.ts` provenance comment. The flag is
+carried through `dashboard.ts`'s create payload and `isMarker` guard, or it
+would have been dropped between the page and the file. Four framework tests
+added, built from snapshot-string pairs. Also removed the duplicated
+"Signed in." — the page prints its own badge and the detail repeated it.
+**Verify:** `npm run verify` passes — 736 tests. Diff 150 lines across 5 files.
+**PR:** branch `agent/2026-08-16-marker-uniqueness`.
+**Learned:**
+
+- **The duplication was not the whole bug; the ranking was.** "Sauce Labs
+  Backpack" is three capitalised words with no interface vocabulary, so
+  `looksLikeAPersonsName` read it as an account menu and ranked it at 1 —
+  *above* the `button "Open Menu"` sitting at 2 that appears exactly once and
+  only when signed in. A uniqueness check alone would have fixed saucedemo; the
+  reason it is sorted ahead of the quality ranking rather than folded into it is
+  that a duplicated name cannot resolve at all, so no quality judgement can
+  outrank it.
+- **Making `ambiguous` optional kept the diff small.** `toEqual` ignores
+  undefined properties, so every existing assertion against the three-field
+  marker passed unchanged. A required field would have touched a dozen call
+  sites for no benefit.
+- **Proven end to end, not just in tests.** Re-onboarded saucedemo through the
+  dashboard: the page now reports `button "Open Menu"`, the pack is written with
+  it, and **`setup:auth` passes** — the aim `npm run onboard` states in its own
+  banner, met on this application for the first time. The scratch target was
+  removed again afterwards.
+- Owner answered the item 10 decision mid-run: **keep two unlike targets.** Item
+  10 is now `ready` with a scoped first PR; item 11 still waits on it landing.
+
+**Next:** Item 2 — verifying after Create derives the right marker and throws it
+away. It is the other half of the same story as item 1 and now the highest
+`ready` item. Items 3 and 4 are its signposting and may fold into the same PR if
+the diff stays small; item 10 is a good standalone after that.

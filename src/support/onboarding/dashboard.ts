@@ -554,6 +554,9 @@ function readScaffoldOptions(body: Record<string, unknown>): ScaffoldOptions {
                     role: String(signIn.signedInMarker.role),
                     name: String(signIn.signedInMarker.name),
                     identitySpecific: signIn.signedInMarker.identitySpecific === true,
+                    // Carried through, or the file is written without the one
+                    // warning that says why the locator cannot resolve.
+                    ...(signIn.signedInMarker.ambiguous === true ? { ambiguous: true as const } : {}),
                   },
                 }
               : {}),
@@ -670,7 +673,7 @@ function readServices(raw: unknown): Record<string, string> {
 
 function isMarker(
   value: unknown,
-): value is { role: string; name: string; identitySpecific?: boolean } {
+): value is { role: string; name: string; identitySpecific?: boolean; ambiguous?: boolean } {
   if (typeof value !== 'object' || value === null) return false;
   const marker = value as { role?: unknown; name?: unknown };
   // The role is written straight into a `getByRole` call in generated source,

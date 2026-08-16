@@ -63,7 +63,13 @@ export interface ScaffoldOptions {
      * diffing the page. The one locator that cannot be read from a page at
      * rest, because it is by definition only there afterwards.
      */
-    signedInMarker?: { role: string; name: string; identitySpecific?: boolean };
+    signedInMarker?: {
+      role: string;
+      name: string;
+      identitySpecific?: boolean;
+      /** The name matches more than one control, so `getByRole` cannot resolve it. */
+      ambiguous?: boolean;
+    };
   };
 
   /**
@@ -542,6 +548,14 @@ function locatorsFile(
    signIn.signedInMarker
      ? `\n *\n * \`signedInMarker\` was derived by signing in once and diffing the page — it
  * is the control that appeared and was not there before.${
+   signIn.signedInMarker.ambiguous
+     ? `\n *\n * **This name matches more than one control on the signed-in page, and every
+ * other candidate did too.** As written it will not resolve: \`getByRole\` is
+ * strict and refuses an ambiguous name rather than picking one, so
+ * \`setup:auth\` will fail here until it is scoped to the container you mean or
+ * replaced with something the signed-in page shows exactly once.`
+     : ''
+ }${
    signIn.signedInMarker.identitySpecific
      ? `\n *\n * **It carries that account's own name, so it is specific to one role.** It will
  * establish that role's session and report every other role as signed out.

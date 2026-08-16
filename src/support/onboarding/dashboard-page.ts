@@ -1366,6 +1366,19 @@ $('assistDone').onclick = async () => {
          and that failure arrives on whichever spec happens to use the second
          role, long after anybody is looking at this page.
       */
+      /*
+         Reported before the identity warning, because it is the more serious
+         of the two: an identity-specific marker works for one role, and an
+         ambiguous one works for none.
+      */
+      if (result.marker.ambiguous) {
+        box.append(el('div', 'diag error',
+          'That name matches more than one control on the signed-in page, and so did every ' +
+          'other candidate. getByRole refuses an ambiguous name rather than picking one, so ' +
+          'setup:auth will fail here until it is scoped to the container you mean, or replaced ' +
+          'with something the signed-in page shows exactly once. The generated locator file ' +
+          'says so too.'));
+      }
       if (result.marker.identitySpecific) {
         box.append(el('div', 'diag error',
           'That is this account\\'s own name, so it is specific to one role: it will establish ' +

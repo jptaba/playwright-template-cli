@@ -284,6 +284,51 @@ test.describe('the signed-in marker', () => {
       identitySpecific: false,
     });
   });
+
+  test('prefers a duller control that resolves over a better one that cannot', () => {
+    /*
+       Saucedemo, and it is the ordinary case rather than an exotic one: every
+       product renders an image link and a title link carrying the same
+       accessible name. "Sauce Labs Backpack" is three capitalised words with no
+       interface vocabulary, so it reads as an account menu and used to outrank
+       the `button "Open Menu"` that appears exactly once and only when signed
+       in. The pack was written with a locator that cannot resolve, and
+       `setup:auth` died on a strict-mode violation after the page had said
+       "Signed in."
+    */
+    const after = [
+      '- link "Sauce Labs Backpack"',
+      '- link "Sauce Labs Backpack"',
+      '- button "Open Menu"',
+      '- button "Add to cart"',
+      '- button "Add to cart"',
+    ].join('\n');
+
+    expect(proposeSignedInMarker(signedOut, after)).toEqual({
+      role: 'button',
+      name: 'Open Menu',
+      identitySpecific: false,
+    });
+  });
+
+  test('says so when every candidate is duplicated, rather than writing a lie', () => {
+    /*
+       There is nothing good to choose here, and the honest answer is the best
+       available one carrying the reason it will fail — not silence, and not
+       null, which would throw away a marker a person can scope in one edit.
+    */
+    const after = '- link "Item"\n- link "Item"\n- button "Buy"\n- button "Buy"';
+    const marker = proposeSignedInMarker(signedOut, after);
+
+    expect(marker).toMatchObject({ ambiguous: true });
+    expect(marker?.name).toBe('Buy');
+  });
+
+  test('does not flag a marker that appears once', () => {
+    // The flag must stay off the ordinary path, or every generated file grows a
+    // warning that means nothing.
+    expect(proposeSignedInMarker(signedOut, signedIn)).not.toHaveProperty('ambiguous');
+  });
 });
 
 test('verifying a sign-in tries exactly once, however it goes', async () => {
