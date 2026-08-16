@@ -18,6 +18,9 @@ async function readyForCredentials(
   await page.fill('#baseURL', 'https://staging.shop.test');
   await page.check('#confirmTest');
   await page.click('#probe');
+  // The probe has to have *finished*, not merely been started: a click returns
+  // as soon as it is delivered, and everything below reads what it wrote.
+  await expect(page.locator('#s3')).not.toHaveAttribute('inert', '');
   await page.selectOption('#secrets', options.store ?? 'local');
   if (options.roles !== undefined) await page.fill('#roles', options.roles);
   await page.click('#preview');

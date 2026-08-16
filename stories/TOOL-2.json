@@ -1,13 +1,12 @@
 {
   "key": "TOOL-2",
-  "summary": "Read a product page before buying",
-  "description": "A tool is bought on its specification as much as its price. The product page is where that decision is made, so everything needed to make it has to be on that one page.",
+  "summary": "Sign in and out as a returning customer",
+  "description": "The account menu, the cart and the invoice history all depend on a session. Signing in has to be provable from the page, and signing out has to actually end it.",
   "acceptanceCriteria": [
-    "The product page shows the product name as its main heading.",
-    "The product page shows the price to two decimal places.",
-    "The product page shows the product description.",
-    "The product page lists the product specifications as rows of name and value.",
-    "The product page offers related products under a heading reading \"Related products\"."
+    "A registered customer signing in with the correct password reaches their account page.",
+    "The account menu appears in the navigation once signed in, and is absent when signed out.",
+    "Signing in with a wrong password does not establish a session and the form reports it.",
+    "Signing out returns the navigation to its signed-out state."
   ],
-  "contentHash": "ed5e124cd6e0c65e"
+  "contentHash": "bc651f627dbc89db"
 }

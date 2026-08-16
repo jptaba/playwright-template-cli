@@ -1,0 +1,22 @@
+id: null
+target: toolshop
+source:
+  type: jira-story
+  key: TOOL-5
+  contentHash: b544d7860b9f0c13
+  authoredBy: null
+coversAC:
+  - TOOL-5-AC1
+acQuoted: The sign-in form has no critical or serious accessibility violations.
+title: The sign-in form has no critical or serious accessibility violations
+preconditions:
+  - The sign-in form at /auth/login is reachable
+steps:
+  - action: Scan /auth/login against wcag22aa, the standard the profile declares
+    expected: Findings are returned
+assertions:
+  - 0 critical violations
+  - 0 serious violations
+priority: high
+type: positive
+caseHash: b7434e664c2147e5

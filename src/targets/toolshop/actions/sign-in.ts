@@ -7,17 +7,12 @@ export interface Credentials {
 }
 
 /**
- * L2 — TEMPLATE. Named business verbs.
+ * L2 — named business verbs.
  *
- * Three rules make this layer work:
- *  - **Compose L1, return data, assert nothing.** A spec that cannot see the
- *    outcome cannot make an interesting claim about it, and an assertion
- *    buried in an action is invisible to the person reviewing the spec.
- *  - **Name the step for intent, not mechanics.** These titles become the
- *    report's narrative for someone who does not know what a locator is.
- *    "Sign in as the approver", never "click #login-btn".
- *  - **Derive identifiers, never transcribe them.** If a verb needs one of
- *    the application's internal ids, read it from the running application.
+ *  - Compose L1, return data, assert nothing. An assertion buried in an action
+ *    is invisible to whoever reviews the spec.
+ *  - Name the step for intent, not mechanics: these titles are the narrative a
+ *    product owner reads in the report.
  */
 export const signIn = {
   /**
@@ -26,7 +21,7 @@ export const signIn = {
    */
   async withCredentials(page: Page, credentials: Credentials): Promise<void> {
     await test.step(`Sign in as ${credentials.username}`, async () => {
-      await page.goto('/');
+      await page.goto('/auth/login');
       await signInLocators.username(page).fill(credentials.username);
       await signInLocators.password(page).fill(credentials.password);
       await signInLocators.submit(page).click();
@@ -34,8 +29,11 @@ export const signIn = {
   },
 
   /**
-   * Whether the page currently carries a session. Used by auth.setup.ts to
-   * fail loudly rather than write a storage state that holds no session.
+   * Whether the page currently carries a session.
+   *
+   * `isVisible()` does not wait, which is right here and wrong everywhere
+   * else: this is asked *after* signing out as well, and a call that waited
+   * would sit for fifteen seconds every time the honest answer is "no".
    */
   async isSignedIn(page: Page): Promise<boolean> {
     return signInLocators.signedInMarker(page).isVisible();
@@ -46,5 +44,16 @@ export const signIn = {
     const banner = signInLocators.error(page);
     if (!(await banner.isVisible())) return null;
     return (await banner.textContent())?.trim() ?? null;
+  },
+
+  /** End the session. The menu has to be opened before its items exist. */
+  async signOut(page: Page): Promise<void> {
+    await test.step('Sign out', async () => {
+      await signInLocators.signedInMarker(page).click();
+      await signInLocators.signOut(page).click();
+      // The fact, not the network: the sign-in link returning is what "signed
+      // out" means, and it is what the next spec depends on.
+      await signInLocators.signInLink(page).waitFor({ state: 'visible' });
+    });
   },
 };

@@ -1,0 +1,25 @@
+id: null
+target: toolshop
+source:
+  type: jira-story
+  key: TOOL-2
+  contentHash: bc651f627dbc89db
+  authoredBy: null
+coversAC:
+  - TOOL-2-AC1
+acQuoted: A registered customer signing in with the correct password reaches
+  their account page.
+title: A registered customer signs in and reaches their account
+preconditions:
+  - The registered customer customer@practicesoftwaretesting.com exists
+steps:
+  - action: Open the sign-in form at /auth/login
+    expected: The "Email address *" and "Password *" fields are shown
+  - action: Sign in as customer@practicesoftwaretesting.com with the password held
+      at qa/toolshop/pools/workforce/customer/1
+    expected: The account page at /account is shown
+assertions:
+  - The account menu is shown in the navigation
+priority: critical
+type: positive
+caseHash: ef90cb2bc7f72edd

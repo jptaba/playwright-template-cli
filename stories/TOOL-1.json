@@ -1,12 +1,12 @@
 {
   "key": "TOOL-1",
   "summary": "Search the catalogue for a tool by name",
-  "description": "Shoppers arrive knowing roughly what they want — \"pliers\", \"hammer\" — and the catalogue runs to several pages. Search has to narrow it, say what it found, and be undoable.",
+  "description": "Shoppers arrive knowing roughly what they want — \"pliers\", \"hammer\" — and the catalogue runs to fifty products. Search has to narrow it, say what it searched for, and be undoable without reloading the page.",
   "acceptanceCriteria": [
-    "Searching for a term returns only products whose name or description contains that term.",
-    "The results caption states the number of matches and the term searched for, in the form \"<n> products found for <term>\".",
-    "A search that matches nothing shows no products, and the caption states \"0 products found\".",
-    "Clearing the search restores the unfiltered first page of the catalogue."
+    "Searching for a term shows only products whose name matches that term.",
+    "The page states what was searched for, in the form \"Searched for: <term>\".",
+    "A search that matches nothing shows no products and the message \"There are no products found.\"",
+    "Clearing the search restores the unfiltered catalogue."
   ],
-  "contentHash": "fbd823a498bab68f"
+  "contentHash": "bc3eb446532aff80"
 }

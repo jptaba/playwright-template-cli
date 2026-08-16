@@ -1,0 +1,24 @@
+id: null
+target: toolshop
+source:
+  type: jira-story
+  key: TOOL-1
+  contentHash: bc3eb446532aff80
+  authoredBy: null
+coversAC:
+  - TOOL-1-AC1
+acQuoted: Searching for a term shows only products whose name matches that term.
+title: Searching for a tool shows only the products that match it
+preconditions:
+  - The catalogue is reachable and has products in it
+steps:
+  - action: Open the product catalogue
+    expected: Products are listed
+  - action: Search for "pliers"
+    expected: Only products whose name contains "pliers" remain
+assertions:
+  - Every product name shown contains the search term
+  - Fewer products are shown than before the search
+priority: high
+type: positive
+caseHash: c013ec6507b98001

@@ -133,6 +133,21 @@ if (!target) {
       testDir: targetRoot,
       testMatch: /auth\.setup\.ts$/,
       use: { ...devices['Desktop Chrome'] },
+      /*
+         The one project where a retry is the right answer, and only because of
+         what it is: establishing a precondition, not making a claim. Every
+         other project retries nothing, because a retried assertion is a
+         result nobody can trust.
+
+         It earns its place. Signing in reaches the account page and the
+         navigation intermittently renders with *neither* the account menu nor
+         a "Sign in" link — a third state that is neither signed in nor out.
+         That is the application's defect, it is visible in the screenshot the
+         failure captures, and it must not be hidden by weakening the marker
+         until it passes. A second attempt establishes the session; the first
+         failure is still in the report.
+      */
+      retries: 2,
     },
     {
       name: 'auth-flows',

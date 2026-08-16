@@ -1,0 +1,22 @@
+id: null
+target: toolshop
+source:
+  type: jira-story
+  key: TOOL-4
+  contentHash: 9ffafd22ce37aa05
+  authoredBy: null
+coversAC:
+  - TOOL-4-AC1
+acQuoted: The products endpoint returns a page of products with a total count.
+title: The products endpoint returns a page of products with a total
+preconditions:
+  - The API is reachable
+steps:
+  - action: Request page 1 of GET /products
+    expected: A page envelope comes back
+assertions:
+  - The page holds at least 1 product
+  - The reported total is at least as large as the number of products on the page
+priority: high
+type: positive
+caseHash: a67899579d21fdf1

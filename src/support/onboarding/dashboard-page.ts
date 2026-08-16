@@ -637,7 +637,12 @@ async function loadState(keepSelection) {
   for (const app of applications) {
     const option = document.createElement('option');
     option.value = app.name;
-    option.textContent = app.name + ' · ' + app.environment + ' · onboarded ' + app.onboardedAt.slice(0, 10);
+    /*
+       Name and environment, and no date. Which day a profile was last written
+       is not something anybody picks an application by, and on a list of two
+       it was the longest part of the label.
+    */
+    option.textContent = app.name + ' · ' + app.environment;
     select.append(option);
   }
 

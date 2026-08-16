@@ -1,13 +1,12 @@
 {
   "key": "TOOL-3",
-  "summary": "Sign in to my account",
-  "description": "Returning customers sign in with the email address they registered. A refusal has to be visible and has to say nothing about which half of the credential was wrong.",
+  "summary": "Put a tool in the cart and see what it comes to",
+  "description": "The cart is the last thing a shopper reads before paying, so the arithmetic on it has to be right and it has to be reversible. It lives against the signed-in account rather than in the browser.",
   "acceptanceCriteria": [
-    "The sign-in form labels its fields \"Email address *\" and \"Password *\".",
-    "Signing in with a valid email and password opens the account page at the path /account.",
-    "Once signed in, the navigation shows the account menu in place of the \"Sign in\" link.",
-    "Signing in with a wrong password leaves the customer on the sign-in page and shows an error message.",
-    "The error message for a wrong password does not say whether the email address is registered."
+    "A product added from its page appears in the cart with the quantity that was chosen.",
+    "The line total for a product is its unit price multiplied by its quantity.",
+    "The order total is the sum of the line totals.",
+    "A product removed from the cart is gone from it."
   ],
-  "contentHash": "a2492db70ae09485"
+  "contentHash": "bc6f32e10d37bf69"
 }

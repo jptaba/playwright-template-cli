@@ -1,0 +1,27 @@
+id: null
+target: toolshop
+source:
+  type: jira-story
+  key: TOOL-3
+  contentHash: bc6f32e10d37bf69
+  authoredBy: null
+coversAC:
+  - TOOL-3-AC2
+acQuoted: The line total for a product is its unit price multiplied by its quantity.
+title: The cart multiplies unit price by quantity, and totals the lines
+preconditions:
+  - A customer is signed in
+  - The cart is empty
+steps:
+  - action: Open a product from the catalogue
+    expected: Its price is shown
+  - action: Add two of it to the cart
+    expected: The cart holds one line for it
+  - action: Open the cart
+    expected: The line and the order total are shown
+assertions:
+  - The line total equals the unit price multiplied by the quantity
+  - The order total equals the sum of the line totals
+priority: critical
+type: positive
+caseHash: 243d70b3ed86a2f9

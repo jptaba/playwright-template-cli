@@ -1,0 +1,24 @@
+id: null
+target: toolshop
+source:
+  type: jira-story
+  key: TOOL-4
+  contentHash: 9ffafd22ce37aa05
+  authoredBy: null
+coversAC:
+  - TOOL-4-AC2
+acQuoted: Searching the API for a term returns the same products the storefront
+  shows for it.
+title: Searching the API returns the same products the storefront shows
+preconditions:
+  - The API and the storefront are both reachable
+steps:
+  - action: Search the storefront for "pliers"
+    expected: Matching products are listed
+  - action: Search the API for "pliers"
+    expected: Matching products come back
+assertions:
+  - Both return the same set of product names
+priority: high
+type: positive
+caseHash: fc9970328972b1cd

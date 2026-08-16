@@ -1,0 +1,22 @@
+id: null
+target: toolshop
+source:
+  type: jira-story
+  key: TOOL-3
+  contentHash: bc6f32e10d37bf69
+  authoredBy: null
+coversAC:
+  - TOOL-3-AC4
+acQuoted: A product removed from the cart is gone from it.
+title: A product removed from the cart is gone from it
+preconditions:
+  - The customer customer@practicesoftwaretesting.com is signed in
+  - The cart holds 1 of "Combination Pliers"
+steps:
+  - action: Remove "Combination Pliers" from the cart
+    expected: The line disappears
+assertions:
+  - The cart holds no lines
+priority: high
+type: positive
+caseHash: 4318406bc932f39d

@@ -1,0 +1,25 @@
+id: null
+target: toolshop
+source:
+  type: jira-story
+  key: TOOL-1
+  contentHash: bc3eb446532aff80
+  authoredBy: null
+coversAC:
+  - TOOL-1-AC3
+acQuoted: A search that matches nothing shows no products and the message "There
+  are no products found."
+title: A search that matches nothing says so rather than showing an empty page
+preconditions:
+  - The catalogue is reachable
+steps:
+  - action: Open the product catalogue
+    expected: Products are listed
+  - action: Search for a term no product matches
+    expected: No products are shown
+assertions:
+  - No product cards are shown
+  - The message "There are no products found." is displayed
+priority: medium
+type: negative
+caseHash: 143b846a063d8225

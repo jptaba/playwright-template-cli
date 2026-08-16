@@ -1,13 +1,12 @@
 {
   "key": "TOOL-4",
-  "summary": "Narrow the catalogue by category and price",
-  "description": "The catalogue spans hand tools, power tools and rentals at a wide range of prices. A shopper with a budget and a job in mind needs both filters, and needs them to be honest.",
+  "summary": "The catalogue API answers the same questions as the storefront",
+  "description": "The storefront is one client of a public REST API that other people integrate against. The two have to agree, and the API has to keep the shape it publishes.",
   "acceptanceCriteria": [
-    "Filtering by a category returns only products belonging to that category.",
-    "Filtering by a price range returns only products priced inside that range, inclusive of both ends.",
-    "The catalogue is paginated at 9 products per page.",
-    "A product appears on exactly one page of a paginated result, never on two.",
-    "Every page of a paginated result reports the same total number of products."
+    "The products endpoint returns a page of products with a total count.",
+    "Searching the API for a term returns the same products the storefront shows for it.",
+    "Every product in the catalogue has a name and a price.",
+    "The categories endpoint lists the categories the storefront filters by."
   ],
-  "contentHash": "7f4c16a1fa9a04e1"
+  "contentHash": "9ffafd22ce37aa05"
 }

@@ -1,0 +1,22 @@
+id: null
+target: toolshop
+source:
+  type: jira-story
+  key: TOOL-4
+  contentHash: 9ffafd22ce37aa05
+  authoredBy: null
+coversAC:
+  - TOOL-4-AC3
+acQuoted: Every product in the catalogue has a name and a price.
+title: Every product in the catalogue has a name and a price
+preconditions:
+  - The API is reachable
+steps:
+  - action: Request page 1 of GET /products
+    expected: Products come back
+assertions:
+  - Every product has a non-empty name
+  - Every product has a price above 0
+priority: medium
+type: boundary
+caseHash: b896f6cf860437c6

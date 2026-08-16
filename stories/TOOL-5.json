@@ -1,12 +1,10 @@
 {
   "key": "TOOL-5",
-  "summary": "Choose a quantity and add a tool to my basket",
-  "description": "Consumables are bought several at a time. The quantity chosen on the product page is the quantity that has to reach the basket — getting this wrong costs a customer money.",
+  "summary": "A shopper using a screen reader can sign in and browse",
+  "description": "The sign-in form and the product page are the two screens every shopper passes through. Both are held to WCAG 2.2 AA, which is what the profile declares.",
   "acceptanceCriteria": [
-    "A product page opens with the quantity set to 1.",
-    "Increasing the quantity twice from its starting value sets it to 3.",
-    "Adding a product to the basket shows the basket control in the navigation.",
-    "The basket holds the quantity that was chosen on the product page."
+    "The sign-in form has no critical or serious accessibility violations.",
+    "A product page has no critical or serious accessibility violations."
   ],
-  "contentHash": "e8de93ad8db29c2b"
+  "contentHash": "b544d7860b9f0c13"
 }
