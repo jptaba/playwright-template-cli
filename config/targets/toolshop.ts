@@ -20,10 +20,41 @@ export const toolshop: TargetProfile = {
   environment: process.env.TARGET_ENV ?? 'staging',
 
   credentials: {
+    /*
+       `local` is legitimate here and almost nowhere else: these credentials
+       are published by the vendor in their own README, on a demo everybody
+       shares. They still resolve through the `secrets` fixture — the moment
+       one target bypasses it, the lint rule stops being enforceable.
+    */
     source: (process.env.SECRET_SOURCE as 'vault' | 'local') ?? 'local',
     root: 'qa/toolshop/pools',
     accountType: 'workforce',
+
+    /*
+       Three customer accounts, so three workers get a cart each.
+
+       Toolshop's cart is server-side against the signed-in account. With one
+       account the cart specs had to run serially or empty each other's carts
+       mid-assertion; with a pool they are partitioned by worker and run in
+       parallel again. The admin role has one account and does not need more —
+       nothing here writes as the admin.
+
+       Taken from the vendor's published account table and checked against the
+       live login endpoint before being written down. `customer3` has a
+       different password from the other two, which is exactly the sort of
+       detail a transcribed-from-memory pool gets wrong.
+    */
+    poolSize: { customer: 3, admin: 1 },
   },
+
+  /*
+       Shared with everybody else using the demo, so the tests that are
+       destructive to the *environment* are off: this application locks an
+       account after three consecutive failures (HTTP 423) and only an
+       administrator can unlock it. A negative-authentication spec run here
+       would spend somebody else's next test run.
+  */
+  sharedEnvironment: true,
 
   capabilities: {
     mfa: 'none', // 'none' | 'totp' | 'email'

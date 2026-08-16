@@ -12,8 +12,46 @@ export const repoPath = (...segments: string[]): string => path.join(REPO_ROOT, 
  */
 export const AUTH_DIR = repoPath('.auth');
 
-export const storageStatePath = (role: string, target: string): string =>
-  path.join(AUTH_DIR, `${target}.${role}.json`);
+/**
+ * Where a role's session is kept.
+ *
+ * One file per role and *per account*, because a pool of accounts partitioned
+ * across workers needs a session each — one file would mean every worker
+ * carrying the first account's cookies whatever account it was given.
+ *
+ * Index 1 keeps the original filename, so a target with a single account per
+ * role is untouched and no existing `.auth/` file is orphaned by this.
+ */
+export const storageStatePath = (role: string, target: string, index = 1): string =>
+  path.join(AUTH_DIR, index > 1 ? `${target}.${role}.${index}.json` : `${target}.${role}.json`);
+
+/**
+ * Which account in the pool this worker uses.
+ *
+ * Deterministic and coordination-free: the same worker always gets the same
+ * account, so a session established once can be reused, and two workers only
+ * collide when there are more workers than accounts.
+ */
+export const accountForWorker = (workerIndex: number, poolSize = 1): number =>
+  poolSize <= 1 ? 1 : (workerIndex % poolSize) + 1;
+
+/**
+ * How many accounts a given role has.
+ *
+ * A number in the profile means "this many for every role"; a map states each
+ * one. Anything unstated is one, which is what every target had before pools
+ * existed — so adding a pool for one role cannot silently invent accounts for
+ * another. That mistake is not hypothetical: written as a single number, the
+ * first real pool sent `setup:auth` looking for a second administrator.
+ */
+export const poolSizeFor = (
+  poolSize: number | Record<string, number> | undefined,
+  role: string,
+): number => {
+  if (typeof poolSize === 'number') return Math.max(1, poolSize);
+  if (poolSize && typeof poolSize === 'object') return Math.max(1, poolSize[role] ?? 1);
+  return 1;
+};
 
 /**
  * Where the canonical, versioned run model is written (§18).

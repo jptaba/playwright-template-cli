@@ -715,7 +715,7 @@ export { expect } from '@playwright/test';
 const AUTH_SETUP = `import fs from 'node:fs';
 import path from 'node:path';
 import { signIn } from '../actions/sign-in';
-import { AUTH_DIR, storageStatePath } from '../../../support/paths';
+import { AUTH_DIR, poolSizeFor, storageStatePath } from '../../../support/paths';
 import { expect, test as setup } from '../../../fixtures/base';
 
 /**
@@ -739,8 +739,16 @@ import { expect, test as setup } from '../../../fixtures/base';
 setup('Establish a session for each role', async ({ browser, target, secrets }) => {
   fs.mkdirSync(AUTH_DIR, { recursive: true });
 
+  /*
+     Every account, not every role. A target declaring poolSize 3 has three
+     accounts per role and workers are partitioned across them, so a session
+     per role would hand two of the three workers cookies belonging to an
+     account they were not given — partitioned in name and sharing one
+     identity in fact.
+  */
   for (const role of target.roles) {
-    const credentials = await secrets.account(role);
+   for (let index = 1; index <= poolSizeFor(target.credentials.poolSize, role); index += 1) {
+    const credentials = await secrets.account(role, index);
     const username = credentials.username;
     const password = credentials.password;
     if (!username || !password) {
@@ -784,12 +792,13 @@ setup('Establish a session for each role', async ({ browser, target, secrets }) 
         });
       expect(established).toBe(true);
 
-      const statePath = storageStatePath(role, target.name);
+      const statePath = storageStatePath(role, target.name, index);
       fs.mkdirSync(path.dirname(statePath), { recursive: true });
       await context.storageState({ path: statePath });
     } finally {
       await context.close();
     }
+   }
   }
 });
 `;

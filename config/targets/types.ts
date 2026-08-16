@@ -176,6 +176,33 @@ export interface CredentialRefs {
   root: string;
   /** The account type this target's suites lease from. */
   accountType: string;
+
+  /**
+   * How many accounts exist per role at `<root>/<accountType>/<role>/<n>`.
+   *
+   * Defaults to 1, which is the shape every target had before this: one
+   * account per role, `…/<role>/1`, shared by every worker.
+   *
+   * Above 1, workers are partitioned across the accounts — worker 0 takes
+   * account 1, worker 1 takes account 2, and so on, wrapping. That is what
+   * §19 has always prescribed for a static pool and what nothing implemented:
+   * `leased` needs Vault's compare-and-swap, so a target with three perfectly
+   * good accounts in a local store still had every worker signing in as the
+   * first one. On an application with server-side state — a cart, a draft, a
+   * wizard — that is not a slow suite, it is a wrong one: the failures look
+   * like defects and land on whichever spec lost the race.
+   *
+   * Partitioning needs no coordination and no lock, which is why it works
+   * where leasing cannot. It is exact only when the worker count divides the
+   * pool; beyond that two workers share, which is the same contention as
+   * before and no worse.
+   *
+   * **Per role, because roles genuinely differ.** A number applies to every
+   * role; a map states each one. Written as a single number first, this broke
+   * immediately on the first real application: three customer accounts and one
+   * administrator, and `setup:auth` went looking for `admin/2`.
+   */
+  poolSize?: number | Record<string, number>;
 }
 
 export interface TargetProfile {

@@ -11,9 +11,29 @@ export const catalogue = {
   async open(page: Page): Promise<void> {
     await test.step('Open the product catalogue', async () => {
       await page.goto('/');
-      // Anchored on a card existing before anything counts them: `count()`
-      // does not wait, and a grid that has not rendered has a truthful zero.
+      /*
+         The grid *settled*, not "a card exists".
+
+         `count()` does not wait, so a listing part-way through rendering has a
+         truthful and useless count — and `search()` captures that count to
+         decide later whether the results changed. Anchoring on the first card
+         left a window where the number was 3 of an eventual 9, which makes the
+         comparison after the search meaningless and fails somewhere else
+         entirely.
+      */
       await catalogueLocators.cards(page).first().waitFor({ state: 'visible' });
+      let settled = -1;
+      await expect
+        .poll(
+          async () => {
+            const now = await catalogueLocators.cards(page).count();
+            const stable = now > 0 && now === settled;
+            settled = now;
+            return stable;
+          },
+          { message: 'the product listing never stopped changing' },
+        )
+        .toBe(true);
     });
   },
 

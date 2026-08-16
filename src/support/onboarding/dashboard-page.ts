@@ -606,23 +606,29 @@ function pickChanged() {
 }
 
 /**
- * How many times somebody has touched the form.
+ * What the form holds right now, as one comparable string.
  *
  * Every reload of the state ends by re-rendering the form from what came back.
  * That is right when nothing else is happening and wrong the moment it is: a
- * save that is still in flight while its operator moves on to a new
- * application lands *afterwards* and replaces what they have started typing
- * with the draft it was holding when it was asked.
+ * save still in flight while its operator moves on to a new application lands
+ * *afterwards* and replaces what they have started typing with the draft it
+ * was holding when it was asked. Found by walking the journey end to end
+ * rather than a step at a time — the file that got written carried the
+ * previous application's name, and nothing on screen looked wrong at any point.
  *
- * Found by walking the journey end to end rather than a step at a time — two
- * saves in quick succession, then a switch to "New application" and a name
- * typed, and the file that got written carried the *previous* name. Nothing on
- * screen looked wrong at any point.
+ * Compared rather than counted. The first guard counted interactions and asked
+ * "has anything happened since?", which depends on the input *event* having
+ * been dispatched before the reply arrives — true when a person is typing,
+ * and not reliably true under load. This asks "does the form still hold what
+ * it held when I asked?", which is a fact about the DOM and cannot race.
  */
-let interactions = 0;
+function formSignature() {
+  const snapshot = collectDraft();
+  return JSON.stringify([snapshot.fields, snapshot.flags, snapshot.services]);
+}
 
 async function loadState(keepSelection) {
-  const askedAt = interactions;
+  const asked = formSignature();
   const state = await post('/api/onboard/state', {});
   applications = state.applications || [];
   draft = state.draft || draft;
@@ -671,26 +677,13 @@ async function loadState(keepSelection) {
      touched it since this was asked for. Anything else replaces somebody's
      typing with an answer to a question they have stopped asking.
   */
-  if (interactions !== askedAt) return;
+  if (formSignature() !== asked) return;
   pickChanged();
 }
 
-$('pick').onchange = () => {
-  interactions += 1;
-  pickChanged();
-};
-/*
-   Counted before anything is saved: the point is to know that the form has
-   moved on, which is true whether or not the draft was worth writing.
-*/
-document.addEventListener('input', () => {
-  interactions += 1;
-  saveDraft();
-});
-document.addEventListener('change', () => {
-  interactions += 1;
-  saveDraft();
-});
+$('pick').onchange = pickChanged;
+document.addEventListener('input', saveDraft);
+document.addEventListener('change', saveDraft);
 
 
 /*

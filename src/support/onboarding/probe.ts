@@ -223,11 +223,11 @@ export function proposeSignedInMarker(
     .filter((hint) => hint.length > 2);
 
   /*
-     The hints alone are not enough, and Toolshop is the proof: the credential
-     is `admin@practicesoftwaretesting.com` and the account menu says
-     "John Doe". Nothing about the one appears in the other, so the marker was
-     proposed as generic — and a marker that names one person is the single
-     locator most likely to break the moment a second role uses it.
+     The hints alone are not enough, and a real application proved it: the
+     credential was an `admin@…` address and the account menu said "John Doe".
+     Nothing about the one appears in the other, so the marker was proposed as
+     generic — and a marker that names one person is the single locator most
+     likely to break the moment a second role uses it.
 
      So a name is also identity-shaped when it simply *looks* like a person:
      two or three capitalised words, none of them interface vocabulary. It is a

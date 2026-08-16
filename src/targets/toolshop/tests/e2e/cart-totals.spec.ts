@@ -3,22 +3,21 @@ import { expect, test } from '../../fixtures';
 /**
  * TOOL-3 — the cart.
  *
- * **Serial, and that is not a preference.** The cart lives on the server
- * against the signed-in account, the account pool is static, and
- * `serverState` is declared true — so there is exactly one cart and every
- * worker signing in as `customer` is looking at it. Run in parallel, these two
- * specs empty each other's carts mid-assertion, and the failure lands on
- * whichever one lost the race: "expected 0 lines, received 1", pointing at an
- * application that is behaving perfectly.
+ * The cart lives on the server against the signed-in account and
+ * `serverState` is declared true, so a cart belongs to an *account* rather
+ * than to a test. These ran serially at first, because with one customer
+ * account they emptied each other's carts mid-assertion and the failure —
+ * "expected 0 lines, received 1" — landed on whichever spec lost the race,
+ * pointing at an application behaving perfectly.
  *
- * Partitioning by `run.workerIndex` is the other answer and needs a pool of
- * accounts to partition into. This deployment has one customer, shared with
- * everybody else using the demo, so serial is the honest choice here.
+ * They are parallel again because the profile declares three customer
+ * accounts and the framework partitions workers across them. Serial was the
+ * right answer to a one-account pool and the wrong answer to this one.
  *
- * Each spec also empties what it added in a `finally`, so a failure halfway
- * through does not hand the next one a cart with an item too many.
+ * Each spec still empties what it added in a `finally`: a worker keeps its
+ * account for the whole run, so the *next spec on this worker* inherits
+ * whatever this one leaves behind.
  */
-test.describe.configure({ mode: 'serial' });
 
 test(
   'TOOL-3-01 · The cart multiplies unit price by quantity, and totals the lines @smoke @cart',

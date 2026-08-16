@@ -214,6 +214,10 @@ test.describe('editing an existing application', () => {
     dashboard.recorder.conflicts = [];
     await page.fill('#name', 'shop-three');
     await page.click('#preview');
+    // The plan has to have landed: `create` reads the same form, but clicking
+    // it while the preview is still in flight leaves step 5 inert and the
+    // click queued behind it.
+    await expect(page.locator('#plan')).toContainText('file(s) will be written');
     await page.click('#create');
     await expect(page.locator('#result')).toContainText('file(s).');
     expect(dashboard.recorder.created.at(-1)!.name).toBe('shop-three');
@@ -283,6 +287,10 @@ test.describe('idempotency', () => {
 
     await page.click('#skipProbe');
     await page.click('#preview');
+    // The plan has to have landed: `create` reads the same form, but clicking
+    // it while the preview is still in flight leaves step 5 inert and the
+    // click queued behind it.
+    await expect(page.locator('#plan')).toContainText('file(s) will be written');
     await page.click('#create');
     await expect(page.locator('#result')).toContainText('file(s).');
     expect(dashboard.recorder.created.at(-1)!.name).toBe('acme-shop');
@@ -371,6 +379,10 @@ test.describe('recovering mid-journey', () => {
     await expect(page.locator('#findings')).toContainText('not found');
 
     await page.click('#preview');
+    // The plan has to have landed: `create` reads the same form, but clicking
+    // it while the preview is still in flight leaves step 5 inert and the
+    // click queued behind it.
+    await expect(page.locator('#plan')).toContainText('file(s) will be written');
     await page.click('#create');
     await expect(page.locator('#result')).toContainText('file(s).');
 
@@ -430,6 +442,10 @@ test.describe('boundaries', () => {
     await page.fill('#baseURL', 'https://host.test/parabank');
     await page.click('#skipProbe');
     await page.click('#preview');
+    // The plan has to have landed: `create` reads the same form, but clicking
+    // it while the preview is still in flight leaves step 5 inert and the
+    // click queued behind it.
+    await expect(page.locator('#plan')).toContainText('file(s) will be written');
     await page.click('#create');
     await expect(page.locator('#result')).toContainText('file(s).');
     expect(dashboard.recorder.created.at(-1)!.baseURL).toBe('https://host.test/parabank');
@@ -463,6 +479,10 @@ test.describe('boundaries', () => {
     await page.fill('#baseURL', 'https://staging.shop.test');
     await page.click('#skipProbe');
     await page.click('#preview');
+    // The plan has to have landed: `create` reads the same form, but clicking
+    // it while the preview is still in flight leaves step 5 inert and the
+    // click queued behind it.
+    await expect(page.locator('#plan')).toContainText('file(s) will be written');
     await page.click('#create');
     await expect(page.locator('#result')).toContainText('file(s).');
     expect(dashboard.recorder.created.at(-1)!.include).toEqual({
@@ -526,6 +546,10 @@ test.describe('a slow save landing late', () => {
     await page.fill('#baseURL', 'https://staging.shop.test');
     await page.click('#skipProbe');
     await page.click('#preview');
+    // The plan has to have landed: `create` reads the same form, but clicking
+    // it while the preview is still in flight leaves step 5 inert and the
+    // click queued behind it.
+    await expect(page.locator('#plan')).toContainText('file(s) will be written');
     await page.click('#create');
     await expect(page.locator('#result')).toContainText('file(s).');
     expect(dashboard.recorder.created.at(-1)!.name).toBe('what-i-am-typing-now');

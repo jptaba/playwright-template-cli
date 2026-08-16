@@ -1,130 +1,129 @@
 import { expect, test } from '@playwright/test';
-import { FakeVaultServer } from '../support/fake-vault-server';
-import { VaultSecretStore } from '../../src/integrations/vault/vault-store';
-import { PoolExhaustedError, VaultAccountPool } from '../../src/integrations/vault/account-pool';
+import { accountForWorker, poolSizeFor, storageStatePath } from '../../src/support/paths';
 
 /**
- * The account pool is a shared mutable resource, and those always leak (§22).
+ * A static pool of accounts, partitioned across workers — §19.
  *
- * Each test here corresponds to a failure mode whose symptom looks like
- * something else: leases that collide look like flaky tests, leases that never
- * expire look like a suite gradually getting slower, and exhaustion without a
- * named error looks like a timeout.
+ * §19 has always said "partition per worker with `run.workerIndex`", and until
+ * now nothing implemented it: `leased` needs Vault's compare-and-swap, so a
+ * target with three perfectly good accounts in a local store had every worker
+ * signing in as the first one. On an application with server-side state — a
+ * cart, a draft, a half-finished wizard — that is not a slow suite but a wrong
+ * one, and the failures look like defects.
+ *
+ * Nothing here knows what application it is for. Everything is a function of
+ * a worker index and a declared pool size.
  */
-test.describe('VaultAccountPool', () => {
-  let vault: FakeVaultServer;
-  let store: VaultSecretStore;
-  let clock = 1_700_000_000_000;
 
-  const now = () => clock;
-
-  const poolFor = (holder: string, size = 3) =>
-    new VaultAccountPool(store, {
-      poolRoot: 'qa/staging/pools/workforce',
-      size,
-      leaseTtlMs: 60_000,
-      holder,
-      now,
-    });
-
-  test.beforeEach(async () => {
-    clock = 1_700_000_000_000;
-    vault = new FakeVaultServer();
-    const address = await vault.start();
-    store = new VaultSecretStore({
-      address,
-      kvMount: 'kv',
-      totpMount: 'totp',
-      databaseMount: 'database',
-      totpPeriodSeconds: 30,
-      auth: { method: 'jwt', path: 'jwt', role: 'playwright-e2e', jwt: 'a.b.c' },
-    });
-    for (let index = 1; index <= 3; index++) {
-      vault.put(`qa/staging/pools/workforce/approver/${index}`, {
-        username: `approver-0${index}`,
-        password: `password-0${index}`,
-      });
-    }
+test.describe('choosing an account for a worker', () => {
+  test('a single account is what every worker gets', () => {
+    // The shape every target had before pools existed, and still the default.
+    for (const worker of [0, 1, 2, 7]) expect(accountForWorker(worker, 1)).toBe(1);
+    expect(accountForWorker(3), 'undefined means one').toBe(1);
+    expect(accountForWorker(3, 0), 'so does nonsense').toBe(1);
   });
 
-  test.afterEach(async () => {
-    await store.close();
-    await vault.stop();
+  test('workers are spread across the pool, one each', () => {
+    expect([0, 1, 2].map((worker) => accountForWorker(worker, 3))).toEqual([1, 2, 3]);
   });
 
-  test('leases the first free account and returns its credentials', async () => {
-    const lease = await poolFor('run-1/w0').lease('approver');
-
-    expect(lease.index).toBe(1);
-    expect(lease.credentials.username).toBe('approver-01');
-    expect(lease.expiresAt).toBe(clock + 60_000);
-  });
-
-  test('two workers starting simultaneously never take the same account', async () => {
-    const [first, second] = await Promise.all([
-      poolFor('run-1/w0').lease('approver'),
-      poolFor('run-1/w1').lease('approver'),
+  test('more workers than accounts wraps rather than running out', () => {
+    /*
+       Two workers then share an account, which is the same contention a
+       single-account pool always had and no worse. Failing instead would make
+       the suite's parallelism depend on how many logins somebody had created.
+    */
+    expect([0, 1, 2, 3, 4, 5].map((worker) => accountForWorker(worker, 3))).toEqual([
+      1, 2, 3, 1, 2, 3,
     ]);
-
-    expect(first.index).not.toBe(second.index);
-    expect(new Set([first.index, second.index]).size).toBe(2);
   });
 
-  test('an expired lease is reclaimed, so a crashed runner does not shrink the pool', async () => {
-    const pool = poolFor('crashed-runner', 1);
-    await pool.lease('approver'); // never released — the runner died
+  test('the same worker always gets the same account', () => {
+    // Coordination-free is the whole point: no lock, no lease, no registry —
+    // and a session established once can be reused for the whole run.
+    expect(accountForWorker(5, 4)).toBe(accountForWorker(5, 4));
+  });
+});
 
-    await expect(pool.lease('approver')).rejects.toThrow(PoolExhaustedError);
-
-    clock += 61_000; // the TTL passes
-    const reclaimed = await pool.lease('approver');
-    expect(reclaimed.index).toBe(1);
+test.describe('how many accounts a role has', () => {
+  test('unstated is one', () => {
+    expect(poolSizeFor(undefined, 'customer')).toBe(1);
   });
 
-  test('exhaustion is a named error with the role and the counts, never a timeout', async () => {
-    const pool = poolFor('run-1/w0', 2);
-    await pool.lease('approver');
-    await pool.lease('approver');
+  test('a number applies to every role', () => {
+    expect(poolSizeFor(4, 'customer')).toBe(4);
+    expect(poolSizeFor(4, 'admin')).toBe(4);
+  });
 
-    await expect(pool.lease('approver')).rejects.toThrow(
-      /No available account for role 'approver': pool size 2, 2 leased/,
+  test('a map states each role, and anything unstated is one', () => {
+    /*
+       Roles genuinely differ, and writing this as a single number broke on the
+       first real application: three customer accounts and one administrator,
+       and `setup:auth` went looking for `admin/2`. Defaulting the unstated
+       role to one means adding a pool for one role cannot silently invent
+       accounts for another.
+    */
+    const declared = { customer: 3 };
+    expect(poolSizeFor(declared, 'customer')).toBe(3);
+    expect(poolSizeFor(declared, 'admin')).toBe(1);
+  });
+
+  test('a size below one is still one', () => {
+    expect(poolSizeFor({ customer: 0 }, 'customer')).toBe(1);
+    expect(poolSizeFor(-2, 'customer')).toBe(1);
+  });
+});
+
+test.describe('where a session is kept', () => {
+  test('the first account keeps the original filename', () => {
+    /*
+       Backwards compatibility that matters: every target with one account per
+       role is untouched, and no `.auth/` file already on disk is orphaned by
+       adding pools to the framework.
+    */
+    expect(storageStatePath('customer', 'shop')).toMatch(/shop\.customer\.json$/);
+    expect(storageStatePath('customer', 'shop', 1)).toMatch(/shop\.customer\.json$/);
+  });
+
+  test('every other account gets its own', () => {
+    // One file per role would hand every worker the first account's cookies
+    // whatever account it was given — partitioned in name, sharing an identity
+    // in fact, which is the failure partitioning exists to remove.
+    expect(storageStatePath('customer', 'shop', 2)).toMatch(/shop\.customer\.2\.json$/);
+    expect(storageStatePath('customer', 'shop', 3)).toMatch(/shop\.customer\.3\.json$/);
+  });
+
+  test('two roles never share a file, whatever their pool sizes', () => {
+    const paths = new Set([
+      storageStatePath('customer', 'shop', 1),
+      storageStatePath('customer', 'shop', 2),
+      storageStatePath('admin', 'shop', 1),
+      storageStatePath('admin', 'shop', 2),
+    ]);
+    expect(paths.size).toBe(4);
+  });
+
+  test('two targets never share one either', () => {
+    expect(storageStatePath('customer', 'shop-one', 2)).not.toBe(
+      storageStatePath('customer', 'shop-two', 2),
     );
   });
+});
 
-  test('releasing returns the account to the pool', async () => {
-    const pool = poolFor('run-1/w0', 1);
-    const lease = await pool.lease('approver');
+test('a worker reads the credential for the account it was given', () => {
+  /*
+     The end-to-end of the whole feature, as a pure calculation: worker 1 on a
+     three-account customer pool signs in as account 2 and carries account 2's
+     session. Before this, both halves said 1 and the suite looked partitioned
+     while every worker shared one identity.
+  */
+  const poolSize = poolSizeFor({ customer: 3, admin: 1 }, 'customer');
+  const index = accountForWorker(1, poolSize);
 
-    await lease.release();
+  expect(index).toBe(2);
+  expect(`qa/shop/pools/workforce/customer/${index}`).toBe('qa/shop/pools/workforce/customer/2');
+  expect(storageStatePath('customer', 'shop', index)).toMatch(/shop\.customer\.2\.json$/);
 
-    const again = await pool.lease('approver');
-    expect(again.index).toBe(1);
-  });
-
-  test('a quarantined account is skipped and never implicitly un-quarantined', async () => {
-    const pool = poolFor('run-1/w0', 2);
-    await pool.quarantine('approver', 1, 'password rotation failed mid-flight');
-
-    const lease = await pool.lease('approver');
-    expect(lease.index).toBe(2);
-
-    // Releasing must not resurrect it: a human decides when it is safe again.
-    await pool.release('approver', 1);
-    const utilisation = await pool.utilisation('approver');
-    expect(utilisation.quarantined).toBe(1);
-  });
-
-  test('reports utilisation so shrinkage is visible before it is critical', async () => {
-    const pool = poolFor('run-1/w0', 3);
-    await pool.lease('approver');
-    await pool.quarantine('approver', 3, 'locked out');
-
-    expect(await pool.utilisation('approver')).toEqual({
-      size: 3,
-      available: 1,
-      leased: 1,
-      expired: 0,
-      quarantined: 1,
-    });
-  });
+  // And the administrator, on the same run, stays on its only account.
+  expect(accountForWorker(1, poolSizeFor({ customer: 3, admin: 1 }, 'admin'))).toBe(1);
 });

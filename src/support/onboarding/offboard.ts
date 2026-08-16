@@ -42,6 +42,16 @@ export interface OffboardFacts {
   /** Filenames in `.auth/`, e.g. `acme-shop.standard.json`. */
   storageStateFiles: string[];
   /**
+   * Case files under `cases/<target>/`, repo-relative.
+   *
+   * Cases are target-scoped — every one carries `target:` in its own body —
+   * and nothing removed them. A target taken back out left its whole test-case
+   * library behind: files describing an application this repository no longer
+   * has, which `cases:gate` and the dashboard's coverage view both still read.
+   * The same orphan as a stored session outliving its target, one directory up.
+   */
+  caseFiles: string[];
+  /**
    * Whether this target's base URL is a reserved placeholder host — `.invalid`,
    * `.test`, `example.*`.
    *
@@ -124,6 +134,7 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
   const removeFiles = [
     ...(facts.knownTargets.includes(target) ? [profile] : []),
     ...facts.packFiles.map((file) => `${packRoot}/${file}`),
+    ...facts.caseFiles,
   ];
 
   /*
@@ -224,7 +235,10 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
     target,
     // Deepest first, so a directory is empty by the time it is removed.
     removeFiles: [...removeFiles].sort((a, b) => b.split('/').length - a.split('/').length),
-    removeDirectories: facts.packExists ? [packRoot] : [],
+    removeDirectories: [
+      ...(facts.packExists ? [packRoot] : []),
+      ...(facts.caseFiles.length > 0 ? [`cases/${target}`] : []),
+    ],
     removeSecretKeys,
     removeStorageStates,
     warnings,

@@ -114,6 +114,7 @@ test.describe('the removal plan', () => {
     packFiles: ['fixtures.ts'],
     untrackedPaths: [],
     secretKeys: [],
+    caseFiles: [],
     storageStateFiles: ['shop.standard.json'],
     pointsAtPlaceholderHost: false,
     ...over,

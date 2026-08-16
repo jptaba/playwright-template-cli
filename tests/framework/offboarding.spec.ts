@@ -24,6 +24,7 @@ function facts(overrides: Partial<OffboardFacts> = {}): OffboardFacts {
       'qa/acme-shop/pools/workforce/standard/1',
       'qa/example-app/pools/workforce/standard/1',
     ],
+    caseFiles: [],
     storageStateFiles: ['acme-shop.standard.json', 'example-app.standard.json'],
     pointsAtPlaceholderHost: false,
     untrackedPaths: [],
@@ -138,5 +139,42 @@ test.describe('the confirmation', () => {
 
   test('cannot be satisfied for a nameless target', () => {
     expect(confirmationMatches('', '')).toBe(false);
+  });
+});
+
+test.describe('the cases a target owns', () => {
+  /*
+     Cases are target-scoped — every one carries `target:` in its own body —
+     and nothing removed them. Taking a target out left its whole test-case
+     library behind: files describing an application this repository no longer
+     has, which `cases:gate` and the dashboard's coverage view both still read.
+     The same orphan as a stored session outliving its target, one directory up.
+  */
+  test('go with it, listed by name', () => {
+    const plan = planOffboard('acme-shop', {
+      ...facts(),
+      caseFiles: ['cases/acme-shop/AC-1-checkout.yaml', 'cases/acme-shop/AC-2-refund.yaml'],
+    });
+
+    expect(plan.removeFiles).toContain('cases/acme-shop/AC-1-checkout.yaml');
+    expect(plan.removeFiles).toContain('cases/acme-shop/AC-2-refund.yaml');
+    expect(plan.removeDirectories).toContain('cases/acme-shop');
+  });
+
+  test('a target with no cases leaves the directory alone', () => {
+    // Never `rm` a path that was not there: an empty list must not become an
+    // instruction to remove `cases/<target>`.
+    const plan = planOffboard('acme-shop', facts({ caseFiles: [] }));
+    expect(plan.removeDirectories).not.toContain('cases/acme-shop');
+  });
+
+  test('another target’s cases are not this target’s to remove', () => {
+    const plan = planOffboard('acme-shop', {
+      ...facts(),
+      caseFiles: ['cases/acme-shop/AC-1.yaml'],
+    });
+    expect(plan.removeFiles.filter((file) => file.startsWith('cases/'))).toEqual([
+      'cases/acme-shop/AC-1.yaml',
+    ]);
   });
 });

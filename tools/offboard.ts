@@ -64,12 +64,20 @@ export function gatherFacts(target: string): OffboardFacts {
   const authDir = path.join(REPO_ROOT, '.auth');
   const storageStateFiles = fs.existsSync(authDir) ? fs.readdirSync(authDir) : [];
 
+  // Cases are target-scoped and were being left behind — a whole test-case
+  // library describing an application this repository no longer has.
+  const casesDir = path.join(REPO_ROOT, 'cases', target);
+  const caseFiles = fs.existsSync(casesDir)
+    ? fs.readdirSync(casesDir).map((file) => `cases/${target}/${file}`)
+    : [];
+
   return {
     knownTargets,
     packExists,
     packFiles,
     secretKeys,
     storageStateFiles,
+    caseFiles,
     pointsAtPlaceholderHost: pointsAtPlaceholderHost(target),
     untrackedPaths: untrackedPaths(),
   };

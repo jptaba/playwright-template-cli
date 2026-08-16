@@ -15,7 +15,7 @@ import { UnsupportedOtpProvider, type OtpProvider } from '../integrations/otp/ty
 import { VaultAccountPool, type AccountLease } from '../integrations/vault/account-pool';
 import { VaultSecretStore } from '../integrations/vault/vault-store';
 import { registerSecretPayload } from '../support/redact';
-import { storageStatePath } from '../support/paths';
+import { accountForWorker, poolSizeFor, storageStatePath } from '../support/paths';
 import { attachLiveView, liveViewFromEnv } from '../integrations/live-view/screencast';
 
 /**
@@ -254,12 +254,22 @@ export const test = base.extend<
               release: () => leased.release(),
             };
           } else {
-            const payload = await secrets.account(role);
+            /*
+               A static pool, partitioned. Leasing needs Vault's
+               compare-and-swap; this needs nothing at all, because the worker
+               index already partitions the run — which is why it is the answer
+               for a target whose credentials live in a local store.
+            */
+            const index = accountForWorker(
+              run.workerIndex,
+              poolSizeFor(target.credentials.poolSize, role),
+            );
+            const payload = await secrets.account(role, index);
             account = {
               role,
               username: payload.username ?? '',
               password: payload.password ?? '',
-              index: null,
+              index,
               release: async () => undefined,
             };
           }
@@ -339,8 +349,19 @@ export const test = base.extend<
    * lets a spec select a role with `test.use({ role: 'approver' })` while the
    * built-in context, tracing and video capture keep working unchanged.
    */
-  storageState: async ({ role, target }, use) => {
-    await use(role ? storageStatePath(role, target.name) : undefined);
+  storageState: async ({ role, target, run }, use) => {
+    /*
+       The session for *this worker's* account, not "the session for the role".
+       With a pool of several accounts per role, one file per role would hand
+       every worker the first account's cookies whatever account it was
+       allocated — and the suite would look partitioned while sharing one
+       identity, which is the failure mode partitioning exists to remove.
+    */
+    const index = accountForWorker(
+      run.workerIndex,
+      poolSizeFor(target.credentials.poolSize, role),
+    );
+    await use(role ? storageStatePath(role, target.name, index) : undefined);
   },
 
   contracts: async ({ target }, use) => {
