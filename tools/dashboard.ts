@@ -77,7 +77,8 @@ import {
 } from '../src/support/onboarding/probe';
 import type { ScaffoldOptions, ScaffoldPlan } from '../src/support/onboarding/scaffold';
 import { editProfileSource } from '../src/support/onboarding/edit-profile';
-import { describeBrowserLaunchFailure } from '../src/support/ui/failures';
+import { closeOnFailure, launchBrowser } from '../src/support/ui/failures';
+import { shutdownHandler } from '../src/support/ui/shutdown';
 import {
   EMPTY_DRAFT,
   sanitiseDraft,
@@ -140,14 +141,7 @@ function existing(paths: string[]): string[] {
  * it usually means on Windows is that the machine had no room for another
  * browser, which is nobody's mistake and comes and goes.
  */
-async function launchOrExplain<T>(launch: () => Promise<T>): Promise<T> {
-  try {
-    return await launch();
-  } catch (error) {
-    const advice = describeBrowserLaunchFailure(error);
-    throw advice ? new Error(advice) : error;
-  }
-}
+const launchOrExplain = launchBrowser;
 
 /**
  * Run something against a real browser pointed at the application.
@@ -468,13 +462,31 @@ const service: DashboardService = {
 
     const { chromium } = await import('@playwright/test');
     const browser = await launchOrExplain(() => chromium.launch({ headless: false }));
-    const context = await browser.newContext();
-    const page = await context.newPage();
 
-    const base = baseURL.replace(/\/+$/, '');
-    await page.goto(`${base}${signIn.path}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined);
-    const before = await page.locator('body').ariaSnapshot();
+    /*
+       Everything between the launch and `assisted` being assigned is guarded,
+       because until that assignment nothing can close this browser — see
+       `closeOnFailure`, which is where the reasoning and the test live.
+    */
+    const opened = await closeOnFailure(
+      browser,
+      async () => {
+        const context = await browser.newContext();
+        const page = await context.newPage();
+        const base = baseURL.replace(/\/+$/, '');
+        await page.goto(`${base}${signIn.path}`, {
+          waitUntil: 'domcontentloaded',
+          timeout: 60_000,
+        });
+        await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined);
+        return { context, page, before: await page.locator('body').ariaSnapshot() };
+      },
+      (error) =>
+        `The browser opened but could not reach ${baseURL}${signIn.path}: ` +
+        `${error instanceof Error ? error.message : String(error)}. It has been closed again. ` +
+        'Check the base URL in step 1 and the sign-in path in step 2.',
+    );
+    const { context, page, before } = opened;
 
     assisted = {
       close: () => browser.close(),
@@ -1297,12 +1309,15 @@ function main(): void {
   }
 
   /* A dashboard that exits leaving browsers behind is a set of windows nobody
-     can explain, so the runs it started go with it. */
+     can explain, so the runs it started go with it — and so does the assisted
+     sign-in's window, which is headed and which nothing else will ever close. */
+  const stopEverything = shutdownHandler({
+    stopSync: () => runManager.cancelAll(),
+    closeAsync: () => service.assistCancel(),
+    exit: (code) => process.exit(code),
+  });
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-    process.on(signal, () => {
-      runManager.cancelAll();
-      process.exit(0);
-    });
+    process.on(signal, stopEverything);
   }
 
   server.listen(0, HOST, () => {

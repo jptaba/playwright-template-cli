@@ -605,7 +605,24 @@ function pickChanged() {
   if (app) showApplication(app);
 }
 
+/**
+ * How many times somebody has touched the form.
+ *
+ * Every reload of the state ends by re-rendering the form from what came back.
+ * That is right when nothing else is happening and wrong the moment it is: a
+ * save that is still in flight while its operator moves on to a new
+ * application lands *afterwards* and replaces what they have started typing
+ * with the draft it was holding when it was asked.
+ *
+ * Found by walking the journey end to end rather than a step at a time — two
+ * saves in quick succession, then a switch to "New application" and a name
+ * typed, and the file that got written carried the *previous* name. Nothing on
+ * screen looked wrong at any point.
+ */
+let interactions = 0;
+
 async function loadState(keepSelection) {
+  const askedAt = interactions;
   const state = await post('/api/onboard/state', {});
   applications = state.applications || [];
   draft = state.draft || draft;
@@ -637,20 +654,38 @@ async function loadState(keepSelection) {
      through to the default is the right answer rather than a special case.
   */
   const stillThere = wanted && applications.some((app) => app.name === wanted);
-  if (stillThere) {
-    select.value = wanted;
-    pickChanged();
-    return;
-  }
-
   const hasDraft = Object.keys(draft.fields || {}).length > 0;
-  select.value = hasDraft || applications.length === 0 ? '' : applications[0].name;
+  select.value = stillThere
+    ? wanted
+    : hasDraft || applications.length === 0
+      ? ''
+      : applications[0].name;
+
+  /*
+     The list is always refreshed; the form is only re-rendered when nobody has
+     touched it since this was asked for. Anything else replaces somebody's
+     typing with an answer to a question they have stopped asking.
+  */
+  if (interactions !== askedAt) return;
   pickChanged();
 }
 
-$('pick').onchange = pickChanged;
-document.addEventListener('input', saveDraft);
-document.addEventListener('change', saveDraft);
+$('pick').onchange = () => {
+  interactions += 1;
+  pickChanged();
+};
+/*
+   Counted before anything is saved: the point is to know that the form has
+   moved on, which is true whether or not the draft was worth writing.
+*/
+document.addEventListener('input', () => {
+  interactions += 1;
+  saveDraft();
+});
+document.addEventListener('change', () => {
+  interactions += 1;
+  saveDraft();
+});
 
 
 /*
