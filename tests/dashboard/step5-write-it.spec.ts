@@ -34,6 +34,66 @@ test.describe('the preview', () => {
     await expect(page.locator('#create')).toBeEnabled();
   });
 
+  test('a plan that no longer matches the form is withdrawn, not left to disagree', async ({
+    dashboard,
+  }) => {
+    /*
+       Observed on a real onboarding: previewed six files, ticked the
+       accessibility layer, pressed Create, and it wrote seven. Create re-reads
+       the live form, which is right; the plan being allowed to sit there
+       badged "Done for you" while describing something else is the defect.
+    */
+    const { page } = dashboard;
+    await readyToWrite(dashboard);
+    await expect(page.locator('#plan')).toContainText('file(s) will be written');
+
+    await page.check('#lA11y');
+
+    await expect(page.locator('#plan')).toContainText('The shape changed after this was previewed');
+    await expect(page.locator('#plan')).not.toContainText('file(s) will be written');
+    await expect(page.locator('#create')).toBeDisabled();
+  });
+
+  test('previewing again after a change restores the write', async ({ dashboard }) => {
+    // The recovery has to be one named button, or invalidating the plan just
+    // moves the dead end somewhere else.
+    const { page } = dashboard;
+    await readyToWrite(dashboard);
+    await page.check('#lA11y');
+    await expect(page.locator('#create')).toBeDisabled();
+
+    await page.click('#preview');
+    await expect(page.locator('#plan')).toContainText('file(s) will be written');
+    await expect(page.locator('#create')).toBeEnabled();
+  });
+
+  test('signing in does not invalidate a plan it cannot change', async ({ dashboard }) => {
+    /*
+       The marker and the gauntlet move when somebody signs in, and neither
+       changes which files get written. A fingerprint covering the whole of
+       options() would nag about a preview that is still entirely accurate.
+    */
+    const { page } = dashboard;
+    await page.fill('#name', 'shop');
+    await page.fill('#baseURL', 'https://staging.shop.test');
+    await page.check('#confirmTest');
+    await page.click('#probe');
+    await expect(page.locator('#s3')).not.toHaveAttribute('inert', '');
+    // Chosen before the preview, so the credential fields exist by the time
+    // there is a plan to leave alone.
+    await page.selectOption('#secrets', 'local');
+    await page.click('#preview');
+    await expect(page.locator('#s4')).not.toHaveAttribute('inert', '');
+
+    await page.fill('#cu-standard', 'shopper@shop.test');
+    await page.fill('#cp-standard', 'a-password');
+    await page.click('#verify');
+    await expect(page.locator('#verifyStatus')).toContainText('Signed in.');
+
+    await expect(page.locator('#plan')).toContainText('file(s) will be written');
+    await expect(page.locator('#create')).toBeEnabled();
+  });
+
   test('warns that the signed-in marker will be a guess, before writing one', async ({
     dashboard,
   }) => {

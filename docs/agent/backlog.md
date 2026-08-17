@@ -198,7 +198,23 @@ current source makes it impossible.
 Also here, one line: after switching to local, the stale Vault refusal stays on
 screen until the next action.
 
-### 5. The preview goes stale and Create writes something else — `ready`
+### 5. The preview goes stale and Create writes something else — `done`
+
+Shipped on `agent/2026-08-16-stale-preview`. The plan now records the shape it
+was computed from, and any later change that would alter the file list
+withdraws it: the list goes, Create is refused, and the button that fixes it is
+named. Previewing again restores the write.
+
+The fingerprint deliberately covers only what changes the plan — name, roles,
+secret source, layers, services, whether a contract document was found — so
+signing in, which moves the marker and the gauntlet, does not nag about a
+preview that is still accurate. There is a test for that specifically.
+
+Verified against the running dashboard with the exact sequence that produced
+the bug: preview says 6, tick the accessibility layer, the plan is withdrawn,
+preview again says **7** and lists the a11y spec. The page and the write agree.
+
+The original text follows.
 
 Preview renders its plan into step 5. Change step 3 afterwards and the plan is
 not recomputed, not cleared, and keeps its "Done for you" badge. Observed:

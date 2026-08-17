@@ -1014,6 +1014,67 @@ function options() {
   };
 }
 
+/*
+   Everything the plan depends on, as one comparable string.
+
+   Deliberately not the whole of options(): signing in changes the marker and
+   the gauntlet, and neither of those changes which files get written. A
+   fingerprint that moved when they did would nag about a preview that is still
+   perfectly accurate.
+*/
+function planShape() {
+  const settings = options();
+  return JSON.stringify([
+    settings.name,
+    settings.roles,
+    settings.secretSource,
+    settings.include,
+    settings.apiServices,
+    settings.apiBaseURL || '',
+    Boolean(settings.contractDocument),
+  ]);
+}
+
+/** The shape the visible plan was computed from, or null when there is none. */
+let plannedShape = null;
+
+/*
+   A preview that no longer describes the form.
+
+   The plan renders once and then sat there while step 3 kept changing, still
+   badged "Done for you". Create re-reads the live form — which is the correct
+   behaviour — so previewing six files, ticking the accessibility layer and
+   pressing Create wrote seven, and the extra one was never shown. The page
+   promised one thing and did another.
+
+   Recomputing on every keystroke would mean a server call per character, so
+   the plan is invalidated instead: the file list goes, Create is refused, and
+   the button that fixes it is named.
+*/
+function markPlanStale() {
+  if (plannedShape === null) return;
+  plannedShape = null;
+  $('create').disabled = true;
+  const box = $('plan');
+  box.replaceChildren(el('div', 'note',
+    'The shape changed after this was previewed, so what would be written is no longer what ' +
+    'was listed. Press "Preview what will be written" in step 3 again.'));
+}
+
+/*
+   One listener rather than a handler per control: step 3 grows rows, and a
+   service added after the preview changes the plan exactly as much as a
+   checkbox does.
+*/
+for (const event of ['input', 'change']) {
+  document.addEventListener(event, () => {
+    // Not while the draft is being replayed into the form, and not once the
+    // files exist — at that point Create is spent and there is nothing to warn.
+    if (restoring || written || plannedShape === null) return;
+    if (planShape() !== plannedShape) markPlanStale();
+  }, true);
+}
+
 $('secrets').onchange = renderCredentials;
 $('roles').oninput = renderCredentials;
 
@@ -1181,8 +1242,12 @@ $('preview').onclick = async () => {
         'Edit it at the top of this page, choose another name, or remove it first: ' +
         'npm run target:remove -- --name=' + plan.name + ' --confirm=' + plan.name));
       $('create').disabled = true;
+      plannedShape = null;
     } else {
       $('create').disabled = false;
+      // What this plan describes. Anything that moves it from here invalidates
+      // the list above rather than quietly disagreeing with it.
+      plannedShape = planShape();
       box.append(el('div', '', plan.files.length + ' file(s) will be written:'));
       const list = el('ul', 'files');
       for (const file of plan.files) list.append(el('li', '', file));

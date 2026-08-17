@@ -213,3 +213,51 @@ cannot complete) or item 5 (the stale preview writing 7 files after promising
 6). Item 5 is the more serious of the two — it is the page showing one thing and
 doing another — so take that unless something louder appears. Item 10, the
 second committed target, is a good standalone after those.
+
+## 2026-08-16 · run 5 · The plan that disagreed with the form
+
+**Picked:** backlog item 5 — the stale preview.
+
+**Did:** The preview now records a fingerprint of the settings it was computed
+from, and a delegated `input`/`change` listener withdraws the plan the moment
+anything that would change the file list moves: the list is replaced by a note
+naming the button that fixes it, and Create is disabled until a fresh preview.
+Recomputing live was rejected — it is a server call per keystroke — and
+invalidation says the true thing anyway, which is that nobody knows what would
+be written yet.
+
+The fingerprint covers name, roles, secret source, layers, services and whether
+a contract document was found. Not the whole of `options()`: the marker and the
+gauntlet move when somebody signs in and neither changes which files get
+written, so a broader fingerprint would nag about a preview that is still
+entirely accurate. That is pinned by its own test.
+
+**Verify:** `npm run verify` passes — 742 tests. Diff 125 lines across 2 files.
+**PR:** branch `agent/2026-08-16-stale-preview`; `main` fast-forwarded and
+pushed.
+
+**Learned:**
+
+- **Verified against the running dashboard, with the sequence that caused it:**
+  preview says 6, tick the accessibility layer, the plan is withdrawn, preview
+  again says **7** and lists the a11y spec. Before this, the same clicks wrote
+  seven files after promising six.
+- **A flake exists and it is not this change.** `onboarding-journeys.spec.ts`
+  › "a slow save landing late" failed once inside a full `npm run verify`, then
+  passed 6/6 with the change applied, 6/6 with it stashed, and in two further
+  full runs. It holds a route open and races a reload, so it is timing-sensitive
+  under the heavier parallel load `verify` creates. Recorded rather than fixed —
+  next run should not mistake it for a regression it caused. If it recurs, the
+  repository's own quarantine machinery is the right home for it.
+- **Test-ordering matters in these specs and cost a cycle.** `readyToWrite`
+  previews immediately, so selecting a secret source afterwards re-renders the
+  credential fields and empties them. `readyForCredentials` in the step 4 spec
+  sets the source *before* its only preview, which is why it works. Copy that
+  order rather than composing the two helpers.
+
+**Next:** Item 4 (the Vault default routing a first-timer into a step that
+cannot complete) is the last of the onboarding-trap cluster, and small. After
+that item 6 (the picker opening on an application you already have) is a
+one-line default with the largest visible effect of anything left, and item 10
+— the second committed target — is the standalone that keeps agnosticism
+honest.
