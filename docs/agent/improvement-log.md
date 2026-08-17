@@ -313,3 +313,41 @@ preview's output two sections from its button) and item 9 (a reload throwing
 away the unlock state but not the answers). Item 10, the second committed
 target, is the standalone that keeps agnosticism honest, and item 12 needs the
 owner.
+
+## 2026-08-16 · run 7 · Open on the thing the command is named after
+
+**Picked:** backlog item 6 — the picker opening on an application you already
+have.
+
+**Did:** The picker falls back to "— New application —" rather than the most
+recently onboarded profile. The keep-the-selection path is untouched: saving an
+edit still lands on the application that was saved, which is why the fallback
+existed in the first place.
+
+**Verify:** `npm run verify` passes — 746 tests. Diff 41 lines across 2 files.
+**PR:** branch `agent/2026-08-16-open-on-new`; `main` fast-forwarded and pushed.
+
+**Learned:**
+
+- **One line of behaviour, eight failing tests.** Seven were *relying* on the
+  auto-selection rather than asserting it — they clicked "Change its settings"
+  on whatever happened to be picked. They now say which application they mean,
+  which is better tests as well as a working suite. Only one actually asserted
+  the old default, and it was rewritten to the new guarantee. Worth expecting
+  this shape of churn from any default change here.
+- **Backticks inside the page script are a parse error, not a typo.** The whole
+  browser script is a template literal in a `.ts` file, so a comment mentioning
+  \`npm run onboard\` in backticks closes it. Cost one lint cycle; escape them.
+- **Verified live:** with `toolshop` on disk, `npm run onboard` now opens with
+  the picker empty, step 1 editable and the probe button enabled, and toolshop
+  one selection away.
+- **A second load-sensitive test appeared**, filed as item 13 with the first.
+  Both passed every repeat afterwards. Recorded rather than acted on: two
+  singletons are not a flake rate, and this repository already has quarantine
+  machinery that exists to answer exactly this question with evidence.
+
+**Next:** Item 7 (the preview's output two sections from its button) and item 9
+(a reload discarding the unlock state but not the answers) are the last two
+onboarding-UX items, both small. Item 10 — commit a second, deliberately unlike
+target — is the standalone that keeps agnosticism honest and is now the most
+valuable thing left. Item 12 needs the owner's decision and blocks nothing else.

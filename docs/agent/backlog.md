@@ -242,7 +242,18 @@ Create re-reading the live form is correct. The preview being allowed to
 disagree with it is the defect. Invalidate the plan on any step-3 change and
 return step 5 to locked, or recompute it live.
 
-### 6. `npm run onboard` opens on an application you already have — `ready`
+### 6. `npm run onboard` opens on an application you already have — `done`
+
+Shipped on `agent/2026-08-16-open-on-new`. The picker now falls back to
+"— New application —" instead of the most recently onboarded one. A caller that
+asked to keep its selection still gets it, so saving an edit still lands where
+it was — that was the reason the fallback existed and it is untouched.
+
+One line of behaviour, eight tests. Most were relying on the auto-selection
+rather than asserting it, and now say which application they mean; the one that
+asserted the old default was rewritten to the new guarantee.
+
+The original text follows.
 
 With no draft, the picker preselects the most recently onboarded application,
 read-only, all five steps locked. The command whose purpose is onboarding greets
@@ -328,6 +339,28 @@ cheap and all independent:
 Depends on item 10, which is now decided but not yet built. Do not start this
 before a second target is committed — with one target there is nothing to
 measure agnosticism against.
+
+### 13. The dashboard suite has load-sensitive tests — `hypothesis`
+
+Two different specs have each failed **once** inside a full `npm run verify` and
+then passed every repeat afterwards, including 6–8 repeats each and several
+further full runs:
+
+- `onboarding-journeys.spec.ts` › "a slow save landing late" (run 5)
+- `step4-credentials.spec.ts` › "the marker it derived is what gets written"
+  (run 6)
+
+`verify` runs the framework and dashboard projects together, so there is more
+contention than either project alone. Both specs involve a request in flight and
+an assertion about what the page did with it.
+
+Before treating this as real, get the evidence the repository already knows how
+to collect: this is precisely what `flakeCandidates`, `FLAKE_MINIMUM_RUNS` and
+the quarantine machinery in `src/support/quarantine.ts` exist for, and neither
+observation has been through it. **Two singletons are not a flake rate.** Do not
+change a timeout on the strength of this note.
+
+If it recurs: quarantine is the mechanism, not a hand-tuned wait.
 
 ### 12. Should a Vault target be able to verify its sign-in at all? — `blocked`
 

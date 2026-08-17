@@ -31,11 +31,23 @@ test.describe('the picker, with applications onboarded', () => {
     await dashboard.reopen();
   });
 
-  test('defaults to the most recently onboarded and shows what its profile says', async ({
-    dashboard,
-  }) => {
+  test('opens on a new application, whatever is already onboarded', async ({ dashboard }) => {
+    /*
+       It used to open on the most recently onboarded one, so `npm run onboard`
+       greeted a returning user with a *different* application, read-only,
+       every step locked, and a note telling them to press "Change its
+       settings". The page opened on the one thing it is not for.
+    */
     const { page } = dashboard;
-    await expect(page.locator('#pick')).toHaveValue('shop-two');
+    await expect(page.locator('#pick')).toHaveValue('');
+    await expect(page.locator('#name')).toBeEnabled();
+    await expect(page.locator('#probe')).toBeEnabled();
+    await expect(page.locator('#pickStatus')).toBeEmpty();
+  });
+
+  test('shows what a chosen profile says, once one is chosen', async ({ dashboard }) => {
+    const { page } = dashboard;
+    await page.selectOption('#pick', 'shop-two');
     await expect(page.locator('#env')).toHaveValue('uat');
     await expect(page.locator('#baseURL')).toHaveValue('https://one.shop.test');
     await expect(page.locator('#pickStatus')).toContainText('read-only');
@@ -44,6 +56,7 @@ test.describe('the picker, with applications onboarded', () => {
   test('shows it, rather than pretending it can be typed over', async ({ dashboard }) => {
     // Enabled fields that discard what you write are worse than disabled ones.
     const { page } = dashboard;
+    await page.selectOption('#pick', 'shop-two');
     await expect(page.locator('#name')).toBeDisabled();
     await expect(page.locator('#baseURL')).toBeDisabled();
     await expect(page.locator('#lApi')).toBeDisabled();
@@ -132,6 +145,9 @@ test.describe('editing an onboarded application', () => {
   test.beforeEach(async ({ dashboard }) => {
     dashboard.recorder.applications = [anApplication({ name: 'shop-one' })];
     await dashboard.reopen();
+    // Chosen explicitly: the picker opens on a new application now, so editing
+    // an existing one starts by saying which.
+    await dashboard.page.selectOption('#pick', 'shop-one');
   });
 
   test('is explicit, so nothing changes by wandering through the form', async ({ dashboard }) => {

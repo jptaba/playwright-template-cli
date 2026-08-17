@@ -692,24 +692,24 @@ async function loadState(keepSelection) {
   }
 
   /*
-     Half-typed work wins over the most recent application. Losing it is the
-     whole reason this exists, and an application already on disk can be looked
-     at any time.
-  */
-  /*
      A caller that asked to keep the selection gets it, when it still exists.
      Saving an edit reloads — and landing on a *different* application after
      pressing Save reads as "it did not work", which is how somebody presses it
      twice. A removal reloads too, and there the target is gone, so the fall
      through to the default is the right answer rather than a special case.
+
+     Otherwise: always "— New application —".
+
+     This used to fall back to the most recently onboarded application, which
+     meant the command named \`npm run onboard\` greeted a returning user with
+     a *different* application, read-only, every step locked, and the note "use
+     Change its settings to edit". The page opened on the one thing it was not
+     there to do. Onboarding something is why anybody runs this; the
+     applications already on disk are one selection away and are not going
+     anywhere.
   */
   const stillThere = wanted && applications.some((app) => app.name === wanted);
-  const hasDraft = Object.keys(draft.fields || {}).length > 0;
-  select.value = stillThere
-    ? wanted
-    : hasDraft || applications.length === 0
-      ? ''
-      : applications[0].name;
+  select.value = stillThere ? wanted : '';
 
   /*
      The list is always refreshed; the form is only re-rendered when nobody has
