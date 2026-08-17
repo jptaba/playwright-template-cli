@@ -170,6 +170,11 @@ bar is a label, not a switcher, so a selection neither sticks nor spreads. It
 was driven and evidenced the same day it was asked for. The order is now **20,
 21, then 19**: 19 rearranges controls on the pages 21 deletes four of.
 
+**Run 24 shipped item 20's first slice**, the theme control, on every page. So
+the next one is **item 21** — and the two meet in the same forty pixels of the
+top bar, which is now crumb, application, theme. Whoever takes 21 is editing
+`topbar()` in `shell.ts` either way.
+
 **Correcting the standing note on Vault, 2026-08-17 (run 21).** It said the
 owner has no Vault to test against. There is no *hosted* one and none is
 needed: `docker run --rm -p 8200:8200 -e VAULT_DEV_ROOT_TOKEN_ID=<token>
@@ -1107,7 +1112,40 @@ reusable is the **overview panel** (`.preflight`, `.pf-title`) and the copy
 budget that now counts it, so the first slice here is moving those two into
 `shell.ts` and giving one page an overview — not lifting `enable`.
 
-### 20. A theme control, and the polish it makes visible — `ready`
+### 20. A theme control, and the polish it makes visible — slice 1 `done`, the rest `ready`
+
+**The theme control shipped** on `agent/2026-08-17-theme-control` (run 24), and
+the finding below was right: the palette was already complete and nothing ever
+stamped `data-theme`. So this was lifting a control the handbook already had
+into `shell.ts`, where a page gets it by being a page — all seven have it, and
+none of them asked for it.
+
+What is worth keeping from doing it:
+
+- **Restore runs in the head, synchronously.** Do it from the body script and
+  somebody who chose dark gets a white page first, which is the flash the
+  choice exists to avoid. There is a test on the *ordering*, because the
+  behaviour test cannot see a flash.
+- **Auto is the absence of a choice, not a third value.** No key stored, no
+  attribute set, the media query in charge. Storing the word `auto` would have
+  made `:root:not([data-theme="light"])` mean something different from what it
+  says.
+- **The stylesheet is one template literal, and a backtick in a comment closes
+  it.** Known for `dashboard-page.ts`; it is true of `tokens.ts` too, and it
+  cost a parse error here. The comment now says so in place.
+- **`tests/framework/ui-shell.spec.ts` had a guard that read the first
+  `<script>` block.** The head restore is now first, so that guard had silently
+  stopped covering the page's own script — the thing it was written for. It
+  checks every block now. Worth remembering whenever something is added to the
+  shell: a test that finds "the" anything is a test that can be moved off its
+  subject without failing.
+- **Three things in one bar stops fitting at about phone width.** It wraps
+  below 60rem now, and what a jumped-to section has to clear grows with it.
+
+**Still `ready` here** — the polish items below, minus motion, which landed
+inside item 18. Focus and hover states, vertical rhythm and measure, and the
+uneven use of the status tokens are each still worth doing and each still need
+to name what they fix.
 
 **Half of this is already built, which is the useful finding.**
 `src/support/ui/tokens.ts` ships the full three-state palette — a light `:root`,

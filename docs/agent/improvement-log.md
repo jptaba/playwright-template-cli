@@ -1601,3 +1601,56 @@ argues for, not introducing one. And the ordering against 19 matters: 19
 rearranges controls on these pages and 21 deletes four of them.
 
 **Next:** unchanged — item 20, the theme control. Then 21, then 19.
+
+## 2026-08-17 · run 24 · The palette had three states and the tool offered none
+
+**Picked:** item 20, first slice — the theme control. Highest-ranked `ready`
+after 18 shipped, and the owner's other half of the same ask.
+
+**Did:** Lifted the control `docs/handbook.html` already had into
+`src/support/ui/shell.ts`, so every page gets it by being a page. A segmented
+Light / Dark / Auto group in the top bar, a restore-before-paint script in the
+head, and the toggle in the shared body script. `DASHBOARD_STYLES` grew the
+`.theme` rules and a narrow-window rule; no page was edited.
+
+**Verify:** `npm run verify` passes, exit 0 — **823 tests, up from 816**.
+
+**Proven on the running dashboard**, all seven pages: the control renders on
+every one, the restore script is in every head, and choosing dark on `/runs`
+and navigating to `/onboard` arrives dark with Dark still pressed. Light, dark
+and auto each produce the palette they should — `rgb(16,19,26)` against
+`rgb(234,237,241)` — and auto stores nothing.
+
+**Learned:**
+
+- **`tokens.ts` is one template literal, and a backtick in a comment closes
+  it.** The brief warns about this for `dashboard-page.ts`; it is just as true
+  here, and it cost a parse error on the first run of `tsc`. The comment now
+  says so in place, next to the thing that would tempt the next person.
+- **A test that finds "the" anything can be moved off its subject without
+  failing.** `ui-shell.spec.ts` asserted that "every page it renders is
+  syntactically valid JavaScript" by regexing the *first* `<script>` block. The
+  head restore is now first, so that guard had quietly stopped covering the
+  page's own script — the thing it was written for, and the thing that once
+  died at parse time silently. It checks every block now. Anything added to the
+  shell should look for guards shaped like that one.
+- **Auto has to be the absence of a choice.** No stored key, no attribute. Had
+  it stored the word, `:root:not([data-theme="light"])` would have stopped
+  meaning what it says and the dark media query would have applied to somebody
+  who explicitly asked for light. There is a test for that direction
+  specifically, driven with `emulateMedia`.
+- **Ordering is the whole feature and behaviour tests cannot see it.** A
+  restore that runs from the body script still ends up dark; it just flashes
+  white first. So the framework test asserts the restore appears before
+  `</head>`, and the browser test asserts it survives a reload. Confirmed red by
+  disabling the head restore: one test failed, the right one.
+- **Three things in one bar stops fitting at about phone width.** The control
+  hung off the right edge below ~420px. It wraps below 60rem now, and
+  `scroll-margin-top` grows there to match the taller bar.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches
+triage rules and the item picked was `ready`; run 13's figures stand.
+
+**Next:** item 21 — the Application slot as a real switcher. It is the same
+forty pixels of the top bar this run just edited, so `topbar()` is already the
+file to open.

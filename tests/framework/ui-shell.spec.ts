@@ -133,9 +133,41 @@ test.describe('the shell', () => {
   test('every page it renders is syntactically valid JavaScript', () => {
     // The guard that exists because a stray newline in an inlined script once
     // killed every handler on a page at parse time, silently.
+    //
+    // *Every* block, not the first one. The theme restore runs in the head and
+    // is now the first, so a check that stopped there would have quietly
+    // stopped covering the page's own script — the thing it was written for.
     const rendered = renderPage({ ...content, script: 'const x = 1;' }, { token: 't', pages: [], current: '/' });
-    const script = /<script>([\s\S]*?)<\/script>/.exec(rendered)?.[1];
-    expect(() => new Function(script!)).not.toThrow();
+    const scripts = [...rendered.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]!);
+    expect(scripts.length, 'the head restore and the body script').toBeGreaterThanOrEqual(2);
+    for (const script of scripts) expect(() => new Function(script)).not.toThrow();
+  });
+
+  test('offers the three theme states it styles, on every page', () => {
+    /*
+       The palette had all three from the start and nothing ever stamped
+       data-theme, so the tool followed the operating system and offered no say
+       in it — while the handbook, same design system, had the control. It is
+       in the shell, so a page gets it by being a page: this one names no
+       target and no pages and still has it.
+    */
+    const rendered = renderPage(content, { token: 't', pages: [], current: '/runs' });
+    expect(rendered).toContain('aria-label="Colour theme"');
+    for (const choice of ['light', 'dark', 'auto']) {
+      expect(rendered).toContain(`data-theme-choice="${choice}"`);
+    }
+  });
+
+  test('applies a stored theme in the head, before the body can paint', () => {
+    /*
+       Ordering is the whole feature. Restore from the body script and somebody
+       who chose dark gets a white page first — the flash the choice was made
+       to avoid, worst on the pages slowest to render.
+    */
+    const rendered = renderPage(content, { token: 't', pages: [], current: '/runs' });
+    const restore = rendered.indexOf("localStorage.getItem('theme')");
+    expect(restore, 'the restore script is missing').toBeGreaterThan(-1);
+    expect(restore, 'it has to be inside the head').toBeLessThan(rendered.indexOf('</head>'));
   });
 });
 

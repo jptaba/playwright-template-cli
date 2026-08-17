@@ -260,8 +260,38 @@ function topbar(page: DashboardPageContent, target: TargetContext | undefined): 
   return (
     `\n    <div class="topbar">\n` +
     `      <p class="crumb">${escapeHtml(page.eyebrow)}</p>\n` +
-    `      <div class="ctx">${context}</div>\n` +
+    `      <div class="topbar-end">\n` +
+    `        <div class="ctx">${context}</div>\n` +
+    `${themeControl()}\n` +
+    `      </div>\n` +
     `    </div>`
+  );
+}
+
+/**
+ * Light, dark, or follow the system.
+ *
+ * `DASHBOARD_STYLES` has shipped the whole three-state palette since it was
+ * written — a light `:root`, a `prefers-color-scheme: dark` block guarded so an
+ * explicit light choice still wins, and a `[data-theme="dark"]` block so an
+ * explicit dark one wins the other way. Nothing ever stamped `data-theme`, so
+ * every page followed the operating system and offered no say in it, while
+ * `docs/handbook.html` — the same design system — had the control.
+ *
+ * Three buttons rather than a switch: a two-state toggle has nowhere to put
+ * "follow the system", and that is the state most people are actually in. Auto
+ * is the *absence* of the attribute, not a third value of it, which is what
+ * keeps the stylesheet's guards meaning what they say.
+ *
+ * In the shell, so a page gets it by being a page.
+ */
+function themeControl(): string {
+  const button = (choice: string, label: string): string =>
+    `<button type="button" data-theme-choice="${choice}">${label}</button>`;
+  return (
+    `        <div class="theme" role="group" aria-label="Colour theme">` +
+    `${button('light', 'Light')}${button('dark', 'Dark')}${button('auto', 'Auto')}` +
+    `</div>`
   );
 }
 
@@ -290,6 +320,29 @@ export function renderPage(page: DashboardPageContent, options: ShellOptions): s
 <title>${escapeHtml(page.title)}</title>
 <style>${DASHBOARD_STYLES}${page.styles ?? ''}
 </style>
+<script>
+/*
+   Restore the chosen theme before anything paints.
+
+   In the head and synchronous on purpose. Run this from the body script that
+   sets everything else up and a reader who chose dark gets a white page first,
+   which is the flash the choice was made to avoid — and it is worst on the
+   pages that take longest to render, which are the ones somebody stares at.
+
+   Storing only an explicit choice is what makes "auto" the default and keeps
+   it the default: no key means no attribute means the media query decides.
+*/
+(function () {
+  try {
+    var stored = localStorage.getItem('theme');
+    if (stored === 'light' || stored === 'dark') {
+      document.documentElement.setAttribute('data-theme', stored);
+    }
+  } catch (error) {
+    /* Storage can be denied outright. The system preference still applies. */
+  }
+})();
+</script>
 </head>
 <body>
 <a class="skip" href="#content">Skip to the page</a>
@@ -331,6 +384,52 @@ async function post(path, body) {
   if (!response.ok) throw new Error(data.error || ('HTTP ' + response.status));
   return data;
 }
+
+/*
+   The theme control. The head has already applied the stored choice; this is
+   the part that changes it, and it is here rather than in the head because
+   nobody can press a button that has not been parsed yet.
+*/
+(function () {
+  const buttons = Array.from(document.querySelectorAll('[data-theme-choice]'));
+
+  const paint = (choice) => {
+    for (const button of buttons) {
+      button.setAttribute(
+        'aria-pressed',
+        button.dataset.themeChoice === choice ? 'true' : 'false',
+      );
+    }
+  };
+
+  /** What is stored, not what is on screen: "auto" has no attribute to read. */
+  const chosen = () => {
+    try {
+      const stored = localStorage.getItem('theme');
+      if (stored === 'light' || stored === 'dark') return stored;
+    } catch (error) {
+      /* Unreadable storage means the system preference is in charge. */
+    }
+    return 'auto';
+  };
+
+  for (const button of buttons) {
+    button.onclick = () => {
+      const choice = button.dataset.themeChoice;
+      if (choice === 'auto') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', choice);
+      try {
+        if (choice === 'auto') localStorage.removeItem('theme');
+        else localStorage.setItem('theme', choice);
+      } catch (error) {
+        /* The choice still applies to this page; it just will not persist. */
+      }
+      paint(choice);
+    };
+  }
+
+  paint(chosen());
+})();
 ${page.script ?? ''}
 </script>
 </body>

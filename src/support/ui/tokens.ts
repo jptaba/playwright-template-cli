@@ -248,6 +248,7 @@ export const DASHBOARD_STYLES = `
     margin: 0; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
     font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
   }
+  .topbar-end { display: flex; align-items: center; gap: 1rem; }
   .ctx { display: flex; align-items: center; gap: .5rem; font-size: .82rem; }
   .ctx-label { color: var(--muted); }
   .ctx-name { font-weight: 640; color: var(--ink); }
@@ -257,6 +258,35 @@ export const DASHBOARD_STYLES = `
     font-size: .72rem; color: var(--muted);
   }
   .ctx-none { color: var(--muted); font-style: italic; }
+
+  /* ---------- the theme control ---------- */
+  /*
+     Three states, and the middle one is the absence of a choice: no
+     data-theme attribute means "follow the system", which is what the palette
+     above is written around. Lifted from docs/handbook.html, which had this
+     and the dashboard did not — a tool that looks like a different product
+     from its own documentation reads as a bolt-on.
+
+     Segmented rather than a single toggle, because a two-state switch cannot
+     say "follow the system" and that is the state most people want.
+
+     (No backticks in this comment, deliberately: the whole stylesheet is one
+     template literal, and a backtick here closes it.)
+  */
+  .theme {
+    display: flex; gap: 2px; padding: 2px;
+    border: 1px solid var(--rule); border-radius: .35rem; background: var(--surface-2);
+  }
+  .theme button {
+    font: inherit; font-size: .72rem; letter-spacing: .03em;
+    color: var(--muted); background: none; border: 0; border-radius: .25rem;
+    padding: .26rem .55rem; margin: 0; cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .theme button:hover { color: var(--ink-2); background: none; }
+  .theme button[aria-pressed="true"] {
+    background: var(--surface); color: var(--accent-ink); box-shadow: var(--shadow);
+  }
 
   /* ---------- notes that stay out of the way ---------- */
   /*
@@ -338,6 +368,15 @@ export const DASHBOARD_STYLES = `
     .nav-hint { display: none; }
     .content-row:has(.sidecar) { grid-template-columns: minmax(0, 1fr); }
     .sidecar { position: static; }
+    /*
+       Three things in one row stops fitting somewhere around a phone. Wrapping
+       is the graceful end of that — the alternative is the theme control
+       hanging off the right edge, which is what it did before this rule.
+    */
+    .topbar { flex-wrap: wrap; row-gap: .4rem; }
+    .theme button { padding: .26rem .4rem; font-size: .68rem; }
+    /* A wrapped bar is taller, so what a jump has to clear is taller too. */
+    section, .masthead { scroll-margin-top: 6rem; }
   }
 
   /*
