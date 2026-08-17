@@ -897,3 +897,62 @@ that application can produce on demand. The open question underneath it — does
 still unanswered and still worth deciding before building either. Item 13 needs
 the quarantine machinery to produce a rate rather than a third anecdote, and
 item 12 still needs the owner's decision on Vault sign-in verification.
+
+## 2026-08-17 · run 15 · The owner answered both open questions
+
+**Picked:** neither — a decision entry. Run 14 closed by naming two things
+parked on the owner, and they answered both in the same session. Recorded here
+because run 14's entry says they are pending, and the rule is that an earlier
+entry is corrected by a later one.
+
+**Did:** No code. `backlog.md` only.
+
+**Item 12 — Vault.** The owner's words: *"For the vault it should give the user
+an option to connect to its own vault by providing them the option to provide a
+url and data shape."* That is the third of the three options the item wrote up
+— read the credential server-side, nothing typed, nothing in the browser — plus
+the configuration surface none of the three had. Item 12 moves from `blocked`
+to `ready` and, being a dashboard item, is now the only `ready` item and the
+top of the ranking.
+
+Checked against the integration before writing it down, rather than assuming it
+was implementable: the Vault **token** is already ambient and never typed —
+`resolveAuthFromEnvironment` (`src/integrations/vault/vault-store.ts:306`)
+takes a CI JWT, an AppRole pair, or a `VAULT_TOKEN` from an OIDC login. That is
+what makes the answer safe. The two things the owner asked to expose are not
+secrets: the address (`VAULT_ADDR`, `vault-store.ts:73`) and the shape — KV
+mount plus the `<root>/<accountType>/<role>/<index>` layout the `secrets`
+fixture builds, whose payload carries `username` and `password`. The invariant
+written into the item is therefore **no field on that page may hold a secret**:
+a URL, a mount and a path template are configuration; a token or a password is
+not, and neither gets a box.
+
+**Item 11 — what "continuously" means.** The owner's words: *"Continuously
+means in line with this auto self improvement loop until the entire solution
+meets the intent and it is bullet proof."* So not a CI job — the loop itself.
+`npm run triage:measure` runs inside a run and the numbers go in the log entry,
+so agreement is trended across entries. Added as step 5 of "How the agent uses
+this file" so it is not buried inside item 11.
+
+**Verify:** not run — documentation only, no source touched.
+**PR:** folded into the branch carrying this entry; `main` fast-forwarded and
+pushed per the standing instruction.
+
+**Learned:**
+
+- **The question as written offered three options and the answer was a fourth
+  that contained one of them.** Item 12 framed it as "type it here, or refuse,
+  or read server-side"; the owner's answer picked the third and added the part
+  that made it usable — that whose Vault it is, and how it is laid out, should
+  be the user's to state. Worth noticing for how the next `blocked` item is
+  written: offering a menu can hide the option the owner actually wants, which
+  is usually a capability rather than a choice between two refusals.
+- **The stopping condition changed and it is not the backlog.** "Until the
+  entire solution meets the intent and it is bulletproof" means an empty
+  backlog is not done, and a run that only measures is a legitimate run. Both
+  are now written into the file.
+
+**Next:** item 12, slice 1 — the Vault connection section, URL and shape, with
+a server-side connection check and no sign-in change. That slice alone is a
+whole PR; the item says so and says where the seams are. Item 13 remains the
+only thing needing input a run cannot generate alone.

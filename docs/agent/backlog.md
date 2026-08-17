@@ -42,6 +42,12 @@ re-read the backlog before committing to an item.
    containing the updated backlog.
 4. After implementing, move the item to `done` with the branch name, and append
    to `improvement-log.md`.
+5. **Measure, and record the numbers in the log entry.** The owner's definition
+   of "continuously" is this loop rather than a CI job (see item 11), so a run
+   that changed triage rules — or that had nothing better ranked — runs
+   `npm run triage:measure` and writes the result down. Trending lives in the
+   log entries. The loop stops when the solution meets the intent and is
+   bulletproof, not when the backlog is empty.
 
 ## Branching and pushing
 
@@ -106,8 +112,14 @@ but mis-diagnosed. Both sets are recorded under "Deleted guesses" at the bottom.
 through 10, less the retired 8. Two of item 11's slices are `done` as well
 (runs 12 and 13, same day) — see the item for what shipped and what evidence
 corrected along the way. Item 14, found by re-driving the dashboard in run 14,
-is `done` too. Nothing is `ready`. What remains is the rest of item 11
-(`hypothesis`), and items 12 and 13, which need input a run cannot generate
+is `done` too.
+
+**The owner answered both open questions on 2026-08-17**, so item 12 is
+unblocked and is now **the only `ready` item** — connect to your own Vault by
+URL and data shape, then verify a sign-in with it, server-side, with no secret
+ever on the page. The other answer defines what "continuously" means for item
+11: this loop measures triage agreement and records it per run, rather than a
+CI job. Item 13 is the one thing still needing input a run cannot generate
 alone.
 
 ---
@@ -486,9 +498,27 @@ that failed on those would train people to ignore it.
   the only remaining slice with a clear shape, and `triage:measure` measures it
   for free the moment the specs carry annotations.
 - Nothing yet *runs* `triage:measure` on a schedule or trends its numbers.
-  One command is repeatable; it is not continuous. Whether that wants a CI job
-  or a line in this loop is unsettled, and worth deciding before building
-  either.
+  One command is repeatable; it is not continuous.
+
+  **Answered by the owner, 2026-08-17:**
+
+  > Continuously means in line with this auto self improvement loop until the
+  > entire solution meets the intent and it is bullet proof.
+
+  So it is **this loop, not a CI job.** The measurement belongs in the run
+  itself: a run that touches triage rules, or that has nothing better ranked,
+  runs `npm run triage:measure` and records the numbers in its log entry, so
+  agreement is trended across entries rather than in a dashboard nobody opens.
+  That also sets the loop's own stopping condition — it is not "the backlog is
+  empty", it is "the solution meets the intent and is bulletproof", and the
+  backlog is a means to that rather than the goal.
+
+  Two consequences worth stating, because they change how a run is judged:
+
+  - A run that lands nothing but measures and records is a **legitimate run**,
+    on the same footing as a scan.
+  - A rule tightened without a measurement afterwards is unfinished work, not a
+    finished change awaiting a later check.
 - Neither slice needs `TARGET=saucedemo` specifically — either would extend
   just as well starting from `toolshop`.
 
@@ -548,7 +578,7 @@ change a timeout on the strength of this note.
 
 If it recurs: quarantine is the mechanism, not a hand-tuned wait.
 
-### 12. Should a Vault target be able to verify its sign-in at all? — `blocked`
+### 12. Connect to your own Vault, then verify a sign-in with it — `ready`
 
 Surfaced by item 4. A Vault target can never derive `signedInMarker` during
 onboarding, because deriving it means signing in and signing in means a
@@ -556,23 +586,56 @@ credential this page deliberately never holds. So every Vault target ships with
 a guessed marker and a hand-edit, and the dashboard's stated aim —
 `setup:auth` passes unedited — is reachable only for `local` targets.
 
-**The decision, in one sentence:** should the dashboard offer a Vault target a
-one-off "type it here to verify, never stored, never drafted" path, or is that
-exactly the door the `secrets`-fixture rule exists to keep shut?
+**Answered by the owner, 2026-08-17:**
 
-Arguments both ways, briefly. For: it is one value, held in memory for one
-sign-in, and the alternative is that the flagship path never meets its own aim.
-Against: a password box on a page whose whole design is "the agent writes the
-reference, a person writes the value" invites the habit the convention exists
-to prevent, and the credential would sit in a browser's memory.
+> For the vault it should give the user an option to connect to its own vault
+> by providing them the option to provide a url and data shape.
 
-A third option exists and may be the right one: read the credential from the
-configured Vault *server-side* for the verification only, so nothing is typed
-and nothing reaches the browser. That needs `vault:check` to pass on the
-machine running the dashboard, which is a real constraint but an honest one.
+So: **the third option, plus the configuration surface it was missing.** Not a
+password box — the page never holds a credential. The dashboard lets somebody
+point the framework at *their* Vault and describe how secrets are laid out in
+it, then reads the credential **server-side** for the verification only.
 
-Do not implement any of these without an answer. Everything else in this file
-is independent of it.
+**Why this is safe, checked against the integration rather than assumed.** The
+Vault *token* is already ambient and is never typed: `resolveAuthFromEnvironment`
+(`src/integrations/vault/vault-store.ts:306`) takes a CI JWT from
+`VAULT_ID_TOKEN`, an AppRole pair, or a `VAULT_TOKEN` a developer gets by
+logging in with OIDC. That stays exactly where it is. The two things the owner
+asked to be configurable are not secrets:
+
+- **URL** — `VAULT_ADDR` / `VAULT_SERVER_URL` (`vault-store.ts:73`), today
+  environment-only and invisible on the page.
+- **Data shape** — the KV mount (`VAULT_KV_MOUNT`, default `kv`) and the path
+  layout the `secrets` fixture builds,
+  `<root>/<accountType>/<role>/<index>` (`src/fixtures/…:210`), whose payload
+  is expected to carry `username` and `password`. `root` and `accountType` are
+  already profile fields; the mount is not.
+
+**The rule that keeps it honest: no field on this page may hold a secret.** A
+URL, a mount and a path template are configuration. A token, a `secret_id` or a
+password is not, and none of them gets a box.
+
+**Scoped first slice** — this is a dashboard item, so it is the standing
+priority and now the only `ready` item in the file:
+
+1. A Vault connection section: URL, KV mount, and the path shape, with a
+   **Check the connection** button that resolves one known path server-side and
+   reports what it found — the same "read it, do not guess it" move step 1
+   already makes for the application.
+2. Only once that check passes does a Vault target get **Sign in once**. Item 4
+   hid those buttons for Vault targets and that stays right until there is a
+   working connection to hide them *for*.
+3. When no ambient token exists, say so plainly and name the fix (`vault login`,
+   or `SECRET_SOURCE=local` for a genuinely public target). Item 4's refusal
+   copy is good and should be reused, not rewritten.
+
+Watch the diff: this is bigger than anything in this file so far and should be
+split. Slice 1 alone — connect and check, no sign-in change — is a whole PR.
+
+Still open, and a judgement the implementer may take: whether the connection
+settings live in the profile, in a machine-local file beside the draft, or in
+the environment the dashboard already reads. Prefer whichever keeps
+`config/targets/` free of anything machine-specific.
 
 Related: changing the default source away from Vault was deliberately **not**
 done in item 4. Defaulting to a local file nudges people toward putting real
