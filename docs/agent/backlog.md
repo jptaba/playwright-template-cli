@@ -1309,7 +1309,7 @@ Written from source, disproved by use. Recorded so nobody re-adds them.
   and settled; do not relitigate it.
 - Anything requiring a live credential the run does not have.
 
-### 22. Four pages have no browser test at all — `ready`
+### 22. Four pages have no browser test at all — first slice `done`
 
 Found by run 26, and it is why item 19's defects survived this long.
 
@@ -1336,3 +1336,25 @@ the judgement nobody makes on a Friday.
 Ranked below item 20's remaining polish only if somebody disagrees with this:
 the copy budget was worth writing, and this is the same rule for the axis that
 actually broke.
+
+**Shipped** on `agent/2026-08-17-height-budget` (run 27): `tests/dashboard/pages-harness.ts`
+serves `/publish` and `/cases` over a real loopback socket with the real routes,
+faking only at the service boundary the routes already take. Six tests, and the
+budget is `page-height.spec.ts`.
+
+**The size of what comes back is a parameter**, and that is the design decision
+worth keeping. The defects on both pages were defects of *quantity* — fine on
+three rows, unusable on two hundred — so a fixed fixture would have hidden them
+exactly the way the real repository did. Confirmed by running the budget
+against the pre-fix pages: **Publish 5.3 screens, Cases 30.1 screens**. Cases
+was 7.3 on the real repository, which happened to hold 27 rows; the same page
+on 270 is four times worse than anything anybody had seen.
+
+Budgets are 5 screens and a 1200px tallest block, deliberately loose: this is a
+tripwire for a block with no bound, not a design rule, and a tight number is one
+everybody raises.
+
+**Still `ready` here:** `/users`, `/stories` and `/triage` have no harness
+entry. `/triage` is the one worth doing next — it was 4.1 screens on a real
+repository, the closest of the untouched three to the budget. `/users` and
+`/stories` are small and can wait for a reason.

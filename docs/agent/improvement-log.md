@@ -1768,3 +1768,56 @@ triage rules; run 13's figures stand.
 **Next:** item 22 — a harness for the pages that have none, then a height
 budget. It is worth more than item 20's remaining polish, because it is what
 stops the next 3660px block.
+
+## 2026-08-17 · run 27 · A budget for the axis that actually broke
+
+**Picked:** item 22 — the pages with no browser test, and the height budget.
+Raised by run 26 and ranked above item 20's remaining polish, because it is what
+stops the next 3660px block rather than improving one that already exists.
+
+**Did:** `tests/dashboard/pages-harness.ts`, built the way `harness.ts` is: a
+real loopback socket, the real page, the real routes, faking only at the service
+boundary the routes already take (`PublishService`, and `/api/cases`). Then
+`page-height.spec.ts` — two budget tests and four about the behaviours run 26
+could only verify by hand.
+
+**Verify:** `npm run verify` passes, exit 0 — **841 tests, up from 835**.
+
+**Seen red, against the pre-fix pages** (`git checkout 327b11e~1 --` the two page
+modules, run, restore):
+
+```
+Publish is 5.3 screens on 200 unpostable specs
+Cases is 30.1 screens on 270 rows
+```
+
+Four of the six failed, for the right reasons, with messages naming the number.
+
+**Learned:**
+
+- **Make the size of the data a parameter, not a fixture.** Both defects were
+  defects of quantity — fine on three rows, unusable on two hundred — so a
+  fixed fixture would have hidden them the same way the real repository did.
+  **Cases on 270 rows is 30.1 screens**; on the real repository it was 7.3,
+  because that repository happens to hold 27. The worst case nobody has met yet
+  is the one a budget is for.
+- **Rebuild the routes per request.** Building them once in the fixture froze
+  the sizes at zero, so a test that set `data` and opened the page measured an
+  empty one. The first version of the harness did exactly that and every budget
+  passed trivially.
+- **The budget wants a loose number and a message with the figure in it.** Five
+  screens and 1200px are not design rules — they are the tripwire for a block
+  with no bound. A tight budget on this axis would be raised by the first person
+  it inconvenienced, which is how a rule stops meaning anything.
+- One test passes vacuously against the unfixed page: "a short answer is not put
+  in a box built for a long one" asserts the *absence* of `longlist`, which is
+  true when the class does not exist at all. Kept anyway — its job is guarding
+  the over-application, which is a defect that has not happened yet.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches triage
+rules; run 13's figures stand.
+
+**Next:** `/triage` into the same harness — 4.1 screens on a real repository,
+the closest of the three untouched pages to the budget. Then item 20's
+remaining polish (focus states, rhythm, the uneven status colours), then item 12
+slice 3 and item 17.
