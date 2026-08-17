@@ -165,6 +165,11 @@ opens at 1714px where it opened at 3888px. **Item 20 is the next one**, and one
 part of it is no longer optional: the reveal now depends on a fade, so the
 motion half of 20 has already landed inside 18.
 
+**The owner added item 21 on 2026-08-17** — the "Application" slot in the top
+bar is a label, not a switcher, so a selection neither sticks nor spreads. It
+was driven and evidenced the same day it was asked for. The order is now **20,
+21, then 19**: 19 rearranges controls on the pages 21 deletes four of.
+
 **Correcting the standing note on Vault, 2026-08-17 (run 21).** It said the
 owner has no Vault to test against. There is no *hosted* one and none is
 needed: `docker run --rm -p 8200:8200 -e VAULT_DEV_ROOT_TOKEN_ID=<token>
@@ -1009,7 +1014,79 @@ at once, most of them refusing to be touched.
 Bigger than 400 lines if taken at once. Slice it: preflight panel first, since
 it stands alone and is the half that makes the other half safe.
 
-### 19. The same pattern on every other page — `ready`, after 20
+### 21. The "Application" slot in the top bar is a label, not a switcher — `ready`, after 20
+
+**The owner's ask, 2026-08-17:**
+
+> Let's also include in the backlog to check the top right most section where it
+> shows "Application" as it wasn't truly effective and sticking if you select an
+> app for the other pages. Meaning, when the app is already onboarded, they
+> should have an option to select it on that section so everything else follows
+> that onboarded app. You can find better ways to do it or a standard way to do
+> it but the goal is still seamless, intuitive and effective.
+
+**Driven rather than read.** With `saucedemo` and `toolshop` both onboarded and
+`TARGET` unset — the normal state of this repository — every page was opened
+and the bar inspected:
+
+- The top bar reads **"Application · none selected"** on all six pages, always.
+  `chrome()` (`tools/dashboard.ts:945`) calls `resolveTarget()`, which throws
+  when several profiles are registered and nothing has chosen between them, and
+  the catch renders "none". It is a `<span>`. There is nothing to click.
+- **Meanwhile the page under it has already chosen.** `/users` was showing
+  saucedemo's credential locations and account list while the bar above it said
+  none selected. Two answers to "which application" on one screen, forty pixels
+  apart — the item 5 and item 14 family, a page allowed to disagree with
+  itself.
+- **The selection is duplicated four times and shared none of them.** `/users`
+  has `#pick`, `/stories` `#sTarget`, `/cases` `#cTarget`, `/runs` `#rTarget`.
+  `/triage` and `/publish` have no application picker at all — they pick a
+  *run*. Choosing `toolshop` on `/users` and then opening `/runs` lands back on
+  `saucedemo`: every page is its own document, and nothing carries.
+- **The default is alphabetical, which the conventions explicitly refuse.**
+  Each picker fetches `/api/targets`, fills a `<select>` and lets the browser
+  select the first option (`runs-page.ts:150`). CLAUDE.md says of the CLI:
+  *"alphabetical order does not get to decide which application gets tested."*
+  The dashboard does exactly that, silently, and **Start a run** is one click
+  away from it.
+
+**The slot is already the right place, and the shell says so** — `topbar()` in
+`src/support/ui/shell.ts:249` is commented *"The org-switcher position, for the
+same reason products put one there."* It was built as the standard pattern and
+then left read-only. So this is finishing it, not inventing it.
+
+**Shape to aim for:**
+
+1. The `.ctx` slot becomes the switcher: the onboarded applications, the
+   environment beside the name, and "none selected" as a real state rather than
+   a failure to resolve. It is in the shell, so every page gets it once — the
+   `19` rule, applied here.
+2. The choice **persists across a navigation and a restart**. Server-side is
+   the better half of that: the shell is rendered by the server, so a stored
+   choice makes the first paint correct with no flash, and `chrome()` can read
+   it without every page re-deciding. A machine-local file beside
+   `.onboarding-draft.json` is the shape to try — the same reasoning as item 12
+   slice 3, and the same rule: **`TARGET` in the environment still wins**,
+   because CI sets it and must not be overridden by a file a laptop wrote.
+3. The four page-body pickers **go**, and their pages read the selection. That
+   is the "everything else follows" half, and it is what makes the bar worth
+   its space rather than a seventh copy of the same control.
+4. With nothing selected, a page that needs one **says so and offers the
+   switcher** rather than guessing the alphabetically first. Refusing to guess
+   is what the CLI already does; the dashboard should not be the surface where
+   that rule is quietly dropped.
+
+**Ranked after 20 and before 19**, and the ordering matters: 19 rearranges
+controls on these same pages, and this item deletes four of them. Doing 19
+first means arranging things that are about to move.
+
+Watch: `/triage` and `/publish` are scoped to a *run*, not to an application,
+and a run already carries its target (`tools/dashboard.ts:1265`). Do not give
+them an application switcher that does nothing — either filter their run lists
+by the selection, or leave the slot showing the selection without acting on it,
+and say which was chosen.
+
+### 19. The same pattern on every other page — `ready`, after 21
 
 "It should be applied to all sections of the UI dashboard." The other pages —
 `/users`, `/runs`, `/cases`, `/stories`, `/triage`, `/publish` — are not

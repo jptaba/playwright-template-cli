@@ -1563,3 +1563,41 @@ contradicted, 3 declined) stand unchanged.
 ask, `tokens.ts` already ships the three-state palette and `docs/handbook.html`
 already has the control to lift, and one part of 20 has landed inside 18
 already: a revealed section fades.
+
+## 2026-08-17 · run 23b · The Application slot, driven and written up
+
+**Picked:** no implementation — the owner asked mid-session for a backlog item
+about the "Application" section in the top bar not sticking across pages.
+
+**Did:** Drove the running dashboard on all six non-onboarding pages rather
+than describing the slot from source, and added **item 21**, `ready`, ranked
+after 20 and before 19.
+
+**What using it showed**, with `saucedemo` and `toolshop` onboarded and
+`TARGET` unset — the normal state here:
+
+- The bar reads "Application · none selected" on every page, always. It is a
+  `<span>`; `resolveTarget()` throws when several profiles are registered and
+  nothing has chosen, and the catch renders "none".
+- `/users` was listing saucedemo's credentials **while the bar above it said
+  none selected**. Two answers to "which application" on one screen.
+- Four pages carry their own picker with four ids — `#pick`, `#sTarget`,
+  `#cTarget`, `#rTarget` — and none of them shares. Choosing `toolshop` on
+  `/users` then opening `/runs` lands back on `saucedemo`.
+- The per-page default is **whichever option the API returns first**, i.e.
+  alphabetical. CLAUDE.md refuses exactly that for the CLI — "alphabetical
+  order does not get to decide which application gets tested" — and **Start a
+  run** is one click from it.
+
+**Verify:** not run — documentation only, no code touched.
+
+**PR:** committed to `agent/2026-08-17-one-step-at-a-time` and pushed with
+`main`; see the entry above for the run that owned that branch.
+
+**Learned:** the slot was built for this and left read-only — `topbar()` in
+`shell.ts` is commented "The org-switcher position, for the same reason
+products put one there". So item 21 is finishing a pattern the shell already
+argues for, not introducing one. And the ordering against 19 matters: 19
+rearranges controls on these pages and 21 deletes four of them.
+
+**Next:** unchanged — item 20, the theme control. Then 21, then 19.
