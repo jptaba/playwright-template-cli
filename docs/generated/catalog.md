@@ -31,6 +31,31 @@ _Target-agnostic. Available in every spec, whichever application is under test._
 | `contracts` | `ContractRegistry \| null` | The vendored contract document, when the target publishes one. |
 | `a11y` | `A11yScanner` | Accessibility scanning against the standard the target declares. |
 
+## Fixtures — saucedemo
+
+_Added on top of the framework fixtures when TARGET=saucedemo._
+
+| Name | Signature | What it does |
+|---|---|---|
+| `signIn` | `named actions — see the table below` | Signing in, and reading what the form reported. |
+| `inventory` | `named actions — see the table below` | Browsing the product listing and the cart it feeds. |
+| `testData` | `SaucedemoTestData` | Builders for the data a spec needs. |
+
+## actions/ — saucedemo
+
+_L2 UI vocabulary. Composes locators, returns data, asserts nothing._
+
+| Name | Signature | What it does |
+|---|---|---|
+| `inventory.open` | `(page: Page) => Promise<void>` |  |
+| `inventory.productNames` | `(page: Page) => Promise<string[]>` | The names on the listing, in the order shown. |
+| `inventory.addToCart` | `(page: Page, name: string) => Promise<void>` |  |
+| `inventory.cartCount` | `(page: Page) => Promise<number>` | The number on the cart badge, or 0 when the cart is empty. |
+| `signIn.withCredentials` | `(page: Page, credentials: Credentials) => Promise<void>` | Submit the sign-in form. |
+| `signIn.isSignedIn` | `(page: Page) => Promise<boolean>` | Whether the page currently carries a session. |
+| `signIn.signedInAs` | `(page: Page) => Promise<string \| null>` | Who the session belongs to, or null when signed out. |
+| `signIn.readError` | `(page: Page) => Promise<string \| null>` | The error the form reported, or null when it reported none. |
+
 ## Fixtures — toolshop
 
 _Added on top of the framework fixtures when TARGET=toolshop._

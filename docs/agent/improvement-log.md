@@ -547,3 +547,95 @@ load-sensitive test failures, `hypothesis`, needs the quarantine machinery to
 produce a rate rather than another anecdote), and item 12 (`blocked` on one
 product decision from the owner about whether a Vault target may verify its
 sign-in, and blocking nothing else).
+
+## 2026-08-17 · run 11 · A second, deliberately unlike target
+
+**Picked:** backlog item 10 — commit `saucedemo` as a second, permanent
+target so agnosticism is tested continuously instead of assumed. Re-read
+`backlog.md` and `git log origin/main` immediately before starting, per the
+file's own warning about overlapping runs; both agreed it was the only `ready`
+item and nothing had landed on it since run 10.
+
+**Did:** Onboarded `saucedemo` (`https://www.saucedemo.com`) through the
+running `npm run onboard` dashboard, driven with the Browser tool rather than
+the CLI — deliberately, so this run re-walks the exact path item 1's fix was
+built for rather than trusting it from a distance. It held: step 4's **Sign in
+once** derived `button "Open Menu"` as `signedInMarker`, not the duplicated
+`link "Sauce Labs Backpack"` that broke onboarding before item 1 shipped —
+confirmed live in the accessibility tree at `/inventory.html` that the product
+image link and title link still share that name, so this is still a real test
+of the fix and not a coincidence of a simpler page. `setup:auth` passed
+unedited on the first try.
+
+Kept the scope to what item 10 specified and nothing else: local secret
+source (legitimate here — saucedemo prints its credentials on its own login
+page), every optional layer left off, one `@smoke` e2e spec. Wrote a small L1
+(`locators/inventory.ts`) and L2 (`actions/inventory.ts`) pair for the
+listing, explored live rather than guessed — the product cards have the same
+title/image-link duplication as the signed-in marker did, so every locator is
+scoped to its own card on purpose, with a comment saying why, so nobody
+"tidies" it into something that resolves to two elements later. The one spec,
+`SD-1-01 · Adding a product to the cart updates the cart badge @smoke @cart`,
+drives `authedPage` through a real add-to-cart and asserts the badge — a
+genuine user-visible outcome, not a page-load smoke check.
+
+**Verify:** `npm run verify` passes — 750 tests, unchanged from run 9,
+because `test:framework` and the `dashboard` project test the framework
+itself rather than any target's specs. Separately confirmed both halves of
+item 10's exit criteria: `npm run target:doctor` reports both `saucedemo` and
+`toolshop` as OK, and with `TARGET` unset, `npx playwright test --list`
+resolves only `[framework]` and `[dashboard]` — no target-specific project
+leaks into a build that named none. Diff: 391 lines across 10 files (under
+the ~400-line guideline as one PR).
+
+**PR:** branch `agent/2026-08-17-second-target`; `main` fast-forwarded and
+pushed per the standing instruction, confirmed matching `origin/main`
+afterwards.
+
+**Learned:**
+
+- **Driving the dashboard instead of the CLI scaffolder was worth the extra
+  time.** The CLI (`target:new`) would have produced the same files faster,
+  but would not have exercised `proposeSignedInMarker` against a real
+  duplicated-name page, which is the one thing this second target exists to
+  keep testing. A target committed by a shortcut would have looked identical
+  on disk and proven nothing.
+- **The draft carries more across sessions than expected, and it bit the
+  first attempt.** A previous run's scratch draft (name `scratch-item8b...`,
+  a doubled base URL) was still loaded when this session opened the
+  dashboard, and clicking into the pre-filled `name` and `baseURL` fields and
+  typing appended instead of replaced — `scratch-item8bsaucedemo` and a
+  doubled URL got read into step 1 before this was caught by checking
+  `document.querySelector('#name').value` directly rather than trusting the
+  accessibility tree's textbox label. Fixed by triple-clicking to select
+  before typing. Worth the next run's notice: the accessibility snapshot
+  shows an input's *placeholder* as its name when a screen reader would too,
+  which is correct, but it means the snapshot alone cannot distinguish an
+  empty field from one already holding stray text — read the DOM value
+  directly before trusting a field is empty.
+- **A cosmetic gap survived the fix, not a functional one.** Step 5's "no
+  sign-in has been verified yet" warning stayed on screen after a successful
+  sign-in, but the file actually written held the correct derived marker, not
+  a guess — checked on disk, not assumed from the page. Recorded in the item
+  rather than fixed, since the write is correct and the standing priority is
+  decisions removed from the wizard, not indicators added to it; worth a
+  look only if someone is already touching that region of
+  `dashboard-page.ts`.
+- **saucedemo's session does not survive a plain navigation to `/`.** The
+  cookie `session-username` is set after sign-in, but visiting `/` always
+  renders the login form regardless — only `/inventory.html` (itself behind a
+  GitHub Pages SPA 404-redirect, so it takes a real render pass, not just a
+  network round trip) shows the authenticated view. `inventory.open()`
+  navigates there directly and waits on the first card rather than the
+  navigation, which is the "wait for the fact" rule doing exactly what it is
+  for.
+
+**Next:** Item 11, the learn-fix-optimise loop, is unblocked now that a
+second target exists — it still needs decomposing into a slice a single run
+can finish before it can move to `ready`; the candidate first slice in the
+item (measure the triage fixture's agreement rate) looks like the smallest
+honest start. Item 13 still needs the quarantine machinery to produce a rate
+rather than another anecdote, and item 12 still needs the owner's decision on
+Vault sign-in verification. With item 10 done, nothing in the backlog is
+`ready` — the next run should expect to decompose item 11 into something
+`ready`, or do a fresh scan if that decomposition does not hold up.

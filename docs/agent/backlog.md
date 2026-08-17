@@ -102,9 +102,10 @@ not inferred.** Three of the original six seeded items were guesses that turned
 out wrong and have been deleted; item 8 later joined them, having been observed
 but mis-diagnosed. Both sets are recorded under "Deleted guesses" at the bottom.
 
-**As of 2026-08-17 every onboarding-UX item is `done`** — 1 through 9, less the
-retired 8. What remains is item 10 (the only `ready` one), item 11 which depends
-on it, and items 12 and 13, which need input a run cannot generate alone.
+**As of 2026-08-17 every onboarding-UX item is `done`, and so is item 10** — 1
+through 10, less the retired 8. Nothing is `ready` any more. What remains is
+item 11 (`hypothesis`, now unblocked — its dependency on item 10 is met),
+and items 12 and 13, which need input a run cannot generate alone.
 
 ---
 
@@ -336,7 +337,41 @@ If the draft has probe results, the sections they fill should open. This is the
 recoverability item that survived contact with the running system; the rest of
 the original item 5 was wrong.
 
-### 10. Keep a second, deliberately unlike target — `ready`
+### 10. Keep a second, deliberately unlike target — `done`
+
+Shipped on `agent/2026-08-17-second-target`. `saucedemo` is now committed
+alongside `toolshop`: profile, four-layer pack, and one `@smoke` e2e spec —
+`SD-1-01 · Adding a product to the cart updates the cart badge`. Credentials
+resolve from `config/secrets.local.json`, legitimate here because saucedemo
+publishes them on its own login page.
+
+Onboarded through the running dashboard rather than the CLI, per the
+"evidence beats reading" rule and because it re-exercises the exact path item
+1's fix was built for: `proposeSignedInMarker` derived `button "Open Menu"`
+again, not the duplicated `link "Sauce Labs Backpack"` (the product image
+link and the product title link still share that name — confirmed live via
+the accessibility tree at `/inventory.html`, and it is called out in a
+comment on `locators/inventory.ts` so nobody "tidies" a locator there into
+one that resolves to two elements). `setup:auth` passes unedited, which is
+the aim the dashboard states in its own banner.
+
+`npm run verify` passes with both targets on disk — 750 tests, unchanged from
+before, because `test:framework` and the `dashboard` project test the
+framework rather than a target. Confirmed separately: with `TARGET` unset,
+`npx playwright test --list` still resolves only `[framework]` and
+`[dashboard]`, no target-specific project — the second target does not leak
+into a build that named none.
+
+One finding, not acted on: step 5's "no sign-in has been verified yet" warning
+stayed on screen after a successful **Sign in once**, even though the write
+that followed correctly used the derived marker (`locators/sign-in.ts` on
+disk has `button "Open Menu"`, not a guess). The warning text appears to be
+computed once, at preview time, rather than re-checked after step 4 succeeds.
+Cosmetic — the file written is correct either way — so left as a loose thread
+rather than a new item; worth a look if someone is already in that area of
+`dashboard-page.ts`.
+
+The original text follows.
 
 Owner's ask, 2026-08-16: find a real application on the internet usable for a
 comprehensive end-to-end run, so the framework is exercised as a whole rather
@@ -381,9 +416,9 @@ cheap and all independent:
   available on day one.
 - Only then decide what "optimise" means here, in numbers.
 
-Depends on item 10, which is now decided but not yet built. Do not start this
-before a second target is committed — with one target there is nothing to
-measure agnosticism against.
+Depended on item 10, which is now `done` — `saucedemo` is committed alongside
+`toolshop`. Unblocked as of 2026-08-17; still needs decomposing into a slice a
+single run can finish before it can move to `ready`.
 
 ### 13. The dashboard suite has load-sensitive tests — `hypothesis`
 
