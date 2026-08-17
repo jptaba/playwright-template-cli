@@ -31,8 +31,26 @@ a real browser at a running dashboard and that is not a thing to do from CI.
    (file paths, line numbers, a reproduction), and add new items found.
    A scan-only run is a legitimate outcome and should still open a PR
    containing the updated backlog.
-4. After implementing, move the item to `done` with the PR number, and append
+4. After implementing, move the item to `done` with the branch name, and append
    to `improvement-log.md`.
+
+## Branching and pushing
+
+Work on `agent/<yyyy-mm-dd>-<slug>`, then **fast-forward `main` to it and push
+`main` as well**. The owner's standing instruction is that everything lands on
+`main` rather than sitting on a branch waiting for a review that will not come.
+
+```bash
+git push -u origin agent/<date>-<slug>
+git checkout main && git merge --ff-only agent/<date>-<slug> && git push origin main
+```
+
+Only push `main` once `npm run verify` has passed and the tree is clean. If the
+merge is not a clean fast-forward, stop and say so rather than forcing it.
+
+`gh` is not installed on this machine, so a pull request cannot be opened from
+the shell. Report the `pull/new/<branch>` link `git push` prints, and be clear
+that `main` already carries the work.
 
 ## Status vocabulary
 
