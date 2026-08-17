@@ -215,6 +215,49 @@ test.describe('previewing', () => {
   });
 });
 
+test.describe("step 3's own sign that its button worked", () => {
+  /*
+     Preview's plan renders two sections down, in step 5, and step 3's own
+     badge used to say "Needs your input" whether or not the preview had run —
+     the section that owns the button gave no sign it did anything. This is
+     that sign, pinned close to the button rather than only in the list below.
+  */
+  test('a successful preview says so next to its own button', async ({ dashboard }) => {
+    const { page } = dashboard;
+    await reachStep3(dashboard);
+    await page.click('#preview');
+
+    await expect(page.locator('#previewStatus')).toContainText('file(s) planned');
+    await expect(page.locator('#previewStatus')).toContainText('Write it');
+    await expect(page.locator('#s3Badge')).toHaveText('Previewed');
+    await expect(page.locator('#s3Badge')).toHaveClass(/auto/);
+  });
+
+  test('a change after previewing resets the sign along with the plan it invalidates', async ({
+    dashboard,
+  }) => {
+    const { page } = dashboard;
+    await reachStep3(dashboard);
+    await page.click('#preview');
+    await expect(page.locator('#s3Badge')).toHaveText('Previewed');
+
+    await page.check('#lA11y');
+
+    await expect(page.locator('#s3Badge')).toHaveText('Needs your input');
+    await expect(page.locator('#previewStatus')).toBeEmpty();
+  });
+
+  test('a refused preview leaves the badge saying input is still needed', async ({ dashboard }) => {
+    const { page } = dashboard;
+    await reachStep3(dashboard);
+    await page.fill('#name', 'Acme Shop');
+    await page.click('#preview');
+
+    await expect(page.locator('#s3Badge')).toHaveText('Needs your input');
+    await expect(page.locator('#previewStatus')).toContainText('not a usable target name');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // The step rail
 // ---------------------------------------------------------------------------

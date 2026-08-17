@@ -351,3 +351,52 @@ existed in the first place.
 onboarding-UX items, both small. Item 10 — commit a second, deliberately unlike
 target — is the standalone that keeps agnosticism honest and is now the most
 valuable thing left. Item 12 needs the owner's decision and blocks nothing else.
+
+## 2026-08-17 · run 8 · A section that said nothing about its own button
+
+**Picked:** backlog item 7 — the preview's output landing two sections from
+its button, with step 3's badge never moving off "Needs your input".
+
+**Did:** Step 3 now carries its own `.status` line under the preview button:
+on success it reports the file count and points down at "Write it"; the
+section's badge flips from "Needs your input" (accent) to "Previewed"
+(pass-green) at the same moment. Both reset — badge and status line — the
+instant `markPlanStale()` fires, so they can never say "done" while step 5 is
+showing the "the shape changed, preview again" notice item 5 put there. A
+conflict or a thrown error leaves the badge on "Needs your input" and puts the
+same message in both places, since the user still has something to do. The
+full file list was left in step 5 rather than moved — summarising in step 3
+was the smaller of the two remedies the item named, and the step rail already
+offers a way down to the rest.
+
+**Verify:** `npm run verify` passes — 749 tests. Diff 76 lines across 2 files
+(`src/support/onboarding/dashboard-page.ts`,
+`tests/dashboard/step3-the-shape-of-the-pack.spec.ts`).
+
+**PR:** branch `agent/2026-08-17-preview-summary`; `main` fast-forwarded and
+pushed per the standing instruction.
+
+**Learned:**
+
+- **Reusing the existing invalidation hook was the whole trick.** `markPlanStale()`
+  already fires on every input/change event once a plan exists, because item 5
+  built it to withdraw the file list in step 5. Resetting the step 3 badge and
+  status from inside that same function means there is exactly one place that
+  decides "the plan is stale" rather than two listeners that could drift apart.
+- **No new pattern was needed for the "see below" pointer.** There is no
+  existing convention in this codebase for building an `<a href="#s5">` from
+  script, and the step rail in the sidecar already links to step 5, so plain
+  text naming "Write it" was enough — adding an anchor-building helper for one
+  call site would have been the premature abstraction the conventions warn
+  against.
+- **The new `.status` div does not trip the page-copy word budget.** It is
+  empty in the static HTML and filled at runtime, and
+  `tests/framework/page-copy.spec.ts` only scans `<p class="explain">` blocks
+  in the pre-rendered body — worth knowing before assuming every new line of
+  copy needs counting against the 34-word/220-word ceilings.
+
+**Next:** Item 9 — a reload discarding the unlock state while keeping the
+answers — is the last onboarding-UX item, small and well-evidenced. Item 10,
+committing a second deliberately-unlike target, is the standalone that keeps
+agnosticism honest and is now the most valuable thing left in the backlog.
+Item 12 still needs the owner's decision and blocks nothing else.

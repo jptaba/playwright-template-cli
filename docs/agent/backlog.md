@@ -262,7 +262,21 @@ a returning user with a different application and nothing to do.
 Default the picker to "— New application —". The onboarded ones stay one
 selection away. Smallest diff on the list and the first thing anybody sees.
 
-### 7. Preview's output lands two sections from its button — `ready`
+### 7. Preview's output lands two sections from its button — `done`
+
+Shipped on `agent/2026-08-17-preview-summary`. Step 3 now says so itself: a
+`.status` line next to the button reports the file count and points at "Write
+it" below, and the step's own badge turns from "Needs your input" (accent) to
+"Previewed" (pass-green) the moment a preview succeeds. Both reset to their
+pre-preview state the instant the plan goes stale — the same trigger item 5
+already wired up — so the badge and the invalidation notice in step 5 can
+never disagree about whether the current plan is still good.
+
+The full file list stays in step 5, unmoved: summarising rather than
+relocating kept the diff to one new `.status` element and a handful of calls,
+and the sidecar step rail already opens a path there for anyone who wants it.
+
+The original text follows.
 
 Step 3's button renders into step 5, below step 4 and off-screen at 1280×720,
 and step 3's badge stays "Needs your input" after a successful preview. The

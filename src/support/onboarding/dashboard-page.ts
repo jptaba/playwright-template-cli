@@ -205,7 +205,7 @@ const BODY = `
     <div class="head">
       <span class="step">Step 3</span>
       <h2>The shape of the pack</h2>
-      <span class="badge locked" data-ready="Needs your input" data-kind="manual">Locked</span>
+      <span class="badge locked" id="s3Badge" data-ready="Needs your input" data-kind="manual">Locked</span>
     </div>
     <p class="lockhint">Unlocks once step 1 has read the application.</p>
     <p class="explain">
@@ -242,6 +242,7 @@ const BODY = `
     <label class="check"><input type="checkbox" id="lA11y"><span>Accessibility — axe against the declared standard</span></label>
     <label class="check"><input type="checkbox" id="lDb"><span>Database — read-only query vocabulary<small>only when a fact has no UI and no API</small></span></label>
     <button id="preview">Preview what will be written</button>
+    <div class="status" id="previewStatus"></div>
   </section>
 
   <section id="s4" inert>
@@ -1039,6 +1040,21 @@ function planShape() {
 let plannedShape = null;
 
 /*
+   Step 3's own sign that its button did something.
+
+   The plan it produces renders two sections down, in step 5, and step 3's
+   badge stayed "Needs your input" whether or not the preview had run — a
+   section that gives no sign its own button worked. This is that sign: the
+   badge turns positive and a line next to the button says how many files and
+   where to look, without moving the full list out of step 5.
+*/
+function setPreviewBadge(label, kind) {
+  const badge = $('s3Badge');
+  badge.textContent = label;
+  badge.className = 'badge ' + kind;
+}
+
+/*
    A preview that no longer describes the form.
 
    The plan renders once and then sat there while step 3 kept changing, still
@@ -1059,6 +1075,8 @@ function markPlanStale() {
   box.replaceChildren(el('div', 'note',
     'The shape changed after this was previewed, so what would be written is no longer what ' +
     'was listed. Press "Preview what will be written" in step 3 again.'));
+  setPreviewBadge('Needs your input', 'manual');
+  $('previewStatus').replaceChildren();
 }
 
 /*
@@ -1246,6 +1264,8 @@ $('verify').onclick = async () => {
 $('preview').onclick = async () => {
   const box = $('plan');
   box.replaceChildren(el('div', 'status', 'Planning…'));
+  $('previewStatus').className = 'status';
+  $('previewStatus').textContent = 'Planning…';
   try {
     const plan = await post('/api/plan', options());
     box.replaceChildren();
@@ -1271,11 +1291,20 @@ $('preview').onclick = async () => {
         'npm run target:remove -- --name=' + plan.name + ' --confirm=' + plan.name));
       $('create').disabled = true;
       plannedShape = null;
+      setPreviewBadge('Needs your input', 'manual');
+      $('previewStatus').className = 'status error';
+      $('previewStatus').replaceChildren(el('span', 'missing', 'Already onboarded. '), text('See the details below.'));
     } else {
       $('create').disabled = false;
       // What this plan describes. Anything that moves it from here invalidates
       // the list above rather than quietly disagreeing with it.
       plannedShape = planShape();
+      setPreviewBadge('Previewed', 'auto');
+      $('previewStatus').className = 'status';
+      $('previewStatus').replaceChildren(
+        el('span', 'found', plan.files.length + ' file(s) planned. '),
+        text('See “Write it” below.'),
+      );
       box.append(el('div', '', plan.files.length + ' file(s) will be written:'));
       const list = el('ul', 'files');
       for (const file of plan.files) list.append(el('li', '', file));
@@ -1308,6 +1337,9 @@ $('preview').onclick = async () => {
     enable('s4'); enable('s5');
   } catch (error) {
     box.replaceChildren(el('div', 'error', error.message));
+    setPreviewBadge('Needs your input', 'manual');
+    $('previewStatus').className = 'status error';
+    $('previewStatus').textContent = error.message;
   }
 };
 
