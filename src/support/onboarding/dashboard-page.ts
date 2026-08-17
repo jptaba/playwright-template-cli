@@ -1099,10 +1099,38 @@ function renderCredentials() {
   const box = $('credentials');
   box.replaceChildren();
   const roles = rolesTyped();
-  if ($('secrets').value === 'vault') {
+  /*
+     A status left over from the other source describes a page that no longer
+     exists. Switching to a local file after the Vault refusal used to leave
+     "there is nothing for this button to send" sitting above the two inputs it
+     had just been wrong about.
+  */
+  $('verifyStatus').replaceChildren();
+  $('verifyStatus').className = 'status';
+
+  const vault = $('secrets').value === 'vault';
+  /*
+     Offering a button that cannot work, and only explaining after it is
+     pressed, is the dead end this section had. The explanation is the same one
+     the server gives; it is simply given before the click rather than after.
+
+     Never while an assisted sign-in is open, though: that flow shows Cancel in
+     the same row, and hiding it would leave a headed browser on screen with
+     nothing on the page able to close it.
+  */
+  if (assistTimer === null) {
+    $('verify').hidden = vault;
+    $('assist').hidden = vault;
+  }
+
+  if (vault) {
     box.append(el('div', 'note',
       'Vault holds these. Nothing is written here — the agent writes the reference, a person ' +
       'writes the value. The exact paths appear after the target is created.'));
+    box.append(el('div', 'note',
+      'Signing in from this page needs a credential to send, so it is not offered for a Vault ' +
+      'target. signedInMarker will be written as a guess: derive it from a snapshot of the ' +
+      'signed-in page (npm run explore) and correct locators/sign-in.ts before setup:auth.'));
     return;
   }
   box.append(el('div', 'note',
@@ -1266,9 +1294,14 @@ $('preview').onclick = async () => {
         box.append(el('div', 'note',
           'No sign-in has been verified yet, so signedInMarker will be written as a guess — ' +
           'it is the one locator that cannot be read from a page at rest. setup:auth will fail ' +
-          'until it is corrected by hand. Signing in once in step 4 first derives it and writes ' +
-          'it for you; doing it afterwards is too late, because these files are never ' +
-          'overwritten.'));
+          'until it is corrected by hand. ' +
+          ($('secrets').value === 'vault'
+            // Telling a Vault operator to press a button this page does not
+            // show them is worse than saying nothing.
+            ? 'This page cannot sign in for a Vault target, so derive it from a snapshot of the ' +
+              'signed-in page — npm run explore — and correct locators/sign-in.ts afterwards.'
+            : 'Signing in once in step 4 first derives it and writes it for you; doing it ' +
+              'afterwards is too late, because these files are never overwritten.')));
       }
     }
     renderCredentials();

@@ -106,9 +106,31 @@ test.describe('the preview', () => {
        a wizard nobody reads is not another click.
     */
     const { page } = dashboard;
-    await readyToWrite(dashboard);
+    await page.fill('#name', 'shop');
+    await page.fill('#baseURL', 'https://staging.shop.test');
+    await page.check('#confirmTest');
+    await page.click('#probe');
+    await expect(page.locator('#s3')).not.toHaveAttribute('inert', '');
+    await page.selectOption('#secrets', 'local');
+    await page.click('#preview');
+
     await expect(page.locator('#plan')).toContainText('signedInMarker will be written as a guess');
     await expect(page.locator('#plan')).toContainText('too late');
+  });
+
+  test('tells a Vault target the truth, which is a different instruction', async ({ dashboard }) => {
+    /*
+       This page cannot sign in for a Vault target — there is no credential to
+       send — so pointing at a step 4 button it does not render would be worse
+       than saying nothing. The marker still has to come from somewhere, and a
+       snapshot of the signed-in page is where.
+    */
+    const { page } = dashboard;
+    await readyToWrite(dashboard);
+
+    await expect(page.locator('#plan')).toContainText('signedInMarker will be written as a guess');
+    await expect(page.locator('#plan')).toContainText('npm run explore');
+    await expect(page.locator('#plan')).not.toContainText('too late');
   });
 
   test('a conflict refuses, and does not also list the files as outgoing', async ({ dashboard }) => {

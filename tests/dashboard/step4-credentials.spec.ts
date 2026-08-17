@@ -56,14 +56,19 @@ test.describe('signing in once', () => {
     await expect(page.locator('#verifyStatus')).toContainText('role');
   });
 
-  test('with Vault selected, explains that there is nothing to type here', async ({ dashboard }) => {
+  test('the server refuses a Vault sign-in even if the page offers it', async ({ dashboard }) => {
     /*
-       Vault renders no inputs, so the generic "fill in the credentials"
-       message points at fields that are not on the page. The honest answer is
-       that signing in from here needs the value, and Vault is where it lives.
+       The button is hidden for a Vault target now, so this is the backstop
+       rather than the path: a stale page, or anything posting directly, must
+       still be told why there is nothing to send. Vault renders no inputs, so
+       the generic "fill in the credentials" message would point at fields that
+       are not on the page.
     */
     const { page } = dashboard;
     await readyForCredentials(dashboard, { store: 'vault' });
+    await page.locator('#verify').evaluate((button: HTMLElement) => {
+      button.hidden = false;
+    });
     await page.click('#verify');
 
     await expect(page.locator('#verifyStatus')).toContainText('Vault');
@@ -135,6 +140,34 @@ test.describe('signing in once', () => {
 
     await expect(page.locator('#verifyStatus')).toContainText('Signed in.');
     await expect(page.locator('#verifyStatus')).not.toContainText('not written to the pack');
+  });
+
+  test('a Vault target is not offered a button that cannot work', async ({ dashboard }) => {
+    /*
+       The dead end this section had: Vault is the default, it hides the
+       credential fields, and the sign-in buttons stayed on screen offering
+       something with nothing to send. Pressing one produced a good message —
+       after the click. Saying it before is the whole fix.
+    */
+    const { page } = dashboard;
+    await readyForCredentials(dashboard, { store: 'vault' });
+
+    await expect(page.locator('#verify')).toBeHidden();
+    await expect(page.locator('#assist')).toBeHidden();
+    await expect(page.locator('#credentials')).toContainText('not offered for a Vault target');
+    await expect(page.locator('#credentials')).toContainText('npm run explore');
+  });
+
+  test('switching the source clears the refusal it no longer describes', async ({ dashboard }) => {
+    // The Vault refusal used to sit above the two inputs it had just been
+    // wrong about.
+    const { page } = dashboard;
+    await readyForCredentials(dashboard, { store: 'local' });
+    await page.click('#verify');
+    await expect(page.locator('#verifyStatus')).toContainText('Fill in the standard credentials');
+
+    await page.selectOption('#secrets', 'vault');
+    await expect(page.locator('#verifyStatus')).toBeEmpty();
   });
 
   test('a refused sign-in says so without claiming success', async ({ dashboard }) => {

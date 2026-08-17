@@ -183,7 +183,24 @@ no verification has happened, that it is about to write a guessed signed-in
 locator and what that will cost. Do **not** add a step — make the existing one
 tell the truth about its consequence.
 
-### 4. The credential source defaults to the option that cannot complete — `ready`
+### 4. The credential source defaults to the option that cannot complete — `done`
+
+Shipped on `agent/2026-08-16-vault-dead-end`, minus the default change — see
+item 12, which is the part that needs a decision.
+
+The dead end is gone: a Vault target no longer renders sign-in buttons that
+have nothing to send. The explanation arrives before the click instead of after
+it, and it names what to do instead — derive the marker from `npm run explore`
+and correct `locators/sign-in.ts`. Step 5's warning says the same thing rather
+than pointing at a button the page does not show. Switching source now clears
+the refusal it no longer describes.
+
+The server-side refusal is kept as a backstop and still tested, on the
+"the page and the server disagree" pattern already used in step 5.
+
+**Not done: changing the default from Vault to local.** Raised as item 12.
+
+The original text follows.
 
 "Credentials resolve from" defaults to **Vault**, which hides step 4's credential
 fields entirely and makes **Sign in once** impossible — while the same section
@@ -311,6 +328,38 @@ cheap and all independent:
 Depends on item 10, which is now decided but not yet built. Do not start this
 before a second target is committed — with one target there is nothing to
 measure agnosticism against.
+
+### 12. Should a Vault target be able to verify its sign-in at all? — `blocked`
+
+Surfaced by item 4. A Vault target can never derive `signedInMarker` during
+onboarding, because deriving it means signing in and signing in means a
+credential this page deliberately never holds. So every Vault target ships with
+a guessed marker and a hand-edit, and the dashboard's stated aim —
+`setup:auth` passes unedited — is reachable only for `local` targets.
+
+**The decision, in one sentence:** should the dashboard offer a Vault target a
+one-off "type it here to verify, never stored, never drafted" path, or is that
+exactly the door the `secrets`-fixture rule exists to keep shut?
+
+Arguments both ways, briefly. For: it is one value, held in memory for one
+sign-in, and the alternative is that the flagship path never meets its own aim.
+Against: a password box on a page whose whole design is "the agent writes the
+reference, a person writes the value" invites the habit the convention exists
+to prevent, and the credential would sit in a browser's memory.
+
+A third option exists and may be the right one: read the credential from the
+configured Vault *server-side* for the verification only, so nothing is typed
+and nothing reaches the browser. That needs `vault:check` to pass on the
+machine running the dashboard, which is a real constraint but an honest one.
+
+Do not implement any of these without an answer. Everything else in this file
+is independent of it.
+
+Related: changing the default source away from Vault was deliberately **not**
+done in item 4. Defaulting to a local file nudges people toward putting real
+credentials in one, which the conventions permit "only where they are genuinely
+public". If item 12 resolves toward server-side Vault verification, the default
+should stay as it is.
 
 ---
 

@@ -261,3 +261,55 @@ that item 6 (the picker opening on an application you already have) is a
 one-line default with the largest visible effect of anything left, and item 10
 — the second committed target — is the standalone that keeps agnosticism
 honest.
+
+## 2026-08-16 · run 6 · A button with nothing to send
+
+**Picked:** backlog item 4 — the Vault default routing a first-timer into a step
+that cannot complete.
+
+**Did:** A Vault target no longer renders the two sign-in buttons. The reason
+arrives in the section body before any click, and names what to do instead:
+derive the marker from `npm run explore` and correct `locators/sign-in.ts`.
+Step 5's "this will be a guess" warning now branches, because telling a Vault
+operator to press a step 4 button the page does not show them is worse than
+saying nothing. Switching the source clears the refusal it no longer describes.
+The buttons are left alone while an assisted sign-in is open, or hiding them
+would take the Cancel with them and orphan a headed browser.
+
+The server-side refusal is kept and still tested, now on the "the page and the
+server disagree" pattern step 5 already uses — the page hiding a control is not
+a reason for the server to stop checking.
+
+**Verify:** `npm run verify` passes — 745 tests. Diff 97 lines across 3 files.
+**PR:** branch `agent/2026-08-16-vault-dead-end`; `main` fast-forwarded and
+pushed.
+
+**Learned:**
+
+- **The obvious half of item 4 was the wrong half.** The item proposed
+  defaulting to local when Vault is unresolvable. Deliberately not done:
+  defaulting to a local file nudges people toward putting real credentials in
+  one, which the conventions permit only where they are genuinely public. The
+  dead end was the unusable button, not the default, and removing the button
+  fixes it without that nudge.
+- **Item 4 surfaced a real product gap, now item 12 and `blocked`.** A Vault
+  target can never derive `signedInMarker` at onboarding, because deriving it
+  means signing in and signing in means a credential this page never holds. So
+  the stated aim is reachable only for `local` targets. Three options are
+  written up; the third — reading from the configured Vault server-side, so
+  nothing is typed and nothing reaches the browser — may be the right one, and
+  none should be built without an answer.
+- **My own two test failures were the useful part of the run.** Both existing
+  tests that broke were asserting the old, worse behaviour: one clicked a button
+  that is now hidden, the other asserted wording that is now conditional. Worth
+  noticing rather than patching around — a test that fails because the product
+  got better should be rewritten to the new guarantee, and the "server still
+  refuses" half kept as its own backstop.
+
+**Next:** Item 6 — the picker opening on an application you already have. It is
+close to a one-line default and has the largest visible effect of anything left,
+because it is the first thing every returning user sees. Then item 7 (the
+preview's output two sections from its button) and item 9 (a reload throwing
+away the unlock state but not the answers). Item 10, the second committed
+target, is the standalone that keeps agnosticism honest, and item 12 needs the
+owner.
