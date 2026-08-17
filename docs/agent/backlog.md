@@ -97,6 +97,28 @@ unless something is actually broken. "Fewer decisions in front of the user" and
 A change that adds a capability but adds a step to the wizard is a net loss
 here. Say so in the PR if you think an exception is warranted.
 
+**Sharpened by the owner, 2026-08-17**, and this is now the direction items 18
+to 20 carry out:
+
+> One of things i was thinking is to incrementally show (like a wizard) the
+> sections that the user needs to be put in or available for them to configure
+> after providing the initial details rather than presenting everything to them
+> at once. We could still however give them a high level info on what the
+> require info are somewhere so they have a good idea of the flow before
+> jumping into the initial steps. It should be applied to all sections of the
+> UI dashboard. And please let's figure out to make the UI and themes more
+> pleasing to the eyes (add a light mode, dark mode and auto mode) and just
+> make everything pretty and pleasing to the eyes that will surely make the
+> user very engaged.
+
+Two things follow that a run should not have to re-derive. **"Incrementally
+show" is not the same as the gating already there:** every section is rendered
+today and merely `inert`, so the page is its full height from the first second
+and the crowding is what an operator meets before they have typed anything.
+And **the overview is what pays for the hiding** — reveal without a stated
+shape is a wizard nobody can see the end of, which is worse than a long page.
+Neither half ships alone.
+
 ---
 
 ## Evidence base
@@ -128,10 +150,15 @@ correctly reporting.
 
 **Run 22 shipped item 12 slice 2**, the Vault sign-in verification, and proved
 it against a real Vault: a Vault target now reaches a passing `setup:auth` with
-no file edited by hand. The `ready` items left are **item 12 slice 3**
-(persisting the connection, which is the last hand-edit on that path) and
-**item 17**, found while driving slice 2 — the result panel warning that
-credentials are unchecked seconds after signing in with them.
+no file edited by hand.
+
+**The owner re-stated the standing priority on 2026-08-17**, sharpened into
+items 18, 19 and 20 — show one step at a time behind a stated overview, across
+every page, and give the tool a theme control and the polish that goes with it.
+**Take them in that order: 18, then 20, then 19.** 18 is the ask itself; 20 is
+small and mostly already built; 19 needs the pattern 18 settles or it becomes
+seven separate opinions. Item 12 slice 3 and item 17 stay `ready` and now rank
+below all three — neither is a defect anybody is meeting, and the crowding is.
 
 **Correcting the standing note on Vault, 2026-08-17 (run 21).** It said the
 owner has no Vault to test against. There is no *hosted* one and none is
@@ -891,6 +918,102 @@ answers: a check that passed for a *different* shape proves nothing about this
 one, and a local target's credential is written by Create rather than read, so
 "checked" means something different there. `setup:auth` is still the real
 proof and the wording should keep saying so.
+
+### 18. Show one step at a time, and say up front what the whole thing needs — `ready`
+
+**The owner's ask, and it now outranks item 12 slice 3 and item 17.** Quoted in
+full under "The standing brief" above.
+
+What is on disk today, checked rather than assumed: the onboarding page renders
+all five sections plus the removal disclosure on first paint, gated with
+`inert`, a "Locked" badge and a `lockhint`. The gating is honest — item 1's
+scan found every hint accurate — but honesty is not the problem being reported.
+The page is roughly two screens tall before anybody has typed a character, and
+what a first-time operator meets is every decision they will ever have to make,
+at once, most of them refusing to be touched.
+
+**Two halves, and neither ships alone:**
+
+1. **A preflight panel, before step 1.** What this will need, in one short
+   list: a URL of a *test* deployment, the roles the suite signs in as, where
+   credentials come from, and whether the service publishes an OpenAPI
+   document. It is what pays for hiding the rest — somebody who can see the
+   shape of the journey will accept being shown one step of it.
+2. **Reveal, rather than render-and-lock.** A step that cannot be reached yet
+   is not on the page. The step rail already exists and already links to each
+   section; it becomes the progress indicator and the way back, which is most
+   of the navigation work done.
+
+**Watch these, all of them evidenced by an earlier run:**
+
+- `tests/framework/page-copy.spec.ts` caps a `<p class="explain">` at 34 words
+  and a whole page at 220 visible. Showing one step at a time should make that
+  budget *easier*, not harder — if a draft needs the cap raised, the draft is
+  the problem.
+- Several dashboard tests reach a later step by clicking through earlier ones
+  and would now need the reveal to have happened. That is the suite working,
+  per run 6's note: rewrite them to the new guarantee rather than restoring the
+  old default.
+- Item 9's lesson applies directly. A reload restores the draft, so the reveal
+  must restore with it — a wizard that puts somebody back at step 1 holding all
+  their answers is the same defect in a new shape.
+- Do **not** let this add a click to the happy path. Reveal on the action the
+  operator was already taking (a successful read unlocks *and* reveals), never
+  behind a "Next" button whose only job is to be pressed.
+
+Bigger than 400 lines if taken at once. Slice it: preflight panel first, since
+it stands alone and is the half that makes the other half safe.
+
+### 19. The same pattern on every other page — `ready`, after 18
+
+"It should be applied to all sections of the UI dashboard." The other pages —
+`/users`, `/runs`, `/cases`, `/stories`, `/triage`, `/publish` — are not
+wizards and must not be turned into them. Progressive disclosure means
+something different there: the common action visible, the configuration and the
+rarely-used controls behind a disclosure that states what is inside it.
+
+The rule that keeps this from becoming seven separate opinions: whatever item
+18 settles on lives in `src/support/ui/shell.ts` and is *used* by each page.
+Seven hand-rolled reveals is the outcome to avoid, and it is the likely one if
+this is picked up before 18 has established the pattern.
+
+### 20. A theme control, and the polish it makes visible — `ready`
+
+**Half of this is already built, which is the useful finding.**
+`src/support/ui/tokens.ts` ships the full three-state palette — a light `:root`,
+a `prefers-color-scheme: dark` block guarded with `:not([data-theme="light"])`,
+and a `[data-theme="dark"]` block so an explicit choice wins both ways. It is
+correct, it is commented, and **nothing in the dashboard ever stamps
+`data-theme`.** There is no toggle and no stored preference on any page, so the
+tool follows the operating system and offers no say in it.
+
+`docs/handbook.html` already has exactly the control that is missing: a
+three-way group (`role="group"`, `aria-label="Colour theme"`) plus a
+restore-before-paint script reading `localStorage.theme`, with "no attribute"
+deliberately meaning auto. Lift it into the masthead in `shell.ts` so every
+page gets it once. The tokens file already argues for this in its own header —
+a tool that looks like a different product from its own documentation reads as
+a bolt-on.
+
+That is a small first slice with a visible payoff. The rest of "pretty" needs
+to stay concrete, because the guardrails refuse taste-only refactors — so the
+polish items each name what they fix:
+
+- **Focus and hover states.** A keyboard operator currently cannot always see
+  where they are.
+- **Vertical rhythm and width.** Long explanatory paragraphs run the full
+  column; a measure and consistent spacing scale are what make a dense page
+  feel calm without deleting anything.
+- **The reveal wants motion.** Item 18's sections appearing with no transition
+  reads as a page glitch. A short, `prefers-reduced-motion`-respecting fade is
+  part of that item landing well, not a separate nicety.
+- **Status colour is already tokenised** (`--pass`, `--fail`, `--warn` and
+  their soft pairs) and is used unevenly across pages. Making that consistent
+  is a legibility fix with a stated benefit, not a repaint.
+
+Check both themes on every page before claiming this. A token defined only
+inside a media block is the classic way one theme's text ends up on the other
+theme's ground, and the file's own comment says so.
 
 ---
 
