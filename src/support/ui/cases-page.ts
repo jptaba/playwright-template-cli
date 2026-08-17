@@ -80,8 +80,6 @@ const BODY = `
         has run yet are the same answer to <b>is this automated</b>.</p>
       </div>
     </details>
-    <label for="cTarget">Application</label>
-    <select id="cTarget"></select>
     <p class="counts-line" id="cCounts"></p>
     <div class="status" id="cStatus"></div>
   </section>
@@ -165,28 +163,20 @@ const MATCH_LABEL = {
   'spec-path': 'matched by the case naming the spec',
 };
 
-async function loadTargets() {
-  const { targets } = await post('/api/targets', {});
-  const select = $('cTarget');
-  select.replaceChildren();
-  const all = document.createElement('option');
-  all.value = '';
-  all.textContent = targets.length > 1 ? 'Every application' : 'Every application in the repository';
-  select.append(all);
-  for (const target of targets) {
-    const option = document.createElement('option');
-    option.value = target;
-    option.textContent = target;
-    select.append(option);
-  }
-}
+/*
+   This page had its own application picker with an "Every application" option
+   at the top. The bar above chooses now — and "none selected" *is* that
+   option here, which is why this page needs no empty state: coverage across
+   every application in the repository is a real and useful answer, and it is
+   the one nothing-selected already gives.
+*/
 
 async function load() {
   const status = $('cStatus');
   status.className = 'status';
   status.textContent = 'Reading…';
   try {
-    report = await post('/api/cases', { target: $('cTarget').value });
+    report = await post('/api/cases', { target: TARGET_NAME });
     status.textContent = '';
     render();
   } catch (error) {
@@ -265,7 +255,7 @@ function fill(id, rows, emptyMessage) {
 
 function render() {
   const counts = report.counts;
-  const chosen = $('cTarget').value;
+  const chosen = TARGET_NAME;
   $('cScope').textContent = chosen || 'every application';
 
   /*
@@ -313,9 +303,8 @@ function render() {
   fill('aList', automated.map(caseRow), 'Nothing is automated yet.');
 }
 
-$('cTarget').onchange = load;
 
-loadTargets().then(load).catch((error) => {
+load().catch((error) => {
   $('cStatus').className = 'status error';
   $('cStatus').textContent = error.message;
 });

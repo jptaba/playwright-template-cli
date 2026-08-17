@@ -136,8 +136,6 @@ const BODY = `
         model cannot be trusted to enforce its own citation rules.</p>
       </div>
     </details>
-    <label for="sTarget">Application</label>
-    <select id="sTarget"></select>
     <button id="sDraftGo">Draft cases and write them to cases/</button>
     <div class="status" id="sModel"></div>
     <div class="status" id="sDraftStatus"></div>
@@ -195,13 +193,17 @@ async function refreshStories(keepSelection) {
     $('sPullStatus').textContent = data.jira.reason;
   }
 
-  const select = $('sTarget');
-  select.replaceChildren();
-  for (const target of data.targets) {
-    const option = document.createElement('option');
-    option.value = target;
-    option.textContent = target;
-    select.append(option);
+  /*
+     Drafting writes cases into a target's pack, so it needs one chosen. The
+     bar at the top of the page is where that happens now — this page used to
+     ask again, in its own words, and default to whichever application came
+     back first.
+  */
+  if (!TARGET_NAME) {
+    $('sDraftGo').disabled = true;
+    $('sDraftStatus').className = 'status';
+    $('sDraftStatus').textContent =
+      'Choose an application in the bar above — drafted cases are written into its pack.';
   }
   /*
      Drafting is the one thing on this page that needs a credential, and the
@@ -334,7 +336,7 @@ $('sDraftGo').onclick = async () => {
   status.textContent = 'Drafting… this calls the model and takes a few seconds.';
   $('sDraftGo').disabled = true;
   try {
-    const review = await post('/api/stories/draft', { key: current, target: $('sTarget').value });
+    const review = await post('/api/stories/draft', { key: current, target: TARGET_NAME });
     status.textContent = '';
     /*
        Refresh first, then render. show() rebuilds the criteria list from the

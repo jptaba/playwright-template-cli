@@ -1654,3 +1654,68 @@ triage rules and the item picked was `ready`; run 13's figures stand.
 **Next:** item 21 — the Application slot as a real switcher. It is the same
 forty pixels of the top bar this run just edited, so `topbar()` is already the
 file to open.
+
+## 2026-08-17 · run 25 · The bar that named the scope could not set it
+
+**Picked:** item 21 — the owner's ask from earlier the same day, evidenced in
+run 23b and ranked after item 20.
+
+**Did:** The `.ctx` slot is a `<select>`. The choice is written to
+`.dashboard-selection.json` (gitignored, beside the onboarding draft) and read
+back by `chrome()`, so it survives a restart on a different port — which
+`localStorage` could never have done, because the dashboard binds a fresh
+random port every run. The four page-body pickers are deleted; every page reads
+one `TARGET_NAME` the shell renders from the same answer the bar was rendered
+from.
+
+The rules are `src/support/ui/selection.ts`, pure: environment, then the stored
+choice **if that application still exists**, then a single onboarded
+application, then none.
+
+**Verify:** `npm run verify` passes, exit 0 — **834 tests, up from 823**.
+
+**Proven on the running dashboard**, and the restart case is the one worth
+recording:
+
+1. Nothing selected: the bar offers all three options, `/users` says "choose an
+   application in the bar" instead of listing saucedemo's credentials under a
+   bar reading "none selected".
+2. Chose `toolshop`: the page reloaded scoped to it, and fetching all six other
+   pages showed `TARGET_NAME = "toolshop"` and no page-body picker anywhere.
+3. **Killed the server and started a new one on a different port** — still
+   `toolshop`.
+4. `TARGET=saucedemo`: the environment won over the stored `toolshop`, the
+   switcher was withdrawn, and the bar said why.
+5. `TARGET=nonexistent-app`: "none selected · TARGET not found", rather than
+   quietly falling through to the stored choice.
+
+**Learned:**
+
+- **Deleting a picker exposed a second thing deciding the same fact.** With no
+  application chosen, the Runs page disabled **Run it** and printed why — and
+  its own poll re-enabled it a second later from the slot count alone, under
+  the message telling you to choose one. Both go through one `startable()` now.
+  The suite never saw it; the live drive did, two seconds after load.
+- **A tooltip is not an explanation.** The refusal started as a `title` behind
+  the word "fixed". A keyboard cannot reach it, and in the missing-`TARGET`
+  case the bar then read "none selected · fixed", which explains nothing. It is
+  visible text now, and hides only below 78rem, where the chip alone still
+  names the cause.
+- **A stored selection outlives its target.** Offboarding removes profiles and
+  this file does not go with them, so the stored name is checked against what
+  exists on every render rather than trusted.
+- **Backticks in a comment inside a template literal, for the third time this
+  session** — `tokens.ts` in run 24 and `runs-page.ts` here. The machine check
+  exists and is two seconds (`npx tsc --noEmit`); the mistake is starting a
+  server before running it. Both comments now say so in place.
+- **The four pages differed in what "no selection" means.** Cases genuinely
+  wants "every application" and now gets it for free from the empty selection;
+  Runs and Stories must refuse; Users has nothing to show. Deleting a shared
+  control is only shared work up to that point.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches
+triage rules; run 13's figures stand.
+
+**Next:** item 19 — the same progressive-disclosure pattern on the pages that
+are not wizards. Smaller than it was, because this run deleted the four
+duplicate pickers it would otherwise have had to arrange.

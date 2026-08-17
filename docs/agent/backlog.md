@@ -170,10 +170,15 @@ bar is a label, not a switcher, so a selection neither sticks nor spreads. It
 was driven and evidenced the same day it was asked for. The order is now **20,
 21, then 19**: 19 rearranges controls on the pages 21 deletes four of.
 
-**Run 24 shipped item 20's first slice**, the theme control, on every page. So
-the next one is **item 21** — and the two meet in the same forty pixels of the
-top bar, which is now crumb, application, theme. Whoever takes 21 is editing
-`topbar()` in `shell.ts` either way.
+**Run 24 shipped item 20's first slice**, the theme control, on every page, and
+**run 25 shipped item 21**, the application switcher. The top bar is now crumb,
+application, theme — and it is the only place either is chosen.
+
+**Next is item 19**, which is what is left of the owner's progressive-disclosure
+ask: the same pattern on the pages that are not wizards. It is smaller than it
+was — 21 has already deleted the four duplicate pickers it would have had to
+arrange — and the note under it about what 18 actually settled still stands.
+After that, item 20's remaining polish, then item 12 slice 3 and item 17.
 
 **Correcting the standing note on Vault, 2026-08-17 (run 21).** It said the
 owner has no Vault to test against. There is no *hosted* one and none is
@@ -1019,7 +1024,38 @@ at once, most of them refusing to be touched.
 Bigger than 400 lines if taken at once. Slice it: preflight panel first, since
 it stands alone and is the half that makes the other half safe.
 
-### 21. The "Application" slot in the top bar is a label, not a switcher — `ready`, after 20
+### 21. The "Application" slot in the top bar is a label, not a switcher — `done`
+
+Shipped on `agent/2026-08-17-application-switcher` (run 25). The slot is a
+`<select>` now, the choice is held on this machine and survives a restart, and
+the four page-body pickers are gone — every page reads one `TARGET_NAME` the
+shell renders from the same answer the bar was rendered from.
+
+The rules live in `src/support/ui/selection.ts`, pure and tested without a
+filesystem: the environment wins, then the stored choice **if that application
+still exists**, then a single onboarded application because one is not a
+choice, and otherwise **none** — which is the case the old behaviour answered
+with the alphabetically first application.
+
+Worth carrying forward:
+
+- **A `TARGET` naming something absent is reported, not fallen through.**
+  Silently using a stored choice instead would hide a broken `TARGET` behind a
+  page that looks fine. The bar reads "none selected · TARGET not found".
+- **The refusal is visible text, not a `title`.** The first version put the
+  sentence in a tooltip behind the word "fixed", which a keyboard cannot reach
+  — and "none selected · fixed" explains nothing to anybody who cannot hover.
+- **Deleting a picker exposed a second one deciding the same fact.** The Runs
+  page disabled its button when no application was chosen, and its own poll
+  re-enabled it a second later from the slot count alone. Both go through one
+  `startable()` now. Found by driving it, not by the suite.
+- **`.dashboard-selection.json` is gitignored** and deliberately not in
+  `config/targets/`: a profile describes the application, this describes the
+  person looking at one.
+
+The original item follows.
+
+### 21b. The original item — `done`
 
 **The owner's ask, 2026-08-17:**
 
@@ -1091,7 +1127,7 @@ them an application switcher that does nothing — either filter their run lists
 by the selection, or leave the slot showing the selection without acting on it,
 and say which was chosen.
 
-### 19. The same pattern on every other page — `ready`, after 21
+### 19. The same pattern on every other page — `ready`, and next
 
 "It should be applied to all sections of the UI dashboard." The other pages —
 `/users`, `/runs`, `/cases`, `/stories`, `/triage`, `/publish` — are not

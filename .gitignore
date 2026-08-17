@@ -47,6 +47,11 @@ Thumbs.db
 # The half-typed onboarding form, kept between page loads. Scratch, not a record.
 .onboarding-draft.json
 
+# Which application the dashboard is scoped to. Whose screen it is, not what
+# the repository holds — a profile describes the application, this describes
+# the person looking at one.
+.dashboard-selection.json
+
 # Real test-user credentials, kept out of git. The shared
 # config/secrets.local.json is tracked and is only for logins a vendor already
 # publishes; anything real goes here and takes precedence over it.

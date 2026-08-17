@@ -46,9 +46,9 @@ const STYLES = `
 
 const BODY = `
   <section>
-    <div class="head"><h2>Which application</h2></div>
+    <div class="head"><h2>Where these come from</h2></div>
     <p class="explain">
-      Pick the application whose logins you want to look at.
+      The application in the bar above decides. This is where its logins are kept.
     </p>
     <details class="more">
       <summary>Why no value is ever shown</summary>
@@ -59,8 +59,6 @@ const BODY = `
         one is what stops somebody reaching for a tool that prints the secret.</p>
       </div>
     </details>
-    <label for="pick">Application</label>
-    <select id="pick"></select>
     <div class="status" id="pickStatus"></div>
   </section>
 
@@ -97,28 +95,22 @@ const SCRIPT = `
 let view = null;
 
 async function load(target) {
-  const state = await post('/api/users/view', { target: target || '' });
-  view = state.view;
-
-  const pick = $('pick');
-  if (!pick.options.length) {
-    for (const name of state.targets) {
-      const option = document.createElement('option');
-      option.value = name;
-      option.textContent = name;
-      pick.append(option);
-    }
-    /*
-       Defaulting the dropdown is not the same as loading what it now says.
-       The first version set the selection and stopped, so the page opened
-       naming an application and listing none of its accounts — which reads as
-       "this application has no logins", the opposite of the truth.
-    */
-    if (!target && state.targets.length) {
-      pick.value = state.targets[0];
-      return load(state.targets[0]);
-    }
+  /*
+     This page used to carry its own application dropdown, fill it from the
+     server and select the first entry — which is how it came to be listing one
+     application's credentials under a bar that said "none selected". The bar
+     decides now, so what is left is saying so when it has not.
+  */
+  if (!target) {
+    $('pickStatus').replaceChildren(el('div', 'note',
+      'Choose an application in the bar at the top of the page to see its logins.'));
+    $('save').disabled = true;
+    $('forget').disabled = true;
+    return;
   }
+
+  const state = await post('/api/users/view', { target });
+  view = state.view;
 
   renderSlots();
   renderOptions();
@@ -205,7 +197,6 @@ function renderOptions() {
   }
 }
 
-$('pick').onchange = () => load($('pick').value);
 
 $('save').onclick = async () => {
   const status = $('saveStatus');
@@ -213,7 +204,7 @@ $('save').onclick = async () => {
   status.textContent = 'Saving\\u2026';
   try {
     const done = await post('/api/users/set', {
-      target: $('pick').value,
+      target: TARGET_NAME,
       location: $('location').value,
       path: $('slot').value,
       username: $('u').value,
@@ -225,7 +216,7 @@ $('save').onclick = async () => {
     */
     $('u').value = '';
     $('p').value = '';
-    await load($('pick').value);
+    await load(TARGET_NAME);
     status.replaceChildren(el('span', 'found', 'Saved to ' + done.file + '.'));
   } catch (error) {
     status.className = 'status error';
@@ -238,11 +229,11 @@ $('forget').onclick = async () => {
   status.className = 'status';
   try {
     const done = await post('/api/users/forget', {
-      target: $('pick').value,
+      target: TARGET_NAME,
       location: $('location').value,
       path: $('slot').value,
     });
-    await load($('pick').value);
+    await load(TARGET_NAME);
     status.replaceChildren(el('span', 'found', 'Removed from ' + done.file + '.'));
   } catch (error) {
     status.className = 'status error';
@@ -250,7 +241,7 @@ $('forget').onclick = async () => {
   }
 };
 
-load('').catch((error) => {
+load(TARGET_NAME).catch((error) => {
   $('pickStatus').className = 'status error';
   $('pickStatus').textContent = error.message;
 });

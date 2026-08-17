@@ -110,10 +110,6 @@ const BODY = `
     </details>
     <div class="starter">
       <div>
-        <label for="rTarget">Application</label>
-        <select id="rTarget"></select>
-      </div>
-      <div>
         <label for="rProjects">Projects <small>comma separated; blank runs them all</small></label>
         <input type="text" id="rProjects" placeholder="e2e, api" autocomplete="off">
       </div>
@@ -147,28 +143,33 @@ const BODY = `
 const SCRIPT = `
 let expanded = null;
 
-async function loadTargets() {
-  try {
-    const { targets } = await post('/api/targets', {});
-    const select = $('rTarget');
-    select.replaceChildren();
-    for (const target of targets) {
-      const option = document.createElement('option');
-      option.value = target;
-      option.textContent = target;
-      select.append(option);
-    }
-    if (targets.length === 0) {
-      const option = document.createElement('option');
-      option.textContent = 'no applications onboarded';
-      option.disabled = true;
-      select.append(option);
-      $('rStart').disabled = true;
-    }
-  } catch (error) {
-    $('rStatus').className = 'status error';
-    $('rStatus').textContent = error.message;
-  }
+/*
+   A run needs an application, and this page no longer chooses one.
+
+   It had its own picker, filled from /api/targets, defaulting to whichever
+   the API listed first — alphabetical order deciding what gets tested, one
+   click from Start. The bar above decides now, for every page at once, so what
+   is left here is refusing to start without it.
+*/
+function requireSelection() {
+  if (TARGET_NAME) return;
+  const status = $('rStatus');
+  status.className = 'status error';
+  status.replaceChildren(el('div', '',
+    'Choose an application in the bar at the top of the page. A run has to be against one.'));
+}
+
+/*
+   Two facts decide whether a run can start: a free slot, and an application.
+
+   One expression, because refresh() runs on every poll — the first version
+   disabled the button here and let refresh() set it from the slot count alone,
+   so a second later it was enabled again with nothing to run against, under a
+   message saying to choose one. (No backticks: this whole script is a template
+   literal, and one would end it.)
+*/
+function startable() {
+  return latest.slotsFree > 0 && Boolean(TARGET_NAME);
 }
 
 $('rStart').onclick = async () => {
@@ -178,7 +179,7 @@ $('rStart').onclick = async () => {
   $('rStart').disabled = true;
   try {
     const started = await post('/api/runs/start', {
-      target: $('rTarget').value,
+      target: TARGET_NAME,
       projects: $('rProjects').value.split(',').map((s) => s.trim()).filter(Boolean),
       grep: $('rGrep').value.trim(),
       headed: $('rHeaded').checked,
@@ -190,7 +191,7 @@ $('rStart').onclick = async () => {
     status.className = 'status error';
     status.textContent = error.message;
   } finally {
-    $('rStart').disabled = false;
+    $('rStart').disabled = !startable();
   }
 };
 
@@ -313,7 +314,7 @@ function refresh() {
   const box = $('runs');
   const runs = latest.runs;
   $('slots').textContent = latest.slotsFree + (latest.slotsFree === 1 ? ' slot free' : ' slots free');
-  $('rStart').disabled = latest.slotsFree === 0;
+  $('rStart').disabled = !startable();
 
   box.replaceChildren();
   box.classList.toggle('solo', runs.length < 2);
@@ -342,7 +343,7 @@ function listen() {
   };
 }
 
-loadTargets();
+requireSelection();
 refresh();
 listen();
 `;

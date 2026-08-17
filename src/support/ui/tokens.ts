@@ -258,6 +258,31 @@ export const DASHBOARD_STYLES = `
     font-size: .72rem; color: var(--muted);
   }
   .ctx-none { color: var(--muted); font-style: italic; }
+  /*
+     The switcher. Sized to its content and styled down to look like part of
+     the bar rather than like a form control that wandered into it — this is
+     the org-switcher slot, and a full-width input here would read as something
+     to fill in rather than something to change.
+  */
+  .ctx-pick {
+    width: auto; padding: .15rem 1.4rem .15rem .45rem;
+    font-size: .82rem; font-weight: 640; color: var(--ink);
+    background-color: var(--surface-2); border-color: var(--rule);
+    border-radius: 5px; cursor: pointer;
+  }
+  .ctx-pick:hover { border-color: var(--rule-strong); }
+  .ctx-why {
+    font-size: .72rem; color: var(--muted);
+    padding: .05rem .4rem; border-radius: 999px; border: 1px dashed var(--rule-strong);
+  }
+  /*
+     The sentence behind the chip. Visible rather than a title attribute — a
+     tooltip is not reachable by keyboard, and "none selected · TARGET not
+     found" explains nothing to somebody who cannot hover. It drops out on a
+     narrow bar, where the chip alone still names the cause.
+  */
+  .ctx-detail { font-size: .76rem; color: var(--muted); }
+  @media (max-width: 78rem) { .ctx-detail { display: none; } }
 
   /* ---------- the theme control ---------- */
   /*

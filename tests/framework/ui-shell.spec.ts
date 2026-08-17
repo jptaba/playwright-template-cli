@@ -158,6 +158,50 @@ test.describe('the shell', () => {
     }
   });
 
+  test('the application slot is something you can change', () => {
+    /*
+       It was a span for as long as it existed, so the one place naming the
+       dashboard's scope was the one place that could not set it.
+    */
+    const rendered = renderPage(content, {
+      token: 't',
+      pages: [],
+      current: '/runs',
+      target: { name: 'toolshop', available: ['saucedemo', 'toolshop'], switchable: true },
+    });
+    expect(rendered).toContain('id="ctxTarget"');
+    expect(rendered).toContain('<option value="saucedemo">saucedemo</option>');
+    expect(rendered).toContain('<option value="toolshop" selected>toolshop</option>');
+    expect(rendered, 'the pages read the same answer the bar was rendered from').toContain(
+      'const TARGET_NAME = "toolshop"',
+    );
+  });
+
+  test('and is not, when the environment is what decided', () => {
+    // A click that could override TARGET would be a bar disagreeing with the
+    // run it is about to start.
+    const rendered = renderPage(content, {
+      token: 't',
+      pages: [],
+      current: '/runs',
+      target: {
+        name: 'toolshop',
+        available: ['saucedemo', 'toolshop'],
+        switchable: false,
+        refusal: {
+          label: 'set by TARGET',
+          detail: 'TARGET is set in the environment, so this dashboard cannot change it.',
+        },
+      },
+    });
+    expect(rendered).not.toContain('id="ctxTarget"');
+    expect(rendered).toContain('toolshop');
+    expect(rendered).toContain('set by TARGET');
+    expect(rendered, 'the sentence is on the page, not in a tooltip').toContain(
+      'TARGET is set in the environment',
+    );
+  });
+
   test('applies a stored theme in the head, before the body can paint', () => {
     /*
        Ordering is the whole feature. Restore from the body script and somebody

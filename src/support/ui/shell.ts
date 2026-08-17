@@ -54,6 +54,20 @@ export interface TargetContext {
   name: string | null;
   /** Which deployment its profile points at. */
   environment?: string;
+  /**
+   * Every onboarded application, so the bar can switch between them.
+   *
+   * Omitted renders the old read-only label, which is what the tests that are
+   * about something else pass — a page is not required to know the list.
+   */
+  available?: readonly string[];
+  /** False when the environment decided; the bar then says so, and refuses. */
+  switchable?: boolean;
+  /**
+   * Why it cannot be switched. `label` is shown against the name, `detail` is
+   * the sentence — visible, not a tooltip, so it reaches a keyboard too.
+   */
+  refusal?: { label: string; detail: string } | null;
 }
 
 export interface PageFact {
@@ -247,15 +261,7 @@ function slug(value: string): string {
  * every page under it is scoped to one thing, and that thing was invisible.
  */
 function topbar(page: DashboardPageContent, target: TargetContext | undefined): string {
-  const context = !target
-    ? ''
-    : target.name
-      ? `<span class="ctx-label">Application</span>` +
-        `<span class="ctx-name mono">${escapeHtml(target.name)}</span>` +
-        (target.environment
-          ? `<span class="ctx-env">${escapeHtml(target.environment)}</span>`
-          : '')
-      : `<span class="ctx-label">Application</span><span class="ctx-none">none selected</span>`;
+  const context = !target ? '' : applicationSwitcher(target);
 
   return (
     `\n    <div class="topbar">\n` +
@@ -265,6 +271,55 @@ function topbar(page: DashboardPageContent, target: TargetContext | undefined): 
     `${themeControl()}\n` +
     `      </div>\n` +
     `    </div>`
+  );
+}
+
+/**
+ * Which application everything below is about — and the way to change it.
+ *
+ * It was a `<span>` for as long as it existed, so the one place the dashboard
+ * names its own scope was the one place that could not set it. Meanwhile four
+ * pages each carried their own copy of the choice under four different ids,
+ * shared none of them, and defaulted to whichever the API listed first.
+ *
+ * A `<select>` rather than a menu of links: it is a choice between named
+ * things, it is the control every product puts in this position, and it needs
+ * no script to be usable if the one below fails to parse.
+ *
+ * When the environment decided, this renders as text with the reason. A click
+ * that could override `TARGET` would be a bar disagreeing with the run it is
+ * about to start.
+ */
+function applicationSwitcher(target: TargetContext): string {
+  const label = `<span class="ctx-label">Application</span>`;
+  const environment = target.environment
+    ? `<span class="ctx-env">${escapeHtml(target.environment)}</span>`
+    : '';
+
+  if (target.switchable === false || !target.available) {
+    const name = target.name
+      ? `<span class="ctx-name mono">${escapeHtml(target.name)}</span>${environment}`
+      : `<span class="ctx-none">none selected</span>`;
+    const why = target.refusal
+      ? `<span class="ctx-why">${escapeHtml(target.refusal.label)}</span>` +
+        `<span class="ctx-detail">${escapeHtml(target.refusal.detail)}</span>`
+      : '';
+    return `${label}${name}${why}`;
+  }
+
+  const options = [
+    `<option value=""${target.name ? '' : ' selected'}>none selected</option>`,
+    ...target.available.map(
+      (name) =>
+        `<option value="${escapeHtml(name)}"${name === target.name ? ' selected' : ''}>` +
+        `${escapeHtml(name)}</option>`,
+    ),
+  ].join('');
+
+  return (
+    `${label}` +
+    `<select id="ctxTarget" class="ctx-pick" aria-label="Application everything is scoped to">` +
+    `${options}</select>${environment}`
   );
 }
 
@@ -363,6 +418,14 @@ ${page.body}
 </div>
 <script>
 const TOKEN = ${JSON.stringify(options.token)};
+/*
+   The application every page below is scoped to, decided server-side.
+
+   A constant rather than a lookup, because it is the same answer the top bar
+   was rendered from — a page reading it out of its own control was how four
+   pages managed to disagree with the bar and with each other.
+*/
+const TARGET_NAME = ${JSON.stringify(options.target?.name ?? '')};
 const $ = (id) => document.getElementById(id);
 const text = (value) => document.createTextNode(value);
 
@@ -384,6 +447,36 @@ async function post(path, body) {
   if (!response.ok) throw new Error(data.error || ('HTTP ' + response.status));
   return data;
 }
+
+/*
+   The application switcher.
+
+   It reloads rather than re-rendering. Every page here is a whole document
+   already, the selection changes what the server puts in all of them —
+   masthead, badges, page body — and a partial update would be a second
+   rendering path to keep in step with the first. The cost is one navigation of
+   a local page.
+*/
+(function () {
+  const pick = $('ctxTarget');
+  if (!pick) return;
+  pick.onchange = async () => {
+    pick.disabled = true;
+    try {
+      await post('/api/select', { target: pick.value });
+      location.reload();
+    } catch (error) {
+      /*
+         Say it in the bar rather than silently reverting. A switcher that
+         snaps back with no explanation reads as the click not registering,
+         which is how somebody clicks it four more times.
+      */
+      pick.disabled = false;
+      const note = el('span', 'ctx-why', error.message);
+      pick.parentNode.append(note);
+    }
+  };
+})();
 
 /*
    The theme control. The head has already applied the stored choice; this is

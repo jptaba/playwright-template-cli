@@ -29,6 +29,7 @@ import {
   type NavBadge,
   type TargetContext,
 } from '../src/support/ui/shell';
+import { resolveSelection, sanitiseSelection, switchingRefusal } from '../src/support/ui/selection';
 import { runsPageContent } from '../src/support/ui/runs-page';
 import { usersPageContent } from '../src/support/ui/users-page';
 import { testUsersRoutes, type TestUsersService } from '../src/support/secrets/dashboard';
@@ -533,6 +534,34 @@ async function create(
  */
 const DRAFT_PATH = path.join(REPO_ROOT, '.onboarding-draft.json');
 
+/**
+ * Which application the bar was last switched to, on this machine.
+ *
+ * Beside the draft and for the same reasons: a fresh random port every run
+ * makes `localStorage` a different origin each time, and this is scratch
+ * rather than a record. It is deliberately **not** in `config/targets/` — a
+ * profile describes the application, and which one somebody is looking at
+ * describes the person.
+ */
+const SELECTION_PATH = path.join(REPO_ROOT, '.dashboard-selection.json');
+
+function readSelection(): string | null {
+  if (!fs.existsSync(SELECTION_PATH)) return null;
+  try {
+    return sanitiseSelection(JSON.parse(fs.readFileSync(SELECTION_PATH, 'utf8')));
+  } catch {
+    return null;
+  }
+}
+
+function writeSelection(target: string | null): void {
+  if (!target) {
+    fs.rmSync(SELECTION_PATH, { force: true });
+    return;
+  }
+  fs.writeFileSync(SELECTION_PATH, `${JSON.stringify({ target }, null, 2)}\n`, 'utf8');
+}
+
 function readDraft(): OnboardingDraft {
   if (!fs.existsSync(DRAFT_PATH)) return { ...EMPTY_DRAFT };
   try {
@@ -942,12 +971,38 @@ function chrome(): { badges: Record<string, NavBadge>; target: TargetContext } {
     // Same reasoning: the Triage page says what is wrong with its own file.
   }
 
-  let target: TargetContext = { name: null };
+  /*
+     Which application everything below is about.
+
+     `resolveTarget()` is asked first and only for what the *environment* says,
+     because that is the one answer this dashboard may not override: CI exports
+     `TARGET`, and a bar that let a click win over it would disagree with the
+     run it is about to start. Everything else — the stored choice, the
+     single-application case, and refusing to guess between several — is
+     `resolveSelection`, which is pure and testable without a filesystem.
+  */
+  let fromEnvironment: string | null = null;
   try {
-    const profile = resolveTarget();
-    target = { name: profile.name, environment: profile.environment };
+    if (process.env.TARGET || process.env.DEFAULT_TARGET) fromEnvironment = resolveTarget().name;
   } catch {
-    // Nothing selected, or several and no choice made. Both say "none".
+    // A TARGET naming something absent. resolveSelection reports it as such.
+  }
+
+  const selection = resolveSelection({
+    fromEnvironment: fromEnvironment ?? process.env.TARGET ?? process.env.DEFAULT_TARGET ?? null,
+    stored: readSelection(),
+    available: existingTargets(),
+  });
+
+  const target: TargetContext = {
+    name: selection.name,
+    available: selection.available,
+    switchable: selection.switchable,
+    refusal: switchingRefusal(selection),
+  };
+  if (selection.name) {
+    const profile = onboarded().find((app) => app.name === selection.name);
+    if (profile) target.environment = profile.environment;
   }
 
   return { badges, target };
@@ -999,6 +1054,31 @@ const testUsersService: TestUsersService = {
   write: async (input) => writeCredential(input),
   forget: async (input) => forgetCredential(input),
 };
+
+/**
+ * Change what every page is scoped to.
+ *
+ * Refuses a name it does not have rather than storing it. A selection that can
+ * name something absent is a bar that reads correctly and scopes every page to
+ * nothing — and it would survive an offboard, which is exactly when it would
+ * be wrong and nobody would be looking.
+ */
+const selectionRoutes: Route[] = [
+  {
+    method: 'POST',
+    path: '/api/select',
+    handle: (request) => {
+      const body = (request.body ?? {}) as Record<string, unknown>;
+      const wanted = sanitiseSelection(body);
+      if (body.target && !wanted) return json(400, { error: 'That is not an application name.' });
+      if (wanted && !existingTargets().includes(wanted)) {
+        return json(400, { error: `There is no application called ${wanted}.` });
+      }
+      writeSelection(wanted);
+      return json(200, { target: wanted });
+    },
+  },
+];
 
 const usersRoutes: Route[] = [
   {
@@ -1453,6 +1533,7 @@ const caseRoutes: Route[] = [
 
 const handle = createRouter(
   [
+    ...selectionRoutes,
     ...usersRoutes,
     ...runRoutes,
     ...triageViewRoutes,
