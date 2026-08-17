@@ -505,15 +505,33 @@ test.describe('boundaries on what a plan may set', () => {
  */
 test.describe('checking a Vault connection', () => {
   const connection = { address: 'https://vault.acme.example', kvMount: 'kv' };
+  const root = 'qa/acme-shop/pools';
+  const at = 'qa/acme-shop/pools/workforce/standard/1';
 
   test('resolves one path and reports the field names it holds', async () => {
     const response = await send({
       path: '/api/vault/check',
-      body: { connection, path: 'qa/acme-shop/pools/workforce/standard/1' },
+      body: { connection, path: at, root },
     });
     expect(response.status).toBe(200);
-    expect(response.body).toContain('qa/acme-shop/pools/workforce/standard/1');
+    expect(response.body).toContain(at);
     expect(response.body).toContain('username');
+  });
+
+  test('a local source is checkable with no connection at all', async () => {
+    /*
+       The reason this route is not Vault-only. A local store is two files in
+       this repository — no address, no mount, no namespace — so it can be
+       exercised on any machine, which means the shared route, result shape and
+       rendering are proven by a code path that actually runs rather than one
+       that is only reasoned about.
+    */
+    const response = await send({
+      path: '/api/vault/check',
+      body: { source: 'local', path: at, root },
+    });
+    expect(response.status).toBe(200);
+    expect(response.body).toContain(at);
   });
 
   for (const field of ['token', 'secretId', 'secret_id', 'password', 'jwt']) {
@@ -527,10 +545,7 @@ test.describe('checking a Vault connection', () => {
       */
       const response = await send({
         path: '/api/vault/check',
-        body: {
-          connection: { ...connection, [field]: 'a-secret-value' },
-          path: 'qa/acme-shop/pools/workforce/standard/1',
-        },
+        body: { connection: { ...connection, [field]: 'a-secret-value' }, path: at, root },
       });
       expect(response.status).toBe(400);
       expect(response.body).toContain('does not take a Vault credential');
@@ -541,7 +556,7 @@ test.describe('checking a Vault connection', () => {
   test('an address with no scheme is refused, without naming an example host', async () => {
     const response = await send({
       path: '/api/vault/check',
-      body: { connection: { address: 'vault.acme.example' }, path: 'qa/x/y/z/1' },
+      body: { connection: { address: 'vault.acme.example' }, path: at, root },
     });
     expect(response.status).toBe(400);
     expect(response.body).toContain('Include the scheme');
@@ -550,25 +565,101 @@ test.describe('checking a Vault connection', () => {
   test('a scheme it cannot reach is refused', async () => {
     const response = await send({
       path: '/api/vault/check',
-      body: { connection: { address: 'file:///etc/passwd' }, path: 'qa/x/y/z/1' },
+      body: { connection: { address: 'file:///etc/passwd' }, path: at, root },
     });
     expect(response.status).toBe(400);
     expect(response.body).toContain('not a scheme this can reach');
   });
 
-  test('no address, and no path, are each their own refusal', async () => {
-    // Two different mistakes, and a message naming the wrong one sends
-    // somebody to check a field that was fine.
+  test('each missing piece is its own refusal', async () => {
+    // Three different mistakes. A message naming the wrong one sends somebody
+    // to check a field that was fine.
+    const noPath = await send({ path: '/api/vault/check', body: { connection, root } });
+    expect(noPath.status).toBe(400);
+    expect(noPath.body).toContain('needs a path to resolve');
+
+    const noRoot = await send({ path: '/api/vault/check', body: { connection, path: at } });
+    expect(noRoot.status).toBe(400);
+    expect(noRoot.body).toContain('credential root');
+
     const noAddress = await send({
       path: '/api/vault/check',
-      body: { connection: {}, path: 'qa/x/y/z/1' },
+      body: { connection: {}, path: at, root },
     });
     expect(noAddress.status).toBe(400);
     expect(noAddress.body).toContain('needs its address');
+  });
+});
 
-    const noPath = await send({ path: '/api/vault/check', body: { connection } });
-    expect(noPath.status).toBe(400);
-    expect(noPath.body).toContain('needs a credential path');
+/**
+ * Where a typed credential is written — the defect this pair pins.
+ *
+ * Onboarding wrote every credential into `config/secrets.local.json`, which git
+ * tracks, while `.gitignore` and the Test users page both said anything real
+ * belongs in the private file. The page never asked, so there was no way to
+ * say otherwise.
+ */
+test.describe('where a credential gets written', () => {
+  const body = {
+    name: 'acme-shop',
+    baseURL: 'https://staging.acme.example',
+    secretSource: 'local',
+    credentials: { standard: { username: 'someone', password: 'a-password' } },
+  };
+
+  test('defaults to the gitignored file when nothing says otherwise', async () => {
+    // The default carries the safety here. Anyone who does not read the
+    // section still does not commit a password.
+    let chosen: string | null = null;
+    const response = await send(
+      { path: '/api/create', body },
+      {
+        create: async (plan, _options, _credentials, location) => {
+          chosen = location;
+          return {
+            written: plan.files.map((file) => file.path),
+            skipped: [],
+            credentialPaths: [...plan.credentialPaths],
+            diagnostics: [],
+            nextSteps: plan.nextSteps,
+          };
+        },
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(chosen).toBe('private-file');
+  });
+
+  test('the tracked file is available, but only by asking for it', async () => {
+    let chosen: string | null = null;
+    const response = await send(
+      { path: '/api/create', body: { ...body, credentialLocation: 'shared-file' } },
+      {
+        create: async (plan, _options, _credentials, location) => {
+          chosen = location;
+          return {
+            written: [],
+            skipped: [],
+            credentialPaths: [...plan.credentialPaths],
+            diagnostics: [],
+            nextSteps: [],
+          };
+        },
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(chosen).toBe('shared-file');
+  });
+
+  test('somewhere this page cannot write is refused rather than ignored', async () => {
+    for (const location of ['vault', 'environment', 'anywhere-else']) {
+      const response = await send({
+        path: '/api/create',
+        body: { ...body, credentialLocation: location },
+      });
+      expect(response.status, location).toBe(400);
+      expect(response.body).toContain('not somewhere this page can write');
+    }
   });
 });
 

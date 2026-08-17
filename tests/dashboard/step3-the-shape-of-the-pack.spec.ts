@@ -348,7 +348,7 @@ test.describe('your Vault', () => {
     const inputs = await page.locator('#vaultBox input').evaluateAll((nodes) =>
       nodes.map((node) => (node as HTMLInputElement).id),
     );
-    expect(inputs).toEqual(['vaultAddr', 'vaultNamespace', 'vaultMount', 'accountType', 'credentialRoot']);
+    expect(inputs).toEqual(['vaultAddr', 'vaultNamespace', 'vaultMount']);
     await expect(page.locator('#vaultBox input[type="password"]')).toHaveCount(0);
   });
 
@@ -364,7 +364,7 @@ test.describe('your Vault', () => {
     await page.fill('#accountType', 'contractors');
     await page.click('#vaultCheck');
 
-    await expect(page.locator('#vaultStatus')).toContainText('Connected.');
+    await expect(page.locator('#vaultStatus')).toContainText('Found it.');
     expect(dashboard.lastCall('/api/vault/check')!.path).toBe(
       'secret/teams/qa/contractors/standard/1',
     );
@@ -421,6 +421,34 @@ test.describe('your Vault', () => {
 
     await expect(page.locator('#vaultStatus')).toContainText('Not usable yet.');
     await expect(page.locator('#vaultStatus')).toContainText('user, pass');
+  });
+
+  test('a local target checks too, and says which file answered', async ({ dashboard }) => {
+    /*
+       The reason this is not a Vault-only control. A local store needs no
+       infrastructure, so this path is exercisable on any machine — which is
+       what keeps the shared route, result shape and rendering honest for the
+       Vault case, which mostly cannot be run here.
+
+       `origin` is the local-only half: with two files and precedence between
+       them, "it exists" is not the question somebody debugging has.
+    */
+    const { page } = dashboard;
+    dashboard.recorder.vaultCheckResult = {
+      ok: true,
+      path: '',
+      exists: true,
+      fields: ['username', 'password'],
+      origin: 'config/secrets.private.json',
+      detail: 'The credential is there and carries username and password.',
+      environment: [],
+    };
+    await atStep3(dashboard);
+    await page.selectOption('#secrets', 'local');
+    await page.click('#vaultCheck');
+
+    await expect(page.locator('#vaultStatus')).toContainText('from config/secrets.private.json');
+    expect(dashboard.lastCall('/api/vault/check')!.source).toBe('local');
   });
 
   test('changing the path shape withdraws a plan computed from the old one', async ({

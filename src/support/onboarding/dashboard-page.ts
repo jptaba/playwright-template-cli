@@ -236,8 +236,8 @@ const BODY = `
         <input type="text" id="a11y" value="wcag22aa" autocomplete="off">
       </div>
     </div>
+    <label>Where credentials come from <small>and how they are laid out there</small></label>
     <div id="vaultBox" hidden>
-      <label>Your Vault <small>which one, and how secrets are laid out in it</small></label>
       <p class="explain">
         No credential goes here. Vault authentication comes from the environment.
       </p>
@@ -262,24 +262,24 @@ const BODY = `
           <input type="text" id="vaultNamespace" autocomplete="off">
         </div>
       </div>
-      <div class="row">
-        <div>
-          <label for="vaultMount">KV mount</label>
-          <input type="text" id="vaultMount" value="kv" autocomplete="off">
-        </div>
-        <div>
-          <label for="accountType">Account type <small>the path segment under the root</small></label>
-          <input type="text" id="accountType" value="workforce" autocomplete="off">
-        </div>
-      </div>
-      <label for="credentialRoot">Credential root <small>defaults from the target name</small></label>
-      <input type="text" id="credentialRoot" autocomplete="off">
-      <p class="explain">
-        It reads one path and reports the field names it holds, never a value.
-      </p>
-      <button class="secondary" id="vaultCheck">Check the connection</button>
-      <div class="status" id="vaultStatus"></div>
+      <label for="vaultMount">KV mount</label>
+      <input type="text" id="vaultMount" value="kv" autocomplete="off">
     </div>
+    <div class="row">
+      <div>
+        <label for="accountType">Account type <small>the path segment under the root</small></label>
+        <input type="text" id="accountType" value="workforce" autocomplete="off">
+      </div>
+      <div>
+        <label for="credentialRoot">Credential root <small>defaults from the target name</small></label>
+        <input type="text" id="credentialRoot" autocomplete="off">
+      </div>
+    </div>
+    <p class="explain">
+      It reads one path and reports the field names it holds, never a value.
+    </p>
+    <button class="secondary" id="vaultCheck">Check where credentials come from</button>
+    <div class="status" id="vaultStatus"></div>
 
     <label>Optional layers</label>
     <label class="check"><input type="checkbox" id="lApi"><span>API — typed HTTP clients<small>needs at least one service above</small></span></label>
@@ -315,6 +315,14 @@ const BODY = `
       </div>
     </details>
     <div id="credentials"></div>
+    <div id="storeBox" hidden>
+      <label for="credentialLocation">Store what you type in</label>
+      <select id="credentialLocation">
+        <option value="private-file">A private file on this machine — gitignored</option>
+        <option value="shared-file">The shared file — committed to git</option>
+      </select>
+      <p class="explain" id="storeNote"></p>
+    </div>
     <button class="secondary" id="verify">Sign in once, to prove the locators work</button>
     <button class="secondary" id="assist">Sign in with a browser you can see</button>
     <button class="secondary" id="assistDone" hidden>I am on the home page</button>
@@ -1217,6 +1225,24 @@ function rolesTyped() {
   return seen;
 }
 
+/*
+   What the chosen file does with the value, said where the choice is made.
+
+   The committed one is a legitimate choice — a vendor demo that prints its own
+   logins — and a dangerous default, so it says what it costs rather than
+   relying on somebody knowing which of two similarly-named files git tracks.
+*/
+function renderStoreNote() {
+  const shared = $('credentialLocation').value === 'shared-file';
+  $('storeNote').textContent = shared
+    ? 'config/secrets.local.json is in git. Choose this only for logins the vendor already ' +
+      'publishes — a password committed here is in the history of every clone.'
+    : 'config/secrets.private.json, which is gitignored and takes precedence. Plain text on ' +
+      'this machine, and not backed up.';
+}
+
+$('credentialLocation').onchange = renderStoreNote;
+
 function renderCredentials() {
   const box = $('credentials');
   box.replaceChildren();
@@ -1239,6 +1265,17 @@ function renderCredentials() {
   */
   $('vaultBox').hidden = !vault;
   $('credentialRoot').placeholder = credentialRoot();
+  /*
+     Where a typed password lands, asked rather than assumed.
+
+     It was assumed, and what it assumed was config/secrets.local.json — which
+     git tracks. So onboarding a real application put a real password in the
+     repository, while .gitignore and the Test users page both said anything
+     real belongs in the private file. Only for a local source: a Vault target
+     types nothing here.
+  */
+  $('storeBox').hidden = vault;
+  renderStoreNote();
   /*
      Offering a button that cannot work, and only explaining after it is
      pressed, is the dead end this section had. The explanation is the same one
@@ -1403,21 +1440,26 @@ $('vaultCheck').onclick = async () => {
   $('vaultCheck').disabled = true;
   try {
     const result = await post('/api/vault/check', {
+      source: $('secrets').value,
       connection: {
         address: $('vaultAddr').value.trim(),
         namespace: $('vaultNamespace').value.trim(),
         kvMount: $('vaultMount').value.trim(),
       },
       path: root + '/' + $('accountType').value.trim() + '/' + role + '/1',
+      root,
     });
 
     status.className = 'status';
     status.replaceChildren(
-      el('span', result.ok ? 'found' : 'missing', result.ok ? 'Connected. ' : 'Not usable yet. '),
+      el('span', result.ok ? 'found' : 'missing', result.ok ? 'Found it. ' : 'Not usable yet. '),
       text(result.detail),
     );
     if (result.exists) {
-      status.append(el('div', 'diag', result.path + ' — fields: ' + result.fields.join(', ')));
+      // Which file answered, where there are two of them with precedence. "It
+      // exists" is not the question somebody debugging this actually has.
+      status.append(el('div', 'diag', result.path + ' — fields: ' + result.fields.join(', ') +
+        (result.origin ? ' — from ' + result.origin : '')));
     }
     /*
        The suite does not read this page. It resolves Vault from the
@@ -1572,7 +1614,10 @@ $('create').onclick = async () => {
       const u = $('cu-' + role), p = $('cp-' + role);
       if (u && p && u.value && p.value) credentials[role] = { username: u.value, password: p.value };
     }
-    const created = await post('/api/create', Object.assign(options(), { credentials }));
+    const created = await post('/api/create', Object.assign(options(), {
+      credentials,
+      credentialLocation: $('credentialLocation').value,
+    }));
     result.replaceChildren();
     result.append(el('div', 'found', 'Wrote ' + created.written.length + ' file(s).'));
 

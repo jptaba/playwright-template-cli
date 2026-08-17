@@ -4,6 +4,10 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { REPO_ROOT } from '../src/support/paths';
 import {
+  PRIVATE_STORE_FILE,
+  SHARED_STORE_FILE,
+} from '../src/integrations/secrets/local-store';
+import {
   confirmationMatches,
   describeOffboard,
   isRemovable,
@@ -56,10 +60,22 @@ export function gatherFacts(target: string): OffboardFacts {
   const packExists = fs.existsSync(packRoot);
   if (packExists) walk(packRoot, '');
 
-  const secretsFile = path.join(REPO_ROOT, 'config', 'secrets.local.json');
-  const secretKeys = fs.existsSync(secretsFile)
-    ? Object.keys(JSON.parse(fs.readFileSync(secretsFile, 'utf8')) as Record<string, unknown>)
-    : [];
+  /*
+     Both local files, not just the tracked one.
+
+     This read `config/secrets.local.json` alone, which was survivable only
+     while nothing wrote to the private file. Onboarding now defaults there —
+     it is the gitignored one, and the right place for a real password — so
+     reading one file meant offboarding removed the pack and left the
+     credential behind. An orphaned real password on disk, belonging to an
+     application this repository no longer has, is the worst of the three
+     outcomes here.
+  */
+  const secretKeys = [SHARED_STORE_FILE, PRIVATE_STORE_FILE].flatMap((file) =>
+    fs.existsSync(file)
+      ? Object.keys(JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>)
+      : [],
+  );
 
   const authDir = path.join(REPO_ROOT, '.auth');
   const storageStateFiles = fs.existsSync(authDir) ? fs.readdirSync(authDir) : [];
@@ -155,11 +171,21 @@ export function removeTarget(plan: OffboardPlan, options: { keepSecrets?: boolea
   }
 
   if (!options.keepSecrets && plan.removeSecretKeys.length > 0) {
-    const file = path.join(REPO_ROOT, 'config', 'secrets.local.json');
-    const store = JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>;
-    for (const key of plan.removeSecretKeys) delete store[key];
-    fs.writeFileSync(file, `${JSON.stringify(store, null, 2)}\n`, 'utf8');
-    done.push(`removed ${plan.removeSecretKeys.length} credential entr(ies)`);
+    // Both files, for the same reason the plan reads both: the credential
+    // could be in either, and the private one is where a real password is.
+    let removed = 0;
+    for (const file of [SHARED_STORE_FILE, PRIVATE_STORE_FILE]) {
+      if (!fs.existsSync(file)) continue;
+      const store = JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>;
+      for (const key of plan.removeSecretKeys) {
+        if (key in store) {
+          delete store[key];
+          removed += 1;
+        }
+      }
+      fs.writeFileSync(file, `${JSON.stringify(store, null, 2)}\n`, 'utf8');
+    }
+    done.push(`removed ${removed} credential entr(ies)`);
   }
 
   for (const file of plan.removeStorageStates) {

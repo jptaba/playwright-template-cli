@@ -117,10 +117,14 @@ is `done` too.
 **The owner answered both open questions on 2026-08-17**, which unblocked item
 12 — connect to your own Vault by URL and data shape, then verify a sign-in
 with it, server-side, with no secret ever on the page. **Its first slice
-shipped in run 16**; slice 2, which is the sign-in verification itself, is now
-the only `ready` item. The other answer defines what "continuously" means for
-item 11: this loop measures triage agreement and records it per run, rather
-than a CI job. Item 13 is the one thing still needing input a run cannot
+shipped in run 16**, and run 17 shipped item 15 — where a typed credential is
+actually stored, which turned out to be the file git tracks. The other answer
+defines what "continuously" means for item 11: this loop measures triage
+agreement and records it per run, rather than a CI job.
+
+`ready`, in order: **item 12 slice 2** (the Vault sign-in verification) and
+**item 16** (offboarding abandons credentials when the pack is already gone,
+found in run 17). Item 13 is the one thing still needing input a run cannot
 generate alone.
 
 ---
@@ -556,6 +560,72 @@ are pinned by tests, and the too-late path was confirmed live as well.
 
 No copy was added and no step. The fixed state is simply the absence of a
 warning that no longer applies — exactly what a fresh preview would have shown.
+
+### 15. Onboarding wrote every credential into the file git tracks — `done`
+
+Shipped on `agent/2026-08-17-credential-location` (run 17), with the owner's
+framing: *"All of these tests should route to local copy of the gitignored
+credentials… we should have some way of letting the users choose or retrieve
+where their test user credentials should be pulled from."*
+
+**The defect.** `writeLocalCredentials` in `tools/dashboard.ts` wrote to
+`config/secrets.local.json` unconditionally. That file is **tracked**. So
+onboarding a real application through the dashboard — type the password, press
+Create — put it in git, while `.gitignore` and the Test users page both said
+plainly that anything real belongs in `config/secrets.private.json`.
+
+Everything needed to do it properly already existed and onboarding used none of
+it: `CREDENTIAL_LOCATIONS` describes the four places and what each costs,
+`WRITABLE_LOCATIONS` says which two this page may write, `writeCredential`
+honours them, and `/users` already used all three. Onboarding simply never
+asked. That is the finding worth carrying forward — the gap was not a missing
+capability, it was one surface not reaching for a vocabulary the repository
+already had.
+
+**Fixed:** step 4 offers where to store it, defaulting to the **gitignored**
+file, with each option stating what it does with the value. The route validates
+against `WRITABLE_LOCATIONS` and refuses anything else, and defaults to private
+when the field is absent — the default is where the safety lives, because
+anybody who does not read the section still must not commit a password.
+
+**Second defect, found by fixing the first.** Offboarding read and wrote only
+`secrets.local.json`, so once onboarding started writing to the private file,
+`target:remove` took the pack and left the credential behind — an orphaned real
+password for an application the repository no longer has. Both the plan and the
+removal now cover both files, and the warning names them.
+
+**Proven live**, not only in tests: onboarded a scratch target through the
+running dashboard with a password, and it landed in `config/secrets.private.json`
+with nothing in the tracked file; then offboarded a scaffolded target with a
+seeded private credential and watched the entry go while the tracked file's
+checksum stayed identical.
+
+**Also here:** the connection check from item 12 is no longer Vault-only. It
+takes a source, so a local target checks too and reports **which file
+answered** — the `origin` the local store already returned and nothing showed.
+That is the "retrieve where credentials are pulled from" half of the owner's
+ask, and it is what makes this whole path exercisable on a machine with no
+Vault: the same route, result shape and rendering the Vault case uses are now
+run every time somebody onboards a public demo.
+
+### 16. Offboarding a target that is already gone abandons its credentials — `ready`
+
+Found in run 17 while fixing item 15, and deliberately not fixed there.
+
+`planRemoval` returns early with `alreadyGone: true` and empty removals when
+neither the profile nor the pack exists (`src/support/onboarding/offboard.ts:121`).
+But credential entries and storage states can outlive both — remove the pack by
+hand, or offboard twice, and the tool reports *"Nothing to remove"* while a real
+password sits in `config/secrets.private.json` under that target's root.
+
+Observed exactly that in run 17: after an offboard that predated item 15's fix,
+a second offboard reported nothing to remove while the credential was still on
+disk and visible in the file.
+
+Small and well-shaped: the early return should still collect `removeSecretKeys`
+and `removeStorageStates`, and say "the pack is already gone, but these remain"
+rather than "nothing to remove". Keep `alreadyGone` — it correctly changes the
+wording — but stop it meaning "and therefore nothing else exists".
 
 ### 13. The dashboard suite has load-sensitive tests — `hypothesis`
 

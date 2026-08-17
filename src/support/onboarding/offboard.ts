@@ -201,9 +201,10 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
 
   if (removeSecretKeys.length > 0) {
     warnings.push(
-      `${removeSecretKeys.length} credential entr(ies) will be removed from ` +
-        'config/secrets.local.json. If those logins are not written down anywhere else, copy ' +
-        'them out first.',
+      `${removeSecretKeys.length} credential entr(ies) will be removed from the local secret ` +
+        'files — config/secrets.private.json as well as config/secrets.local.json. The private ' +
+        'one is where a real password is, and it is gitignored, so nothing can bring it back. ' +
+        'If those logins are not written down anywhere else, copy them out first.',
     );
   }
 

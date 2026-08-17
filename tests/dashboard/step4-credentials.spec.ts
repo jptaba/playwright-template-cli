@@ -373,3 +373,74 @@ test.describe('signing in with a browser you can see', () => {
     await expect(page.locator('#verifyStatus')).toContainText('Name the target');
   });
 });
+
+/**
+ * Where a typed password is stored — the defect, and the choice that fixes it.
+ *
+ * Onboarding wrote every credential into `config/secrets.local.json`, which git
+ * **tracks**. So onboarding a real application through this page — type the
+ * password, press Create — put it in the repository, while `.gitignore` and the
+ * Test users page both said plainly that anything real belongs in the private
+ * file. The page never asked, so there was no way to say otherwise.
+ */
+test.describe('where the credentials are stored', () => {
+  async function readyForStore(
+    dashboard: Parameters<Parameters<typeof test>[2]>[0]['dashboard'],
+  ) {
+    const { page } = dashboard;
+    await page.fill('#name', 'shop');
+    await page.fill('#baseURL', 'https://staging.shop.test');
+    await page.check('#confirmTest');
+    await page.click('#probe');
+    await expect(page.locator('#s3')).not.toHaveAttribute('inert', '');
+    await page.selectOption('#secrets', 'local');
+    await page.click('#preview');
+    await expect(page.locator('#s4')).not.toHaveAttribute('inert', '');
+  }
+
+  test('defaults to the gitignored file', async ({ dashboard }) => {
+    // The default is where the safety lives. Somebody who never reads this
+    // section still does not commit a password.
+    const { page } = dashboard;
+    await readyForStore(dashboard);
+
+    await expect(page.locator('#storeBox')).toBeVisible();
+    await expect(page.locator('#credentialLocation')).toHaveValue('private-file');
+    await expect(page.locator('#storeNote')).toContainText('gitignored');
+  });
+
+  test('says what the committed file costs, at the moment of choosing it', async ({
+    dashboard,
+  }) => {
+    // Both files are named alike and one is tracked. Nobody should have to
+    // infer which from a .gitignore.
+    const { page } = dashboard;
+    await readyForStore(dashboard);
+    await page.selectOption('#credentialLocation', 'shared-file');
+
+    await expect(page.locator('#storeNote')).toContainText('in git');
+    await expect(page.locator('#storeNote')).toContainText('history of every clone');
+  });
+
+  test('sends the choice with the write', async ({ dashboard }) => {
+    const { page } = dashboard;
+    await readyForStore(dashboard);
+    await page.fill('#cu-standard', 'shopper@shop.test');
+    await page.fill('#cp-standard', 'the-secret-value');
+    await page.selectOption('#credentialLocation', 'shared-file');
+    await page.click('#create');
+    await expect(page.locator('#result')).toContainText('file(s).');
+
+    expect(dashboard.recorder.created.at(-1)!.credentialLocation).toBe('shared-file');
+    expect(await page.content(), 'and the value is still nowhere on the page').not.toContain(
+      'the-secret-value',
+    );
+  });
+
+  test('is not offered to a Vault target, which types nothing here', async ({ dashboard }) => {
+    const { page } = dashboard;
+    await readyForStore(dashboard);
+    await page.selectOption('#secrets', 'vault');
+    await expect(page.locator('#storeBox')).toBeHidden();
+  });
+});

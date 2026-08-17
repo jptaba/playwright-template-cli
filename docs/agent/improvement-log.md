@@ -1048,3 +1048,89 @@ reachable for a Vault target, and the half where the no-credential-on-the-page
 rule needs the most care. Slice 3 (where connection settings live) should be
 decided before it is built, since it changes whether slice 2 can reuse a stored
 connection or must re-take one each time.
+
+## 2026-08-17 · run 17 · The page never asked where the password should go
+
+**Picked:** item 15, raised by the owner mid-session: *"All of these tests
+should route to local copy of the gitignored credentials… we should have some
+way of letting the users choose or retrieve where their test user credentials
+should be pulled from."* Prompted by their not having a Vault to test against,
+which made the local path the one that has to be provably right.
+
+**Corrected a premise first, by checking rather than agreeing.** The owner
+called `config/secrets.local.json` gitignored. It is not — it is **tracked, on
+purpose**, and `.gitignore:51` says so in a comment: it is only for logins a
+vendor already publishes. The gitignored one is `config/secrets.private.json`,
+which already existed, already took precedence, and already had a whole
+vocabulary around it (`CREDENTIAL_LOCATIONS`, `WRITABLE_LOCATIONS`,
+`writeCredential`, and the `/users` page using all three).
+
+**So the ask was right and the reason was different.** `writeLocalCredentials`
+in `tools/dashboard.ts` wrote to the tracked file unconditionally, ignoring the
+private one entirely. Onboarding a real application through the dashboard put a
+real password in git. The gap was never a missing capability — it was one
+surface not reaching for a vocabulary the repository already had.
+
+**Did:** Step 4 now asks where to store what you type, defaulting to the
+gitignored file, each option stating plainly what it does with the value. The
+route validates against `WRITABLE_LOCATIONS` and defaults to `private-file`
+when the field is absent. `writeLocalCredentials` delegates to
+`writeCredential` and refuses to overwrite a credential already resolving in
+either file.
+
+**A second defect fell out of the first.** Offboarding read and wrote only
+`secrets.local.json`. The moment onboarding started writing to the private
+file, `target:remove` took the pack and left the credential — an orphaned real
+password for an application the repository no longer has. Both the plan and the
+removal now cover both files, and the warning names them.
+
+**Also:** item 12's connection check is no longer Vault-only. It takes a
+source, so a local target checks too and reports **which file answered** — the
+`origin` the local store already returned and nothing displayed. That is the
+"retrieve where credentials are pulled from" half, and it is what makes the
+whole path testable without a Vault: the same route, result shape and rendering
+the Vault case depends on are now exercised whenever anybody onboards a public
+demo.
+
+**Verify:** `npm run verify` passes, exit 0 — 785 tests, up from 776.
+
+Proven live rather than only in tests, which is where both defects were
+confirmed:
+
+- Onboarded a scratch target through the running dashboard with a real-looking
+  password. It landed in `config/secrets.private.json`; `grep` found nothing in
+  the tracked file. Before this change the same clicks put it in git.
+- Pressed the check afterwards: "Found it… — from config/secrets.private.json",
+  and the password value appears nowhere in the page's HTML.
+- Offboarded a scaffolded target with a seeded private credential: the entry
+  went, and the tracked file's md5 was unchanged.
+
+**PR:** branch `agent/2026-08-17-credential-location`; `main` fast-forwarded and
+pushed, `main` and `origin/main` confirmed matching.
+
+**Learned:**
+
+- **The owner's premise was wrong and their instinct was right.** Worth
+  separating: `secrets.local.json` is not gitignored, so "route these to the
+  gitignored copy" could not be satisfied as stated — but the thing they were
+  worried about was real and worse than they put it, because onboarding wrote
+  there *by default with no way to say otherwise*. Checking the claim took one
+  command and turned a rewording into a defect fix.
+- **A defect can hide behind a capability that already exists.** Everything
+  needed was in `src/support/secrets/` and used by `/users`. Nothing had to be
+  designed. The failure mode to watch for is not "this is missing" but "two
+  surfaces disagree about the same thing", and the older surface is not
+  automatically the right one.
+- **Fixing one end of a lifecycle exposes the other.** Onboarding writing
+  somewhere new immediately made offboarding wrong, and the symptom — an
+  orphaned password — is worse than the original. Any change to where something
+  is written should be followed by asking what removes it.
+- **The `alreadyGone` early return abandons credentials**, and that is now item
+  16 rather than a silent extra fix in this diff. It is reachable by offboarding
+  twice, and it reports "Nothing to remove" while a real password sits on disk.
+
+**Next:** item 12 slice 2 (verify a Vault sign-in server-side) and item 16 are
+both `ready`. Item 16 is much the smaller and closes a hole this run opened the
+lid on, so it is the better first pick unless the Vault work is more urgent.
+Item 13 still needs the quarantine machinery to produce a rate rather than a
+third anecdote.

@@ -8,6 +8,7 @@ import { sanitiseDraft, type OnboardedApp, type OnboardingDraft } from './draft'
 import type { GauntletStep } from './gauntlet';
 import type { EditOutcome, ProfileEdits } from './edit-profile';
 import type { VaultConnection } from '../../integrations/vault/vault-store';
+import { WRITABLE_LOCATIONS, type CredentialLocation } from '../secrets/locations';
 
 /**
  * The onboarding dashboard — a second front end onto the same scaffolder.
@@ -96,6 +97,12 @@ export interface VaultCheckResult {
   /** Field names at the path. Never values — `describe` cannot return one. */
   fields: string[];
   version?: number;
+  /**
+   * Which file answered, for a local store. Absent for Vault, which has one
+   * place. With two local files and precedence between them, "it exists" is
+   * not the question somebody debugging actually has.
+   */
+  origin?: string;
   /** One sentence for the page. Names the fix when there is one. */
   detail: string;
   /**
@@ -155,9 +162,14 @@ export interface DashboardService {
    * panel somebody may screenshot.
    */
   checkVault(input: {
-    connection: VaultConnection;
+    /** Which store to ask. The local one is checkable with no infrastructure. */
+    source: 'vault' | 'local';
+    /** Only for Vault. A local store has no address, namespace or mount. */
+    connection?: VaultConnection;
     /** The one path to resolve, built from the shape the form states. */
     path: string;
+    /** The credential root, so a local store serves only this target's paths. */
+    root: string;
   }): Promise<VaultCheckResult>;
   /** Which of a plan's files are already on disk. Nothing is ever overwritten. */
   existing(paths: string[]): string[];
@@ -177,6 +189,11 @@ export interface DashboardService {
     plan: ScaffoldPlan,
     options: ScaffoldOptions,
     credentials: Record<string, { username: string; password: string }>,
+    /**
+     * Which local file the credentials go in. Chosen in step 4 — this used to
+     * be assumed, and what it assumed was the file git tracks.
+     */
+    credentialLocation: CredentialLocation,
   ): Promise<CreateResult>;
 }
 
@@ -465,6 +482,26 @@ async function onboardingApi(
          the agent writes the reference and a person writes the value.
       */
       case '/api/vault/check': {
+        const source = body.source === 'local' ? 'local' : 'vault';
+        const path = String(body.path ?? '').trim();
+        if (!path) {
+          return failure(400, 'Checking a credential needs a path to resolve.');
+        }
+        const root = String(body.root ?? '').trim();
+        if (!root) {
+          return failure(400, 'Checking a credential needs the credential root it lives under.');
+        }
+
+        /*
+           A local store has no address, namespace or mount — it is two files in
+           this repository. Asking for a Vault connection to check one would be
+           a field that cannot apply, which is the shape of defect this whole
+           section exists to remove.
+        */
+        if (source === 'local') {
+          return json(200, await service.checkVault({ source, path, root }));
+        }
+
         const connection = (body.connection ?? {}) as Record<string, unknown>;
         const address = String(connection.address ?? '').trim();
         if (!address) {
@@ -493,20 +530,17 @@ async function onboardingApi(
           }
         }
 
-        const path = String(body.path ?? '').trim();
-        if (!path) {
-          return failure(400, 'Checking a Vault connection needs a credential path to resolve.');
-        }
-
         return json(
           200,
           await service.checkVault({
+            source,
             connection: {
               address,
               ...(connection.namespace ? { namespace: String(connection.namespace).trim() } : {}),
               ...(connection.kvMount ? { kvMount: String(connection.kvMount).trim() } : {}),
             },
             path,
+            root,
           }),
         );
       }
@@ -587,7 +621,33 @@ async function onboardingApi(
         }
 
         const credentials = readCredentials(body.credentials);
-        return json(200, await service.create(plan, scaffoldOptions, credentials));
+        /*
+           Defaulted to the gitignored file, and validated against the list of
+           locations this page may write to rather than taken on trust.
+
+           The default matters more than the validation. Before there was a
+           choice at all, every credential typed into onboarding went into
+           `config/secrets.local.json`, which is tracked — so the safe option
+           has to be the one you get by saying nothing, or the defect comes
+           back the first time somebody does not read the section.
+        */
+        const location = String(body.credentialLocation ?? 'private-file');
+        if (!(WRITABLE_LOCATIONS as readonly string[]).includes(location)) {
+          return failure(
+            400,
+            `'${location}' is not somewhere this page can write a credential. Vault is written ` +
+              'by a person with Vault access, and the environment by whatever runs the suite.',
+          );
+        }
+        return json(
+          200,
+          await service.create(
+            plan,
+            scaffoldOptions,
+            credentials,
+            location as CredentialLocation,
+          ),
+        );
       }
 
       default:

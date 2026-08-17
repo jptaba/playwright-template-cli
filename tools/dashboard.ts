@@ -31,8 +31,9 @@ import {
 import { runsPageContent } from '../src/support/ui/runs-page';
 import { usersPageContent } from '../src/support/ui/users-page';
 import { testUsersRoutes, type TestUsersService } from '../src/support/secrets/dashboard';
-import { forgetCredential, writeCredential } from '../src/support/secrets/file-store';
-import { createSecretStore } from '../src/integrations/secrets';
+import { fileFor, forgetCredential, writeCredential } from '../src/support/secrets/file-store';
+import type { CredentialLocation } from '../src/support/secrets/locations';
+import { createSecretStore, LocalSecretStore } from '../src/integrations/secrets';
 import { VaultSecretStore, type VaultConnection } from '../src/integrations/vault/vault-store';
 import { casesPageContent } from '../src/support/ui/cases-page';
 import { storiesPageContent } from '../src/support/ui/stories-page';
@@ -146,18 +147,38 @@ function existing(paths: string[]): string[] {
  * something else, rather than in a `setup:auth` timeout later.
  */
 async function checkVault(input: {
-  connection: VaultConnection;
+  source: 'vault' | 'local';
+  connection?: VaultConnection;
   path: string;
+  root: string;
 }): Promise<VaultCheckResult> {
-  const environment = [
-    `VAULT_ADDR=${input.connection.address}`,
-    ...(input.connection.namespace ? [`VAULT_NAMESPACE=${input.connection.namespace}`] : []),
-    ...(input.connection.kvMount && input.connection.kvMount !== 'kv'
-      ? [`VAULT_KV_MOUNT=${input.connection.kvMount}`]
-      : []),
-  ];
+  const environment =
+    input.source === 'local' || !input.connection
+      ? []
+      : [
+          `VAULT_ADDR=${input.connection.address}`,
+          ...(input.connection.namespace
+            ? [`VAULT_NAMESPACE=${input.connection.namespace}`]
+            : []),
+          ...(input.connection.kvMount && input.connection.kvMount !== 'kv'
+            ? [`VAULT_KV_MOUNT=${input.connection.kvMount}`]
+            : []),
+        ];
 
-  const store = VaultSecretStore.fromConnection(input.connection);
+  /*
+     The local store is the one that can be exercised with no infrastructure at
+     all, which is why this check is not Vault-only: the same route, the same
+     result and the same rendering are proven every time somebody onboards a
+     public demo, so the Vault path is wired by a code path that is actually
+     run rather than one that is only reasoned about.
+
+     Scoped to this target's own root, exactly as `createSecretStore` scopes
+     it, so a check can never read another target's credentials.
+  */
+  const store =
+    input.source === 'local'
+      ? new LocalSecretStore([`${input.root}/`])
+      : VaultSecretStore.fromConnection(input.connection!);
   try {
     const described = await store.describe(input.path);
     if (!described.exists) {
@@ -167,9 +188,13 @@ async function checkVault(input: {
         exists: false,
         fields: [],
         detail:
-          'Connected, but nothing is at that path. Check the KV mount and the credential root ' +
-          'before the path itself — and on Vault Enterprise, the namespace, which prefixes ' +
-          'every API call.',
+          input.source === 'local'
+            ? 'Nothing is at that path yet. That is normal before step 5 — Create writes it ' +
+              'into the file chosen there. It is a problem only if you expected it to be here ' +
+              'already, in which case check the credential root and the account type.'
+            : 'Connected, but nothing is at that path. Check the KV mount and the credential ' +
+              'root before the path itself — and on Vault Enterprise, the namespace, which ' +
+              'prefixes every API call.',
         environment,
       };
     }
@@ -183,12 +208,17 @@ async function checkVault(input: {
       exists: true,
       fields: described.fields,
       ...(described.version === undefined ? {} : { version: described.version }),
+      // Which of the two local files answered. Absent for Vault, which has one
+      // place, so there is nothing to disambiguate.
+      ...(described.origin
+        ? { origin: path.relative(REPO_ROOT, described.origin).split(path.sep).join('/') }
+        : {}),
       detail:
         missing.length === 0
           ? 'The credential is there and carries username and password.'
           : `The credential is there but has no ${missing.join(' and ')}. The secrets fixture ` +
-            'reads those two names, so rename the fields in Vault or the sign-in will resolve ' +
-            'nothing.',
+            'reads those two names, so rename the fields where they are stored or the sign-in ' +
+            'will resolve nothing.',
       environment,
     };
   } finally {
@@ -292,25 +322,51 @@ const verify = (input: {
 /**
  * Write the credential entries the profile will look for.
  *
- * Only ever `config/secrets.local.json`, and only when the profile says its
- * source is `local`. A Vault-backed target gets the paths printed and nothing
- * written: the agent writes the reference, a person writes the value.
+ * One of the two local files, chosen by the operator, and only when the
+ * profile says its source is `local`. A Vault-backed target gets the paths
+ * printed and nothing written: the agent writes the reference, a person writes
+ * the value.
  */
 function writeLocalCredentials(
   credentialPaths: readonly string[],
   credentials: Record<string, { username: string; password: string }>,
+  location: CredentialLocation,
 ): void {
-  const file = path.join(REPO_ROOT, 'config', 'secrets.local.json');
-  if (!fs.existsSync(file)) return;
+  /*
+     Which of the two local files, chosen in step 4 rather than assumed here.
 
-  const store = JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>;
+     This wrote to `config/secrets.local.json` unconditionally, and that file is
+     **tracked**. So onboarding a real application through the dashboard — type
+     the password, press Create — put it in git, while `.gitignore` and the
+     Test users page both said plainly that anything real belongs in the
+     private file. The page offering no choice was the whole defect: there was
+     already a vocabulary for this (`CREDENTIAL_LOCATIONS`), a writer that
+     honours it, and a page using both. Onboarding simply did not ask.
+  */
+  const existing = new Set(
+    Object.keys(readLocalStoreFile(fileFor('private-file'))).concat(
+      Object.keys(readLocalStoreFile(fileFor('shared-file'))),
+    ),
+  );
+
   for (const credentialPath of credentialPaths) {
+    // Never overwrite a credential that already resolves, in either file. The
+    // same rule as the pack: onboarding is additive.
+    if (existing.has(credentialPath)) continue;
     const role = credentialPath.split('/').at(-2) ?? '';
     const supplied = credentials[role];
-    if (credentialPath in store) continue;
-    store[credentialPath] = supplied ?? { username: 'replace-me', password: 'replace-me' };
+    writeCredential({
+      location,
+      path: credentialPath,
+      username: supplied?.username ?? 'replace-me',
+      password: supplied?.password ?? 'replace-me',
+    });
   }
-  fs.writeFileSync(file, `${JSON.stringify(store, null, 2)}\n`, 'utf8');
+}
+
+function readLocalStoreFile(file: string): Record<string, unknown> {
+  if (!fs.existsSync(file)) return {};
+  return JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>;
 }
 
 /**
@@ -368,6 +424,7 @@ async function create(
   plan: ScaffoldPlan,
   options: ScaffoldOptions,
   credentials: Record<string, { username: string; password: string }>,
+  credentialLocation: CredentialLocation,
 ): Promise<CreateResult> {
   const written: string[] = [];
   const skipped: string[] = [];
@@ -384,7 +441,7 @@ async function create(
   }
 
   if (options.secretSource === 'local') {
-    writeLocalCredentials(plan.credentialPaths, credentials);
+    writeLocalCredentials(plan.credentialPaths, credentials, credentialLocation);
   }
 
   return {
