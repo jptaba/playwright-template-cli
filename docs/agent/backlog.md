@@ -122,10 +122,10 @@ actually stored, which turned out to be the file git tracks. The other answer
 defines what "continuously" means for item 11: this loop measures triage
 agreement and records it per run, rather than a CI job.
 
-Run 18 shipped item 16. `ready`, in order: **item 12 slice 2** (the Vault
-sign-in verification) and **item 13**, which recurred a third time in run 18
-and is now worth measuring properly through the quarantine machinery rather
-than noting again.
+Run 18 shipped item 16, and run 19 shipped item 13 — which turned out not to be
+a flaky test at all, but a real race in the page that the failing test was
+correctly reporting. **The only `ready` item left is item 12 slice 2**, the
+Vault sign-in verification.
 
 A standing constraint worth knowing before picking item 12: **the owner has no
 Vault instance to test against** (stated 2026-08-17). Vault work has to be
@@ -650,7 +650,42 @@ and `removeStorageStates`, and say "the pack is already gone, but these remain"
 rather than "nothing to remove". Keep `alreadyGone` — it correctly changes the
 wording — but stop it meaning "and therefore nothing else exists".
 
-### 13. The dashboard suite has load-sensitive tests — `hypothesis`
+### 13. The dashboard suite has load-sensitive tests — `done`
+
+Shipped on `agent/2026-08-17-assist-poll-race` (run 19). **It was not a flaky
+test. It was a real race in the page, and the failing test was right.**
+
+Measured first, as the item demanded: **0 failures in 6 full framework+dashboard
+runs** — past `FLAKE_MINIMUM_RUNS` (5), the threshold this repository says a
+rate needs before it means anything. So quarantine was the wrong instrument;
+you cannot quarantine what you cannot catch.
+
+The diagnosis came from reading what the failure *was* rather than how often it
+happened. `assistDone` clears the poll interval and nulls `assistTimer`
+synchronously, then awaits `/api/assist/finish` and renders the derived marker
+into `#assistOut`. `clearInterval` stops the next firing and does nothing about
+a callback already awaiting its reply — so a poll in flight resumes and
+`replaceChildren`s the same element with "N page(s) met so far". The marker is
+derived, displayed, and wiped, with nothing on screen looking wrong.
+
+That is a user-visible defect, not a test artifact: an operator who signs in
+with the visible browser can lose the marker panel to a stale poll.
+
+**Reproduced deterministically** rather than waited for, using the held-route
+pattern `onboarding-journeys.spec.ts` already uses — hold `/api/assist/poll`
+open, wait for one to be genuinely in flight, finish, then release. Against the
+unfixed page `#assistOut` reads `"1 page(s) met so far between the password and
+now.poll 1"` where the marker should be. The fix compares a fact — is this
+still the current timer — per the reasoning already written above
+`formSignature()`, which learned the same lesson about counting versus
+comparing.
+
+Worth keeping: the neighbouring tests finish immediately after starting assist,
+so no poll has fired at 1500ms and there is nothing to land late. The first
+version of this test did the same and passed against the broken page. Waiting
+for the request is what made it real.
+
+The original item follows.
 
 Two different specs have each failed **once** inside a full `npm run verify` and
 then passed every repeat afterwards, including 6–8 repeats each and several

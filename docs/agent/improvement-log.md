@@ -1199,3 +1199,74 @@ and pushed, `main` and `origin/main` confirmed matching.
 has now recurred three times, so it is the more honest pick; item 12 slice 2 is
 the larger piece and is constrained by the owner having no Vault to test
 against, which is now recorded at the top of `backlog.md`.
+
+## 2026-08-17 · run 19 · Three flakes that were one real race
+
+**Picked:** item 13 — the load-sensitive dashboard tests, after a third
+singleton in run 18. The item's own instruction was to stop noting anecdotes
+and measure a rate through the quarantine machinery.
+
+**Measured, and the number said don't quarantine.** Ran the full
+framework+dashboard combination — the conditions all three failures appeared
+under, and heavier than either project alone — repeatedly: **0 failures in 6
+runs**, past `FLAKE_MINIMUM_RUNS` (5), which is the threshold this repository
+itself sets for a rate meaning anything. Stopped there rather than at the
+planned 10: the marginal value of four more clean runs was low once the
+mechanism was in hand, and the conclusion could not change.
+
+**Then read what the failure actually was, which is where it turned.** Run 18's
+failure was `#assistOut` not containing the derived marker. `assistDone` clears
+the poll interval and nulls `assistTimer` synchronously, then awaits
+`/api/assist/finish` and renders the marker into `#assistOut`. `clearInterval`
+stops the *next* firing and does nothing about a callback already awaiting its
+reply — so a poll in flight resumes and `replaceChildren`s that same element
+with "N page(s) met so far".
+
+**So it was never a flaky test.** It is a real defect an operator meets: sign in
+with the visible browser, press "I am on the home page", and the marker panel
+can be wiped by a poll that was already in the air. The test was right and the
+suite was reporting a product bug at a 1-in-20-ish rate.
+
+**Did:** guarded the poll callback by comparing a fact rather than counting —
+`const mine = assistTimer` before the await, bail if it moved — following the
+reasoning already written above `formSignature()`, which learned exactly this
+lesson when a counted guard proved unreliable under load. One deterministic
+test, using the held-route pattern `onboarding-journeys.spec.ts` already uses.
+
+**Verify:** `npm run verify` passes, exit 0 — 791 tests, up from 790.
+
+**PR:** branch `agent/2026-08-17-assist-poll-race`; `main` fast-forwarded and
+pushed, `main` and `origin/main` confirmed matching.
+
+**Learned:**
+
+- **The first version of the test passed against the broken page**, and that
+  was the most useful thing that happened. The neighbouring tests click
+  `#assistDone` straight after `#assist`, so at a 1500ms interval no poll has
+  fired and there is nothing to land late — my test copied that shape and
+  proved nothing. Adding `waitForRequest` so a poll is genuinely *in flight*
+  made it fail against the unfixed page with the exact symptom
+  (`"1 page(s) met so far between the password and now.poll 1"` where the
+  marker belonged). **Always run a new regression test against the unfixed
+  code**; a green test proves nothing until it has been seen red for the right
+  reason.
+- **"Flaky" was the wrong frame from the start, and the backlog had said so
+  three times without anyone testing it.** Three singletons, three specs, no
+  reproduction — the shape that reads as infrastructure noise and was a product
+  race. The item was right to refuse a hand-tuned timeout, and would have been
+  wrong to quarantine: quarantining would have hidden a real defect behind a
+  reviewed decision to ignore it.
+- **The backtick trap in `dashboard-page.ts` caught me**, exactly as run 7
+  recorded it. A comment containing \`clearInterval\` in backticks closes the
+  template literal and becomes a parse error two lines later. It is written in
+  the log and I still hit it; worth reading the surrounding code style before
+  writing a comment in that file rather than trusting the note to surface at
+  the right moment.
+- **A measured zero is a result, not a failed measurement.** "0 in 6" is what
+  justified not quarantining, and it took ten minutes of wall time that would
+  otherwise have been spent arguing from three anecdotes.
+
+**Next:** item 12 slice 2 — verify a Vault sign-in server-side — is the only
+`ready` item left. It is constrained by the owner having no Vault to test
+against, so the local path has to carry the proof; that constraint is recorded
+at the top of `backlog.md`.

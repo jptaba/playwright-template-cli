@@ -1763,8 +1763,26 @@ $('assist').onclick = async () => {
     $('assistExplain').hidden = false;
 
     assistTimer = setInterval(async () => {
+      /*
+         Which poll this is, so one still in flight cannot write over what came
+         after it.
+
+         clearInterval stops the *next* firing; it does nothing about a
+         callback already awaiting its reply. "I am on the home page" clears the
+         timer and then renders the derived marker into #assistOut — and a poll
+         that had already asked would come back afterwards and replace it with
+         "N page(s) met so far". The marker was derived, shown, and then wiped,
+         with nothing on screen looking wrong.
+
+         Compared rather than counted, for the reason written above
+         formSignature(): assistTimer is set to null synchronously by both
+         assistDone and stopAssist, so "is this still the current timer" is a
+         fact about state at the moment the reply lands, and cannot race.
+      */
+      const mine = assistTimer;
       try {
         const state = await post('/api/assist/poll', {});
+        if (assistTimer !== mine) return;
         if (!state.open) return stopAssist();
         const box = $('assistOut');
         box.replaceChildren(
@@ -1772,6 +1790,7 @@ $('assist').onclick = async () => {
         );
         for (const line of state.summary) box.append(el('div', 'diag', line));
       } catch {
+        if (assistTimer !== mine) return;
         stopAssist();
       }
     }, 1500);

@@ -284,6 +284,62 @@ test.describe('signing in with a browser you can see', () => {
     await expect(page.locator('#assistOut')).toContainText('Unattended runs:');
   });
 
+  test('a poll still in flight cannot wipe the marker it finished with', async ({ dashboard }) => {
+    /*
+       The race behind three singleton failures nobody could reproduce — the
+       last of them this test's neighbour, "a marker that names one person",
+       failing once inside a full run and passing alone every time after.
+
+       `clearInterval` stops the *next* firing and does nothing about a callback
+       already awaiting its reply. "I am on the home page" clears the timer and
+       renders the derived marker into #assistOut; a poll that had already asked
+       then comes back and replaces it with "N page(s) met so far". The marker
+       is derived, displayed, and wiped, and nothing on screen looks wrong.
+
+       Forced rather than waited for: holding the poll open makes it land late
+       every time, the way `onboarding-journeys.spec.ts` holds the state reload.
+       Under load it happened perhaps once in twenty runs, which is why three
+       sightings never became a reproduction.
+    */
+    const { page } = dashboard;
+    await readyForCredentials(dashboard);
+    await page.fill('#cu-standard', 'shopper@shop.test');
+    await page.fill('#cp-standard', 'a-password');
+
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/api/assist/poll', async (route) => {
+      await held;
+      await route.continue();
+    });
+
+    await page.click('#assist');
+    /*
+       Wait for a poll to be *in flight* rather than clicking straight through.
+       The interval's first firing is 1500ms away, so finishing immediately —
+       as the neighbouring tests do — means no poll has been sent and there is
+       nothing to land late. Waiting on the request is a fact, not a delay.
+    */
+    const inFlight = page.waitForRequest('**/api/assist/poll');
+    await inFlight;
+
+    await page.click('#assistDone');
+    await expect(page.locator('#assistOut')).toContainText('Signed-in marker:');
+
+    // Now let it come back, after the flow has moved past it.
+    const landed = page.waitForResponse('**/api/assist/poll');
+    release();
+    await landed;
+    // One frame, so the handler the response resolved has run before we look.
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve(null))));
+
+    await expect(
+      page.locator('#assistOut'),
+      'a late poll replaced the marker panel the flow had already moved past',
+    ).toContainText('Signed-in marker:');
+    await expect(page.locator('#assistOut')).not.toContainText('page(s) met so far');
+  });
+
   test('a marker that names one person is shown as the risk it is', async ({ dashboard }) => {
     const { page } = dashboard;
     dashboard.recorder.assistFinishResult = {
