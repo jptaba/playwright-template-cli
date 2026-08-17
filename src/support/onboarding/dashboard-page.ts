@@ -478,7 +478,37 @@ function applyDraft(saved) {
   for (const row of rows) addServiceRow(row);
   renderCredentials();
   setFormEnabled(true);
+
+  /*
+     Reopen what the saved answers have already earned.
+
+     The draft keeps step 2's readings as well as step 1's typing, so after a
+     reload every field these sections contain is filled — and they were locked
+     anyway, behind "unlocks once step 1 has read the application". It had been
+     read. The only way back in was to run the 12-to-18 second probe again to
+     reopen sections that were already complete.
+
+     Steps 4 and 5 stay shut on purpose: they unlock on the *preview*, which is
+     a real answer computed from the form rather than a state to restore, and
+     it costs one click and a fraction of a second.
+  */
+  if (probeAnswersIn(saved)) {
+    enable('s2');
+    enable('s3');
+  }
   restoring = false;
+}
+
+/**
+ * Whether a draft carries what step 1's read produced.
+ *
+ * The test-id attribute and the three accessible names are the readings the
+ * generated locators are built from; without them step 2 is empty and there is
+ * nothing to unlock.
+ */
+function probeAnswersIn(saved) {
+  const fields = saved.fields || {};
+  return Boolean(fields.testId && fields.uName && fields.pName && fields.sName);
 }
 
 /**
@@ -1319,6 +1349,20 @@ $('preview').onclick = async () => {
          wizard nobody reads is not another click. This is the last screen
          before the write and the one somebody is already looking at.
       */
+      /*
+         The published document is fetched by step 1's read and is far too big
+         to keep in a draft, so a reload restores the Contracts tick without it.
+         Writing the capability with no vendored document leaves a contract
+         project that has nothing to check — caught by target:doctor afterwards,
+         which is a worse place to find out than here.
+      */
+      if ($('lContracts').checked && !(probed && probed.contract)) {
+        box.append(el('div', 'note',
+          'Contracts is switched on, but no published API document is held — it is fetched by ' +
+          'the read in step 1 and is not kept when this page reloads. Read the application again ' +
+          'to fetch it, or switch Contracts off: written as it stands, the capability has nothing ' +
+          'to check.'));
+      }
       if (!marker) {
         box.append(el('div', 'note',
           'No sign-in has been verified yet, so signedInMarker will be written as a guess — ' +

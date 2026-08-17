@@ -400,3 +400,48 @@ answers — is the last onboarding-UX item, small and well-evidenced. Item 10,
 committing a second deliberately-unlike target, is the standalone that keeps
 agnosticism honest and is now the most valuable thing left in the backlog.
 Item 12 still needs the owner's decision and blocks nothing else.
+
+## 2026-08-17 · run 9 · A draft that kept answers nobody could use
+
+**Picked:** backlog item 9 — a reload discarding the unlock state but not the
+answers.
+
+**Did:** A restored draft that carries step 1's read now reopens steps 2 and 3
+with it. Steps 4 and 5 still wait for a preview, which is an answer computed
+from the form rather than a state worth restoring, and costs one click.
+
+Also here, because unlocking exposed it: `switchedOnByReading` is not
+persisted, so after a reload the Contracts tick survives with no vendored
+document and nothing to take it off. The preview now says so and names the fix.
+
+**Verify:** `npm run verify` passes — 750 tests. Diff 86 lines across 2 files.
+**PR:** branch `agent/2026-08-17-reload-keeps-its-place`; `main` fast-forwarded
+and pushed, `main` and `origin/main` confirmed matching.
+
+**Learned:**
+
+- **The item understated its own problem and I nearly shipped the wrong size of
+  fix.** The journey notes said the cost of a reload was re-running the probe.
+  There was a second exit — "Skip and fill in by hand" — which looked like a
+  one-click recovery and is in fact worse: `clearWhatWasRead()` blanks the three
+  accessible names, resets `signInPath` and `testId` to defaults, and the pack
+  gets placeholder locators. So both exits lost something, and the draft was
+  preserving readings the page would never accept. Checking what the escape
+  hatch actually did was the difference between a labelling tweak and the real
+  fix.
+- **An existing test asserted the opposite on purpose**, with the reasoning
+  "unlocking is a claim about what has been done in *this* visit". Worth taking
+  seriously rather than overwriting: the conclusion was that the draft already
+  makes that claim when it restores step 2's fields, and restoring answers while
+  refusing to accept them is the actual inconsistency. Recorded in the test so
+  the next run sees the argument, not just the new assertion.
+- **A previously passing test was passing for a poor reason.** The old reload
+  test clicked Skip and then asserted only the *target name* on the created
+  payload — so the silently blanked sign-in names went unnoticed. It now asserts
+  the restored username reaches the pack.
+
+**Next:** Item 10 — commit a second, deliberately unlike target. Every
+onboarding-UX item in this backlog is now `done`, and item 10 is what keeps the
+agnosticism claim honest; it is also the prerequisite for item 11's loop.
+Item 12 (Vault sign-in verification) and item 13 (two single load-sensitive test
+failures) both need more input than a run can generate on its own.

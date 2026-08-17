@@ -279,13 +279,24 @@ test.describe('idempotency', () => {
 
     await dashboard.reopen();
 
-    // Everything read survives; the steps re-lock, because unlocking is a
-    // claim about what has been done in *this* visit.
+    /*
+       Everything read survives, and the sections it fills open with it.
+
+       They used to re-lock, on the reasoning that unlocking is a claim about
+       what has been done in *this* visit. The draft makes that claim already —
+       it puts step 2's readings back into step 2's fields — and re-locking left
+       them visible and unusable: the only ways on were to re-run the 12-to-18
+       second probe, or "Skip and fill in by hand", which calls
+       clearWhatWasRead() and blanks the very answers that had just been
+       restored. A draft that keeps answers the page will not let you use is
+       keeping them for nothing.
+    */
     await expect(page.locator('#name')).toHaveValue('acme-shop');
     await expect(page.locator('#uName')).toHaveValue('Email address *');
     await expect(page.locator('#confirmTest')).toBeChecked();
+    await expect(page.locator('#s2')).not.toHaveAttribute('inert', '');
+    await expect(page.locator('#s3')).not.toHaveAttribute('inert', '');
 
-    await page.click('#skipProbe');
     await page.click('#preview');
     // The plan has to have landed: `create` reads the same form, but clicking
     // it while the preview is still in flight leaves step 5 inert and the
@@ -293,7 +304,34 @@ test.describe('idempotency', () => {
     await expect(page.locator('#plan')).toContainText('file(s) will be written');
     await page.click('#create');
     await expect(page.locator('#result')).toContainText('file(s).');
-    expect(dashboard.recorder.created.at(-1)!.name).toBe('acme-shop');
+    const written = dashboard.recorder.created.at(-1)!;
+    expect(written.name).toBe('acme-shop');
+    // The point of restoring them: they reach the pack. Skipping used to blank
+    // these and write placeholders instead, silently.
+    expect((written.signIn as Record<string, unknown>).username).toBe('Email address *');
+  });
+
+  test('a reload cannot leave contracts on with no document to check', async ({ dashboard }) => {
+    /*
+       The published document is fetched by the read and is far too big to keep
+       in a draft, so a reload restores the Contracts tick without it. Writing
+       that gives a contract project with nothing to validate against —
+       target:doctor catches it afterwards, which is a worse place to find out.
+    */
+    const { page } = dashboard;
+    await page.fill('#name', 'acme-shop');
+    await page.fill('#baseURL', 'https://staging.shop.test');
+    await page.check('#confirmTest');
+    await page.click('#probe');
+    await expect(page.locator('#s3')).not.toHaveAttribute('inert', '');
+    await page.check('#lContracts');
+    await expect.poll(() => dashboard.recorder.draft.flags.lContracts).toBe(true);
+
+    await dashboard.reopen();
+    await page.click('#preview');
+
+    await expect(page.locator('#plan')).toContainText('no published API document is held');
+    await expect(page.locator('#plan')).toContainText('Read the application again');
   });
 });
 

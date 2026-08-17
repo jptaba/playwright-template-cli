@@ -294,7 +294,33 @@ line.
 Also worth doing here: the probe takes 12–18 seconds behind a static string with
 no elapsed time and no cancel. Not silence, but not progress either.
 
-### 9. Reloading throws away the unlock state, not the answers — `ready`
+### 9. Reloading throws away the unlock state, not the answers — `done`
+
+Shipped on `agent/2026-08-17-reload-keeps-its-place`. A draft carrying step 1's
+read reopens steps 2 and 3 with it. Steps 4 and 5 still wait for a preview,
+which is an answer computed from the form rather than a state to restore.
+
+**The item understated the problem, and the correction is the interesting
+part.** The journey notes said the cost was re-running the 12-to-18 second
+probe. There was a second way on — "Skip and fill in by hand" — and it is
+worse: it calls `clearWhatWasRead()`, which blanks `uName`, `pName`, `sName`,
+resets `signInPath` and `testId` to defaults, and writes placeholder locators.
+So the two exits after a reload were *re-read everything* or *silently discard
+what was restored*. The draft was preserving answers the page would not let
+anybody use.
+
+An existing test asserted the old behaviour deliberately — "unlocking is a
+claim about what has been done in *this* visit". That reasoning was taken
+seriously and then rejected in writing: the draft already makes that claim when
+it puts the readings back into step 2's fields. Restoring answers and then
+refusing to accept them is the inconsistency, not the unlocking.
+
+Also fixed here, because unlocking exposed it: `switchedOnByReading` is not
+persisted, so after a reload the Contracts tick survives with no vendored
+document and nothing untick it. The preview now says so, rather than leaving
+`target:doctor` to find a contract project with nothing to validate against.
+
+The original text follows.
 
 The draft keeps all of step 1 *and* step 2's probe results across a reload, and
 correctly excludes credentials. But steps 2–5 return to `inert`, so the 12–18
