@@ -10,6 +10,7 @@ import {
 import {
   confirmationMatches,
   describeOffboard,
+  hasAnythingToRemove,
   isRemovable,
   planOffboard,
   OffboardError,
@@ -222,7 +223,9 @@ function main(argv: readonly string[]): number {
   for (const warning of plan.warnings) console.log(`\n  NOTE  ${warning}`);
   for (const refusal of plan.refusals) console.log(`\n  STOP  ${refusal}`);
 
-  if (plan.alreadyGone) return 0;
+  // Gated on there being nothing to remove, not on the pack being gone — a
+  // target whose pack went by hand still owns its credentials.
+  if (!hasAnythingToRemove(plan)) return 0;
   if (!isRemovable(plan)) {
     console.log('\nNothing was removed.\n');
     return 1;

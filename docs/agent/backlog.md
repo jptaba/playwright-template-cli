@@ -122,10 +122,16 @@ actually stored, which turned out to be the file git tracks. The other answer
 defines what "continuously" means for item 11: this loop measures triage
 agreement and records it per run, rather than a CI job.
 
-`ready`, in order: **item 12 slice 2** (the Vault sign-in verification) and
-**item 16** (offboarding abandons credentials when the pack is already gone,
-found in run 17). Item 13 is the one thing still needing input a run cannot
-generate alone.
+Run 18 shipped item 16. `ready`, in order: **item 12 slice 2** (the Vault
+sign-in verification) and **item 13**, which recurred a third time in run 18
+and is now worth measuring properly through the quarantine machinery rather
+than noting again.
+
+A standing constraint worth knowing before picking item 12: **the owner has no
+Vault instance to test against** (stated 2026-08-17). Vault work has to be
+proven through the local secret store, which deliberately shares its route,
+result shape and page rendering — so say plainly in the log which half was
+exercised live and which was only reasoned about.
 
 ---
 
@@ -608,9 +614,26 @@ ask, and it is what makes this whole path exercisable on a machine with no
 Vault: the same route, result shape and rendering the Vault case uses are now
 run every time somebody onboards a public demo.
 
-### 16. Offboarding a target that is already gone abandons its credentials — `ready`
+### 16. Offboarding a target that is already gone abandons its credentials — `done`
 
-Found in run 17 while fixing item 15, and deliberately not fixed there.
+Shipped on `agent/2026-08-17-orphaned-credentials` (run 18).
+
+`alreadyGone` now means what it says — the profile and the pack are gone — and
+stops implying that everything else went with them. The plan still collects the
+credential entries and stored sessions, `isRemovable` asks whether there is
+anything to remove rather than whether the pack survived, and the description
+says "No profile or pack — they are already gone" followed by what remains.
+A target with genuinely nothing left is still a no-op, and the typed
+confirmation is unchanged: fewer things to remove is not a reason for a weaker
+confirmation when a credential is the one thing here a person put in by hand.
+
+Proven on the real scenario rather than only in tests: scaffolded a target,
+seeded a private credential, deleted the pack and profile by hand, and ran
+`target:remove`. Before the fix it reported *"Nothing to remove"*; now it finds
+the credential, refuses until the name is typed, and removes it — with the
+tracked file's checksum unchanged.
+
+The original item follows.
 
 `planRemoval` returns early with `alreadyGone: true` and empty removals when
 neither the profile nor the pack exists (`src/support/onboarding/offboard.ts:121`).
@@ -641,13 +664,27 @@ further full runs:
 contention than either project alone. Both specs involve a request in flight and
 an assertion about what the page did with it.
 
+**A third sighting, run 18 (2026-08-17):** `step4-credentials.spec.ts` › "a
+marker that names one person is shown as the risk it is" failed once inside a
+full framework+dashboard run, then passed in isolation and passed again in the
+next two full `verify` runs. That is a different spec from run 6's, in the same
+file.
+
+So three singletons, three different specs, all in the `dashboard` project,
+all under full-suite parallel load, all unreproducible alone. The pattern is
+now consistent enough to be worth acting on — and consistently *one* failure
+each, which is what makes a hand-tuned wait the wrong instrument.
+
 Before treating this as real, get the evidence the repository already knows how
 to collect: this is precisely what `flakeCandidates`, `FLAKE_MINIMUM_RUNS` and
-the quarantine machinery in `src/support/quarantine.ts` exist for, and neither
-observation has been through it. **Two singletons are not a flake rate.** Do not
-change a timeout on the strength of this note.
+the quarantine machinery in `src/support/quarantine.ts` exist for, and none of
+the three observations has been through it. **Three singletons are still not a
+flake rate.** Do not change a timeout on the strength of this note.
 
-If it recurs: quarantine is the mechanism, not a hand-tuned wait.
+The honest next step is to *measure*: run the dashboard project under load N
+times, collect the failures through the existing quarantine machinery, and get
+a rate. That is a run's worth of work on its own and needs no new code — which
+makes it a good candidate now that the pattern has recurred a third time.
 
 ### 12. Connect to your own Vault, then verify a sign-in with it — slice 1 `done`, slice 2 `ready`
 

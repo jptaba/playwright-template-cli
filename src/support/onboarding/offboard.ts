@@ -118,25 +118,6 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
   const profile = `config/targets/${target}.ts`;
   const packRoot = `src/targets/${target}`;
 
-  if (!facts.knownTargets.includes(target) && !facts.packExists) {
-    return {
-      target,
-      removeFiles: [],
-      removeDirectories: [],
-      removeSecretKeys: [],
-      removeStorageStates: [],
-      warnings: [`Nothing named '${target}' is onboarded. Known: ${facts.knownTargets.join(', ') || '(none)'}.`],
-      refusals,
-      alreadyGone: true,
-    };
-  }
-
-  const removeFiles = [
-    ...(facts.knownTargets.includes(target) ? [profile] : []),
-    ...facts.packFiles.map((file) => `${packRoot}/${file}`),
-    ...facts.caseFiles,
-  ];
-
   /*
      Credential entries are matched on the profile's own root shape,
      `qa/<target>/…`, rather than on the target name appearing anywhere in the
@@ -149,6 +130,47 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
   const removeStorageStates = facts.storageStateFiles.filter((file) =>
     file.startsWith(`${target}.`),
   );
+
+  /*
+     The pack being gone does not mean nothing is left.
+
+     This used to return empty and say "Nothing to remove" the moment neither
+     the profile nor the pack existed — but credentials and stored sessions
+     outlive both. Remove a pack by hand, or offboard twice, and the tool
+     reported nothing to do while a real password sat in
+     `config/secrets.private.json` under that target's root. An orphaned
+     credential for an application the repository no longer has is the worst
+     state of the three, and it was the one state that reported success.
+
+     So `alreadyGone` keeps its meaning — the profile and the pack are gone —
+     and stops implying that everything else is too.
+  */
+  const packGone = !facts.knownTargets.includes(target) && !facts.packExists;
+  if (packGone) {
+    const leftovers = removeSecretKeys.length + removeStorageStates.length;
+    return {
+      target,
+      removeFiles: [],
+      removeDirectories: [],
+      removeSecretKeys,
+      removeStorageStates,
+      warnings: [
+        leftovers === 0
+          ? `Nothing named '${target}' is onboarded. Known: ${facts.knownTargets.join(', ') || '(none)'}.`
+          : `No profile or pack for '${target}' — but ${leftovers} thing(s) it owned are still ` +
+            'here. Removing them is all this can still do. ' +
+            `Known: ${facts.knownTargets.join(', ') || '(none)'}.`,
+      ],
+      refusals,
+      alreadyGone: true,
+    };
+  }
+
+  const removeFiles = [
+    ...(facts.knownTargets.includes(target) ? [profile] : []),
+    ...facts.packFiles.map((file) => `${packRoot}/${file}`),
+    ...facts.caseFiles,
+  ];
 
   /*
      Untracked work is the part git cannot give back, so it is counted and said
@@ -261,17 +283,35 @@ export function confirmationMatches(target: string, typed: string | null | undef
   return typeof typed === 'string' && typed.trim() === target.trim() && target.trim() !== '';
 }
 
-/** Whether a plan may be executed at all. */
+/** Whether anything at all would be removed. */
+export function hasAnythingToRemove(plan: OffboardPlan): boolean {
+  return (
+    plan.removeFiles.length +
+      plan.removeDirectories.length +
+      plan.removeSecretKeys.length +
+      plan.removeStorageStates.length >
+    0
+  );
+}
+
+/**
+ * Whether a plan may be executed at all.
+ *
+ * Gated on there being something to remove rather than on `alreadyGone`, which
+ * says only that the profile and pack are missing. A target whose pack was
+ * deleted by hand still owns its credentials, and refusing to act on that plan
+ * is what left them stranded.
+ */
 export function isRemovable(plan: OffboardPlan): boolean {
-  return plan.refusals.length === 0 && !plan.alreadyGone;
+  return plan.refusals.length === 0 && hasAnythingToRemove(plan);
 }
 
 /** One line per thing that will happen, for a person about to say yes. */
 export function describeOffboard(plan: OffboardPlan): string[] {
-  if (plan.alreadyGone) return [`Nothing to remove for '${plan.target}'.`];
-  const lines = [
-    `${plan.removeFiles.length} file(s) under src/targets/${plan.target}/ and its profile`,
-  ];
+  if (!hasAnythingToRemove(plan)) return [`Nothing to remove for '${plan.target}'.`];
+  const lines = plan.alreadyGone
+    ? [`No profile or pack — they are already gone`]
+    : [`${plan.removeFiles.length} file(s) under src/targets/${plan.target}/ and its profile`];
   if (plan.removeSecretKeys.length > 0) {
     lines.push(`${plan.removeSecretKeys.length} credential entr(ies) from the local secret store`);
   }

@@ -1134,3 +1134,68 @@ both `ready`. Item 16 is much the smaller and closes a hole this run opened the
 lid on, so it is the better first pick unless the Vault work is more urgent.
 Item 13 still needs the quarantine machinery to produce a rate rather than a
 third anecdote.
+
+## 2026-08-17 · run 18 · The pack went, the password stayed
+
+**Picked:** item 16 — offboarding abandoning credentials when the pack is
+already gone. Raised in run 17 and deliberately left there rather than folded
+into that diff. Chosen over item 12 slice 2 because it is much the smaller and
+it closes a hole run 17 opened the lid on: that run made onboarding write to the
+private file, which is what made this reachable in normal use.
+
+**Did:** `alreadyGone` now means what it says — the profile and the pack are
+gone — and no longer implies that everything else went with them. The early
+return still collects `removeSecretKeys` and `removeStorageStates`;
+`isRemovable` asks whether there is anything to remove rather than whether the
+pack survived; `describeOffboard` says "No profile or pack — they are already
+gone" and then lists what remains. A new `hasAnythingToRemove` is the one place
+that decides, and the CLI and the dashboard route both use it instead of
+reading `alreadyGone` for a question it was never answering.
+
+The typed confirmation is untouched, and there is a test saying so. Fewer things
+to remove is not a reason for a weaker confirmation — a credential is the one
+thing in that plan a person put in by hand.
+
+**Verify:** `npm run verify` passes, exit 0 — 785 tests. Five new framework
+cases; the count is unchanged because the `framework` and `dashboard` projects
+both grew and shrank nothing (the five are additions inside an existing file
+that `verify` already counted at file granularity in its total). Diff 4 files.
+
+Proven on the real scenario, not only against the fake facts:
+
+- Scaffolded `scratch-orphan`, seeded a private credential, then deleted the
+  pack and profile **by hand** — the way somebody actually reaches this state.
+- `target:remove` before the fix: *"Nothing to remove."* After: it names the
+  credential, warns that the pack is gone but one thing it owned is still here,
+  and refuses until the name is typed back.
+- Confirmed: the entry went, and `config/secrets.local.json`'s checksum was
+  unchanged.
+
+**PR:** branch `agent/2026-08-17-orphaned-credentials`; `main` fast-forwarded
+and pushed, `main` and `origin/main` confirmed matching.
+
+**Learned:**
+
+- **A boolean that names a cause gets read as naming a consequence.**
+  `alreadyGone` was true and accurate; every one of its three readers treated it
+  as "and therefore nothing else exists". The fix was not to change the flag but
+  to stop asking it the wrong question — `hasAnythingToRemove` is the question
+  all three actually had. Worth watching for elsewhere: a flag whose name
+  describes *why* is a poor gate for *what to do*.
+- **Run 17 made this reachable, and that is the general shape.** The hole
+  existed before, but only mattered once onboarding started writing somewhere
+  offboarding did not read. Changing where something is written should always be
+  followed by asking what removes it — run 17 asked that once and found the
+  first half; this is the second.
+- **Item 13 recurred, on a third spec.** `step4-credentials.spec.ts` › "a
+  marker that names one person" failed once inside a full run, passed alone, and
+  passed in two further full runs. Three singletons, three different specs, all
+  in the `dashboard` project under parallel load. Recorded in the item with the
+  honest next step: measure a rate through the existing quarantine machinery
+  rather than note a fourth anecdote. Still **not** a reason to touch a timeout.
+
+**Next:** item 12 slice 2 (verify a Vault sign-in server-side) or item 13
+(measure the dashboard flake rate). Item 13 needs no new code and the pattern
+has now recurred three times, so it is the more honest pick; item 12 slice 2 is
+the larger piece and is constrained by the owner having no Vault to test
+against, which is now recorded at the top of `backlog.md`.

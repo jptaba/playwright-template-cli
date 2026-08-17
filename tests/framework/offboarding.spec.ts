@@ -124,6 +124,58 @@ test('a nameless removal is refused outright', () => {
   expect(() => planOffboard('   ', facts())).toThrow(OffboardError);
 });
 
+/**
+ * A pack can go without taking what it owned with it.
+ *
+ * `alreadyGone` used to return an empty plan and report "Nothing to remove" the
+ * moment neither profile nor pack existed. Credentials and stored sessions
+ * outlive both — remove a pack by hand, or offboard twice, and the tool said
+ * there was nothing to do while a real password sat in
+ * `config/secrets.private.json` under that target's root. Observed exactly
+ * that. An orphaned credential for an application the repository no longer has
+ * is the worst of the states here, and it was the one that reported success.
+ */
+test.describe('when the pack is already gone', () => {
+  const orphaned = () => facts({ knownTargets: ['example-app'], packExists: false, packFiles: [] });
+
+  test('the credentials and sessions it owned are still offered', () => {
+    const plan = planOffboard('acme-shop', orphaned());
+
+    expect(plan.alreadyGone, 'the profile and pack really are gone').toBe(true);
+    expect(plan.removeFiles).toEqual([]);
+    expect(plan.removeSecretKeys).toEqual(['qa/acme-shop/pools/workforce/standard/1']);
+    expect(plan.removeStorageStates).toEqual(['acme-shop.standard.json']);
+  });
+
+  test('and it can actually be executed, which is the whole point', () => {
+    // Refusing here is what stranded them. `isRemovable` now asks whether
+    // there is anything to remove, not whether the pack survived.
+    expect(isRemovable(planOffboard('acme-shop', orphaned()))).toBe(true);
+  });
+
+  test('it says the pack is gone rather than that there is nothing to do', () => {
+    const plan = planOffboard('acme-shop', orphaned());
+    expect(describeOffboard(plan)[0]).toContain('already gone');
+    expect(describeOffboard(plan).join(' ')).toContain('credential');
+    expect(plan.warnings.join(' ')).toContain('still');
+  });
+
+  test('a target with nothing left at all is still a no-op', () => {
+    // The other direction, and the one the original behaviour got right.
+    const plan = planOffboard('never-existed', orphaned());
+    expect(isRemovable(plan)).toBe(false);
+    expect(describeOffboard(plan)[0]).toContain('Nothing to remove');
+  });
+
+  test('removing leftovers still needs the name typed back', () => {
+    // Fewer things to remove is not a reason for a weaker confirmation: a
+    // credential is the one thing here a person put in by hand.
+    const plan = planOffboard('acme-shop', orphaned());
+    expect(confirmationMatches(plan.target, 'acme')).toBe(false);
+    expect(confirmationMatches(plan.target, 'acme-shop')).toBe(true);
+  });
+});
+
 test.describe('the confirmation', () => {
   test('is the name typed back, exactly', () => {
     expect(confirmationMatches('acme-shop', 'acme-shop')).toBe(true);

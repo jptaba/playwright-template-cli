@@ -1,7 +1,7 @@
 import { createRouter, failure, html, json, type Route, type UiRequest, type UiResponse } from '../ui/router';
 import type { Diagnostic } from './diagnose';
 import type { OffboardPlan } from './offboard';
-import { confirmationMatches, isRemovable } from './offboard';
+import { confirmationMatches, hasAnythingToRemove, isRemovable } from './offboard';
 import type { ProbedSignIn, ProbeResult, SignedInMarker, SignInCredentials, SignInVerification } from './probe';
 import { planScaffold, ScaffoldError, type ScaffoldOptions, type ScaffoldPlan } from './scaffold';
 import { sanitiseDraft, type OnboardedApp, type OnboardingDraft } from './draft';
@@ -561,9 +561,12 @@ async function onboardingApi(
         if (!isRemovable(plan)) {
           return failure(
             409,
-            plan.alreadyGone
-              ? `Nothing named '${target}' is onboarded.`
-              : plan.refusals.join(' '),
+            // `alreadyGone` no longer means there is nothing left — a pack
+            // removed by hand leaves credentials behind, and those are
+            // removable. So the refusal is about there being nothing at all.
+            hasAnythingToRemove(plan)
+              ? plan.refusals.join(' ')
+              : `Nothing named '${target}' is onboarded, and nothing it owned is left.`,
           );
         }
         if (!confirmationMatches(plan.target, String(body.confirm ?? ''))) {
