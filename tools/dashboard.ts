@@ -20,6 +20,7 @@ import {
   type CreateResult,
   type DashboardService,
   type VaultCheckResult,
+  type VerifyCredentials,
 } from '../src/support/onboarding/dashboard';
 import { createRouter, failure, html, json, type Route } from '../src/support/ui/router';
 import {
@@ -82,7 +83,9 @@ import {
   type ProbedSignIn,
   type ProbePage,
   type SignInCredentials,
+  type SignInVerification,
 } from '../src/support/onboarding/probe';
+import { registerSecretPayload } from '../src/support/redact';
 import type { ScaffoldOptions, ScaffoldPlan } from '../src/support/onboarding/scaffold';
 import { editProfileSource } from '../src/support/onboarding/edit-profile';
 import { closeOnFailure, launchBrowser } from '../src/support/ui/failures';
@@ -320,11 +323,67 @@ const probe = (input: { baseURL: string; apiBaseURL?: string }) =>
     ),
   );
 
-const verify = (input: {
+/**
+ * Read the one credential a Vault sign-in needs, here rather than on the page.
+ *
+ * The only place onboarding reads a *value* instead of a description, and it
+ * exists so a Vault target can derive `signedInMarker` — the one locator that
+ * cannot be read from a page at rest, and the reason a Vault target used to
+ * ship a guess and a hand-edit. The value goes into Chromium's sign-in form
+ * and nowhere else: the request carried a path, and the response carries a
+ * marker and a sentence.
+ *
+ * A miss here is answered as a failed verification rather than thrown, because
+ * "the credential is not where the profile will say it is" is the same finding
+ * the connection check makes, and an operator reading a stack trace instead is
+ * being told the page broke.
+ */
+async function credentialFromVault(reference: {
+  connection: VaultConnection;
+  path: string;
+}): Promise<SignInCredentials | { refusal: string }> {
+  const store = VaultSecretStore.fromConnection(reference.connection);
+  try {
+    const payload = await store.read(reference.path);
+    // Through the same helper the secrets fixture uses, so a value that later
+    // reaches a log or an error is already scrubbable.
+    registerSecretPayload(payload, reference.path);
+    const username = payload.username;
+    const password = payload.password;
+    if (!username || !password) {
+      const missing = [...(username ? [] : ['username']), ...(password ? [] : ['password'])];
+      return {
+        refusal:
+          `${reference.path} is in Vault but has no ${missing.join(' and ')}. The secrets ` +
+          'fixture reads those two field names, so rename the fields where they are stored — ' +
+          'the sign-in this would drive resolves nothing without them.',
+      };
+    }
+    return { username, password };
+  } catch (error) {
+    return {
+      refusal:
+        `Nothing was read from Vault at ${reference.path}: ` +
+        `${error instanceof Error ? error.message : String(error)}`,
+    };
+  } finally {
+    await store.close().catch(() => undefined);
+  }
+}
+
+const verify = async (input: {
   baseURL: string;
   signIn: ProbedSignIn;
-  credentials: SignInCredentials;
-}) => withProbePage((page) => verifySignIn(page, input));
+  credentials: VerifyCredentials;
+}): Promise<SignInVerification> => {
+  if ('fromVault' in input.credentials) {
+    const resolved = await credentialFromVault(input.credentials.fromVault);
+    if ('refusal' in resolved) return { ok: false, marker: null, detail: resolved.refusal };
+    return withProbePage((page) => verifySignIn(page, { ...input, credentials: resolved }));
+  }
+  const credentials = input.credentials;
+  return withProbePage((page) => verifySignIn(page, { ...input, credentials }));
+};
 
 /**
  * Write the credential entries the profile will look for.

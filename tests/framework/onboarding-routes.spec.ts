@@ -592,6 +592,81 @@ test.describe('checking a Vault connection', () => {
 });
 
 /**
+ * Signing in as a Vault target, which used to be impossible.
+ *
+ * Deriving `signedInMarker` means signing in, and signing in meant a credential
+ * this page never holds — so every Vault target shipped a guess and a
+ * hand-edit. What crosses the socket now is a *reference*: an address, a mount
+ * and a path, which are configuration. The value is read where the browser is
+ * driven, and the rule that keeps this honest is unchanged — nothing in this
+ * body may be a secret.
+ */
+test.describe('signing in from Vault', () => {
+  const connection = { address: 'https://vault.acme.example', kvMount: 'kv' };
+  const at = 'qa/acme-shop/pools/workforce/standard/1';
+  const signIn = { username: 'Email', password: 'Password', submit: 'Login', path: '/login' };
+  const body = {
+    baseURL: 'https://staging.acme.example',
+    signIn,
+    source: 'vault',
+    connection,
+    path: at,
+  };
+
+  test('passes the path to resolve rather than anything to send', async () => {
+    let asked: unknown;
+    const response = await send(
+      { path: '/api/verify', body },
+      {
+        verify: async (input) => {
+          asked = input.credentials;
+          return { ok: true, marker: null, detail: 'Signed in.' };
+        },
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(asked).toEqual({ fromVault: { connection, path: at } });
+  });
+
+  test('a connection carrying a credential is refused here too', async () => {
+    /*
+       Both routes read the connection through the same reader, so the door
+       cannot be shut on one and left open on the other — which is exactly what
+       a second hand-written copy of this check would eventually do.
+    */
+    const response = await send({
+      path: '/api/verify',
+      body: { ...body, connection: { ...connection, token: 'a-secret-value' } },
+    });
+    expect(response.status).toBe(400);
+    expect(response.body).toContain('does not take a Vault credential');
+    expect(response.body, 'and it is not echoed back').not.toContain('a-secret-value');
+  });
+
+  test('each missing piece names itself', async () => {
+    const noAddress = await send({
+      path: '/api/verify',
+      body: { ...body, connection: {} },
+    });
+    expect(noAddress.status).toBe(400);
+    expect(noAddress.body).toContain('needs its address');
+
+    const noPath = await send({ path: '/api/verify', body: { ...body, path: '' } });
+    expect(noPath.status).toBe(400);
+    expect(noPath.body).toContain('the path the credential is at');
+  });
+
+  test('a local sign-in still has to carry both values', async () => {
+    const response = await send({
+      path: '/api/verify',
+      body: { baseURL: body.baseURL, signIn, credentials: { username: 'someone' } },
+    });
+    expect(response.status).toBe(400);
+    expect(response.body).toContain('needs a username and a password');
+  });
+});
+
+/**
  * Where a typed credential is written — the defect this pair pins.
  *
  * Onboarding wrote every credential into `config/secrets.local.json`, which git

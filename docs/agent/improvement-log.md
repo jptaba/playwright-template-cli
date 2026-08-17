@@ -1392,3 +1392,89 @@ container was stopped afterwards and the scratch draft removed.
 **Next:** item 12 slice 2 — verify a Vault sign-in server-side — is still the
 only `ready` item, and is now much better positioned: a real Vault can be stood
 up in one command whenever it needs proving.
+
+## 2026-08-17 · run 22 · A Vault target signs in, and setup:auth passes unedited
+
+**Picked:** item 12 slice 2 — verify a Vault sign-in server-side. The only
+`ready` item, and the last thing standing between a Vault target and the aim
+the dashboard states in its own banner.
+
+**Did:** **Sign in once** is offered to a Vault target once its connection
+check has passed. What the page sends is the path the check just proved — an
+address, a mount, a path, all configuration — and the credential is read in the
+process that drives Chromium. It is not in the request, not in the response and
+not on the page, and the invariant is unchanged: no field on that page holds a
+secret.
+
+Shapes worth recording:
+
+- `VerifyCredentials` is a union — the two values typed into step 4, or
+  `{ fromVault: { connection, path } }`. The rules module deals in the
+  reference and never sees a value; `tools/dashboard.ts` resolves it, which is
+  the same split that keeps every other rule here testable without a socket.
+- A miss is answered as a *failed verification*, not a thrown error. "The
+  credential is not where the profile will say it is" is the same finding the
+  connection check makes, and a stack trace instead reads as the page breaking.
+- The button is withdrawn the moment the proven shape moves, exactly as
+  `plannedShape` withdraws a stale preview. Held as a shape rather than a
+  boolean for that reason.
+- **Sign in with a browser you can see** stays hidden for Vault. It hands a
+  filled form to a person watching, which is the one thing a value nobody typed
+  must not do.
+- Both routes taking a connection now share one reader, so the refusal of a
+  body carrying `token`, `secretId`, `secret_id`, `password` or `jwt` cannot be
+  shut on one door and left open on the other.
+
+**Verify:** `npm run verify` passes, exit 0 — 809 tests, up from 800.
+
+**Proven live, end to end**, against a real `hashicorp/vault` dev server and
+the running dashboard pointed at `https://www.saucedemo.com`:
+
+1. Mount `kv` (the default) → *"nothing is at that path under the 'kv' mount —
+   the same path resolves under 'secret'"*, and the sign-in button stayed
+   hidden. Run 21's diagnosis and this slice's gate, both working.
+2. Mount `secret` → *"Found it."*, and **Sign in once** appeared.
+3. Pressed it with nothing typed → *"Signed in. The button "Open Menu"
+   appeared, and is proposed as the signed-in marker."* Neither `secret_sauce`
+   nor `standard_user` appears anywhere in the page's HTML.
+4. Create wrote the pack with that marker, and
+   `TARGET=vault-scratch npx playwright test --project=setup:auth` **passed**.
+
+That is the dashboard's stated aim — `setup:auth` passes with no file edited by
+hand — reached for a **Vault** target for the first time. The scratch target,
+its stored session, the draft and the container were all removed afterwards;
+`git status` is the five files this entry describes.
+
+**PR:** branch `agent/2026-08-17-vault-sign-in`; `main` fast-forwarded and
+pushed, `main` and `origin/main` confirmed matching afterwards.
+
+**Learned:**
+
+- **The gate is what makes this safe to offer, and it had to be a shape.** A
+  connection proven for one mount says nothing about another, and a button that
+  outlives its check would sign in with something nobody proved. Confirmed the
+  test earns its place by disabling the invalidation and watching it fail for
+  the right reason — `#verify` visible where hidden was expected — per run 19's
+  rule that a green regression test proves nothing until it has been seen red.
+- **`renderCredentials()` rebuilds step 4's inputs empty**, so calling it after
+  every connection check would have wiped a local target's typed password. It
+  is called only when the proven state actually changed. Worth knowing before
+  reaching for that function from anywhere new.
+- **The live run found item 17 in the last panel of the journey it had just
+  passed.** After signing in with the credential and writing the pack, the
+  result said credentials *could not be checked* and told me to write the
+  credential into the path it had read from twice. `credentialsChecked` is
+  hardcoded `false` after Create. Same family as item 14: the page
+  contradicting what it just did, and the sort of thing only using it finds.
+- **Docker made the whole proof cheap**, as run 21 said it would: one command
+  for a real Vault, one `curl` to seed a path, and the two mount cases are then
+  a matter of typing a different word into a box.
+
+**Not measured this run:** `npm run triage:measure` was not re-run. Nothing
+here touches triage rules and the item picked was `ready`, so run 13's figures
+(1 agreed, 0 contradicted, 3 declined) stand unchanged. A run that lands
+nothing should still measure.
+
+**Next:** item 12 slice 3 — persist the connection — which is now the only
+hand-edit left on the Vault path, or item 17, which is smaller and is a
+contradiction on the last screen of the journey.

@@ -124,8 +124,14 @@ agreement and records it per run, rather than a CI job.
 
 Run 18 shipped item 16, and run 19 shipped item 13 — which turned out not to be
 a flaky test at all, but a real race in the page that the failing test was
-correctly reporting. **The only `ready` item left is item 12 slice 2**, the
-Vault sign-in verification.
+correctly reporting.
+
+**Run 22 shipped item 12 slice 2**, the Vault sign-in verification, and proved
+it against a real Vault: a Vault target now reaches a passing `setup:auth` with
+no file edited by hand. The `ready` items left are **item 12 slice 3**
+(persisting the connection, which is the last hand-edit on that path) and
+**item 17**, found while driving slice 2 — the result panel warning that
+credentials are unchecked seconds after signing in with them.
 
 **Correcting the standing note on Vault, 2026-08-17 (run 21).** It said the
 owner has no Vault to test against. There is no *hosted* one and none is
@@ -729,7 +735,35 @@ times, collect the failures through the existing quarantine machinery, and get
 a rate. That is a run's worth of work on its own and needs no new code — which
 makes it a good candidate now that the pattern has recurred a third time.
 
-### 12. Connect to your own Vault, then verify a sign-in with it — slice 1 `done`, slice 2 `ready`
+### 12. Connect to your own Vault, then verify a sign-in with it — slices 1 and 2 `done`, slice 3 `ready`
+
+**Slice 2 shipped** on `agent/2026-08-17-vault-sign-in` (run 22). A Vault
+target can sign in once, and therefore stops shipping a guessed
+`signedInMarker`. What crosses the socket is the **path the connection check
+just proved**; the credential is read in the process that drives Chromium and
+nowhere else — not in the request, not in the response, not on the page.
+
+**Sign in once** appears for a Vault target only once the check has passed, and
+is withdrawn the moment the shape it was proven for moves, for the reason
+`plannedShape` already learned. **Sign in with a browser you can see** stays
+hidden: it hands a filled form to a person watching, which is the one thing a
+value nobody typed must not do.
+
+**Proven end to end against a real Vault** (`hashicorp/vault` in dev mode, run
+21's recipe), driving the running dashboard at `https://www.saucedemo.com`:
+the wrong mount reported the miss and left the button hidden, the right mount
+found the credential and revealed it, and pressing it derived
+`button "Open Menu"` with nothing typed. `secret_sauce` and `standard_user`
+both appear nowhere in the page's HTML. Then Create, then
+`TARGET=vault-scratch npx playwright test --project=setup:auth` — **passed,
+with no file edited by hand**, which is the dashboard's own stated aim and had
+never been reachable for a Vault target. The scratch target, its stored session
+and the container were all removed afterwards.
+
+Also here, because two routes now take a connection: the address parsing, the
+scheme check and the refusal of a body carrying `token`, `secretId`,
+`secret_id`, `password` or `jwt` moved into one reader both call. A second
+hand-written copy of that refusal is the thing that eventually diverges.
 
 **Slice 1 shipped** on `agent/2026-08-17-vault-connection` (run 16): step 3
 grows a "Your Vault" block — address, namespace, KV mount, account type and
@@ -747,23 +781,23 @@ optional `ScaffoldOptions`, defaulted to what the scaffolder always wrote, so
 what the check proves and what the profile is written with are the same two
 values — and moving either withdraws a preview computed from the old ones.
 
-**Slice 2, `ready` and the next thing here:** a Vault target still cannot
-verify its sign-in, so it still ships a guessed `signedInMarker`. With a
-connection that checks out, the server can now read the credential for that one
-verification and drive it, with nothing typed and nothing reaching the browser.
-Item 4 hid **Sign in once** for Vault targets; the change is to show it again
-*once the connection check has passed*, and to keep hiding it otherwise.
+**Slice 3, `ready` and the next thing here:** the connection is not persisted
+anywhere. Both the check and the sign-in use what is typed into step 3, and
+nothing keeps it — so a reload loses it, and the suite still needs `VAULT_ADDR`
+and `VAULT_KV_MOUNT` exported by hand. The check prints the exact exports,
+which is honest but is not the same as it being configured. Watching run 22's
+live proof, that is now the only hand-edit left on the Vault path: everything
+else the dashboard writes for you.
 
-**Slice 3:** the connection is not persisted anywhere, so the suite still needs
-`VAULT_ADDR` exported. The check prints the exact exports, which is honest but
-is not the same as it being configured. Where those settings should live is the
-open question below, and worth answering before building this.
+The open question was left to the implementer, and the preference is already
+stated: keep `config/targets/` free of anything machine-specific — a Vault
+address is not a property of the application under test — so a machine-local
+file beside `.onboarding-draft.json` is the shape to try first, with the
+environment still winning when it is set, because CI sets it and must not be
+overridden by a file somebody's laptop wrote.
 
-Still open, and deliberately not decided in slice 1: whether the connection
-settings live in the profile, in a machine-local file beside the draft, or in
-the environment the dashboard already reads. Prefer whichever keeps
-`config/targets/` free of anything machine-specific — a Vault address is not a
-property of the application under test.
+Small enough for one PR, and it makes the connection check worth more than the
+run it happens in.
 
 The original item follows.
 
@@ -829,6 +863,34 @@ done in item 4. Defaulting to a local file nudges people toward putting real
 credentials in one, which the conventions permit "only where they are genuinely
 public". If item 12 resolves toward server-side Vault verification, the default
 should stay as it is.
+
+### 17. After Create, the page warns about a credential it just used — `ready`
+
+Observed live in run 22, at the end of the journey that had just worked. The
+connection check found the credential, **Sign in once** signed in with it and
+derived the marker, Create wrote the pack — and the result panel said:
+
+> `credentials-unchecked` — Credentials could not be checked against the
+> configured secret store. Run `npm run vault:check` if the source is Vault.
+> Until this passes, `setup:auth` is unverified and a whole run can fail at
+> sign-in.
+
+And then, under "Next": *"Write username and password to
+`qa/<name>/pools/workforce/standard/1` in Vault"* — the exact path that had
+just been read from, twice, on that page.
+
+`diagnoseWritten` (`tools/dashboard.ts:477`) hardcodes `credentialsChecked:
+false`, with a comment saying credentials are not read back. **The comment is
+right and the flag is wrong.** Nothing needs re-reading: the page already knows
+a check passed for this shape, and knows a sign-in with it succeeded. This is
+item 14's defect one screen further on — the page contradicting what it just
+did — and the same fix shape: pass what is known rather than assume the worst.
+
+Care needed on two edges, both of which the existing invalidation already
+answers: a check that passed for a *different* shape proves nothing about this
+one, and a local target's credential is written by Create rather than read, so
+"checked" means something different there. `setup:auth` is still the real
+proof and the wording should keep saying so.
 
 ---
 

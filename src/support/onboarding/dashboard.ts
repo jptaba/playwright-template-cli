@@ -113,6 +113,21 @@ export interface VaultCheckResult {
   environment: string[];
 }
 
+/**
+ * What to sign in with: the two values typed into step 4, or where to read
+ * them from.
+ *
+ * A Vault target types nothing, so the only way it could ever derive
+ * `signedInMarker` was for the credential to be read server-side. This module
+ * deals in the *reference* — an address, a mount and a path are configuration
+ * — and the service resolves it. The value exists in the process that drives
+ * Chromium and nowhere else: it is never in a request, never in a response,
+ * and never on the page.
+ */
+export type VerifyCredentials =
+  | SignInCredentials
+  | { fromVault: { connection: VaultConnection; path: string } };
+
 /** Everything the dashboard needs the outside world to do for it. */
 export interface DashboardService {
   page(): string;
@@ -151,7 +166,7 @@ export interface DashboardService {
   verify(input: {
     baseURL: string;
     signIn: ProbedSignIn;
-    credentials: { username: string; password: string };
+    credentials: VerifyCredentials;
   }): Promise<SignInVerification>;
   /**
    * Resolve one credential path against a Vault the operator named, and report
@@ -446,9 +461,28 @@ async function onboardingApi(
         if (!signIn?.username || !signIn.password) {
           return failure(400, 'Verifying a sign-in needs the two field names the probe read.');
         }
-        const credentials = readCredentials({ role: body.credentials })['role'];
-        if (!credentials) {
-          return failure(400, 'Verifying a sign-in needs a username and a password.');
+
+        /*
+           A Vault target has nothing typed to send, which is why signing in was
+           not offered for one at all — and why every Vault target shipped a
+           guessed `signedInMarker` and a hand-edit. It sends the same reference
+           the connection check proved instead, and the credential is read where
+           the browser is driven.
+        */
+        let credentials: VerifyCredentials | undefined;
+        if (body.source === 'vault') {
+          const connection = readVaultConnection(body.connection);
+          if ('error' in connection) return failure(400, connection.error);
+          const at = String(body.path ?? '').trim();
+          if (!at) {
+            return failure(400, 'Signing in from Vault needs the path the credential is at.');
+          }
+          credentials = { fromVault: { connection: connection.connection, path: at } };
+        } else {
+          credentials = readCredentials({ role: body.credentials })['role'];
+          if (!credentials) {
+            return failure(400, 'Verifying a sign-in needs a username and a password.');
+          }
         }
 
         /*
@@ -502,46 +536,12 @@ async function onboardingApi(
           return json(200, await service.checkVault({ source, path, root }));
         }
 
-        const connection = (body.connection ?? {}) as Record<string, unknown>;
-        const address = String(connection.address ?? '').trim();
-        if (!address) {
-          return failure(400, 'Checking a Vault connection needs its address.');
-        }
-        // Parsed rather than pattern-matched, and the message names no example
-        // host: `no-hardcoded-urls` forbids one in framework code, and an
-        // example is how a default gets copied into somebody's configuration.
-        let vault: URL;
-        try {
-          vault = new URL(address);
-        } catch {
-          return failure(400, `'${address}' is not a URL. Include the scheme — https or http.`);
-        }
-        if (vault.protocol !== 'http:' && vault.protocol !== 'https:') {
-          return failure(400, `'${vault.protocol}' is not a scheme this can reach. Use https.`);
-        }
-        for (const field of ['token', 'secretId', 'secret_id', 'password', 'jwt']) {
-          if (connection[field]) {
-            return failure(
-              400,
-              'This page does not take a Vault credential. Authentication comes from the ' +
-                'environment — log in with OIDC and export VAULT_TOKEN, or let CI supply the ' +
-                'JWT — so naming a Vault never means holding a credential for it.',
-            );
-          }
-        }
+        const connection = readVaultConnection(body.connection);
+        if ('error' in connection) return failure(400, connection.error);
 
         return json(
           200,
-          await service.checkVault({
-            source,
-            connection: {
-              address,
-              ...(connection.namespace ? { namespace: String(connection.namespace).trim() } : {}),
-              ...(connection.kvMount ? { kvMount: String(connection.kvMount).trim() } : {}),
-            },
-            path,
-            root,
-          }),
+          await service.checkVault({ source, connection: connection.connection, path, root }),
         );
       }
 
@@ -858,6 +858,55 @@ function isMarker(
  * a screenshot. Credentials go straight to the store the profile names and
  * appear in no response.
  */
+/**
+ * Which Vault, read from a request body — and the door this page keeps shut.
+ *
+ * Two routes take a connection now: the check that proves one, and the sign-in
+ * that uses what it proved. They have to refuse identically, because the
+ * refusal is the security property rather than a validation nicety — a token,
+ * a `secret_id` or a password in this body is a Vault credential in a browser,
+ * on the page whose whole design is that the agent writes the reference and a
+ * person writes the value.
+ */
+function readVaultConnection(
+  raw: unknown,
+): { connection: VaultConnection } | { error: string } {
+  const connection = (raw ?? {}) as Record<string, unknown>;
+  const address = String(connection.address ?? '').trim();
+  if (!address) return { error: 'Checking a Vault connection needs its address.' };
+
+  // Parsed rather than pattern-matched, and the message names no example
+  // host: `no-hardcoded-urls` forbids one in framework code, and an
+  // example is how a default gets copied into somebody's configuration.
+  let vault: URL;
+  try {
+    vault = new URL(address);
+  } catch {
+    return { error: `'${address}' is not a URL. Include the scheme — https or http.` };
+  }
+  if (vault.protocol !== 'http:' && vault.protocol !== 'https:') {
+    return { error: `'${vault.protocol}' is not a scheme this can reach. Use https.` };
+  }
+  for (const field of ['token', 'secretId', 'secret_id', 'password', 'jwt']) {
+    if (connection[field]) {
+      return {
+        error:
+          'This page does not take a Vault credential. Authentication comes from the ' +
+          'environment — log in with OIDC and export VAULT_TOKEN, or let CI supply the ' +
+          'JWT — so naming a Vault never means holding a credential for it.',
+      };
+    }
+  }
+
+  return {
+    connection: {
+      address,
+      ...(connection.namespace ? { namespace: String(connection.namespace).trim() } : {}),
+      ...(connection.kvMount ? { kvMount: String(connection.kvMount).trim() } : {}),
+    },
+  };
+}
+
 function readCredentials(raw: unknown): Record<string, { username: string; password: string }> {
   if (typeof raw !== 'object' || raw === null) return {};
   const credentials: Record<string, { username: string; password: string }> = {};

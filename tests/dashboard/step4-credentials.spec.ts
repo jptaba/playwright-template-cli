@@ -148,14 +148,16 @@ test.describe('signing in once', () => {
        credential fields, and the sign-in buttons stayed on screen offering
        something with nothing to send. Pressing one produced a good message —
        after the click. Saying it before is the whole fix.
+
+       Unchecked, there is still nothing to send: the button appears only once
+       the connection check has found the credential.
     */
     const { page } = dashboard;
     await readyForCredentials(dashboard, { store: 'vault' });
 
     await expect(page.locator('#verify')).toBeHidden();
     await expect(page.locator('#assist')).toBeHidden();
-    await expect(page.locator('#credentials')).toContainText('not offered for a Vault target');
-    await expect(page.locator('#credentials')).toContainText('npm run explore');
+    await expect(page.locator('#credentials')).toContainText('Check the connection in step 3');
   });
 
   test('switching the source clears the refusal it no longer describes', async ({ dashboard }) => {
@@ -221,6 +223,98 @@ test.describe('signing in once', () => {
 
     await expect(page.locator('#verifyStatus')).toContainText('The browser would not start.');
     await expect(page.locator('#verify')).toBeEnabled();
+  });
+});
+
+/**
+ * Signing in as a Vault target — the case that could never derive a marker.
+ *
+ * Every Vault target shipped a guessed `signedInMarker` and a hand-edit,
+ * because deriving one means signing in and signing in meant a credential this
+ * page deliberately never holds. It still never holds one: what the button
+ * sends is the path the connection check just proved, and the value is read
+ * where the browser is driven.
+ */
+test.describe('signing in as a Vault target', () => {
+  async function checkedConnection(
+    dashboard: Parameters<Parameters<typeof test>[2]>[0]['dashboard'],
+  ) {
+    const { page } = dashboard;
+    await readyForCredentials(dashboard, { store: 'vault' });
+    await page.fill('#vaultAddr', 'https://vault.shop.test');
+    await page.click('#vaultCheck');
+    await expect(page.locator('#vaultStatus')).toContainText('Found it.');
+  }
+
+  test('the connection check is what earns the button', async ({ dashboard }) => {
+    const { page } = dashboard;
+    await readyForCredentials(dashboard, { store: 'vault' });
+    await expect(page.locator('#verify')).toBeHidden();
+
+    await checkedConnection(dashboard);
+    await expect(page.locator('#verify')).toBeVisible();
+    // The assisted flow hands a filled form to a person watching, which is the
+    // one thing a value nobody typed must not do.
+    await expect(page.locator('#assist')).toBeHidden();
+  });
+
+  test('a check that found nothing usable earns nothing', async ({ dashboard }) => {
+    // "It resolved" is not the bar: a credential carrying `user` instead of
+    // `username` is exactly the sign-in that fails obscurely later.
+    const { page } = dashboard;
+    dashboard.recorder.vaultCheckResult = {
+      ok: false,
+      path: '',
+      exists: true,
+      fields: ['user', 'pass'],
+      detail: 'The credential is there but has no username and password.',
+      environment: [],
+    };
+    await readyForCredentials(dashboard, { store: 'vault' });
+    await page.fill('#vaultAddr', 'https://vault.shop.test');
+    await page.click('#vaultCheck');
+    await expect(page.locator('#vaultStatus')).toContainText('Not usable yet.');
+
+    await expect(page.locator('#verify')).toBeHidden();
+  });
+
+  test('moving the mount afterwards withdraws it', async ({ dashboard }) => {
+    // A connection proven for one mount says nothing about another — the same
+    // lesson the preview learned when Create wrote a file it never showed.
+    const { page } = dashboard;
+    await checkedConnection(dashboard);
+    await expect(page.locator('#verify')).toBeVisible();
+
+    await page.fill('#vaultMount', 'secret');
+    await expect(page.locator('#verify')).toBeHidden();
+    await expect(page.locator('#vaultStatus')).toContainText('no longer proven');
+  });
+
+  test('it sends the path it proved, and nothing that could be a value', async ({ dashboard }) => {
+    const { page } = dashboard;
+    await checkedConnection(dashboard);
+    await page.click('#verify');
+    await expect(page.locator('#verifyStatus')).toContainText('Signed in.');
+
+    const sent = dashboard.lastCall('/api/verify')!;
+    expect(sent.source).toBe('vault');
+    expect(sent.path).toBe(dashboard.lastCall('/api/vault/check')!.path);
+    expect(sent.credentials, 'the page has no value to send').toBeUndefined();
+    expect(JSON.stringify(sent.connection)).not.toContain('token');
+  });
+
+  test('the marker it derives is what gets written', async ({ dashboard }) => {
+    // The whole point of the slice: a Vault target that no longer ships a
+    // guessed marker and a hand-edit.
+    const { page } = dashboard;
+    await checkedConnection(dashboard);
+    await page.click('#verify');
+    await expect(page.locator('#verifyStatus')).toContainText('Signed in.');
+
+    await page.click('#preview');
+    expect((dashboard.lastCall('/api/plan')!.signIn as Record<string, unknown>).signedInMarker)
+      .toEqual({ role: 'button', name: 'My account', identitySpecific: false });
+    await expect(page.locator('#plan')).not.toContainText('written as a guess');
   });
 });
 

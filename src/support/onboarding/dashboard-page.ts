@@ -431,6 +431,20 @@ let applications = [];
 /** The new-application form, remembered between page loads. */
 let draft = { fields: {}, flags: {}, services: [], savedAt: '' };
 let restoring = false;
+/*
+   The Vault shape a connection check passed for, or null.
+
+   A Vault target types no credential, so signing in from this page was not
+   offered for one at all — and every Vault target therefore shipped a guessed
+   signedInMarker and a hand-edit. It is offered once the check has proven the
+   credential is there, because at that point the server can read it for that
+   one verification and nothing has to reach the browser.
+
+   Held as the shape it was proven for rather than as a boolean, for the reason
+   plannedShape already learned: moving the mount after a passing check leaves
+   a button that would sign in with something nobody proved.
+*/
+let vaultProven = null;
 
 /*
    Every dashboard page is its own document, so clicking another tab is a full
@@ -1077,6 +1091,30 @@ function credentialRoot() {
   return name ? 'qa/' + name + '/pools' : '';
 }
 
+/** Which Vault, as the check and the sign-in both send it. */
+function vaultConnection() {
+  return {
+    address: $('vaultAddr').value.trim(),
+    namespace: $('vaultNamespace').value.trim(),
+    kvMount: $('vaultMount').value.trim(),
+  };
+}
+
+/*
+   Where a role's credential lives, built from the two fields the profile will
+   be written with — so what a check proves and what a sign-in reads cannot be
+   two different paths.
+*/
+function credentialPath(role) {
+  return credentialRoot() + '/' + $('accountType').value.trim() + '/' + role + '/1';
+}
+
+/** Everything a passing Vault check proved, as one comparable string. */
+function vaultShape() {
+  const role = rolesTyped()[0] || '';
+  return JSON.stringify([vaultConnection(), credentialPath(role)]);
+}
+
 function options() {
   const list = (value) => value.split(',').map((s) => s.trim()).filter(Boolean);
   const signIn = $('uName').value && $('pName').value
@@ -1198,6 +1236,19 @@ for (const event of ['input', 'change']) {
        the honest version of a default.
     */
     $('credentialRoot').placeholder = credentialRoot();
+    /*
+       A connection proven for one mount says nothing about another. Withdrawn
+       the moment the shape moves, so the sign-in button never outlives the
+       check that earned it.
+    */
+    if (!restoring && vaultProven !== null && vaultShape() !== vaultProven) {
+      vaultProven = null;
+      $('vaultStatus').className = 'status';
+      $('vaultStatus').replaceChildren(text(
+        'That changed what would be read, so the connection is no longer proven. ' +
+        'Check it again.'));
+      renderCredentials();
+    }
     // Not while the draft is being replayed into the form, and not once the
     // files exist — at that point Create is spent and there is nothing to warn.
     if (restoring || written || plannedShape === null) return;
@@ -1285,8 +1336,14 @@ function renderCredentials() {
      the same row, and hiding it would leave a headed browser on screen with
      nothing on the page able to close it.
   */
+  const vaultCanSignIn = vault && vaultProven !== null;
   if (assistTimer === null) {
-    $('verify').hidden = vault;
+    $('verify').hidden = vault && !vaultCanSignIn;
+    /*
+       The assisted sign-in fills the form and hands the browser over, so a
+       person watches the credential go in. That is the one thing a Vault
+       target must not do with a value it never typed, so it stays hidden.
+    */
     $('assist').hidden = vault;
   }
 
@@ -1294,10 +1351,14 @@ function renderCredentials() {
     box.append(el('div', 'note',
       'Vault holds these. Nothing is written here — the agent writes the reference, a person ' +
       'writes the value. The exact paths appear after the target is created.'));
-    box.append(el('div', 'note',
-      'Signing in from this page needs a credential to send, so it is not offered for a Vault ' +
-      'target. signedInMarker will be written as a guess: derive it from a snapshot of the ' +
-      'signed-in page (npm run explore) and correct locators/sign-in.ts before setup:auth.'));
+    box.append(el('div', 'note', vaultCanSignIn
+      ? 'The connection checked out, so signing in once is offered: the credential at ' +
+        credentialPath(roles[0] || '') + ' is read where the browser runs, never here. It ' +
+        'derives signedInMarker and writes it in step 5.'
+      : 'Signing in needs a credential, and this page holds none. Check the connection in ' +
+        'step 3 first — once the credential is found there, the sign-in can be driven from ' +
+        'it. Without one, signedInMarker is written as a guess and setup:auth fails until ' +
+        'locators/sign-in.ts is corrected by hand.'));
     return;
   }
   box.append(el('div', 'note',
@@ -1334,10 +1395,12 @@ function whyCannotSignIn() {
     return 'Name at least one role in step 3 first — the sign-in is tried as one of them.';
   }
   if ($('secrets').value === 'vault') {
+    if (vaultProven !== null) return null;
     return (
-      'Credentials for this target live in Vault, so there is nothing to type here and nothing ' +
-      'for this button to send. Switch step 3 to a local file to sign in from this page, or ' +
-      'prove the sign-in afterwards with: TARGET=<name> npx playwright test --project=setup:auth'
+      'Credentials for this target live in Vault, and this page holds none to send. Check the ' +
+      'connection in step 3 first: once one path resolves, the sign-in is read from Vault ' +
+      'where the browser runs. Or prove it afterwards with: TARGET=<name> npx playwright test ' +
+      '--project=setup:auth'
     );
   }
   const user = $('cu-' + roles[0]), pass = $('cp-' + roles[0]);
@@ -1370,11 +1433,12 @@ function renderMarkerWarning() {
     'No sign-in has been verified yet, so signedInMarker will be written as a guess — ' +
     'it is the one locator that cannot be read from a page at rest. setup:auth will fail ' +
     'until it is corrected by hand. ' +
-    ($('secrets').value === 'vault'
+    ($('secrets').value === 'vault' && vaultProven === null
       // Telling a Vault operator to press a button this page does not show
       // them is worse than saying nothing.
-      ? 'This page cannot sign in for a Vault target, so derive it from a snapshot of the ' +
-        'signed-in page — npm run explore — and correct locators/sign-in.ts afterwards.'
+      ? 'This page cannot sign in for a Vault target until its connection has been checked in ' +
+        'step 3. Check it, or derive the marker from a snapshot of the signed-in page — ' +
+        'npm run explore — and correct locators/sign-in.ts afterwards.'
       : 'Signing in once in step 4 first derives it and writes it for you; doing it ' +
         'afterwards is too late, because these files are never overwritten.')));
 }
@@ -1441,14 +1505,23 @@ $('vaultCheck').onclick = async () => {
   try {
     const result = await post('/api/vault/check', {
       source: $('secrets').value,
-      connection: {
-        address: $('vaultAddr').value.trim(),
-        namespace: $('vaultNamespace').value.trim(),
-        kvMount: $('vaultMount').value.trim(),
-      },
-      path: root + '/' + $('accountType').value.trim() + '/' + role + '/1',
+      connection: vaultConnection(),
+      path: credentialPath(role),
       root,
     });
+
+    /*
+       What the check earns: a Vault target that can sign in once. Only on a
+       full pass — a credential that exists but has no username is exactly the
+       sign-in that would fail obscurely minutes later.
+    */
+    const proven = result.ok && $('secrets').value === 'vault' ? vaultShape() : null;
+    // Re-rendered only when that changed: this button is offered for a local
+    // source too, and step 4's inputs are rebuilt empty by a render.
+    if (proven !== vaultProven) {
+      vaultProven = proven;
+      renderCredentials();
+    }
 
     status.className = 'status';
     status.replaceChildren(
@@ -1492,14 +1565,22 @@ $('verify').onclick = async () => {
     status.textContent = blocked;
     return;
   }
-  const u = $('cu-' + first), p = $('cp-' + first);
+  const fromVault = $('secrets').value === 'vault';
   status.textContent = 'Signing in once…';
   $('verify').disabled = true;
   try {
+    /*
+       A Vault sign-in sends the path it proved, not a value. The credential is
+       read where the browser is driven, so the one thing this page must never
+       hold stays out of the request and out of the response.
+    */
+    const credentials = fromVault
+      ? { source: 'vault', connection: vaultConnection(), path: credentialPath(first) }
+      : { credentials: { username: $('cu-' + first).value, password: $('cp-' + first).value } };
     const result = await post('/api/verify', {
       baseURL: $('baseURL').value.trim(),
       signIn: { username: $('uName').value, password: $('pName').value, submit: $('sName').value, path: $('signInPath').value },
-      credentials: { username: u.value, password: p.value },
+      ...credentials,
     });
     marker = result.marker;
     if (!written) renderMarkerWarning();
