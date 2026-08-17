@@ -1,6 +1,7 @@
 # Improvement log
 
-Append-only. One entry per scheduled run, newest at the bottom.
+Append-only. One entry per run — scheduled or asked for by hand — newest at the
+bottom. `backlog.md` says under "How a run starts" where the schedule lives.
 
 This is the agent's memory. A fresh session reads it to find out what has
 already been tried — including what was tried and **abandoned**, which is the
@@ -134,3 +135,37 @@ added, built from snapshot-string pairs. Also removed the duplicated
 away. It is the other half of the same story as item 1 and now the highest
 `ready` item. Items 3 and 4 are its signposting and may fold into the same PR if
 the diff stays small; item 10 is a good standalone after that.
+
+## 2026-08-16 · run 3 · Correcting run 0: there was no schedule
+
+**Picked:** n/a — a correction, per the rule that an earlier entry is fixed by a
+later one rather than edited.
+
+**Correcting:** run 0 said the files were created *"so that a scheduled agent
+running every five hours accumulates knowledge instead of restarting from zero
+each time."* That described an intention, not a fact. Nothing fired this loop.
+Checked at the time of writing: no Claude Code scheduled task, no cron job, no
+hook in `~/.claude/settings.json`, no project `settings.json` at all, nothing
+relevant in Windows Task Scheduler, and the single file in `.github/workflows/`
+is `copilot-setup-steps.yml`, triggered by `workflow_dispatch`/`push`/
+`pull_request` with no `schedule:` anywhere. Runs 1 and 2 happened because the
+owner asked for them in a session.
+
+**Did:** Created the local scheduled task
+`playwright-framework-improvement-loop`, every five hours, holding a
+self-contained version of the working agreement. Documented in `backlog.md`
+under "How a run starts" where the trigger actually lives, since it is
+machine-local and deliberately not in this repository.
+
+**Verify:** not run — documentation and machine-local configuration only.
+**PR:** folded into the branch carrying this entry.
+
+**Learned:** The scaffolding for a loop and the loop itself are different
+things, and writing the former makes the latter easy to assume. Worth checking
+rather than inferring: the owner went looking for the trigger in their config
+and could not find it, because it was never there. A schedule is now real, but
+it fires only while the app is running — "every five hours whenever I am at my
+desk", not a guarantee, and the log is how a missed run stays visible.
+
+**Next:** Item 2 — verifying after Create derives the right marker and throws it
+away. Unchanged by this entry.

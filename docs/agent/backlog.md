@@ -1,9 +1,26 @@
 # Improvement backlog
 
-A living, ranked list of work the scheduled improvement agent may pick up. It
-is **state that survives between runs** — every firing starts a fresh session
-with no memory, so without this file the agent re-discovers the same three
-things forever and never compounds.
+A living, ranked list of work the improvement agent may pick up. It is **state
+that survives between runs** — every run starts a fresh session with no memory,
+so without this file the agent re-discovers the same three things forever and
+never compounds.
+
+## How a run starts
+
+Two ways, and neither is a CI job:
+
+- **A local scheduled task**, `playwright-framework-improvement-loop`, every
+  five hours. It lives at
+  `~/.claude/scheduled-tasks/playwright-framework-improvement-loop/SKILL.md` and
+  is managed from the "Scheduled" section of the Claude Code sidebar — not from
+  anything in this repository. It fires only while the app is running; if the
+  app was closed when a run was due, it runs at next launch.
+- **By hand**, by asking for a run in a session.
+
+Nothing in `.github/workflows/` schedules this, and nothing needs to. If you are
+looking for the trigger and cannot find it in the repo, that is why: it is
+machine-local configuration, deliberately, because the most valuable runs drive
+a real browser at a running dashboard and that is not a thing to do from CI.
 
 ## How the agent uses this file
 
