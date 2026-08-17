@@ -248,8 +248,17 @@ function fill(id, rows, emptyMessage) {
   box.replaceChildren();
   if (rows.length === 0) {
     box.append(el('div', 'empty', emptyMessage));
+    box.className = '';
     return;
   }
+  /*
+     How long these get is a property of the repository, not of the page: on a
+     real one this page came to 7.3 screens, and the last section was found by
+     scrolling past two lists nobody had asked to read in full. Capped and
+     scrolled only when there is something to scroll, so a one-row answer does
+     not sit in a box built for forty.
+  */
+  box.className = rows.length > 6 ? 'longlist' : '';
   for (const row of rows) box.append(row);
 }
 

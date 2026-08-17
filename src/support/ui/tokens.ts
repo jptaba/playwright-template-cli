@@ -499,6 +499,22 @@ export const DASHBOARD_STYLES = `
   }
   .status { margin-top: .85rem; font-size: .89rem; color: var(--ink-2); }
 
+  /*
+     A list whose length nobody chose.
+
+     Every page here renders something whose size is a property of the
+     repository rather than of the design: the cases with no spec, the specs
+     citing a case that is not there, the results of a run. Measured on a real
+     one, Cases came to 7.3 screens and Publish to 7.8 — and a page that long
+     is one where the controls at the bottom are found by scrolling past
+     everything, which is the crowding this is about.
+
+     Capped and scrolled rather than truncated: none of it is hidden, and the
+     page keeps a shape. The Publish results list has done this since it was
+     written; this is that rule, shared, for the lists that missed it.
+  */
+  .longlist { max-height: 24rem; overflow-y: auto; }
+
   @media (prefers-reduced-motion: reduce) {
     * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   }

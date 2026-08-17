@@ -20,6 +20,12 @@ const STYLES = `
   }
 
   .results { display: grid; gap: 0; max-height: 24rem; overflow-y: auto; margin-top: .8rem; }
+  /* One per line, because it is a list. It used to be a joined sentence. */
+  .skipped-spec {
+    font-size: .82rem; color: var(--ink-2);
+    padding: .18rem 0; border-top: 1px solid var(--rule);
+  }
+  .skipped-spec:first-child { border-top: 0; }
   .result {
     display: grid; grid-template-columns: 5rem 5.5rem 4rem minmax(0, 1fr); gap: .6rem;
     font-size: .84rem; padding: .28rem 0; border-top: 1px solid var(--rule); align-items: baseline;
@@ -235,14 +241,33 @@ function renderResults() {
     entry.reason.indexOf('no practitest annotation') >= 0,
   );
   if (missing.length) {
+    /*
+       The count is the fact; the titles are the evidence for it.
+
+       Both used to be one text node — every title joined with "; " into a
+       single sentence. On a real run that was 192 of them and 3660px tall,
+       most of this page's height, and unreadable as a sentence because it is
+       not one: it is a list. The number somebody acts on was the first eight
+       words of it.
+    */
     const box = el('div', 'note');
     box.append(
       text(
-        missing.length + ' spec(s) carry no case id, so nothing is posted for them — and they are ' +
-          'invisible in the coverage view too: ',
+        missing.length + ' spec(s) carry no case id, so nothing is posted for them — and they ' +
+          'are invisible in the coverage view too.',
       ),
     );
-    box.append(text(missing.map((entry) => entry.title).join('; ')));
+
+    const disclosure = document.createElement('details');
+    disclosure.className = 'more';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Which ' + missing.length + ' spec(s)';
+    disclosure.append(summary);
+    const list = el('div', 'body longlist');
+    for (const entry of missing) list.append(el('div', 'skipped-spec', entry.title));
+    disclosure.append(list);
+    box.append(disclosure);
+
     skipped.append(box);
   }
   $('rSend').disabled = results.length === 0 || !preview.practitest.configured;

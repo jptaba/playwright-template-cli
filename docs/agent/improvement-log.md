@@ -1719,3 +1719,52 @@ triage rules; run 13's figures stand.
 **Next:** item 19 — the same progressive-disclosure pattern on the pages that
 are not wizards. Smaller than it was, because this run deleted the four
 duplicate pickers it would otherwise have had to arrange.
+
+## 2026-08-17 · run 26 · Lists whose length nobody chose
+
+**Picked:** item 19 — progressive disclosure on the pages that are not wizards.
+
+**Did:** Measured all six pages at 1280×720 first, which is what decided the
+slice. `/publish` was 7.8 screens and `/cases` 7.3; the other four were between
+1.9 and 4.1 and were left alone. Both problems had the same cause and neither
+was prose or controls: **a list sized by the repository, rendered inline in
+full.**
+
+- `/publish` `#rSkipped` joined every unreportable spec title with `"; "` into
+  one text node — 192 titles, **3660px**, a single run-on sentence. Now the
+  count as a sentence, plus a disclosure saying "Which 192 spec(s)" holding one
+  title per line. **7.8 → 2.9 screens**, nothing removed.
+- `/cases` lists **are** the page's answer, so they are capped and scrolled
+  rather than disclosed — and only above six rows. **7.3 → 3.4 screens**.
+- The shared piece is `.longlist` in `tokens.ts`, which is the cap the Publish
+  results list has had since it was written, shared rather than restated.
+
+**Verify:** `npm run verify` passes, exit 0 — **835 tests, up from 834**.
+
+**Learned:**
+
+- **This item's own framing was wrong about where the crowding was.** It said
+  "the common action visible, the configuration and the rarely-used controls
+  behind a disclosure". Measured, the controls were never the problem on any of
+  the six pages — the copy budgets were fine and the forms are small. It was
+  data, on two pages, and one of those wanted a scroll cap rather than a
+  disclosure because the list *is* the page. Two treatments, not one pattern.
+- **The two pages that broke are two of the five with no browser test at all.**
+  Raised as item 22. Every `tests/` reference to those pages is the onboarding
+  page's own `#pick`; the `dashboard` project covers onboarding and the shell
+  and nothing else. A green suite had no opinion about a 3660px sentence.
+- **A height budget is the assertion that would have caught both**, and it is
+  the same idea as `page-copy.spec.ts`'s word budget — which exists because
+  "this is getting long" is the judgement nobody makes on a Friday. The word
+  budget guards the axis that did not break; nothing guards the one that did.
+- Only the stylesheet affordance is unit-tested here. The two page behaviours
+  were verified by driving them, with before-and-after numbers, because there
+  is nowhere to assert them from yet. Said plainly rather than dressed up: this
+  slice's regression protection is item 22.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches
+triage rules; run 13's figures stand.
+
+**Next:** item 22 — a harness for the pages that have none, then a height
+budget. It is worth more than item 20's remaining polish, because it is what
+stops the next 3660px block.

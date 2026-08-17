@@ -1127,7 +1127,47 @@ them an application switcher that does nothing — either filter their run lists
 by the selection, or leave the slot showing the selection without acting on it,
 and say which was chosen.
 
-### 19. The same pattern on every other page — `ready`, and next
+### 19. The same pattern on every other page — first slice `done`
+
+Shipped on `agent/2026-08-17-lists-nobody-sized` (run 26). **Measured all six
+pages at 1280×720 before touching anything**, which is what decided the slice:
+
+| page | before | after |
+|---|---|---|
+| `/publish` | **7.8 screens** | **2.9** |
+| `/cases` | **7.3** | **3.4** |
+| `/triage` | 4.1 | unchanged |
+| `/users` | 2.6 | unchanged |
+| `/stories` | 1.9 | unchanged |
+
+Only two pages had the problem, and in both it was the same cause: **a list
+whose length is a property of the repository, rendered inline in full.** Not
+prose, not controls — the pages' copy budgets were already fine.
+
+`/publish` was the worse and the more interesting. `#rSkipped` rendered every
+unreportable spec title joined with `"; "` into **one text node, 3660px tall**
+— 192 titles as a single run-on sentence, which is unreadable because it is not
+a sentence, it is a list. The count somebody acts on was its first eight words.
+It is now the sentence, plus a disclosure saying *"Which 192 spec(s)"* holding
+one title per line. Nothing was removed.
+
+`/cases` is different and the difference matters: its lists **are** the page's
+answer, so they are capped and scrolled rather than disclosed — and only above
+six rows, so a one-row answer does not sit in a box built for forty.
+
+The shared thing is `.longlist` in `tokens.ts`, per this item's own rule. It is
+deliberately small: the Publish results list has capped itself at 24rem since it
+was written, so this is that existing rule shared, not a new pattern invented.
+
+**What is left of this item:** `/triage` at 4.1 screens is the next candidate
+and was not touched — nothing there is obviously wrong, and a change with no
+stated defect is the taste-only refactor the guardrails refuse. `/users`,
+`/stories` and `/runs` are fine and should be left alone. Re-measure before
+assuming otherwise.
+
+The original item follows.
+
+### 19b. The original item
 
 "It should be applied to all sections of the UI dashboard." The other pages —
 `/users`, `/runs`, `/cases`, `/stories`, `/triage`, `/publish` — are not
@@ -1268,3 +1308,31 @@ Written from source, disproved by use. Recorded so nobody re-adds them.
 - Renaming or restructuring the four layers. That architecture is deliberate
   and settled; do not relitigate it.
 - Anything requiring a live credential the run does not have.
+
+### 22. Four pages have no browser test at all — `ready`
+
+Found by run 26, and it is why item 19's defects survived this long.
+
+The `dashboard` project covers onboarding and the shell. `/users`, `/stories`,
+`/cases`, `/triage` and `/publish` have **no browser test** — every reference to
+them in `tests/` is the onboarding page's own `#pick`. So Publish rendering 192
+spec titles as one 3660px sentence, and Cases growing to 7.3 screens, were
+invisible to a green suite. Both were found by opening the pages.
+
+Not "add tests for five pages", which is a month. The shaped first slice is a
+**harness like `tests/dashboard/harness.ts`** — a real loopback socket, the real
+page, a fake service behind the interface the routes already take — for the two
+pages that just needed fixing. Those routes already take their data through a
+service boundary (`testUsersService`, the run manager, the case report), which
+is the thing that makes this cheap; the onboarding harness is the proof of the
+pattern and it is 270 lines including comments.
+
+Then the assertion worth having first, because it is the one that would have
+caught both: **no page renders a block taller than N screens on realistic
+data.** A height budget, in the same spirit as the copy budget in
+`page-copy.spec.ts` — which exists precisely because "this is getting long" is
+the judgement nobody makes on a Friday.
+
+Ranked below item 20's remaining polish only if somebody disagrees with this:
+the copy budget was worth writing, and this is the same rule for the axis that
+actually broke.

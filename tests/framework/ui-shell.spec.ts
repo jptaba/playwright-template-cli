@@ -202,6 +202,20 @@ test.describe('the shell', () => {
     );
   });
 
+  test('ships the affordance for a list whose length nobody chose', () => {
+    /*
+       Cases and Publish both render lists sized by the repository rather than
+       by the design, and both had grown past seven screens — Publish's worst
+       block was 192 spec titles joined into one 3660px sentence. The cap is
+       shared rather than restated per page, so this asserts the shell offers
+       it; the pages that use it are verified by driving them, because neither
+       has a browser harness yet.
+    */
+    const rendered = renderPage(content, { token: 't', pages: [], current: '/runs' });
+    expect(rendered).toContain('.longlist');
+    expect(rendered, 'capped, not truncated — nothing is hidden').toContain('overflow-y: auto');
+  });
+
   test('applies a stored theme in the head, before the body can paint', () => {
     /*
        Ordering is the whole feature. Restore from the body script and somebody
