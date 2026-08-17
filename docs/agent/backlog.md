@@ -22,6 +22,15 @@ looking for the trigger and cannot find it in the repo, that is why: it is
 machine-local configuration, deliberately, because the most valuable runs drive
 a real browser at a running dashboard and that is not a thing to do from CI.
 
+**Nothing enforces one run at a time, and on 2026-08-17 three overlapped** — two
+scheduled sessions plus a by-hand one, landing items 7, 9 and 10's investigation
+concurrently. No work was lost, because `git merge --ff-only` refuses rather
+than corrupts, but a run that picks an item another run is already finishing is
+a wasted run. So: **re-read `backlog.md` and `git log origin/main` immediately
+before picking, not once at the start.** The file on disk can lag what is
+already pushed by minutes. If `origin/main` has moved since the session opened,
+re-read the backlog before committing to an item.
+
 ## How the agent uses this file
 
 1. Read this file and `improvement-log.md` before doing anything else.
@@ -87,10 +96,15 @@ here. Say so in the PR if you think an exception is warranted.
 ## Evidence base
 
 `journey-notes.md` records `npm run onboard` driven end to end twice against a
-real application (saucedemo), on 2026-08-16. Items 1–8 below are numbered to
+real application (saucedemo), on 2026-08-16. Items 1–9 below were numbered to
 match the findings in that file. **Everything ranked `ready` below was observed,
-not inferred.** Three of the original six items were guesses that turned out
-wrong and have been deleted — see "Deleted guesses" at the bottom.
+not inferred.** Three of the original six seeded items were guesses that turned
+out wrong and have been deleted; item 8 later joined them, having been observed
+but mis-diagnosed. Both sets are recorded under "Deleted guesses" at the bottom.
+
+**As of 2026-08-17 every onboarding-UX item is `done`** — 1 through 9, less the
+retired 8. What remains is item 10 (the only `ready` one), item 11 which depends
+on it, and items 12 and 13, which need input a run cannot generate alone.
 
 ---
 

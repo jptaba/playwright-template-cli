@@ -511,3 +511,39 @@ this entry, fast-forwarded to `main` per the standing instruction once pushed.
 check `git log origin/main` before starting, not just this file, since this
 run is proof that backlog.md on disk can lag what is already pushed. Item 12
 and item 13 still need input this loop cannot generate alone.
+
+**Addendum, same run, after the owner stopped the parallel sessions.**
+
+The owner archived the two overlapping sessions and asked for a reconciliation.
+Checked rather than assumed, via the session list: **nothing else is running.**
+Two sessions exist for this repository and both report `isRunning: false` —
+`local_001a76d4` "Dashboard/onboarding complexity audit" (Opus 5, by hand, last
+active 12:06 UTC) and `local_8e854801` "Playwright framework improvement loop"
+(Sonnet 5, `scheduledTaskId: playwright-framework-improvement-loop`, last active
+11:57 UTC). Their last-activity times sit within a minute of `dd4f5d5` (item 9,
+12:05:33 UTC) and `a52ffdd` (item 7, 11:54:40 UTC) respectively, which is how
+each was matched to the work it landed. Note both still report
+`isArchived: false`, so the archive may not have registered — worth the owner
+re-checking in the sidebar, though it changes nothing operationally now that
+neither is running.
+
+So the concurrency described above is **closed, not ongoing.** The next run is
+alone unless the owner starts something. The re-read-before-picking advice is
+kept anyway, in "How a run starts", because it costs one command and the
+failure it prevents is a wholly wasted run.
+
+**State of play, verified commit by commit against `origin/main`:** every
+`done` item maps to a real commit — 1→`5075683`, 2 and 3→`346ade3`, 4→`d3d8426`,
+5→`a628662`, 6→`82ab09a`, 7→`a52ffdd`, 9→`dd4f5d5`, and 8 retired in `57126aa`.
+Nothing landed that the backlog fails to record, and nothing is recorded that
+did not land. Every onboarding-UX item is now done, which means the standing
+priority — the dashboard and onboarding journey being too complex — has no
+`ready` work left against it. **Item 10 is the only `ready` item in the file.**
+
+**Pending, in order:** item 10 (commit a second, deliberately unlike target;
+scoped, decided by the owner, unclaimed), item 11 (the learn-fix-optimise loop,
+`hypothesis`, explicitly blocked on 10 landing first), item 13 (two singleton
+load-sensitive test failures, `hypothesis`, needs the quarantine machinery to
+produce a rate rather than another anecdote), and item 12 (`blocked` on one
+product decision from the owner about whether a Vault target may verify its
+sign-in, and blocking nothing else).
