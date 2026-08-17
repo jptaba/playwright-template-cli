@@ -160,6 +160,11 @@ small and mostly already built; 19 needs the pattern 18 settles or it becomes
 seven separate opinions. Item 12 slice 3 and item 17 stay `ready` and now rank
 below all three — neither is a defect anybody is meeting, and the crowding is.
 
+**Run 23 shipped item 18**, both halves in one change, and the onboarding page
+opens at 1714px where it opened at 3888px. **Item 20 is the next one**, and one
+part of it is no longer optional: the reveal now depends on a fade, so the
+motion half of 20 has already landed inside 18.
+
 **Correcting the standing note on Vault, 2026-08-17 (run 21).** It said the
 owner has no Vault to test against. There is no *hosted* one and none is
 needed: `docker run --rm -p 8200:8200 -e VAULT_DEV_ROOT_TOKEN_ID=<token>
@@ -919,7 +924,47 @@ one, and a local target's credential is written by Create rather than read, so
 "checked" means something different there. `setup:auth` is still the real
 proof and the wording should keep saying so.
 
-### 18. Show one step at a time, and say up front what the whole thing needs — `ready`
+### 18. Show one step at a time, and say up front what the whole thing needs — `done`
+
+Shipped on `agent/2026-08-17-one-step-at-a-time` (run 23). Both halves
+together, because the item says neither is correct alone: a **Before you start**
+panel states what the journey needs and what it reads for you, and a step that
+cannot be reached yet is not on the page.
+
+**The item's own estimate of the crowding was low, and the real number is the
+finding.** Measured on the running page rather than estimated: **3888px at
+1280×720 before anybody types a character**, which is 5.4 screens, and the four
+gated sections were **2370px — 61% of it** — untouchable. It now opens at
+1714px. The rest arrives as it is earned.
+
+Three things worth carrying forward:
+
+- **A rail entry for a step that is not on the page is a link to nothing.**
+  Disabled both ways — `pointer-events` for the mouse, `tabindex="-1"` for the
+  keyboard — because doing one of the two leaves a control broken for exactly
+  the people least able to tell.
+- **Hiding needs a way back, and there is exactly one.** Selecting an onboarded
+  application opens steps 2 and 3 to show its settings; choosing "— New
+  application —" afterwards has to put them away, or step 2 sits there holding
+  a default test-id attribute for an application nothing has read. `applyDraft`
+  owns both directions, which keeps it out of the paths that would withdraw a
+  preview.
+- **It fixed a defect nobody had recorded.** Steps 2 and 3 hold everything a
+  profile can be edited to, and they stayed `inert` while **Change its
+  settings** offered Save and un-disabled the inputs — so the test-id
+  attribute, the roles, the secret source and the four layer checkboxes could
+  not be focused or changed, and only step 1's fields were really editable.
+  Confirmed live against the page as it was before the change. Selecting an
+  application is now what puts them on the page.
+
+The copy budget did its job and is the reason to keep it: the page had **18
+words of headroom** and the panel needed 52, so the lede lost its second clause
+and three blocks were tightened. The budget now counts the panel too, and skips
+a block carrying `hidden` — the browser-assisted sign-in's explanation is shown
+by pressing a button, which puts it with the disclosures rather than in the
+budget. 213 of 220.
+
+The original item follows.
 
 **The owner's ask, and it now outranks item 12 slice 3 and item 17.** Quoted in
 full under "The standing brief" above.
@@ -964,7 +1009,7 @@ at once, most of them refusing to be touched.
 Bigger than 400 lines if taken at once. Slice it: preflight panel first, since
 it stands alone and is the half that makes the other half safe.
 
-### 19. The same pattern on every other page — `ready`, after 18
+### 19. The same pattern on every other page — `ready`, after 20
 
 "It should be applied to all sections of the UI dashboard." The other pages —
 `/users`, `/runs`, `/cases`, `/stories`, `/triage`, `/publish` — are not
@@ -976,6 +1021,14 @@ The rule that keeps this from becoming seven separate opinions: whatever item
 18 settles on lives in `src/support/ui/shell.ts` and is *used* by each page.
 Seven hand-rolled reveals is the outcome to avoid, and it is the likely one if
 this is picked up before 18 has established the pattern.
+
+**What 18 actually settled, now that it has shipped**, and it is less than this
+item assumed. The reveal is three CSS rules and two functions — `enable` and
+`relock` — and every one of them is about *steps*: a section that a previous
+answer has earned. None of the other six pages has steps. What is genuinely
+reusable is the **overview panel** (`.preflight`, `.pf-title`) and the copy
+budget that now counts it, so the first slice here is moving those two into
+`shell.ts` and giving one page an overview — not lifting `enable`.
 
 ### 20. A theme control, and the polish it makes visible — `ready`
 
@@ -1004,9 +1057,10 @@ polish items each name what they fix:
 - **Vertical rhythm and width.** Long explanatory paragraphs run the full
   column; a measure and consistent spacing scale are what make a dense page
   feel calm without deleting anything.
-- **The reveal wants motion.** Item 18's sections appearing with no transition
-  reads as a page glitch. A short, `prefers-reduced-motion`-respecting fade is
-  part of that item landing well, not a separate nicety.
+- **The reveal wants motion** — `done`, inside item 18. A revealed section
+  fades in over .3s, and the stylesheet's blanket
+  `prefers-reduced-motion: reduce` rule already neuters it. What is left here
+  is whether anything *else* on the page wants the same treatment.
 - **Status colour is already tokenised** (`--pass`, `--fail`, `--warn` and
   their soft pairs) and is used unevenly across pages. Making that consistent
   is a legibility fix with a stated benefit, not a repaint.

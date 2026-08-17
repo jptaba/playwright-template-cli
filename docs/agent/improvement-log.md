@@ -1478,3 +1478,88 @@ nothing should still measure.
 **Next:** item 12 slice 3 — persist the connection — which is now the only
 hand-edit left on the Vault path, or item 17, which is smaller and is a
 contradiction on the last screen of the journey.
+
+## 2026-08-17 · run 23 · One step at a time, and a panel that says how many
+
+**Picked:** item 18 — show one step at a time behind a stated overview. The
+highest-ranked `ready` item, and the owner's own re-statement of the standing
+priority.
+
+**Did:** Both halves, in one change, because the item's own note says neither
+is correct alone — an overview without a reveal is a longer page, and a reveal
+without an overview is a wizard whose end nobody can see.
+
+- A **Before you start** panel above everything: what you bring (a URL of a
+  test deployment, the roles, where credentials live) beside what it reads for
+  you (the test-id attribute, the sign-in field names, an OpenAPI document).
+- A step that cannot be reached is **not on the page**. `enable()` drops the
+  `pending` class and fades the section in; `relock()` is the one path back.
+- Rail entries for steps that are not on the page are disabled both ways —
+  `pointer-events` and `tabindex="-1"` — rather than left as links to nothing.
+- Selecting an onboarded application opens steps 2 and 3, read-only, because
+  that is where its settings are. Steps 4 and 5 stay away: it is written.
+
+**Verify:** `npm run verify` passes, exit 0 — **816 tests, up from 809**.
+
+**Measured on the running page, before and after**, which is the finding the
+backlog had wrong:
+
+| | before | after |
+|---|---|---|
+| First paint, 1280×720 | **3888px** (5.4 screens) | **1714px** (2.4) |
+| Of that, gated sections | 2370px — **61%** | 0 |
+
+The item had estimated "roughly two screens tall". It was five and a half, and
+the majority of it was sections nothing could touch. Both themes checked: every
+token the panel uses resolves in light and in dark, and the two columns collapse
+to one on a narrow window.
+
+**PR:** branch `agent/2026-08-17-one-step-at-a-time`; `main` fast-forwarded and
+pushed, `main` and `origin/main` confirmed matching afterwards.
+
+**Learned:**
+
+- **It fixed a defect nobody had recorded, and only driving it found it.**
+  Steps 2 and 3 hold every value a profile can be edited to — the test-id
+  attribute, the roles, the secret source, the four layers — and they stayed
+  `inert` while **Change its settings** offered Save and un-disabled the
+  inputs. Confirmed against the page as it was: `document.activeElement` never
+  becomes `#testId`, so those fields could not be focused or changed and the
+  only editable values were step 1's. The reveal fixes it as a consequence:
+  selecting an application is what puts them on the page.
+- **Hiding needs a way back, and getting the placement right matters more than
+  the code.** `relock` lives in `applyDraft` — the one function that says "this
+  is the new-application form as the draft describes it" — because that is the
+  only transition that goes backwards. Putting it in `pickChanged` would have
+  reached the paths that run after a save or a removal, and withdrawn a preview
+  somebody had earned.
+- **The copy budget is the reason this stayed short.** The page had 18 words of
+  headroom and the panel needed 52. That forced the lede to lose its second
+  clause and three blocks to tighten, which is the rule working exactly as its
+  own comment says. Two corrections to the measurement went with it: the panel
+  is counted (it is the obvious place to grow an essay back under a tag the
+  budget does not read), and a block carrying `hidden` is not — the
+  browser-assisted sign-in's explanation is shown by pressing a button, which
+  puts it with the disclosures.
+- **Five of the seven new tests were seen red**, by flipping
+  `section.pending` to `display: block` and re-running — per run 19's rule that
+  a green regression test proves nothing until it has failed for the right
+  reason. The two that stayed green are the rail-link test, which is about
+  `aria-disabled` rather than about hiding.
+- **Three existing tests were relying on step 4 being rendered-but-inert.**
+  They assert that step 3's roles list drives the credential inputs, and read
+  them as *visible* — which now needs a preview, the only order a person can do
+  it in. Rewritten to the new guarantee via a second helper rather than
+  weakened to `toHaveCount`, per run 6's note.
+- **What item 19 can actually reuse is less than it assumes.** `enable` and
+  `relock` are about steps, and no other page has steps. The overview panel and
+  the budget that counts it are the transferable parts.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches
+triage rules and the item picked was `ready`, so run 13's figures (1 agreed, 0
+contradicted, 3 declined) stand unchanged.
+
+**Next:** item 20 — the theme control. It is the owner's other half of the same
+ask, `tokens.ts` already ships the three-state palette and `docs/handbook.html`
+already has the control to lift, and one part of 20 has landed inside 18
+already: a revealed section fades.

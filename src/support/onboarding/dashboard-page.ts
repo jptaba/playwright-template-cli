@@ -17,8 +17,39 @@ import {
 
 /** Styles only this page needs. Everything shared is already in the shell. */
 const STYLES = `
-  .lockhint { color: var(--muted); font-size: .85rem; margin: .55rem 0 0; font-style: italic; }
   .findings > div { font-size: .9rem; margin: .2rem 0; }
+
+  /* ---------- what the journey needs, before any of it is on screen ---------- */
+  .preflight { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1.4rem; }
+  .pf-title {
+    margin: 0 0 .4rem; font-size: .68rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted); font-weight: 700;
+  }
+  .preflight ul { list-style: none; margin: 0; padding: 0; }
+  .preflight li {
+    position: relative; padding: .22rem 0 .22rem 1.1rem;
+    font-size: .9rem; color: var(--ink-2); line-height: 1.45;
+  }
+  .preflight li::before {
+    content: "·"; position: absolute; left: .3rem; color: var(--accent); font-weight: 700;
+  }
+
+  /*
+     A step that cannot be reached yet is not on the page.
+
+     Every section used to render on first paint and merely carry \`inert\`. The
+     gating was honest — each one said what would unlock it — and the page was
+     still 3888px at 1280x720 before anybody had typed a character, 61% of it
+     sections nothing could touch. Hiding is what the overview above pays for:
+     somebody who can see the shape of the journey will accept being shown one
+     step of it.
+  */
+  section.pending { display: none; }
+  section.revealed { animation: reveal .3s ease-out; }
+  @keyframes reveal {
+    from { opacity: 0; transform: translateY(-.4rem); }
+    to { opacity: 1; transform: none; }
+  }
 
   .service {
     display: grid; grid-template-columns: 11rem 1fr auto;
@@ -73,6 +104,8 @@ const STYLES = `
     display: flex; align-items: center; justify-content: center; color: var(--muted);
   }
   ol.steps a { color: var(--muted); text-decoration: none; font-size: .84rem; }
+  /* A step that is not on the page yet has nothing to link to. */
+  ol.steps a[aria-disabled="true"] { pointer-events: none; }
   ol.steps li[data-state="open"] a { color: var(--ink); font-weight: 620; }
   ol.steps li[data-state="open"]::before {
     border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft);
@@ -87,13 +120,40 @@ const STYLES = `
 `;
 
 const BODY = `
+  <section id="pre">
+    <div class="head">
+      <h2>Before you start</h2>
+    </div>
+    <p class="explain">
+      Five steps. Each appears as the one before it is done.
+    </p>
+    <div class="preflight">
+      <div>
+        <p class="pf-title">You bring</p>
+        <ul>
+          <li>A URL — a test deployment, never production</li>
+          <li>The roles the suite signs in as</li>
+          <li>Where credentials live, and the login if it is local</li>
+        </ul>
+      </div>
+      <div>
+        <p class="pf-title">It reads for you</p>
+        <ul>
+          <li>Which attribute <code>getByTestId</code> reads</li>
+          <li>The sign-in field names a screen reader announces</li>
+          <li>Whether it publishes an OpenAPI document</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
   <section id="s0">
     <div class="head">
       <h2>Which application</h2>
       <span class="badge manual" id="draftState">nothing in progress</span>
     </div>
     <p class="explain">
-      Pick an application to see its settings, or leave this on <b>New application</b> to add one.
+      Pick one to see its settings. Leave it on <b>New application</b> to add one.
     </p>
     <details class="more">
       <summary>What is kept when you leave this page</summary>
@@ -121,7 +181,7 @@ const BODY = `
       <span class="badge manual">Needs your input</span>
     </div>
     <p class="explain">
-      Name it, and say where it runs. Everything below is worked out from these two.
+      Name it, and say where it runs. Everything below follows from these two.
     </p>
     <div class="row">
       <div>
@@ -151,16 +211,14 @@ const BODY = `
     <div class="status" id="s1status"></div>
   </section>
 
-  <section id="s2" inert>
+  <section id="s2" class="pending" inert>
     <div class="head">
       <span class="step">Step 2</span>
       <h2>What it says about itself</h2>
       <span class="badge locked" data-ready="Filled in for you" data-kind="auto">Locked</span>
     </div>
-    <p class="lockhint">Unlocks once step 1 has read the application.</p>
     <p class="explain">
-      Read from the running application and already filled in.
-      <b>Nothing to do here unless something looks wrong.</b>
+      Read from the running application. <b>Nothing to do unless something looks wrong.</b>
     </p>
     <details class="more">
       <summary>What these two things are</summary>
@@ -201,13 +259,12 @@ const BODY = `
     </div>
   </section>
 
-  <section id="s3" inert>
+  <section id="s3" class="pending" inert>
     <div class="head">
       <span class="step">Step 3</span>
       <h2>The shape of the pack</h2>
       <span class="badge locked" id="s3Badge" data-ready="Needs your input" data-kind="manual">Locked</span>
     </div>
-    <p class="lockhint">Unlocks once step 1 has read the application.</p>
     <p class="explain">
       Defaults are set. Change only what is wrong for this application.
     </p>
@@ -290,13 +347,12 @@ const BODY = `
     <div class="status" id="previewStatus"></div>
   </section>
 
-  <section id="s4" inert>
+  <section id="s4" class="pending" inert>
     <div class="head">
       <span class="step">Step 4</span>
       <h2>Credentials</h2>
       <span class="badge locked" data-ready="Needs your input" data-kind="manual">Locked</span>
     </div>
-    <p class="lockhint">Unlocks once step 3 has previewed what will be written.</p>
     <p class="explain">
       One login per role. <b>Nothing typed here appears in any response from this page.</b>
       <b>Sign in once before step 5 writes</b> — it derives the signed-in marker, and
@@ -335,13 +391,12 @@ const BODY = `
     <div id="assistOut"></div>
   </section>
 
-  <section id="s5" inert>
+  <section id="s5" class="pending" inert>
     <div class="head">
       <span class="step">Step 5</span>
       <h2>Write it</h2>
       <span class="badge locked" data-ready="Done for you" data-kind="auto">Locked</span>
     </div>
-    <p class="lockhint">Unlocks once step 3 has previewed what will be written.</p>
     <p class="explain">
       <b>Nothing to fill in.</b> Press the button and everything above is written in one go.
     </p>
@@ -394,10 +449,16 @@ const BODY = `
 /**
  * The right rail: where you are in the five steps.
  *
- * This page is two screens tall and gates each step on the one before it, and
- * the only way to answer "which step am I on" was to scroll until a section
- * stopped saying Locked. The rail says it without moving, and each entry is a
- * link to its section, so it is a way *back* as well as a status.
+ * It began as an answer to "which step am I on" on a page tall enough that the
+ * only way to find out was to scroll until a section stopped saying Locked.
+ * Now that a step which cannot be reached is not rendered at all, the rail is
+ * carrying more: it is the only thing on screen that says how many steps there
+ * are and what the later ones will ask for. A wizard whose end nobody can see
+ * is worse than a long page, and this plus the preflight panel is what stops
+ * that.
+ *
+ * Entries link to their section, so it is a way *back* as well as a status —
+ * but only for a step that is on the page. `refreshStepRail` disables the rest.
  */
 const ASIDE = `
   <p class="rail-title">Where you are</p>
@@ -408,8 +469,8 @@ const ASIDE = `
     <li data-for="s4"><a href="#s4">Credentials</a></li>
     <li data-for="s5"><a href="#s5">Write it</a></li>
   </ol>
-  <p class="rail-note" id="railNote">Steps unlock as the one before them is done. Nothing is
-  written until step 5, and nothing is ever overwritten.</p>
+  <p class="rail-note" id="railNote">Nothing is written until step 5, and nothing is ever
+  overwritten.</p>
 `;
 
 const SCRIPT = `
@@ -562,6 +623,18 @@ function applyDraft(saved) {
   if (probeAnswersIn(saved)) {
     enable('s2');
     enable('s3');
+  } else {
+    /*
+       And put them away again when they have not.
+
+       This is the only path back: selecting an onboarded application opens
+       these two to show its settings, and choosing "— New application —"
+       afterwards has to leave the page as somebody who had just arrived would
+       find it. Without it, step 2 sat on screen holding a default test-id
+       attribute for an application nothing had read.
+    */
+    relock('s2');
+    relock('s3');
   }
   restoring = false;
 }
@@ -626,6 +699,15 @@ function showApplication(app) {
   addServiceRow({ primary: true, name: 'api', url: app.apiBaseURL || '' });
   renderCredentials();
   setFormEnabled(false);
+  /*
+     An onboarded application's settings live in steps 2 and 3, so those two
+     are what a selection has earned — read-only, because the inputs are
+     disabled, and on the page, because otherwise "read-only" describes fields
+     nobody can see. Steps 4 and 5 stay away: this application has already been
+     written, and there is nothing in either of them to do to it.
+  */
+  enable('s2');
+  enable('s3');
   restoring = false;
 
   const when = app.onboardedAt.slice(0, 16).replace('T', ' ');
@@ -826,11 +908,11 @@ document.addEventListener('change', saveDraft);
 /*
    Unlocking a step does three things, and all three matter.
 
-   The inert attribute comes off, so the section is reachable by mouse *and*
-   keyboard — the first version used a pointer-events rule, which stops one and
-   not the other. The badge stops saying "Locked" and starts saying what the
-   step wants. And the line explaining what would unlock it is removed, because
-   by then it answers a question nobody is asking.
+   The section arrives on the page, with a short fade so it reads as something
+   appearing rather than as the page jumping. The inert attribute comes off, so
+   it is reachable by mouse *and* keyboard — the first version used a
+   pointer-events rule, which stops one and not the other. And the badge stops
+   saying "Locked" and starts saying what the step wants.
 
    A locked section that already claims to need your input is a contradiction,
    and it was the first thing a reader noticed about this page.
@@ -852,20 +934,51 @@ function refreshStepRail() {
     const entry = document.querySelector('#stepRail li[data-for="' + ids[i] + '"]');
     if (!entry) continue;
     entry.dataset.state = !open[i] ? 'locked' : i < lastOpen ? 'done' : 'open';
+    /*
+       A rail entry for a step that is not on the page is a link to nothing —
+       it used to at least scroll to a visible locked section. Disabled both
+       ways: pointer-events for the mouse, tabindex for the keyboard, because
+       leaving one of the two is how a control becomes reachable only by the
+       people least able to tell it is broken.
+    */
+    const link = entry.querySelector('a');
+    if (!link) continue;
+    if (open[i]) {
+      link.removeAttribute('aria-disabled');
+      link.removeAttribute('tabindex');
+    } else {
+      link.setAttribute('aria-disabled', 'true');
+      link.tabIndex = -1;
+    }
   }
 }
 
 function enable(id) {
   const section = $(id);
   if (!section.hasAttribute('inert')) return;
+  section.classList.remove('pending');
+  section.classList.add('revealed');
   section.removeAttribute('inert');
   const badge = section.querySelector('.badge');
   if (badge && badge.dataset.ready) {
     badge.textContent = badge.dataset.ready;
     badge.className = 'badge ' + (badge.dataset.kind || 'manual');
   }
-  const hint = section.querySelector('.lockhint');
-  if (hint) hint.remove();
+  refreshStepRail();
+}
+
+/** The exact reverse, for the one transition that goes backwards. */
+function relock(id) {
+  const section = $(id);
+  if (section.hasAttribute('inert')) return;
+  section.classList.add('pending');
+  section.classList.remove('revealed');
+  section.setAttribute('inert', '');
+  const badge = section.querySelector('.badge');
+  if (badge && badge.dataset.ready) {
+    badge.textContent = 'Locked';
+    badge.className = 'badge locked';
+  }
   refreshStepRail();
 }
 
@@ -1984,11 +2097,14 @@ export function onboardingPageContent(): DashboardPageContent {
     eyebrow: 'Onboarding',
     heading: 'Add an application under test',
     lede:
-      'Reads the running application, then writes its profile and its whole four-layer pack in one ' +
-      'go — so the answers onboarding would otherwise ask you for are read rather than guessed.',
+      'Reads the running application, then writes its profile and its whole four-layer pack in one go.',
+    /*
+       "You fill in: steps 1, 3 and 4" and "filled in for you: steps 2 and 5"
+       used to be facts here. The preflight panel says both, in terms of the
+       information rather than of the step numbers — which is the half somebody
+       who has not been here can act on.
+    */
     facts: [
-      { label: 'You fill in', value: 'Steps 1, 3 and 4' },
-      { label: 'Filled in for you', value: 'Steps 2 and 5' },
       { label: 'Overwrites', value: 'Never' },
       { label: 'Aim', value: '<code>setup:auth</code> passes unedited' },
     ],

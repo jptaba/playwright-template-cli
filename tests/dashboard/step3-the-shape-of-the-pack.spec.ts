@@ -16,10 +16,26 @@ async function reachStep3(dashboard: Parameters<Parameters<typeof test>[2]>[0]['
   await page.click('#skipProbe');
 }
 
+/**
+ * Step 3, and the section its answers fill in.
+ *
+ * Step 4 is not on the page until a preview has run, so a test about what the
+ * roles list does to the *credential inputs* has to have previewed — which is
+ * the only order anybody can do it in anyway. Asserting they exist would pass
+ * against fields nobody can reach, which is the thing worth catching.
+ */
+async function reachTheCredentialFields(
+  dashboard: Parameters<Parameters<typeof test>[2]>[0]['dashboard'],
+) {
+  await reachStep3(dashboard);
+  await dashboard.page.click('#preview');
+  await expect(dashboard.page.locator('#s4')).toBeVisible();
+}
+
 test.describe('roles', () => {
   test('each role gets a credential pair when the store is a local file', async ({ dashboard }) => {
     const { page } = dashboard;
-    await reachStep3(dashboard);
+    await reachTheCredentialFields(dashboard);
     await page.selectOption('#secrets', 'local');
     await page.fill('#roles', 'standard, admin');
 
@@ -47,7 +63,7 @@ test.describe('roles', () => {
 
   test('switching store back and forth does not leave stale inputs', async ({ dashboard }) => {
     const { page } = dashboard;
-    await reachStep3(dashboard);
+    await reachTheCredentialFields(dashboard);
     await page.selectOption('#secrets', 'local');
     await expect(page.locator('#cu-standard')).toBeVisible();
     await page.selectOption('#secrets', 'vault');
@@ -58,7 +74,7 @@ test.describe('roles', () => {
 
   test('a role removed from the list takes its inputs with it', async ({ dashboard }) => {
     const { page } = dashboard;
-    await reachStep3(dashboard);
+    await reachTheCredentialFields(dashboard);
     await page.selectOption('#secrets', 'local');
     await page.fill('#roles', 'standard, admin');
     await expect(page.locator('#cu-admin')).toBeVisible();

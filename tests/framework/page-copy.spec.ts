@@ -40,9 +40,29 @@ const words = (html: string): string[] =>
     .split(/\s+/)
     .filter(Boolean);
 
-/** Visible instruction text — what is on screen before anything is opened. */
+/**
+ * Visible instruction text — what is on screen before anything is opened.
+ *
+ * A block carrying `hidden` is not on screen and never was: onboarding's
+ * browser-assisted sign-in explains itself in one, and it is shown by pressing
+ * a button, which puts it in the same category as a disclosure rather than in
+ * the budget. Counting it charged the page 25 words nobody reads.
+ */
 const explainBlocks = (page: DashboardPageContent): string[] =>
-  [...page.body.matchAll(/<p class="explain"[^>]*>([\s\S]*?)<\/p>/g)].map((match) => match[1]!);
+  [...page.body.matchAll(/<p class="explain"([^>]*)>([\s\S]*?)<\/p>/g)]
+    .filter((match) => !/\bhidden\b/.test(match[1]!))
+    .map((match) => match[2]!);
+
+/**
+ * The overview panel's lists: what the journey needs, before any of it is on
+ * screen.
+ *
+ * Budgeted with the prose rather than beside it. Onboarding shows one step at a
+ * time now, and this panel is what makes that safe — which makes it exactly the
+ * place a page grows its essay back under a tag the budget does not read.
+ */
+const overviewLists = (page: DashboardPageContent): string =>
+  /<div class="preflight">([\s\S]*?)<\/div>\s*<\/section>/.exec(page.body)?.[1] ?? '';
 
 /** The prose behind a disclosure. Unbudgeted on purpose — it is opt-in. */
 const disclosures = (page: DashboardPageContent): string[] =>
@@ -98,7 +118,11 @@ test.describe('the instructions on screen', () => {
     // is expanded. Onboarding was at 891.
     for (const [name, page] of Object.entries(PAGES)) {
       const visible = explainBlocks(page).reduce((total, block) => total + words(block).length, 0);
-      expect(words(page.lede).length + visible, `${name} is a wall of text`).toBeLessThanOrEqual(220);
+      const overview = words(overviewLists(page)).length;
+      expect(
+        words(page.lede).length + visible + overview,
+        `${name} is a wall of text`,
+      ).toBeLessThanOrEqual(220);
     }
   });
 });
