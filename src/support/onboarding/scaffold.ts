@@ -32,6 +32,17 @@ export interface ScaffoldOptions {
   roles?: string[];
   environment?: string;
   secretSource?: 'vault' | 'local';
+  /**
+   * Where this application's credentials live, and under which account type —
+   * together, the path shape `<root>/<accountType>/<role>/<index>` that the
+   * `secrets` fixture reads.
+   *
+   * Optional, and defaulted to what the scaffolder has always written, so a
+   * caller that does not care is unaffected. A Vault laid out to somebody
+   * else's convention is the case these exist for.
+   */
+  credentialRoot?: string;
+  accountType?: string;
   /** Base URL of the service API. Required when the api layer is included. */
   apiBaseURL?: string;
   /**
@@ -308,7 +319,16 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
   const root = `src/targets/${name}`;
   const camel = camelCase(name);
   const pascal = pascalCase(name);
-  const credentialRoot = `qa/${name}/pools`;
+  /*
+     How this application's secrets are laid out, which is the operator's to
+     state rather than ours to assume. Defaults are what the scaffolder always
+     used, so a target that says nothing is written exactly as before — but a
+     Vault laid out differently no longer needs the profile edited by hand,
+     and the onboarding page checks the connection against these same two
+     values rather than against a shape it hopes is right.
+  */
+  const credentialRoot = options.credentialRoot?.trim() || `qa/${name}/pools`;
+  const accountType = options.accountType?.trim() || 'workforce';
 
   // A vendored document is the whole reason the contracts capability ships
   // off, so having one flips it on and adds the file to the same plan.
@@ -327,6 +347,7 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
         allowlist,
         roles,
         credentialRoot,
+        accountType,
         include,
         apiBaseURL,
         apiServices: include.api ? (options.apiServices ?? {}) : {},
@@ -376,7 +397,7 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
     files.push({ path: `${root}/tests/a11y/landing.spec.ts`, contents: A11Y_SPEC });
   }
 
-  const credentialPaths = roles.map((role) => `${credentialRoot}/workforce/${role}/1`);
+  const credentialPaths = roles.map((role) => `${credentialRoot}/${accountType}/${role}/1`);
 
   const nextSteps = [
     secretSource === 'local'
@@ -418,6 +439,7 @@ interface ProfileInput {
   allowlist: string[];
   roles: string[];
   credentialRoot: string;
+  accountType: string;
   include: { api: boolean; db: boolean; contracts: boolean; a11y: boolean };
   apiBaseURL: string | null;
   apiServices: Record<string, string>;
@@ -489,7 +511,7 @@ export const ${input.camel}: TargetProfile = {
   credentials: {
     source: (process.env.SECRET_SOURCE as 'vault' | 'local') ?? '${input.secretSource}',
     root: '${input.credentialRoot}',
-    accountType: 'workforce',
+    accountType: '${input.accountType}',
   },
 
   capabilities: {

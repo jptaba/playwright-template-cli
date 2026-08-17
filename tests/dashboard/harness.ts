@@ -52,6 +52,7 @@ export interface Recorder {
   /** Swapped in per test to change what the probe finds. */
   probeResult: Awaited<ReturnType<DashboardService['probe']>>;
   verifyResult: Awaited<ReturnType<DashboardService['verify']>>;
+  vaultCheckResult: Awaited<ReturnType<DashboardService['checkVault']>>;
   assistFinishResult: Awaited<ReturnType<DashboardService['assistFinish']>>;
   removalPlan: ReturnType<DashboardService['planRemoval']>;
   /** Set to make the next call of that path fail, as a real one would. */
@@ -116,6 +117,7 @@ function fakeService(recorder: Recorder, page: () => string): DashboardService {
     assistCancel: async () => undefined,
     probe: async () => recorder.probeResult,
     verify: async () => recorder.verifyResult,
+    checkVault: async ({ path }) => ({ ...recorder.vaultCheckResult, path }),
     existing: (paths) => paths.filter((path) => recorder.conflicts.includes(path)),
     updateProfile: () => ({
       source: '',
@@ -173,6 +175,14 @@ export const test = base.extend<{ dashboard: Harness }>({
         ok: true,
         marker: { role: 'button', name: 'My account', identitySpecific: false },
         detail: 'Signed in.',
+      },
+      vaultCheckResult: {
+        ok: true,
+        path: '',
+        exists: true,
+        fields: ['username', 'password'],
+        detail: 'The credential is there and carries username and password.',
+        environment: ['VAULT_ADDR=https://vault.shop.test'],
       },
       assistFinishResult: {
         ok: true,

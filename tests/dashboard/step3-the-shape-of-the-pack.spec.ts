@@ -300,3 +300,141 @@ test.describe('where you are', () => {
     await expect(dashboard.page.locator('#s1')).toBeInViewport();
   });
 });
+
+/**
+ * Connecting to your own Vault — item 12.
+ *
+ * The owner's ask: somebody should be able to point the framework at their own
+ * Vault by giving a URL and a data shape. Everything here is about that being
+ * askable *and* provable before the pack is written against it — a Vault
+ * target previously found out its mount was wrong from a setup:auth timeout
+ * minutes later, on a locator that was never the problem.
+ */
+test.describe('your Vault', () => {
+  async function atStep3(dashboard: Parameters<Parameters<typeof test>[2]>[0]['dashboard']) {
+    const { page } = dashboard;
+    await page.fill('#name', 'shop');
+    await page.fill('#baseURL', 'https://staging.shop.test');
+    await page.check('#confirmTest');
+    await page.click('#probe');
+    await expect(page.locator('#s3')).not.toHaveAttribute('inert', '');
+    // Every test below is about a connection, and the server refuses one with
+    // no address — correctly, which is its own test in `onboarding-routes`.
+    await page.fill('#vaultAddr', 'https://vault.shop.test');
+  }
+
+  test('is shown for a Vault target and hidden for a local one', async ({ dashboard }) => {
+    // A local target reads a file in this repository: no address, no mount, no
+    // namespace. The page's problem was never too few fields.
+    const { page } = dashboard;
+    await atStep3(dashboard);
+
+    await expect(page.locator('#vaultBox')).toBeVisible();
+    await page.selectOption('#secrets', 'local');
+    await expect(page.locator('#vaultBox')).toBeHidden();
+    await page.selectOption('#secrets', 'vault');
+    await expect(page.locator('#vaultBox')).toBeVisible();
+  });
+
+  test('offers no field that would hold a credential', async ({ dashboard }) => {
+    /*
+       The invariant the whole feature rests on. An address, a namespace and a
+       mount are configuration; a token is a credential, and this page is built
+       on the agent writing the reference while a person writes the value.
+    */
+    const { page } = dashboard;
+    await atStep3(dashboard);
+
+    const inputs = await page.locator('#vaultBox input').evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLInputElement).id),
+    );
+    expect(inputs).toEqual(['vaultAddr', 'vaultNamespace', 'vaultMount', 'accountType', 'credentialRoot']);
+    await expect(page.locator('#vaultBox input[type="password"]')).toHaveCount(0);
+  });
+
+  test('checks the path the profile will actually be written with', async ({ dashboard }) => {
+    /*
+       Proving a connection against one path and writing another would make the
+       check worthless — the same defect as a preview that disagrees with what
+       Create writes.
+    */
+    const { page } = dashboard;
+    await atStep3(dashboard);
+    await page.fill('#credentialRoot', 'secret/teams/qa');
+    await page.fill('#accountType', 'contractors');
+    await page.click('#vaultCheck');
+
+    await expect(page.locator('#vaultStatus')).toContainText('Connected.');
+    expect(dashboard.lastCall('/api/vault/check')!.path).toBe(
+      'secret/teams/qa/contractors/standard/1',
+    );
+
+    await page.click('#preview');
+    await expect(page.locator('#plan')).toContainText('file(s) will be written');
+    await page.click('#create');
+    await expect(page.locator('#result')).toContainText('file(s).');
+    const created = dashboard.recorder.created.at(-1)!;
+    expect(created.credentialRoot).toBe('secret/teams/qa');
+    expect(created.accountType).toBe('contractors');
+  });
+
+  test('defaults the root from the target name without making it read-only', async ({
+    dashboard,
+  }) => {
+    const { page } = dashboard;
+    await atStep3(dashboard);
+    await page.click('#vaultCheck');
+    expect(dashboard.lastCall('/api/vault/check')!.path).toBe('qa/shop/pools/workforce/standard/1');
+  });
+
+  test('reports the fields it found, and what the suite still needs exported', async ({
+    dashboard,
+  }) => {
+    // The suite does not read this page — it resolves Vault from the
+    // environment — so a connection proven here is worth nothing to setup:auth
+    // unless the same values are exported.
+    const { page } = dashboard;
+    await atStep3(dashboard);
+    await page.click('#vaultCheck');
+
+    await expect(page.locator('#vaultStatus')).toContainText('username, password');
+    await expect(page.locator('#vaultStatus pre')).toContainText('VAULT_ADDR=');
+  });
+
+  test('a credential that is there but wrongly named says so', async ({ dashboard }) => {
+    /*
+       The failure this check exists to catch, and the one "does the path
+       exist" cannot see: present, resolvable, and carrying `user` where the
+       secrets fixture reads `username`.
+    */
+    const { page } = dashboard;
+    dashboard.recorder.vaultCheckResult = {
+      ok: false,
+      path: '',
+      exists: true,
+      fields: ['user', 'pass'],
+      detail: 'The credential is there but has no username and password.',
+      environment: [],
+    };
+    await atStep3(dashboard);
+    await page.click('#vaultCheck');
+
+    await expect(page.locator('#vaultStatus')).toContainText('Not usable yet.');
+    await expect(page.locator('#vaultStatus')).toContainText('user, pass');
+  });
+
+  test('changing the path shape withdraws a plan computed from the old one', async ({
+    dashboard,
+  }) => {
+    // The credential paths are in the plan, so a preview taken before they
+    // moved is describing something else.
+    const { page } = dashboard;
+    await atStep3(dashboard);
+    await page.click('#preview');
+    await expect(page.locator('#plan')).toContainText('file(s) will be written');
+
+    await page.fill('#accountType', 'contractors');
+    await expect(page.locator('#plan')).toContainText('The shape changed');
+    await expect(page.locator('#create')).toBeDisabled();
+  });
+});

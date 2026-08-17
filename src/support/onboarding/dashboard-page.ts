@@ -236,6 +236,51 @@ const BODY = `
         <input type="text" id="a11y" value="wcag22aa" autocomplete="off">
       </div>
     </div>
+    <div id="vaultBox" hidden>
+      <label>Your Vault <small>which one, and how secrets are laid out in it</small></label>
+      <p class="explain">
+        No credential goes here. Vault authentication comes from the environment.
+      </p>
+      <details class="more">
+        <summary>Why there is no token field</summary>
+        <div class="body">
+          <p>An address, a namespace and a mount are configuration. A token is a credential, and
+          this page is built on the rule that the agent writes the <i>reference</i> while a person
+          writes the value.</p>
+          <p>So authentication stays where it already is: <code>vault login</code> with your
+          identity provider and an exported <code>VAULT_TOKEN</code> locally, or the JWT CI
+          supplies. The check below uses whichever of those this machine already has.</p>
+        </div>
+      </details>
+      <div class="row">
+        <div>
+          <label for="vaultAddr">Vault address</label>
+          <input type="text" id="vaultAddr" placeholder="https://vault.example" autocomplete="off">
+        </div>
+        <div>
+          <label for="vaultNamespace">Namespace <small>Enterprise only</small></label>
+          <input type="text" id="vaultNamespace" autocomplete="off">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="vaultMount">KV mount</label>
+          <input type="text" id="vaultMount" value="kv" autocomplete="off">
+        </div>
+        <div>
+          <label for="accountType">Account type <small>the path segment under the root</small></label>
+          <input type="text" id="accountType" value="workforce" autocomplete="off">
+        </div>
+      </div>
+      <label for="credentialRoot">Credential root <small>defaults from the target name</small></label>
+      <input type="text" id="credentialRoot" autocomplete="off">
+      <p class="explain">
+        It reads one path and reports the field names it holds, never a value.
+      </p>
+      <button class="secondary" id="vaultCheck">Check the connection</button>
+      <div class="status" id="vaultStatus"></div>
+    </div>
+
     <label>Optional layers</label>
     <label class="check"><input type="checkbox" id="lApi"><span>API — typed HTTP clients<small>needs at least one service above</small></span></label>
     <label class="check"><input type="checkbox" id="lContracts"><span>Contracts — schema conformance<small>switched on automatically when a published document was found</small></span></label>
@@ -1008,6 +1053,22 @@ function renderFindings(result) {
   for (const note of result.notes) box.append(el('div', 'note', note));
 }
 
+/*
+   The credential root, defaulted from the target name rather than stored.
+
+   Left empty the field shows what the scaffolder has always written, so
+   somebody who does not care sees the same pack as before; typed into, it is
+   theirs. Reading it as a default rather than filling the box on every
+   keystroke means the name can still change afterwards without stranding a
+   root nobody chose.
+*/
+function credentialRoot() {
+  const typed = $('credentialRoot').value.trim();
+  if (typed) return typed;
+  const name = $('name').value.trim();
+  return name ? 'qa/' + name + '/pools' : '';
+}
+
 function options() {
   const list = (value) => value.split(',').map((s) => s.trim()).filter(Boolean);
   const signIn = $('uName').value && $('pName').value
@@ -1026,6 +1087,8 @@ function options() {
     roles: list($('roles').value),
     testIdAttribute: $('testId').value.trim(),
     secretSource: $('secrets').value,
+    credentialRoot: credentialRoot(),
+    accountType: $('accountType').value.trim(),
     a11yStandard: $('a11y').value.trim(),
     include: {
       api: $('lApi').checked, db: $('lDb').checked,
@@ -1063,6 +1126,10 @@ function planShape() {
     settings.apiServices,
     settings.apiBaseURL || '',
     Boolean(settings.contractDocument),
+    // These two are the credential *paths* in the plan, so a preview taken
+    // before they moved is describing something else.
+    settings.credentialRoot,
+    settings.accountType,
   ]);
 }
 
@@ -1116,6 +1183,13 @@ function markPlanStale() {
 */
 for (const event of ['input', 'change']) {
   document.addEventListener(event, () => {
+    /*
+       The root defaults from the target name, so it has to follow it. Shown as
+       a placeholder rather than filled in: the field is empty until somebody
+       chooses otherwise, and an empty field that displays what will happen is
+       the honest version of a default.
+    */
+    $('credentialRoot').placeholder = credentialRoot();
     // Not while the draft is being replayed into the form, and not once the
     // files exist — at that point Create is spent and there is nothing to warn.
     if (restoring || written || plannedShape === null) return;
@@ -1157,6 +1231,14 @@ function renderCredentials() {
   $('verifyStatus').className = 'status';
 
   const vault = $('secrets').value === 'vault';
+  /*
+     Shown only for the source it describes. A local target reads a file in
+     this repository and has no address, no mount and no namespace, so the
+     whole block is noise there — and the page's problem was never too few
+     fields, it was fields that do not apply.
+  */
+  $('vaultBox').hidden = !vault;
+  $('credentialRoot').placeholder = credentialRoot();
   /*
      Offering a button that cannot work, and only explaining after it is
      pressed, is the dead end this section had. The explanation is the same one
@@ -1288,6 +1370,74 @@ function markerArrivedTooLate(derived) {
     'Signing in before pressing "Create the target" writes this for you.'));
   return box;
 }
+
+/*
+   Prove the Vault connection before the pack is written against it.
+
+   A Vault target could not previously find out that its mount was wrong, or
+   that its fields are called something other than username and password, until
+   setup:auth timed out minutes later on a locator that was never the problem.
+   This is the same "read it, do not guess it" move step 1 makes for the
+   application, pointed at the secret store.
+
+   The path is built from the same two fields the profile will be written with,
+   so what gets proven and what gets written cannot drift apart.
+*/
+$('vaultCheck').onclick = async () => {
+  const status = $('vaultStatus');
+  const role = rolesTyped()[0];
+  if (!role) {
+    status.className = 'status error';
+    status.textContent = 'Name at least one role first — the path to check ends with it.';
+    return;
+  }
+  const root = credentialRoot();
+  if (!root) {
+    status.className = 'status error';
+    status.textContent = 'Name the application in step 1 first, or type a credential root.';
+    return;
+  }
+
+  status.className = 'status';
+  status.textContent = 'Reading one path…';
+  $('vaultCheck').disabled = true;
+  try {
+    const result = await post('/api/vault/check', {
+      connection: {
+        address: $('vaultAddr').value.trim(),
+        namespace: $('vaultNamespace').value.trim(),
+        kvMount: $('vaultMount').value.trim(),
+      },
+      path: root + '/' + $('accountType').value.trim() + '/' + role + '/1',
+    });
+
+    status.className = 'status';
+    status.replaceChildren(
+      el('span', result.ok ? 'found' : 'missing', result.ok ? 'Connected. ' : 'Not usable yet. '),
+      text(result.detail),
+    );
+    if (result.exists) {
+      status.append(el('div', 'diag', result.path + ' — fields: ' + result.fields.join(', ')));
+    }
+    /*
+       The suite does not read this page. It resolves Vault from the
+       environment, so a connection proven here is worth nothing to
+       setup:auth unless the same values are exported — and finding that
+       out from a failed run is the expensive way.
+    */
+    if (result.environment.length) {
+      status.append(el('div', 'fix', 'The suite reads these from the environment:'));
+      const exports = el('pre');
+      exports.textContent = result.environment.join('\\n');
+      status.append(exports);
+    }
+  } catch (error) {
+    status.className = 'status error';
+    status.textContent = error.message;
+  } finally {
+    $('vaultCheck').disabled = false;
+  }
+};
 
 $('verify').onclick = async () => {
   const status = $('verifyStatus');

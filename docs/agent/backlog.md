@@ -114,13 +114,14 @@ through 10, less the retired 8. Two of item 11's slices are `done` as well
 corrected along the way. Item 14, found by re-driving the dashboard in run 14,
 is `done` too.
 
-**The owner answered both open questions on 2026-08-17**, so item 12 is
-unblocked and is now **the only `ready` item** — connect to your own Vault by
-URL and data shape, then verify a sign-in with it, server-side, with no secret
-ever on the page. The other answer defines what "continuously" means for item
-11: this loop measures triage agreement and records it per run, rather than a
-CI job. Item 13 is the one thing still needing input a run cannot generate
-alone.
+**The owner answered both open questions on 2026-08-17**, which unblocked item
+12 — connect to your own Vault by URL and data shape, then verify a sign-in
+with it, server-side, with no secret ever on the page. **Its first slice
+shipped in run 16**; slice 2, which is the sign-in verification itself, is now
+the only `ready` item. The other answer defines what "continuously" means for
+item 11: this loop measures triage agreement and records it per run, rather
+than a CI job. Item 13 is the one thing still needing input a run cannot
+generate alone.
 
 ---
 
@@ -578,7 +579,43 @@ change a timeout on the strength of this note.
 
 If it recurs: quarantine is the mechanism, not a hand-tuned wait.
 
-### 12. Connect to your own Vault, then verify a sign-in with it — `ready`
+### 12. Connect to your own Vault, then verify a sign-in with it — slice 1 `done`, slice 2 `ready`
+
+**Slice 1 shipped** on `agent/2026-08-17-vault-connection` (run 16): step 3
+grows a "Your Vault" block — address, namespace, KV mount, account type and
+credential root — with **Check the connection**, which resolves one path
+server-side and reports the field names it holds. `describe` rather than
+`read`, so it cannot return a value and no flag changes that.
+
+The invariant held and is pinned by tests: **no field on that page holds a
+secret.** The route refuses a body carrying `token`, `secretId`, `secret_id`,
+`password` or `jwt` and does not echo the value back; authentication still
+resolves from the environment via `resolveAuthFromEnvironment`.
+
+The path shape now reaches the write. `credentialRoot` and `accountType` became
+optional `ScaffoldOptions`, defaulted to what the scaffolder always wrote, so
+what the check proves and what the profile is written with are the same two
+values — and moving either withdraws a preview computed from the old ones.
+
+**Slice 2, `ready` and the next thing here:** a Vault target still cannot
+verify its sign-in, so it still ships a guessed `signedInMarker`. With a
+connection that checks out, the server can now read the credential for that one
+verification and drive it, with nothing typed and nothing reaching the browser.
+Item 4 hid **Sign in once** for Vault targets; the change is to show it again
+*once the connection check has passed*, and to keep hiding it otherwise.
+
+**Slice 3:** the connection is not persisted anywhere, so the suite still needs
+`VAULT_ADDR` exported. The check prints the exact exports, which is honest but
+is not the same as it being configured. Where those settings should live is the
+open question below, and worth answering before building this.
+
+Still open, and deliberately not decided in slice 1: whether the connection
+settings live in the profile, in a machine-local file beside the draft, or in
+the environment the dashboard already reads. Prefer whichever keeps
+`config/targets/` free of anything machine-specific — a Vault address is not a
+property of the application under test.
+
+The original item follows.
 
 Surfaced by item 4. A Vault target can never derive `signedInMarker` during
 onboarding, because deriving it means signing in and signing in means a

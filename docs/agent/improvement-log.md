@@ -956,3 +956,95 @@ pushed per the standing instruction.
 a server-side connection check and no sign-in change. That slice alone is a
 whole PR; the item says so and says where the seams are. Item 13 remains the
 only thing needing input a run cannot generate alone.
+
+## 2026-08-17 · run 16 · Point it at your own Vault, and find out before you write
+
+**Picked:** item 12, slice 1 — the Vault connection section. It was the only
+`ready` item, having been unblocked by the owner's answer recorded in run 15,
+and it is a dashboard item, so it is the standing priority as well as the top
+of the ranking.
+
+**Did:** Step 3 grows a "Your Vault" block, shown only when the credential
+source is Vault: address, namespace, KV mount, account type and credential
+root, with **Check the connection**. That resolves one path server-side through
+`describe` — existence and field names, never a value, and there is no flag
+that changes that — and reports what it found.
+
+Three things made it more than a form:
+
+- **`VaultSecretStore.fromConnection`** is new, and `fromEnvironment` now
+  delegates to it. It takes an address, a namespace and a mount; it does *not*
+  take a token, on purpose, because authentication keeps resolving from the
+  environment. That single omission is what makes "name your own Vault" safe
+  rather than a password box with extra steps.
+- **The route refuses a credential**, and is tested against all five shapes
+  somebody might send (`token`, `secretId`, `secret_id`, `password`, `jwt`),
+  including that the value is not echoed back in the refusal.
+- **The path shape reaches the write.** `credentialRoot` and `accountType`
+  became optional `ScaffoldOptions`, defaulted to exactly what the scaffolder
+  always wrote, so a caller that says nothing gets the same pack as before.
+  Without this the page would have checked one path and written another —
+  the defect run 14 had just finished fixing one screen along.
+
+The check also reports which environment variables the *suite* still needs
+exported, because the suite does not read this page.
+
+**Verify:** `npm run verify` passes, exit 0 — 776 tests, up from 758.
+
+**Diff: 655 insertions across 9 files, which is over the ~400 guideline.**
+Recorded rather than glossed. About 390 is source and the rest is tests. It was
+not split, and the reason is that the separable piece — threading the path
+shape into the scaffold — is exactly what stops the page proving one path and
+writing another, so shipping it separately would have meant shipping a check
+that lied for as long as the two halves were apart. Splitting the *route* from
+the *page* would have landed dead code. The honest summary is that this slice
+was scoped a little too large in the backlog, not that the guideline was wrong.
+
+Driven live against a real `npm run dashboard`, not only the fake service:
+
+- With no Vault token on this machine, **Check the connection** reports
+  `resolveAuthFromEnvironment`'s own message — "log in with OIDC against the
+  corporate IdP and export VAULT_TOKEN" — as an error status, and re-enables
+  the button. That is slice 3 of the item's plan ("say so plainly and name the
+  fix") arriving free by reusing the existing error instead of writing a new
+  one.
+- Posting `{connection: {token: 's.supersecret'}}` at the running server was
+  refused with the credential message, so the refusal is the server's and not
+  the page's politeness.
+
+**PR:** branch `agent/2026-08-17-vault-connection`; `main` fast-forwarded and
+pushed, `main` and `origin/main` confirmed matching.
+
+**Learned:**
+
+- **The feature was one absent parameter away from being the thing the
+  convention forbids.** `fromConnection(address, namespace, mount)` is
+  configuration; the same function with a token argument would have been a
+  credential intake, and every other line of this change would have looked
+  identical. Worth stating plainly for slice 2, which is where the temptation
+  actually bites: it needs a credential *read*, and the read must happen
+  server-side from the ambient token, never from anything the page sends.
+- **A live check caught what tests could not.** The credential root defaults
+  from the target name, and the placeholder showing it was only refreshed by
+  `renderCredentials()` — which does not run when the name changes. So the
+  field sat blank at the moment somebody first sees it. Every test passed;
+  driving it showed it. Fixed by refreshing the placeholder in the delegated
+  input listener that item 5 already installed.
+- **`no-hardcoded-urls` fires on error-message text**, not just on code. The
+  refusal "needs a scheme, http:// or https://" tripped it, and the fix was the
+  wording `validateProbeTarget` already uses — name the scheme, never the
+  separator. Its comment says why: an example host is how a default gets copied
+  into somebody's configuration.
+- **Documentation was deliberately not updated.** `docs/CONVENTIONS.md` says
+  the aim is reachable only for local targets, and after slice 1 that is still
+  true — a Vault target can now prove its connection but still cannot derive a
+  marker. Writing it up now would describe a half-built path; slice 2 is when
+  it becomes a true sentence.
+
+**Next:** item 12 slice 2 — show **Sign in once** for a Vault target once the
+connection check has passed, and verify server-side by reading the credential
+with the ambient token. That is the half that makes the dashboard's stated aim
+reachable for a Vault target, and the half where the no-credential-on-the-page
+rule needs the most care. Slice 3 (where connection settings live) should be
+decided before it is built, since it changes whether slice 2 can reuse a stored
+connection or must re-take one each time.

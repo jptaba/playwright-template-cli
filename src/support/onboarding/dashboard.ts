@@ -7,6 +7,7 @@ import { planScaffold, ScaffoldError, type ScaffoldOptions, type ScaffoldPlan } 
 import { sanitiseDraft, type OnboardedApp, type OnboardingDraft } from './draft';
 import type { GauntletStep } from './gauntlet';
 import type { EditOutcome, ProfileEdits } from './edit-profile';
+import type { VaultConnection } from '../../integrations/vault/vault-store';
 
 /**
  * The onboarding dashboard — a second front end onto the same scaffolder.
@@ -81,6 +82,30 @@ export interface CreateResult {
   nextSteps: string[];
 }
 
+/**
+ * What a Vault connection check found.
+ *
+ * Field *names* and nothing else. The whole value of this check is that it
+ * answers "is the credential where the profile will say it is, and does it
+ * carry what the fixture reads" without anybody printing a secret to prove it.
+ */
+export interface VaultCheckResult {
+  ok: boolean;
+  path: string;
+  exists: boolean;
+  /** Field names at the path. Never values — `describe` cannot return one. */
+  fields: string[];
+  version?: number;
+  /** One sentence for the page. Names the fix when there is one. */
+  detail: string;
+  /**
+   * The environment the *suite* will read, as exports to paste. The check uses
+   * what was typed; a later `npx playwright test` does not see this page, and
+   * saying so here is cheaper than a failed run finding out.
+   */
+  environment: string[];
+}
+
 /** Everything the dashboard needs the outside world to do for it. */
 export interface DashboardService {
   page(): string;
@@ -121,6 +146,19 @@ export interface DashboardService {
     signIn: ProbedSignIn;
     credentials: { username: string; password: string };
   }): Promise<SignInVerification>;
+  /**
+   * Resolve one credential path against a Vault the operator named, and report
+   * whether it is there and what fields it holds.
+   *
+   * Existence and shape only — `describe` cannot return a value and there is no
+   * flag that changes that, which is what makes this safe to render into a
+   * panel somebody may screenshot.
+   */
+  checkVault(input: {
+    connection: VaultConnection;
+    /** The one path to resolve, built from the shape the form states. */
+    path: string;
+  }): Promise<VaultCheckResult>;
   /** Which of a plan's files are already on disk. Nothing is ever overwritten. */
   existing(paths: string[]): string[];
   /**
@@ -239,6 +277,7 @@ export function onboardingRoutes(service: DashboardService): Route[] {
     '/api/assist/cancel',
     '/api/probe',
     '/api/verify',
+    '/api/vault/check',
     '/api/plan',
     '/api/create',
     '/api/offboard/plan',
@@ -416,6 +455,63 @@ async function onboardingApi(
       }
 
       /*
+         Which Vault, and how secrets are laid out in it — the operator's to
+         state, and until now only sayable as an environment variable set
+         before the process started, which a page cannot ask for.
+
+         Refuses anything carrying a secret. A token is how you authenticate to
+         Vault and it stays in the environment: accepting one here would put a
+         credential in a browser, on the one page whose whole design is that
+         the agent writes the reference and a person writes the value.
+      */
+      case '/api/vault/check': {
+        const connection = (body.connection ?? {}) as Record<string, unknown>;
+        const address = String(connection.address ?? '').trim();
+        if (!address) {
+          return failure(400, 'Checking a Vault connection needs its address.');
+        }
+        // Parsed rather than pattern-matched, and the message names no example
+        // host: `no-hardcoded-urls` forbids one in framework code, and an
+        // example is how a default gets copied into somebody's configuration.
+        let vault: URL;
+        try {
+          vault = new URL(address);
+        } catch {
+          return failure(400, `'${address}' is not a URL. Include the scheme — https or http.`);
+        }
+        if (vault.protocol !== 'http:' && vault.protocol !== 'https:') {
+          return failure(400, `'${vault.protocol}' is not a scheme this can reach. Use https.`);
+        }
+        for (const field of ['token', 'secretId', 'secret_id', 'password', 'jwt']) {
+          if (connection[field]) {
+            return failure(
+              400,
+              'This page does not take a Vault credential. Authentication comes from the ' +
+                'environment — log in with OIDC and export VAULT_TOKEN, or let CI supply the ' +
+                'JWT — so naming a Vault never means holding a credential for it.',
+            );
+          }
+        }
+
+        const path = String(body.path ?? '').trim();
+        if (!path) {
+          return failure(400, 'Checking a Vault connection needs a credential path to resolve.');
+        }
+
+        return json(
+          200,
+          await service.checkVault({
+            connection: {
+              address,
+              ...(connection.namespace ? { namespace: String(connection.namespace).trim() } : {}),
+              ...(connection.kvMount ? { kvMount: String(connection.kvMount).trim() } : {}),
+            },
+            path,
+          }),
+        );
+      }
+
+      /*
          Offboarding is the one destructive route here, so it is two calls, not
          one. `/api/offboard/plan` is safe to call and shows everything that
          would go; `/api/offboard/remove` is the only thing that deletes, and it
@@ -535,6 +631,10 @@ function readScaffoldOptions(body: Record<string, unknown>): ScaffoldOptions {
       ? { apiServices: readServices(body.apiServices) }
       : {}),
     ...(body.a11yStandard ? { a11yStandard: String(body.a11yStandard).trim() } : {}),
+    // The shape the Vault check resolved against, so what was proven and what
+    // gets written are the same two values rather than two guesses that agree.
+    ...(body.credentialRoot ? { credentialRoot: String(body.credentialRoot).trim() } : {}),
+    ...(body.accountType ? { accountType: String(body.accountType).trim() } : {}),
     include: {
       api: include.api === true,
       db: include.db === true,

@@ -603,6 +603,14 @@ function service(overrides: Partial<DashboardService> = {}): DashboardService {
       detail: 'Signed in.',
     }),
     existing: () => [],
+    checkVault: async ({ path }) => ({
+      ok: true,
+      path,
+      exists: true,
+      fields: ['username', 'password'],
+      detail: 'The credential is there and carries username and password.',
+      environment: [],
+    }),
     planRemoval: (target) => ({
       target,
       removeFiles: ['config/targets/' + target + '.ts'],

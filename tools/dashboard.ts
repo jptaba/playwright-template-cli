@@ -19,6 +19,7 @@ import {
   onboardingRoutes,
   type CreateResult,
   type DashboardService,
+  type VaultCheckResult,
 } from '../src/support/onboarding/dashboard';
 import { createRouter, failure, html, json, type Route } from '../src/support/ui/router';
 import {
@@ -32,6 +33,7 @@ import { usersPageContent } from '../src/support/ui/users-page';
 import { testUsersRoutes, type TestUsersService } from '../src/support/secrets/dashboard';
 import { forgetCredential, writeCredential } from '../src/support/secrets/file-store';
 import { createSecretStore } from '../src/integrations/secrets';
+import { VaultSecretStore, type VaultConnection } from '../src/integrations/vault/vault-store';
 import { casesPageContent } from '../src/support/ui/cases-page';
 import { storiesPageContent } from '../src/support/ui/stories-page';
 import { collectCoverage } from '../src/support/cases/collect';
@@ -133,6 +135,65 @@ function existingTargets(): string[] {
 /** Which of a plan's files already exist. Nothing is ever overwritten. */
 function existing(paths: string[]): string[] {
   return paths.filter((relative) => fs.existsSync(path.join(REPO_ROOT, relative)));
+}
+
+/**
+ * Resolve one credential path against a Vault the operator named.
+ *
+ * `describe` rather than `read`: existence and field names, never a value, so
+ * the answer is safe to render and there is no flag that changes that. The
+ * point is to find out *here* that the mount is wrong or the fields are called
+ * something else, rather than in a `setup:auth` timeout later.
+ */
+async function checkVault(input: {
+  connection: VaultConnection;
+  path: string;
+}): Promise<VaultCheckResult> {
+  const environment = [
+    `VAULT_ADDR=${input.connection.address}`,
+    ...(input.connection.namespace ? [`VAULT_NAMESPACE=${input.connection.namespace}`] : []),
+    ...(input.connection.kvMount && input.connection.kvMount !== 'kv'
+      ? [`VAULT_KV_MOUNT=${input.connection.kvMount}`]
+      : []),
+  ];
+
+  const store = VaultSecretStore.fromConnection(input.connection);
+  try {
+    const described = await store.describe(input.path);
+    if (!described.exists) {
+      return {
+        ok: false,
+        path: input.path,
+        exists: false,
+        fields: [],
+        detail:
+          'Connected, but nothing is at that path. Check the KV mount and the credential root ' +
+          'before the path itself — and on Vault Enterprise, the namespace, which prefixes ' +
+          'every API call.',
+        environment,
+      };
+    }
+
+    // The two the `secrets` fixture reads. Present-but-differently-named is the
+    // failure this check exists to catch, and it is invisible from "it exists".
+    const missing = ['username', 'password'].filter((field) => !described.fields.includes(field));
+    return {
+      ok: missing.length === 0,
+      path: input.path,
+      exists: true,
+      fields: described.fields,
+      ...(described.version === undefined ? {} : { version: described.version }),
+      detail:
+        missing.length === 0
+          ? 'The credential is there and carries username and password.'
+          : `The credential is there but has no ${missing.join(' and ')}. The secrets fixture ` +
+            'reads those two names, so rename the fields in Vault or the sign-in will resolve ' +
+            'nothing.',
+      environment,
+    };
+  } finally {
+    await store.close().catch(() => undefined);
+  }
 }
 
 /**
@@ -630,6 +691,7 @@ const service: DashboardService = {
   },
   probe,
   verify,
+  checkVault,
   existing,
 
   updateProfile: (target, edits) => {

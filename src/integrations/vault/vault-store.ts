@@ -39,6 +39,19 @@ export interface VaultConfig {
   totpPeriodSeconds: number;
 }
 
+/**
+ * Which Vault, and where in it — the part an operator can state without ever
+ * holding a secret. Authentication is not here on purpose; see
+ * `VaultSecretStore.fromConnection`.
+ */
+export interface VaultConnection {
+  address: string;
+  /** Enterprise namespaces prefix every API path (§17). */
+  namespace?: string;
+  /** KV v2 mount. Defaults to `kv`, which is Vault's own default. */
+  kvMount?: string;
+}
+
 export type VaultAuthConfig =
   | { method: 'jwt'; path: string; role: string; jwt: string }
   | { method: 'approle'; path: string; roleId: string; secretId: string }
@@ -79,10 +92,40 @@ export class VaultSecretStore implements SecretStore {
       );
     }
 
+    return VaultSecretStore.fromConnection({
+      address,
+      namespace: process.env.VAULT_NAMESPACE,
+      kvMount: process.env.VAULT_KV_MOUNT,
+    });
+  }
+
+  /**
+   * A Vault somebody named, rather than whichever one the environment happens
+   * to hold.
+   *
+   * Onboarding needs this: "which Vault, and how are secrets laid out in it"
+   * are the operator's to state, and until there was a way to say so the only
+   * answer was an environment variable set before the process started — which
+   * a page cannot ask for.
+   *
+   * **The token is deliberately not a parameter.** Authentication still
+   * resolves from the environment, so naming a Vault never means holding a
+   * credential for it: an address, a namespace and a mount are configuration,
+   * and the thing that would make them dangerous stays where it was.
+   */
+  static fromConnection(connection: VaultConnection): VaultSecretStore {
+    const address = connection.address.trim();
+    if (!address) {
+      throw new SecretStoreUnavailableError(
+        'A Vault address is needed. Point it at the Vault your team operates, or use a ' +
+          'local secret source for a target whose credentials are genuinely public.',
+      );
+    }
+
     return new VaultSecretStore({
       address: address.replace(/\/+$/, ''),
-      namespace: process.env.VAULT_NAMESPACE,
-      kvMount: process.env.VAULT_KV_MOUNT ?? 'kv',
+      namespace: connection.namespace?.trim() || undefined,
+      kvMount: connection.kvMount?.trim() || 'kv',
       totpMount: process.env.VAULT_TOTP_MOUNT ?? 'totp',
       databaseMount: process.env.VAULT_DB_MOUNT ?? 'database',
       totpPeriodSeconds: Number(process.env.VAULT_TOTP_PERIOD ?? 30),

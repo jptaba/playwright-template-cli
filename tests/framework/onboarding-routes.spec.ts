@@ -50,6 +50,14 @@ function service(overrides: Partial<DashboardService> = {}): DashboardService {
     }),
     verify: async () => ({ ok: true, marker: null, detail: 'Signed in.' }),
     existing: () => [],
+    checkVault: async ({ path }) => ({
+      ok: true,
+      path,
+      exists: true,
+      fields: ['username', 'password'],
+      detail: 'The credential is there and carries username and password.',
+      environment: [],
+    }),
     planRemoval: (target) => ({
       target,
       removeFiles: [`config/targets/${target}.ts`],
@@ -484,5 +492,114 @@ test.describe('boundaries on what a plan may set', () => {
     });
     expect(response.status).toBe(200);
     expect(response.body).toContain('standard');
+  });
+});
+
+/**
+ * The Vault connection check — item 12.
+ *
+ * The owner's ask was that somebody be able to point the framework at their
+ * own Vault by giving a URL and a data shape. The whole safety of that rests
+ * on one line: authentication is not part of what you may state here, because
+ * the token comes from the environment. These are that line.
+ */
+test.describe('checking a Vault connection', () => {
+  const connection = { address: 'https://vault.acme.example', kvMount: 'kv' };
+
+  test('resolves one path and reports the field names it holds', async () => {
+    const response = await send({
+      path: '/api/vault/check',
+      body: { connection, path: 'qa/acme-shop/pools/workforce/standard/1' },
+    });
+    expect(response.status).toBe(200);
+    expect(response.body).toContain('qa/acme-shop/pools/workforce/standard/1');
+    expect(response.body).toContain('username');
+  });
+
+  for (const field of ['token', 'secretId', 'secret_id', 'password', 'jwt']) {
+    test(`refuses a connection carrying a ${field}`, async () => {
+      /*
+         The door this page exists to keep shut. A Vault credential in a
+         request body is a credential in a browser, on the one page whose
+         design is that the agent writes the reference and a person writes the
+         value — and it would be the habit, not this one request, that did the
+         damage.
+      */
+      const response = await send({
+        path: '/api/vault/check',
+        body: {
+          connection: { ...connection, [field]: 'a-secret-value' },
+          path: 'qa/acme-shop/pools/workforce/standard/1',
+        },
+      });
+      expect(response.status).toBe(400);
+      expect(response.body).toContain('does not take a Vault credential');
+      expect(response.body, 'and it is not echoed back').not.toContain('a-secret-value');
+    });
+  }
+
+  test('an address with no scheme is refused, without naming an example host', async () => {
+    const response = await send({
+      path: '/api/vault/check',
+      body: { connection: { address: 'vault.acme.example' }, path: 'qa/x/y/z/1' },
+    });
+    expect(response.status).toBe(400);
+    expect(response.body).toContain('Include the scheme');
+  });
+
+  test('a scheme it cannot reach is refused', async () => {
+    const response = await send({
+      path: '/api/vault/check',
+      body: { connection: { address: 'file:///etc/passwd' }, path: 'qa/x/y/z/1' },
+    });
+    expect(response.status).toBe(400);
+    expect(response.body).toContain('not a scheme this can reach');
+  });
+
+  test('no address, and no path, are each their own refusal', async () => {
+    // Two different mistakes, and a message naming the wrong one sends
+    // somebody to check a field that was fine.
+    const noAddress = await send({
+      path: '/api/vault/check',
+      body: { connection: {}, path: 'qa/x/y/z/1' },
+    });
+    expect(noAddress.status).toBe(400);
+    expect(noAddress.body).toContain('needs its address');
+
+    const noPath = await send({ path: '/api/vault/check', body: { connection } });
+    expect(noPath.status).toBe(400);
+    expect(noPath.body).toContain('needs a credential path');
+  });
+});
+
+test.describe('the credential path shape reaches the write', () => {
+  test('a root and account type stated on the form are what get planned', async () => {
+    /*
+       The page shows a path and checks the Vault against it. If the write then
+       used a different one, the check would have proven something about a path
+       nothing reads — the same class of defect as a preview that disagrees
+       with what Create writes.
+    */
+    const response = await send({
+      path: '/api/plan',
+      body: {
+        name: 'acme-shop',
+        baseURL: 'https://staging.acme.example',
+        credentialRoot: 'secret/teams/qa',
+        accountType: 'contractors',
+        roles: ['standard'],
+      },
+    });
+    expect(response.status).toBe(200);
+    expect(response.body).toContain('secret/teams/qa/contractors/standard/1');
+  });
+
+  test('saying nothing writes what the scaffolder always wrote', async () => {
+    const response = await send({
+      path: '/api/plan',
+      body: { name: 'acme-shop', baseURL: 'https://staging.acme.example', roles: ['standard'] },
+    });
+    expect(response.status).toBe(200);
+    expect(response.body).toContain('qa/acme-shop/pools/workforce/standard/1');
   });
 });
