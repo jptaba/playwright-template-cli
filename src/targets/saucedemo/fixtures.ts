@@ -1,6 +1,7 @@
 import { test as framework } from '../../fixtures/base';
 import { signIn } from './actions/sign-in';
 import { inventory } from './actions/inventory';
+import { checkout } from './actions/checkout';
 
 /**
  * L3 — the one import a spec makes.
@@ -23,6 +24,8 @@ export interface SaucedemoFixtures {
   signIn: typeof signIn;
   /** Browsing the product listing and the cart it feeds. */
   inventory: typeof inventory;
+  /** The cart and the first step of checkout. */
+  checkout: typeof checkout;
   /** Builders for the data a spec needs. Never reads the application. */
   testData: SaucedemoTestData;
 }
@@ -33,6 +36,9 @@ export const test = framework.extend<SaucedemoFixtures>({
   },
   inventory: async ({}, use) => {
     await use(inventory);
+  },
+  checkout: async ({}, use) => {
+    await use(checkout);
   },
   testData: async ({ run }, use) => {
     await use({

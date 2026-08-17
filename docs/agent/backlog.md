@@ -103,9 +103,11 @@ out wrong and have been deleted; item 8 later joined them, having been observed
 but mis-diagnosed. Both sets are recorded under "Deleted guesses" at the bottom.
 
 **As of 2026-08-17 every onboarding-UX item is `done`, and so is item 10** — 1
-through 10, less the retired 8. Nothing is `ready` any more. What remains is
-item 11 (`hypothesis`, now unblocked — its dependency on item 10 is met),
-and items 12 and 13, which need input a run cannot generate alone.
+through 10, less the retired 8. Item 11's first slice is now `done` too (run
+12, same day) — see the item for what shipped and what evidence corrected
+along the way. Nothing is `ready`. What remains is the rest of item 11
+(`hypothesis`), and items 12 and 13, which need input a run cannot generate
+alone.
 
 ---
 
@@ -404,21 +406,73 @@ Do **not** fold item 11 into this.
 Owner's ask, 2026-08-16: every end-to-end test should be learned, fixed and
 optimised, continuously, until it is bulletproof.
 
-This is a standing objective, not a PR. Before it can be worked it needs
-decomposing into things a single run can finish. Candidate first slices, all
-cheap and all independent:
+This is a standing objective, not a single PR. The first two candidate slices
+below are now `done`, shipped on `agent/2026-08-17-triage-ground-truth` (run
+12).
 
-- Run the whole suite against the chosen target and record the failure
-  categories, not just the count — the triage ground-truth fixture already
-  exists for exactly this and nothing has been measured against it.
-- Compare what `triage:rules` settles against the fixture's recorded expected
-  categories. The conventions call that the agreement measurement and say it is
-  available on day one.
-- Only then decide what "optimise" means here, in numbers.
+**Correcting the premise this item was written on.** It said "the triage
+ground-truth fixture already exists for exactly this and nothing has been
+measured against it." That was wrong, checked against the filesystem rather
+than assumed: `src/targets/*/tests/triage-fixture/` did not exist anywhere in
+the repository. The fixture *had* existed — `git log` shows it added for the
+first `saucedemo` in `3e53bf3`, 2026-08-11 — but `1f38bbd` ("Make main a clean
+application-agnostic template") deleted it along with the rest of that target
+pack, and when run 11 re-onboarded `saucedemo` through the dashboard it
+legitimately built only what item 10 scoped: locators, actions and one
+`@smoke` spec, not the ground-truth fixture. The framework-level fixes that
+commit made to `src/support/triage/rules.ts` and `src/support/text.ts`
+survived, because those are framework code, not a target pack — only the
+target-specific specs were lost.
 
-Depended on item 10, which is now `done` — `saucedemo` is committed alongside
-`toolshop`. Unblocked as of 2026-08-17; still needs decomposing into a slice a
-single run can finish before it can move to `ready`.
+**What shipped.** Recreated `src/targets/saucedemo/tests/triage-fixture/known-failures.spec.ts`,
+plus the plumbing it needed that the current `saucedemo` pack did not yet
+have: `actions/checkout.ts` and `locators/checkout.ts` (the cart and step-one
+of checkout), a `sort`/`price` locator and `sortBy`/`displayedProducts`
+actions on the existing inventory pair, and local credential entries for
+`problem_user`, `error_user` and `performance_glitch_user` — saucedemo's own
+published demo accounts, legitimate here for the same reason `standard_user`
+already was. Every one of the four ground-truth failures was reproduced live
+against `https://www.saucedemo.com` before being encoded, not assumed from
+the deleted commit or from saucedemo's own documentation, and two turned out
+not to behave the way their names suggest:
+
+- `error_user`'s sort defect is not a silently wrong order. Choosing any sort
+  throws a JS `alert()` ("Sorting is broken!") and the listing never reorders
+  at all — the spec registers a `page.once('dialog', ...)` handler to observe
+  this rather than hang.
+- `performance_glitch_user`'s sign-in delay is not "barely late" — timed live
+  at 7.6s standalone and 13.6s under the four-way worker contention of a real
+  `triage-fixture` run, against a 3s budget.
+
+**Measured**, with `TARGET=saucedemo TRIAGE_FIXTURE=true npx playwright test
+--project=triage-fixture` then `npm run triage:cluster && npm run
+triage:rules`: 4 failures → 4 clusters → **1 of 4 settled by rule**
+(`network-infrastructure`, via the `transport-failure` rule — matches its
+ground-truth category exactly) **and 3 correctly declined** for judgement.
+That is the right answer, not a shortfall: no rule exists for
+`timing-synchronisation` or for either `application-defect` case, so declining
+all three is the rules module doing its job — inventing a false match would be
+the actual defect. This is the "compare what rules settle against the
+fixture's expected categories" measurement the item asked for, now run once
+with a recorded result rather than never run at all.
+
+**Not done, and the honest next slices:**
+
+- `toolshop` — the "comprehensive" target — has no triage-fixture either, and
+  building one needs its own exploration of what known-cause failures it can
+  produce on demand; nothing here should be assumed transferable.
+- "Only then decide what optimise means here, in numbers" is unstarted. A
+  concrete, cheap next slice: turn the three manual commands above into one
+  script (e.g. `npm run triage:measure`) that runs the fixture, triages it and
+  prints agreement against each spec's `GROUND_TRUTH`, so the measurement is
+  repeatable rather than a thing a person or an agent re-derives from
+  scratch each time. That is closer to "continuously" than this run's
+  one-off, manually-checked numbers are.
+- Neither slice needs `TARGET=saucedemo` specifically — either would extend
+  just as well starting from `toolshop`.
+
+Depended on item 10, which is `done`. Unblocked, and the two slices above are
+what remain before this item is fully decomposed.
 
 ### 13. The dashboard suite has load-sensitive tests — `hypothesis`
 

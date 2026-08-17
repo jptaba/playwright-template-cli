@@ -22,4 +22,11 @@ export const inventoryLocators = {
     inventoryLocators.item(page, name).getByRole('button', { name: 'Add to cart' }),
 
   cartBadge: (page: Page): Locator => page.getByTestId('shopping-cart-badge'),
+
+  price: (page: Page): Locator => page.getByTestId('inventory-item-price'),
+
+  // A native <select> with no <label> or aria-label exposes role="combobox"
+  // with no accessible name — confirmed against the running page — and it is
+  // the only combobox this page has.
+  sort: (page: Page): Locator => page.getByRole('combobox'),
 };

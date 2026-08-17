@@ -39,6 +39,7 @@ _Added on top of the framework fixtures when TARGET=saucedemo._
 |---|---|---|
 | `signIn` | `named actions — see the table below` | Signing in, and reading what the form reported. |
 | `inventory` | `named actions — see the table below` | Browsing the product listing and the cart it feeds. |
+| `checkout` | `named actions — see the table below` | The cart and the first step of checkout. |
 | `testData` | `SaucedemoTestData` | Builders for the data a spec needs. |
 
 ## actions/ — saucedemo
@@ -47,10 +48,16 @@ _L2 UI vocabulary. Composes locators, returns data, asserts nothing._
 
 | Name | Signature | What it does |
 |---|---|---|
+| `checkout.openCart` | `(page: Page) => Promise<void>` |  |
+| `checkout.proceedToCheckout` | `(page: Page) => Promise<void>` |  |
+| `checkout.provideDeliveryDetails` | `(page: Page, details: DeliveryDetails) => Promise<void>` |  |
+| `checkout.readError` | `(page: Page) => Promise<string \| null>` | The validation error the step reported, or null when it reported none. |
 | `inventory.open` | `(page: Page) => Promise<void>` |  |
 | `inventory.productNames` | `(page: Page) => Promise<string[]>` | The names on the listing, in the order shown. |
 | `inventory.addToCart` | `(page: Page, name: string) => Promise<void>` |  |
 | `inventory.cartCount` | `(page: Page) => Promise<number>` | The number on the cart badge, or 0 when the cart is empty. |
+| `inventory.sortBy` | `(page: Page, label: string) => Promise<void>` |  |
+| `inventory.displayedProducts` | `(page: Page) => Promise<{ name: string; price: number; }[]>` | Name and price for every card, in the order shown. |
 | `signIn.withCredentials` | `(page: Page, credentials: Credentials) => Promise<void>` | Submit the sign-in form. |
 | `signIn.isSignedIn` | `(page: Page) => Promise<boolean>` | Whether the page currently carries a session. |
 | `signIn.signedInAs` | `(page: Page) => Promise<string \| null>` | Who the session belongs to, or null when signed out. |

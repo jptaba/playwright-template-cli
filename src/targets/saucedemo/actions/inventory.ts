@@ -39,4 +39,20 @@ export const inventory = {
     if (!(await badge.isVisible())) return 0;
     return Number((await badge.textContent())?.trim() ?? '0');
   },
+
+  async sortBy(page: Page, label: string): Promise<void> {
+    await test.step(`Sort by "${label}"`, async () => {
+      await inventoryLocators.sort(page).selectOption({ label });
+    });
+  },
+
+  /** Name and price for every card, in the order shown. */
+  async displayedProducts(page: Page): Promise<{ name: string; price: number }[]> {
+    const names = await inventoryLocators.name(page).allTextContents();
+    const prices = await inventoryLocators.price(page).allTextContents();
+    return names.map((name, index) => ({
+      name: name.trim(),
+      price: Number(prices[index]!.replace('$', '')),
+    }));
+  },
 };

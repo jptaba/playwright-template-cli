@@ -639,3 +639,96 @@ rather than another anecdote, and item 12 still needs the owner's decision on
 Vault sign-in verification. With item 10 done, nothing in the backlog is
 `ready` — the next run should expect to decompose item 11 into something
 `ready`, or do a fresh scan if that decomposition does not hold up.
+
+## 2026-08-17 · run 12 · The ground-truth fixture that was not there
+
+**Picked:** scan run. Re-read `backlog.md` and `git log origin/main`
+immediately before starting, per the file's own warning: both agreed nothing
+had landed since run 11 and nothing was `ready`. Item 11's first candidate
+slice ("run the whole suite... the triage ground-truth fixture already exists
+for exactly this") was the obvious next thing to check — and checking it
+directly, rather than trusting the sentence, is what this run turned into.
+
+**Did:** `find src/targets -iname '*triage*'` returned nothing. The
+ground-truth fixture item 11 assumed existed does not — anywhere, for either
+target. `git log` explained why: it existed once, for the first `saucedemo`
+(`3e53bf3`, 2026-08-11, with four ground-truth specs and the transport/auth
+rule fixes in `src/support/triage/rules.ts` that came from testing against
+it), and `1f38bbd` ("Make main a clean application-agnostic template") deleted
+it along with the rest of that target pack. Run 11's re-onboarding rebuilt
+`saucedemo` from scratch through the dashboard and correctly built only what
+item 10 scoped — it never claimed to restore the fixture, and didn't.
+
+Rebuilt it. Added `actions/checkout.ts` + `locators/checkout.ts` (the cart and
+checkout step one — neither existed in the current pack), a `sort`/`price`
+locator pair and `sortBy`/`displayedProducts` actions on the existing
+inventory files, local credential entries for `problem_user`, `error_user`
+and `performance_glitch_user` (saucedemo's own published demo accounts, same
+legitimacy as `standard_user`), and
+`tests/triage-fixture/known-failures.spec.ts` with the four specs. Every
+failure was reproduced live against `https://www.saucedemo.com` with
+`playwright-cli` before being written into the spec — not assumed from the
+deleted commit — and two did not match what their account names imply:
+`error_user`'s sort control throws a JS `alert()` rather than silently
+misordering, and `performance_glitch_user`'s delay measured 7.6–13.6s against
+a 3s budget, not merely "late."
+
+Then ran the actual measurement: `TARGET=saucedemo TRIAGE_FIXTURE=true npx
+playwright test --project=triage-fixture` (4/4 failed, as designed), then
+`npm run triage:cluster && npm run triage:rules`. Result: 4 failures → 4
+clusters → 1 settled by rule (`network-infrastructure`, matching its
+ground-truth category) and 3 correctly declined — there is no rule for
+`timing-synchronisation` or for either `application-defect` case, so declining
+all three is correct behaviour, not a gap.
+
+**Verify:** `npm run verify` passes — 750 tests (unchanged; `test:framework`
+and `dashboard` do not exercise a target's own specs). Separately:
+`target:doctor` reports `saucedemo` OK with the three new credential entries;
+`tsc --noEmit` and `eslint .` both clean. Diff: 218 lines across 8 files —
+well under the ~400-line guideline.
+
+**PR:** branch `agent/2026-08-17-triage-ground-truth`; `main` fast-forwarded
+and pushed per the standing instruction, confirmed matching `origin/main`
+afterwards.
+
+**Learned:**
+
+- **A backlog sentence that names a capability as existing is a claim, and
+  this run is the second time in this file that claim was checked and found
+  false rather than trusted.** Run 10 did the same thing for "Create shows no
+  status line." Reading `docs/CONVENTIONS.md`'s description of the triage
+  ground-truth fixture and reading the filesystem gave two different answers,
+  and only the filesystem was current — the documentation describes a
+  capability the framework has, correctly, but says nothing about whether any
+  target currently uses it.
+- **The framework-level fix survives a target's deletion; the evidence that
+  earned it does not.** `3e53bf3`'s rule fixes (matching `net::ERR_*` codes,
+  word-boundary auth matching, ANSI stripping) are still in
+  `src/support/triage/rules.ts` and `src/support/text.ts` today, untouched by
+  either the template-cleanup deletion or run 11's rebuild — they are
+  framework code, not a target pack. Only the specs that originally produced
+  the failures proving those fixes were needed are gone. Worth knowing before
+  assuming a deleted target took its lessons with it: the lessons that made it
+  into framework code did not.
+- **"Meant to fail" specs are worth proving against the live application
+  before they are written, not just plausible from a variable name.** Two of
+  the four ground-truth categories would have been encoded wrong from memory
+  or from the deleted commit's comments: the sort defect throws instead of
+  silently misordering, and the timing defect is multiple seconds, not a hair
+  over budget. Both were caught by actually running `playwright-cli` against
+  saucedemo rather than trusting the account name or the old fixture's prose.
+- **Measuring agreement once, by hand, is not the same as "continuously… until
+  it is bulletproof."** The three commands run here are a snapshot, not a
+  loop. The honest next slice is turning them into one repeatable script
+  (`npm run triage:measure` or similar) that reports agreement automatically
+  — recorded in the item rather than built here, since this run was already at
+  a reasonable stopping point and a name-only script is exactly the kind of
+  premature abstraction the conventions warn against building without a
+  second caller.
+
+**Next:** Either of item 11's two remaining slices: build a triage-fixture for
+`toolshop` too (needs its own exploration — nothing here transfers by
+assumption), or write the one-command measurement script so agreement can be
+tracked over time instead of re-derived by hand. Item 13 still needs the
+quarantine machinery to produce a rate rather than another anecdote, and item
+12 still needs the owner's decision on Vault sign-in verification.
