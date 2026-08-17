@@ -35,6 +35,7 @@ import { fileFor, forgetCredential, writeCredential } from '../src/support/secre
 import type { CredentialLocation } from '../src/support/secrets/locations';
 import { createSecretStore, LocalSecretStore } from '../src/integrations/secrets';
 import { VaultSecretStore, type VaultConnection } from '../src/integrations/vault/vault-store';
+import { findMount } from '../src/support/onboarding/vault-connection';
 import { casesPageContent } from '../src/support/ui/cases-page';
 import { storiesPageContent } from '../src/support/ui/stories-page';
 import { collectCoverage } from '../src/support/cases/collect';
@@ -182,6 +183,8 @@ async function checkVault(input: {
   try {
     const described = await store.describe(input.path);
     if (!described.exists) {
+      const elsewhere =
+        input.source === 'vault' ? await findMount(input.connection!, input.path) : null;
       return {
         ok: false,
         path: input.path,
@@ -192,9 +195,13 @@ async function checkVault(input: {
             ? 'Nothing is at that path yet. That is normal before step 5 — Create writes it ' +
               'into the file chosen there. It is a problem only if you expected it to be here ' +
               'already, in which case check the credential root and the account type.'
-            : 'Connected, but nothing is at that path. Check the KV mount and the credential ' +
-              'root before the path itself — and on Vault Enterprise, the namespace, which ' +
-              'prefixes every API call.',
+            : elsewhere
+              ? `Connected, but nothing is at that path under the '${input.connection?.kvMount ?? 'kv'}' ` +
+                `mount — the same path resolves under '${elsewhere}'. Set the KV mount to ` +
+                `'${elsewhere}' and check again.`
+              : 'Connected, but nothing is at that path. Check the KV mount and the credential ' +
+                'root before the path itself — and on Vault Enterprise, the namespace, which ' +
+                'prefixes every API call.',
         environment,
       };
     }

@@ -127,11 +127,19 @@ a flaky test at all, but a real race in the page that the failing test was
 correctly reporting. **The only `ready` item left is item 12 slice 2**, the
 Vault sign-in verification.
 
-A standing constraint worth knowing before picking item 12: **the owner has no
-Vault instance to test against** (stated 2026-08-17). Vault work has to be
-proven through the local secret store, which deliberately shares its route,
-result shape and page rendering — so say plainly in the log which half was
-exercised live and which was only reasoned about.
+**Correcting the standing note on Vault, 2026-08-17 (run 21).** It said the
+owner has no Vault to test against. There is no *hosted* one and none is
+needed: `docker run --rm -p 8200:8200 -e VAULT_DEV_ROOT_TOKEN_ID=<token>
+hashicorp/vault` is a real Vault in one command, and Docker is installed here.
+Run 21 used it to confirm something three runs of reasoning had left open —
+**Vault mounts KV v2 at `secret/` while this framework defaults to `kv`** — and
+to drive the real `VaultSecretStore` against the real product for the first
+time.
+
+So: prove Vault work against a dev server, and use `tests/support/fake-vault-server.ts`
+(which already exists and is thorough) for the repeatable coverage. The fake
+believes whatever it is told, so anything that is an *assumption about Vault*
+needs the real thing once.
 
 ---
 

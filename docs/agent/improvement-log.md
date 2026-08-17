@@ -1326,3 +1326,69 @@ been seen red for the right reason proves nothing.
 **Next:** item 12 slice 2 remains the only `ready` item. Before building it,
 confirming the default-mount question above against a real dev server would be
 cheap and would either close a UX defect or remove a doubt.
+
+## 2026-08-17 · run 21 · A real Vault, and the default that misses on it
+
+**Picked:** the owner's follow-up — Docker Desktop is running, use it for a
+Vault. That settled the question run 20 had to leave open.
+
+**Did:** ran `hashicorp/vault` in dev mode and confirmed the thing the fake
+structurally cannot, because a fake believes whatever it is told:
+
+- **Vault mounts KV v2 at `secret/`.** Read from `/v1/sys/mounts` on a live
+  server: `secret/  kv  {"version":"2"}`. This framework defaults `kvMount` to
+  `kv`.
+- The real `VaultSecretStore` works against real Vault — token auth from the
+  environment, KV v2 envelope, `describe` and `read`. Driven directly:
+  `mount=kv → exists=false`, `mount=secret → exists=true, fields=[password,
+  username]`. That is the Vault path genuinely exercised for the first time,
+  rather than reasoned about.
+
+So the default misses on a stock Vault, and the failure is invisible: every
+path under a wrong mount 404s, and the message reads exactly like a wrong
+credential root or a wrong account type — sending people to check the two
+things that were fine.
+
+**Changing the default was rejected.** A Vault mounted at `kv` is perfectly
+normal, and flipping it would move the same silent miss onto those people
+instead. The miss now says where the secret actually is: one extra read on
+failure, and the message names the mount that resolved.
+
+Extracted to `src/support/onboarding/vault-connection.ts` rather than left in
+`tools/`, per this repository's own split — rules live where they can be tested
+without opening a socket, and `tools/` is the socket. Four tests, including the
+two that matter: that it finds the mount in *both* directions so the answer is
+not a hardcoded guess, and that a probe which throws never fails the check it
+was trying to explain (an operator told their Vault is unreachable, seconds
+after connecting to it, would reasonably stop trusting the page).
+
+**Verify:** `npm run verify` passes, exit 0 — 800 tests, up from 796.
+
+**Proven live end to end**, against the real Vault and the running dashboard:
+mount `kv` → *"Connected, but nothing is at that path under the 'kv' mount —
+the same path resolves under 'secret'. Set the KV mount to 'secret' and check
+again."* Following that advice → *"Found it. The credential is there and
+carries username and password"*, with `VAULT_KV_MOUNT=secret` added to the
+exports it prints. The seeded password appears nowhere in the page's HTML. The
+container was stopped afterwards and the scratch draft removed.
+
+**Learned:**
+
+- **The fake and the real product disagreed about a default, and only the real
+  one could say so.** Every existing Vault test passed while the default was
+  wrong for the commonest setup, because the fake was configured to match the
+  code rather than to match Vault. Worth remembering the shape: a fake shares
+  whatever assumption you build into it, so the assumptions themselves need a
+  real system, once, cheaply. Ten minutes of Docker answered a question three
+  runs of reasoning had left open.
+- **A wrong default is not automatically a default to change.** The evidence
+  said `kv` is wrong for a stock Vault; it did not say `secret` is right for
+  everyone. Making the failure self-diagnosing serves both, and cost less than
+  the argument about which default is correct would have.
+- **Vault is free to run locally and needs no signup**, which makes "we have no
+  Vault to test against" a smaller constraint than it looked. The standing note
+  in `backlog.md` should say "no *hosted* Vault", not "no Vault".
+
+**Next:** item 12 slice 2 — verify a Vault sign-in server-side — is still the
+only `ready` item, and is now much better positioned: a real Vault can be stood
+up in one command whenever it needs proving.
