@@ -6,8 +6,10 @@ import { buildEvidence, guarded, type TriageAgent } from '../../src/support/tria
 import {
   triageIsForRun,
   validateVerdict,
+  type TriageResult,
   type TriageVerdict,
 } from '../../src/support/triage/types';
+import { GROUND_TRUTH_ANNOTATION, measureAgreement } from '../../src/support/triage/agreement';
 import { registerSecret, resetSecretRegistry } from '../../src/support/redact';
 import { tally, type RunResult, type TestRecord } from '../../src/support/reporters/run-result';
 
@@ -280,5 +282,95 @@ test.describe('a triage result belongs to one run', () => {
     expect(triageIsForRun({ runId: 'run-a' }, 'run-a')).toBe(true);
     expect(triageIsForRun(null, 'run-a')).toBe(false);
     expect(triageIsForRun(undefined, 'run-a')).toBe(false);
+  });
+});
+
+test.describe('agreement against a ground-truth fixture', () => {
+  const withTruth = (id: string, message: string, expected: string, overrides = {}) =>
+    failing(id, message, {
+      annotations: [{ type: GROUND_TRUTH_ANNOTATION, description: expected }],
+      ...overrides,
+    });
+
+  /** The real pipeline, so the measurement is taken over what the rules actually settle. */
+  function triaged(tests: TestRecord[]): { run: RunResult; triage: TriageResult } {
+    const run = runWith(tests);
+    const clusters = clusterFailures(run);
+    const verdicts: TriageVerdict[] = [];
+    for (const cluster of clusters) {
+      const ruled = classifyByRule(cluster, {
+        run,
+        tests: tests.filter((test) => cluster.testIds.includes(test.id)),
+      });
+      if (ruled) verdicts.push(ruled);
+    }
+    return {
+      run,
+      triage: {
+        schemaVersion: 1,
+        runId: run.run.id,
+        generatedAt: run.run.finishedAt,
+        clusters,
+        verdicts,
+        stats: {
+          failures: tests.length,
+          clusters: clusters.length,
+          resolvedByRule: verdicts.length,
+          sentToAgent: 0,
+          needingHumanReview: 0,
+        },
+      },
+    };
+  }
+
+  test('a rule that settles a failure as the fixture says agrees', () => {
+    const { run, triage } = triaged([
+      withTruth('a', 'connect ECONNREFUSED 10.0.0.5:443', 'network-infrastructure'),
+    ]);
+    const agreement = measureAgreement(run, triage);
+    expect(agreement.totals.agreed).toBe(1);
+    expect(agreement.rows[0]).toMatchObject({ settled: 'network-infrastructure', outcome: 'agreed' });
+  });
+
+  test('a rule that settles a failure as something else is contradicted, not agreed', () => {
+    // The transport rule is right about the cause and the fixture claims a
+    // different one. Exactly one of them is wrong, and this is the measurement
+    // that says so instead of a green run that measured nothing.
+    const { run, triage } = triaged([
+      withTruth('a', 'connect ECONNREFUSED 10.0.0.5:443', 'application-defect'),
+    ]);
+    expect(measureAgreement(run, triage).totals).toMatchObject({ contradicted: 1, agreed: 0 });
+  });
+
+  test('declining a judgement call is a distinct outcome from getting it wrong', () => {
+    const { run, triage } = triaged([
+      withTruth('a', 'Expected "Rejected" but received "Approved"', 'application-defect'),
+    ]);
+    const agreement = measureAgreement(run, triage);
+    expect(agreement.totals).toMatchObject({ declined: 1, contradicted: 0 });
+    expect(agreement.rows[0]!.settled).toBeNull();
+  });
+
+  test('a ground-truth spec that passed measures nothing and says so', () => {
+    const passed = withTruth('a', 'no error message', 'application-defect', {
+      outcome: 'expected' as const,
+      status: 'passed' as const,
+      firstRunStatus: 'passed' as const,
+      error: null,
+    });
+    const { run, triage } = triaged([passed]);
+    expect(measureAgreement(run, triage).totals['not-reproduced']).toBe(1);
+  });
+
+  test('a category the taxonomy does not have is a typo, not a disagreement', () => {
+    const { run, triage } = triaged([withTruth('a', 'boom', 'app-defect')]);
+    const agreement = measureAgreement(run, triage);
+    expect(agreement.rows).toHaveLength(0);
+    expect(agreement.unknownCategories).toEqual([{ testId: 'a', category: 'app-defect' }]);
+  });
+
+  test('specs without the annotation are not measured', () => {
+    const { run, triage } = triaged([failing('a', 'connect ECONNREFUSED 10.0.0.5:443')]);
+    expect(measureAgreement(run, triage).rows).toHaveLength(0);
   });
 });

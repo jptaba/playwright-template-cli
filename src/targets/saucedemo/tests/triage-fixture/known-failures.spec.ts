@@ -6,9 +6,9 @@ import { expect, test } from '../../fixtures';
  *
  * **These specs are meant to fail.** They do not run in the normal suite —
  * the `triage-fixture` project only exists when `TRIAGE_FIXTURE=true`, so a
- * green pipeline stays green. Run them deliberately to produce a failing
- * `run-result.json`, then measure `npm run triage:rules`'s verdicts against
- * the categories recorded here.
+ * green pipeline stays green. `npm run triage:measure` runs them, triages the
+ * result and reports what the rules settled against the
+ * `triage-ground-truth` annotation each spec carries.
  *
  * `problem_user`, `error_user` and `performance_glitch_user` are saucedemo's
  * own published demo accounts. Every failure below was reproduced against the
@@ -22,17 +22,17 @@ import { expect, test } from '../../fixtures';
  *  - `performance_glitch_user`'s sign-in delay is several seconds, not a
  *    barely-late response — timed live at ~7.6s against a 3s budget.
  */
-export const GROUND_TRUTH = {
-  '5901': 'application-defect', // problem_user: Last Name is rejected as missing even though it was supplied — the field is cross-wired
-  '5902': 'application-defect', // error_user: sorting throws instead of reordering the listing
-  '5903': 'timing-synchronisation', // performance_glitch_user: sign-in alone blows the interaction budget
-  '5904': 'network-infrastructure', // the environment is unreachable
-} as const;
-
 test.describe('known-cause failures', () => {
   test(
     'TF-5901 · problem_user cannot complete checkout @known-failure',
-    { annotation: [{ type: 'practitest', description: '5901' }] },
+    {
+      annotation: [
+        { type: 'practitest', description: '5901' },
+        // Last Name is rejected as missing even though it was supplied — the
+        // field is cross-wired internally.
+        { type: 'triage-ground-truth', description: 'application-defect' },
+      ],
+    },
     async ({ page, secrets, signIn, inventory, checkout }) => {
       const account = await secrets.account('problem');
       await signIn.withCredentials(page, { username: account.username!, password: account.password! });
@@ -54,7 +54,12 @@ test.describe('known-cause failures', () => {
 
   test(
     'TF-5902 · error_user cannot sort the product listing @known-failure',
-    { annotation: [{ type: 'practitest', description: '5902' }] },
+    {
+      annotation: [
+        { type: 'practitest', description: '5902' },
+        { type: 'triage-ground-truth', description: 'application-defect' },
+      ],
+    },
     async ({ page, secrets, signIn, inventory }) => {
       const account = await secrets.account('error');
       await signIn.withCredentials(page, { username: account.username!, password: account.password! });
@@ -73,7 +78,12 @@ test.describe('known-cause failures', () => {
 
   test(
     'TF-5903 · performance_glitch_user exceeds the interaction budget @known-failure',
-    { annotation: [{ type: 'practitest', description: '5903' }] },
+    {
+      annotation: [
+        { type: 'practitest', description: '5903' },
+        { type: 'triage-ground-truth', description: 'timing-synchronisation' },
+      ],
+    },
     async ({ page, secrets, signIn, inventory }) => {
       const account = await secrets.account('performance_glitch');
       const budgetMs = 3_000;
@@ -92,7 +102,12 @@ test.describe('known-cause failures', () => {
 
   test(
     'TF-5904 · the environment is unreachable @known-failure',
-    { annotation: [{ type: 'practitest', description: '5904' }] },
+    {
+      annotation: [
+        { type: 'practitest', description: '5904' },
+        { type: 'triage-ground-truth', description: 'network-infrastructure' },
+      ],
+    },
     async ({ page, inventory }) => {
       // Ground truth: network. Deterministic rather than hoping an
       // environment happens to be down while we are measuring.

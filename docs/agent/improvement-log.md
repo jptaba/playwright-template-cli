@@ -732,3 +732,83 @@ assumption), or write the one-command measurement script so agreement can be
 tracked over time instead of re-derived by hand. Item 13 still needs the
 quarantine machinery to produce a rate rather than another anecdote, and item
 12 still needs the owner's decision on Vault sign-in verification.
+
+## 2026-08-17 · run 13 · One command for the agreement measurement
+
+**Picked:** item 11's second slice — the one run 12's own "Next" named. Re-read
+`backlog.md` and compared `main` to `origin/main` immediately before starting,
+per the file's warning about overlapping runs: both at `965b52a`, nothing had
+landed since run 12, and nothing was `ready`. The two candidate slices were a
+`toolshop` triage-fixture (needs its own live exploration) and the measurement
+script; the script is the smaller one and the one that makes the other cheap.
+
+**Did:** `npm run triage:measure` (`tools/triage-measure.ts`) now runs the
+fixture, runs cluster and rules, and reports agreement per spec. `--reuse`
+measures a run already on disk instead of producing a new one.
+
+The design decision worth recording is where the ground truth lives. It was an
+exported `GROUND_TRUTH` const in the saucedemo spec file, keyed by PractiTest
+id — which framework code cannot read, because `layer-boundaries` and
+`no-target-coupling` forbid `tools/` importing or naming a target pack. Rather
+than special-case it, the expected category moved onto each spec as a
+`triage-ground-truth` annotation. Annotations already travel into
+`run-result.json` verbatim (`run-result-reporter.ts:83`), so
+`measureAgreement(run, triage)` in `src/support/triage/agreement.ts` is pure
+framework code reading two JSON files, and **any** target that grows a fixture
+is measured by the same command with no framework change. That is the
+"capability, not a special case" test the conventions set, and the const would
+have failed it.
+
+Four outcomes, deliberately distinct: `agreed`, `contradicted`, `declined`, and
+`not-reproduced` for a ground-truth spec that passed. The command exits 1 on a
+contradiction, on a spec that stopped reproducing its cause, or on an
+annotation naming a category the taxonomy lacks — and exits **0** on a decline,
+because a rule refusing a genuine judgement call is correct behaviour and a
+command that failed on those would teach people to ignore it.
+
+**Verify:** `npm run verify` passes — 756 tests, up from 750 (six new agreement
+cases in `tests/framework/triage.spec.ts`). Diff: 466 insertions across 9
+files, of which ~129 are the three generated instruction files; hand-written is
+~336, under the ~400 guideline.
+
+Run end to end for real rather than trusted from the unit tests:
+`TARGET=saucedemo npm run triage:measure` against the live application produced
+**1 agreed · 0 contradicted · 3 declined**, exit 0 — reproducing run 12's
+hand-counted numbers exactly, with the categories compared by the tool instead
+of by eye. The failing path was exercised too, by editing the gitignored
+`run-result.json` to claim `test-data` for the network failure and re-running
+with `--reuse`: reported `✗ ... expected test-data · settled
+network-infrastructure`, exit 1, and the file was restored afterwards.
+
+**PR:** branch `agent/2026-08-17-triage-measure`; `main` fast-forwarded and
+pushed per the standing instruction, confirmed matching `origin/main`
+afterwards.
+
+**Learned:**
+
+- **The convention that framework code may not import a target pack decided
+  the design, and improved it.** The obvious implementation — import
+  `GROUND_TRUTH` and compare — is banned, and the ban is what forced the
+  annotation, which is what makes the measurement work for any future target
+  for free. Worth remembering the next time a layer rule looks like it is
+  merely in the way.
+- **"Repeatable" and "continuous" are not the same claim, and this slice only
+  bought the first.** One command replaces three, and the numbers are now
+  checked by a tool rather than a person — but nothing runs it on a schedule
+  and nothing trends the result, so a rule tightened next month is still
+  measured only if somebody remembers to measure it. Recorded as an open slice
+  rather than quietly counted as done.
+- **Exit codes are a policy statement, not plumbing.** Failing on a decline
+  would have been the easy default and would have made the command useless on
+  the current fixture, where three of four causes have no rule and correctly
+  should not. The taxonomy already says declining is right; the exit code had
+  to agree with it.
+
+**Next:** the `toolshop` triage-fixture is the remaining slice of item 11 with
+a clear shape — it needs its own live exploration of what known-cause failures
+that application can produce on demand, and `triage:measure` will report on it
+with no further framework work. The open question underneath it is whether
+"continuously" wants a scheduled run of `triage:measure` or a line in this
+loop; worth deciding before building either. Item 13 still needs the quarantine
+machinery to produce a rate rather than another anecdote, and item 12 still
+needs the owner's decision on Vault sign-in verification.

@@ -103,10 +103,10 @@ out wrong and have been deleted; item 8 later joined them, having been observed
 but mis-diagnosed. Both sets are recorded under "Deleted guesses" at the bottom.
 
 **As of 2026-08-17 every onboarding-UX item is `done`, and so is item 10** — 1
-through 10, less the retired 8. Item 11's first slice is now `done` too (run
-12, same day) — see the item for what shipped and what evidence corrected
-along the way. Nothing is `ready`. What remains is the rest of item 11
-(`hypothesis`), and items 12 and 13, which need input a run cannot generate
+through 10, less the retired 8. Two of item 11's slices are `done` as well
+(runs 12 and 13, same day) — see the item for what shipped and what evidence
+corrected along the way. Nothing is `ready`. What remains is the rest of item
+11 (`hypothesis`), and items 12 and 13, which need input a run cannot generate
 alone.
 
 ---
@@ -456,23 +456,40 @@ the actual defect. This is the "compare what rules settle against the
 fixture's expected categories" measurement the item asked for, now run once
 with a recorded result rather than never run at all.
 
+**Second slice, `done` (run 13, `agent/2026-08-17-triage-measure`).** The three
+manual commands are now one: `npm run triage:measure` runs the fixture, runs
+cluster and rules, and reports agreement per spec — `--reuse` measures a run
+already on disk. It reproduced run 12's hand-counted numbers exactly (1 agreed,
+0 contradicted, 3 declined) without anybody comparing categories by eye.
+
+The ground truth moved from an exported `GROUND_TRUTH` const to a
+`triage-ground-truth` annotation on each spec, because framework code may not
+import a target pack and annotations already reach `run-result.json` verbatim.
+So a fixture added to *any* target is measured by the same command with no
+framework change — which is what makes this a capability rather than a
+saucedemo script.
+
+The command fails (exit 1) only on a contradiction, on a ground-truth spec that
+passed, or on an annotation naming a category the taxonomy lacks. A decline
+exits 0: a rule refusing a judgement call is correct behaviour, and a command
+that failed on those would train people to ignore it.
+
 **Not done, and the honest next slices:**
 
 - `toolshop` — the "comprehensive" target — has no triage-fixture either, and
   building one needs its own exploration of what known-cause failures it can
-  produce on demand; nothing here should be assumed transferable.
-- "Only then decide what optimise means here, in numbers" is unstarted. A
-  concrete, cheap next slice: turn the three manual commands above into one
-  script (e.g. `npm run triage:measure`) that runs the fixture, triages it and
-  prints agreement against each spec's `GROUND_TRUTH`, so the measurement is
-  repeatable rather than a thing a person or an agent re-derives from
-  scratch each time. That is closer to "continuously" than this run's
-  one-off, manually-checked numbers are.
+  produce on demand; nothing here should be assumed transferable. This is now
+  the only remaining slice with a clear shape, and `triage:measure` measures it
+  for free the moment the specs carry annotations.
+- Nothing yet *runs* `triage:measure` on a schedule or trends its numbers.
+  One command is repeatable; it is not continuous. Whether that wants a CI job
+  or a line in this loop is unsettled, and worth deciding before building
+  either.
 - Neither slice needs `TARGET=saucedemo` specifically — either would extend
   just as well starting from `toolshop`.
 
-Depended on item 10, which is `done`. Unblocked, and the two slices above are
-what remain before this item is fully decomposed.
+Depended on item 10, which is `done`. Unblocked; two of its four slices have
+now shipped.
 
 ### 13. The dashboard suite has load-sensitive tests — `hypothesis`
 

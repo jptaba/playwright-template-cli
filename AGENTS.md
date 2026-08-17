@@ -1,5 +1,5 @@
 <!-- GENERATED FILE — DO NOT EDIT.
-     Source: docs/CONVENTIONS.md (sha256 19c588b087c49759)
+     Source: docs/CONVENTIONS.md (sha256 b3e7b8b5b52e6973)
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 
@@ -430,19 +430,40 @@ fail**, with causes known in advance. They do not run in the normal suite — th
 `triage-fixture` project exists only when `TRIAGE_FIXTURE=true` — so a green
 pipeline stays green.
 
-```bash
-TRIAGE_FIXTURE=true npx playwright test --project=triage-fixture
-npm run triage:cluster && npm run triage:rules
+Each spec declares the category it is meant to produce, as an annotation:
+
+```ts
+annotation: [
+  { type: 'practitest', description: '5904' },
+  { type: 'triage-ground-truth', description: 'network-infrastructure' },
+]
 ```
 
-Compare what the rules settled against the expected category recorded beside
-each spec. That comparison is the agreement measurement §20 asks for, and it is
-available on day one rather than after weeks of real failures with confirmed
-verdicts.
+```bash
+npm run triage:measure              # run the fixture, triage it, report agreement
+npm run triage:measure -- --reuse   # measure a run you already have
+```
 
-Rules that classify something the fixture says is a different category are
-wrong and should be tightened. Rules that decline to classify a genuine
-judgement call are **correct** — the model exists for those.
+That is the agreement measurement §20 asks for, and it is available on day one
+rather than after weeks of real failures with confirmed verdicts. It reports
+three outcomes and they are not the same thing:
+
+- **Agreed** — a rule settled it as the fixture says.
+- **Contradicted** — a rule settled it as something else. Exactly one of the
+  two is wrong, and it is usually the rule. This is the only outcome that
+  fails the command.
+- **Declined** — no rule matched. **Correct**, where the cause is a genuine
+  judgement call: the model exists for those, and a rule that invented a
+  category would be the actual defect.
+
+A ground-truth spec that *passes* is reported separately: the fixture has
+stopped reproducing a cause it claims, so its category is unmeasured rather
+than agreed.
+
+The expected category is an annotation rather than something the pack exports
+because framework code may not import a target pack. Annotations already reach
+`run-result.json` verbatim, so a fixture added to any target is measured by the
+same command with no framework change.
 
 ## When the vocabulary is missing
 
