@@ -1229,6 +1229,38 @@ function whyCannotSignIn() {
 }
 
 /*
+   Step 5's warning that signedInMarker is about to be a guess.
+
+   The preview rendered it once and nothing refreshed it, so signing in
+   afterwards — which derives a real marker and does write it — left the last
+   screen before the write still saying setup:auth would fail and that it was
+   too late to fix. The file written was correct; the page was wrong about it.
+   That is the same defect as a plan that no longer matches the form, on the
+   same screen, so it is repaired the same way: one place decides, and every
+   path that moves the marker calls it.
+
+   Not refreshed once the pack is written. The guess *was* written by then, and
+   markerArrivedTooLate is what speaks to that.
+*/
+function renderMarkerWarning() {
+  const box = $('markerWarning');
+  if (!box) return;
+  box.replaceChildren();
+  if (marker) return;
+  box.append(el('div', 'note',
+    'No sign-in has been verified yet, so signedInMarker will be written as a guess — ' +
+    'it is the one locator that cannot be read from a page at rest. setup:auth will fail ' +
+    'until it is corrected by hand. ' +
+    ($('secrets').value === 'vault'
+      // Telling a Vault operator to press a button this page does not show
+      // them is worse than saying nothing.
+      ? 'This page cannot sign in for a Vault target, so derive it from a snapshot of the ' +
+        'signed-in page — npm run explore — and correct locators/sign-in.ts afterwards.'
+      : 'Signing in once in step 4 first derives it and writes it for you; doing it ' +
+        'afterwards is too late, because these files are never overwritten.')));
+}
+
+/*
    What to say about a marker derived *after* the pack was written.
 
    The scaffold never overwrites, so there is nothing to press: the honest
@@ -1278,6 +1310,7 @@ $('verify').onclick = async () => {
       credentials: { username: u.value, password: p.value },
     });
     marker = result.marker;
+    if (!written) renderMarkerWarning();
     status.className = 'status';
     status.replaceChildren(el('span', result.ok ? 'found' : 'missing', result.ok ? 'Signed in. ' : 'Did not sign in. '));
     status.append(text(result.detail));
@@ -1363,19 +1396,10 @@ $('preview').onclick = async () => {
           'to fetch it, or switch Contracts off: written as it stands, the capability has nothing ' +
           'to check.'));
       }
-      if (!marker) {
-        box.append(el('div', 'note',
-          'No sign-in has been verified yet, so signedInMarker will be written as a guess — ' +
-          'it is the one locator that cannot be read from a page at rest. setup:auth will fail ' +
-          'until it is corrected by hand. ' +
-          ($('secrets').value === 'vault'
-            // Telling a Vault operator to press a button this page does not
-            // show them is worse than saying nothing.
-            ? 'This page cannot sign in for a Vault target, so derive it from a snapshot of the ' +
-              'signed-in page — npm run explore — and correct locators/sign-in.ts afterwards.'
-            : 'Signing in once in step 4 first derives it and writes it for you; doing it ' +
-              'afterwards is too late, because these files are never overwritten.')));
-      }
+      const markerBox = el('div', '');
+      markerBox.id = 'markerWarning';
+      box.append(markerBox);
+      renderMarkerWarning();
     }
     renderCredentials();
     enable('s4'); enable('s5');
@@ -1587,6 +1611,7 @@ $('assistDone').onclick = async () => {
     stopAssist();
     status.textContent = result.detail;
     if (result.marker) marker = result.marker;
+    if (!written) renderMarkerWarning();
     gauntlet = result.gauntlet || [];
 
     const box = $('assistOut');

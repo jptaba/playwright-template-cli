@@ -118,6 +118,64 @@ test.describe('the preview', () => {
     await expect(page.locator('#plan')).toContainText('too late');
   });
 
+  test('withdraws that warning once a sign-in has actually been verified', async ({ dashboard }) => {
+    /*
+       Observed on a real onboarding: preview, then sign in, and step 5 still
+       read "setup:auth will fail until it is corrected by hand" — while the
+       file it went on to write held the derived marker and was correct. The
+       write was right and the last screen before it was wrong about the write,
+       which is the same defect as a plan that no longer matches the form.
+    */
+    const { page } = dashboard;
+    await page.fill('#name', 'shop');
+    await page.fill('#baseURL', 'https://staging.shop.test');
+    await page.check('#confirmTest');
+    await page.click('#probe');
+    await expect(page.locator('#s3')).not.toHaveAttribute('inert', '');
+    await page.selectOption('#secrets', 'local');
+    await page.click('#preview');
+    await expect(page.locator('#plan')).toContainText('signedInMarker will be written as a guess');
+
+    await page.fill('#cu-standard', 'shopper@shop.test');
+    await page.fill('#cp-standard', 'a-password');
+    await page.click('#verify');
+    await expect(page.locator('#verifyStatus')).toContainText('Signed in.');
+
+    await expect(page.locator('#plan')).not.toContainText('will be written as a guess');
+    // The rest of the plan is untouched: this withdraws a warning, not a plan.
+    await expect(page.locator('#plan')).toContainText('file(s) will be written');
+    await expect(page.locator('#create')).toBeEnabled();
+  });
+
+  test('keeps the warning when the guess has already been written', async ({ dashboard }) => {
+    /*
+       The other direction, and the one that would be a new lie. After the
+       write there is nothing to take back: the files exist, the scaffold never
+       overwrites, and the guess really is in locators/sign-in.ts. Clearing the
+       warning here because a marker arrived would report a correct pack.
+    */
+    const { page } = dashboard;
+    await page.fill('#name', 'shop');
+    await page.fill('#baseURL', 'https://staging.shop.test');
+    await page.check('#confirmTest');
+    await page.click('#probe');
+    await expect(page.locator('#s3')).not.toHaveAttribute('inert', '');
+    // Before the preview, or choosing it withdraws the plan this test writes.
+    await page.selectOption('#secrets', 'local');
+    await page.click('#preview');
+    await expect(page.locator('#plan')).toContainText('signedInMarker will be written as a guess');
+
+    await page.click('#create');
+    await expect(page.locator('#result')).toContainText('file(s).');
+
+    await page.fill('#cu-standard', 'shopper@shop.test');
+    await page.fill('#cp-standard', 'a-password');
+    await page.click('#verify');
+    await expect(page.locator('#verifyStatus')).toContainText('This was not written to the pack.');
+
+    await expect(page.locator('#plan')).toContainText('signedInMarker will be written as a guess');
+  });
+
   test('tells a Vault target the truth, which is a different instruction', async ({ dashboard }) => {
     /*
        This page cannot sign in for a Vault target — there is no credential to

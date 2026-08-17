@@ -105,8 +105,9 @@ but mis-diagnosed. Both sets are recorded under "Deleted guesses" at the bottom.
 **As of 2026-08-17 every onboarding-UX item is `done`, and so is item 10** — 1
 through 10, less the retired 8. Two of item 11's slices are `done` as well
 (runs 12 and 13, same day) — see the item for what shipped and what evidence
-corrected along the way. Nothing is `ready`. What remains is the rest of item
-11 (`hypothesis`), and items 12 and 13, which need input a run cannot generate
+corrected along the way. Item 14, found by re-driving the dashboard in run 14,
+is `done` too. Nothing is `ready`. What remains is the rest of item 11
+(`hypothesis`), and items 12 and 13, which need input a run cannot generate
 alone.
 
 ---
@@ -373,6 +374,9 @@ Cosmetic — the file written is correct either way — so left as a loose threa
 rather than a new item; worth a look if someone is already in that area of
 `dashboard-page.ts`.
 
+**Run 14 picked that loose thread up as item 14 and it is now `done`.** It was
+under-rated as cosmetic: see the item for why.
+
 The original text follows.
 
 Owner's ask, 2026-08-16: find a real application on the internet usable for a
@@ -490,6 +494,37 @@ that failed on those would train people to ignore it.
 
 Depended on item 10, which is `done`. Unblocked; two of its four slices have
 now shipped.
+
+### 14. Step 5 kept warning about a guess after the sign-in that removed it — `done`
+
+Shipped on `agent/2026-08-17-marker-warning-stays-true`. The warning is now
+rendered by one function that both sign-in paths call, so a verified sign-in
+withdraws it and the last screen before the write stops contradicting the
+write.
+
+Promoted from run 11's loose thread, and **re-driven live before being
+touched** rather than taken on trust — the notes had called it cosmetic. It is
+not. Reproduced against a running dashboard on `https://www.saucedemo.com`:
+preview, then **Sign in once**, which derived `button "Open Menu"` and reported
+success, and step 5 went on saying *"signedInMarker will be written as a guess
+… setup:auth will fail until it is corrected by hand … doing it afterwards is
+too late."* Every clause of that is false at that moment. Run 11 rated it
+cosmetic because the **file** written is correct; the cost is not the file, it
+is a user who reads the last screen before an irreversible step and is told the
+thing they just did was too late. The honest reaction to it is to redo the
+onboarding or hand-edit a file that needs no edit.
+
+Same defect as item 5, one screen further on: the page allowed to disagree with
+what it is about to do. Fixed the same way — one place decides, every path that
+moves the marker calls it.
+
+The `written` guard is the half worth keeping: once step 5 has written the
+pack, a later sign-in must **not** clear the warning, because the guess really
+was written and `markerArrivedTooLate` is what speaks to that. Both directions
+are pinned by tests, and the too-late path was confirmed live as well.
+
+No copy was added and no step. The fixed state is simply the absence of a
+warning that no longer applies — exactly what a fresh preview would have shown.
 
 ### 13. The dashboard suite has load-sensitive tests — `hypothesis`
 

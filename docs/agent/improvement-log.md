@@ -812,3 +812,88 @@ with no further framework work. The open question underneath it is whether
 loop; worth deciding before building either. Item 13 still needs the quarantine
 machinery to produce a rate rather than another anecdote, and item 12 still
 needs the owner's decision on Vault sign-in verification.
+
+## 2026-08-17 · run 14 · The warning that outlived the thing it warned about
+
+**Picked:** scan run, which turned into item 14. Re-read `backlog.md` and
+compared `main` to `origin/main` before starting, per the file's warning about
+overlapping runs: both at `5dc115a`, nothing had landed since run 13, and
+nothing was `ready`.
+
+The remaining slice with a clear shape was a `toolshop` triage-fixture. It was
+not taken. The standing priority is the dashboard and onboarding journey, and
+run 11 had recorded a live observation against exactly that surface — step 5's
+"no sign-in has been verified yet" warning surviving a successful sign-in —
+which it filed as a loose thread rather than an item because it judged it
+cosmetic. A triage-fixture is not on the standing priority; this was.
+
+**Did:** Re-drove the running dashboard against `https://www.saucedemo.com`
+before touching anything, and the "cosmetic" rating did not survive it.
+Preview, then **Sign in once**: the page derived `button "Open Menu"` and
+reported success, and step 5 continued to read *"signedInMarker will be written
+as a guess … setup:auth will fail until it is corrected by hand … doing it
+afterwards is too late, because these files are never overwritten."* Every
+clause false at that moment, on the last screen before the irreversible step.
+
+The warning was rendered inline by the preview handler and nothing refreshed
+it. Extracted it into `renderMarkerWarning()` against a stable `#markerWarning`
+container, called by the preview and by both sign-in paths — the headless
+**Sign in once** and the assisted browser. Guarded with `if (!written)` on the
+sign-in call sites: once step 5 has written the pack the guess really was
+written, and clearing the warning then would be a fresh lie in the opposite
+direction, with `markerArrivedTooLate` already the thing that speaks to it.
+
+**Verify:** `npm run verify` passes, exit 0 — 758 tests, up from 756. Diff 96
+lines across 2 files (`src/support/onboarding/dashboard-page.ts`,
+`tests/dashboard/step5-write-it.spec.ts`).
+
+Confirmed live afterwards, not only in tests: with the fix loaded, the same
+click path leaves `#markerWarning` empty after a successful sign-in while the
+plan, the preview status line and the enabled Create button are all untouched.
+The too-late direction was exercised on the running dashboard too — sign in,
+Create, sign in again — and "This was not written to the pack." appeared as it
+should. The scratch target was removed with `tools/offboard.ts` and
+`config/secrets.local.json` confirmed byte-identical (md5 unchanged) to before
+the run.
+
+**PR:** branch `agent/2026-08-17-marker-warning-stays-true`; `main`
+fast-forwarded and pushed, `main` and `origin/main` confirmed matching.
+
+**Learned:**
+
+- **"Cosmetic" was the wrong rating and re-driving it is what showed that.**
+  Run 11's reasoning was that the file written is correct either way, which is
+  true and is not the cost. The cost is a person reading the last screen before
+  an irreversible write and being told the thing they just did was too late —
+  the reasonable reactions to which are to redo the onboarding or to hand-edit
+  a file that needs no edit. Worth generalising: "the artifact is right" does
+  not settle "the page is right", and on this page the two have now diverged
+  three times (items 2, 5, 14).
+- **The fix already had a shape in the repository.** Item 5 solved the same
+  class of problem — a rendered thing allowed to outlive the state it
+  described — with one function that owns the decision. Reusing that shape
+  rather than adding a second listener kept this to one new function and three
+  call sites.
+- **Run 5's ordering trap is still live and cost a cycle here too.**
+  `readyToWrite` previews immediately, so a test that selects the secret source
+  afterwards invalidates its own plan and Create is disabled. It is recorded in
+  run 5's entry and it still catches people; set the source before the only
+  preview, as `step4-credentials.spec.ts` does.
+- **The Browser pane could not scroll this page** (`scrollTop` pinned at 60
+  regardless of `window.scrollTo`, `scrollIntoView` or the `scroll` action), so
+  the journey was driven by dispatching real `input`/`change`/`click` events
+  through the page's own handlers and reading the DOM back — the method run 10
+  used. Every handler under test ran for real; only the pixel-level input was
+  synthesized. Worth knowing before spending a run on the scroll problem.
+- **A stale draft greets the next run.** `.onboarding-draft.json` is gitignored
+  and survives sessions, and this run opened onto a previous run's saucedemo
+  draft. It was deleted at the end so the next dashboard opens on
+  "— New application —", which is item 6's intended default.
+
+**Next:** the `toolshop` triage-fixture remains item 11's one slice with a
+clear shape, and needs its own live exploration of what known-cause failures
+that application can produce on demand. The open question underneath it — does
+"continuously" want a scheduled `triage:measure` or a line in this loop — is
+still unanswered and still worth deciding before building either. Item 13 needs
+the quarantine machinery to produce a rate rather than a third anecdote, and
+item 12 still needs the owner's decision on Vault sign-in verification.
