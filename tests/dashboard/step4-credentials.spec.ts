@@ -99,6 +99,44 @@ test.describe('signing in once', () => {
     });
   });
 
+  test('signing in after the write says so, and gives the edit', async ({ dashboard }) => {
+    /*
+       The ordering trap, and it used to be invisible. Sign in before writing
+       and the derived marker goes into the pack; sign in after and the scaffold
+       cannot overwrite, so it was derived, shown, and dropped — leaving the
+       guess in the file under a comment saying the sign-in was skipped. The
+       page said "Signed in." either way.
+    */
+    const { page } = dashboard;
+    await readyForCredentials(dashboard);
+    await page.fill('#cu-standard', 'shopper@shop.test');
+    await page.fill('#cp-standard', 'a-password');
+
+    await page.click('#create');
+    await expect(page.locator('#result')).toContainText('file(s).');
+
+    await page.click('#verify');
+    const status = page.locator('#verifyStatus');
+    await expect(status).toContainText('This was not written to the pack.');
+    await expect(status).toContainText('src/targets/shop/locators/sign-in.ts');
+    // The exact replacement, not a description of one.
+    await expect(status).toContainText("page.getByRole('button', { name: 'My account' })");
+    await expect(status).toContainText('setup:auth');
+  });
+
+  test('signing in before the write says nothing about being too late', async ({ dashboard }) => {
+    // The warning must stay off the path that works, or it is noise on the
+    // journey the page is trying to encourage.
+    const { page } = dashboard;
+    await readyForCredentials(dashboard);
+    await page.fill('#cu-standard', 'shopper@shop.test');
+    await page.fill('#cp-standard', 'a-password');
+    await page.click('#verify');
+
+    await expect(page.locator('#verifyStatus')).toContainText('Signed in.');
+    await expect(page.locator('#verifyStatus')).not.toContainText('not written to the pack');
+  });
+
   test('a refused sign-in says so without claiming success', async ({ dashboard }) => {
     const { page } = dashboard;
     dashboard.recorder.verifyResult = {

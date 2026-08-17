@@ -169,3 +169,47 @@ desk", not a guarantee, and the log is how a missed run stays visible.
 
 **Next:** Item 2 — verifying after Create derives the right marker and throws it
 away. Unchanged by this entry.
+
+## 2026-08-16 · run 4 · Both ends of the ordering trap
+
+**Picked:** backlog item 2, and item 3 folded in — they are one trap seen from
+either end, and separating them would have shipped half a fix.
+
+**Did:** The page now tracks whether step 5 has written the pack. A sign-in
+verified *after* the write says plainly that nothing was written, names
+`src/targets/<name>/locators/sign-in.ts`, and prints the exact replacement
+`signedInMarker` line to paste, followed by the `setup:auth` command to prove
+it. Both sign-in paths carry it — the headless "Sign in once" and the assisted
+browser — through one shared helper. From the other end, step 5's preview now
+warns *before* writing that no sign-in has been verified and the marker will be
+a guess, and step 4 no longer calls signing in "optional, and worth it". Three
+dashboard tests added, including one asserting the warning stays **off** the
+path that works.
+
+**Verify:** `npm run verify` passes — 739 tests. Diff 122 lines across 3 files.
+**PR:** branch `agent/2026-08-16-ordering-trap`; `main` fast-forwarded and
+pushed per the standing instruction.
+
+**Learned:**
+
+- **No step was added, on purpose.** The obvious fix is a confirmation before
+  Create — "you have not signed in, are you sure?" — and that is exactly the
+  net loss the brief warns about. The cure for a wizard nobody reads is not
+  another click. Both warnings land on screens the user is already looking at.
+- **Not writing the marker post-hoc was the right call.** A button that edits an
+  already-written file would break "nothing is ever overwritten", which is the
+  rule that makes onboarding safe to re-run. Printing the exact edit costs the
+  user one paste and keeps the guarantee.
+- **The advice was checked, not assumed.** Pasted the page's suggested line into
+  the file verbatim and ran `setup:auth`: it passes. An error message naming a
+  fix that does not work is worse than one that says nothing.
+- **`tests/framework/page-copy.spec.ts` caps an explain block at 34 words** and
+  a page at 220 visible. The first draft of the step 4 copy was 59 words and the
+  suite refused it — a real convention catching a real regression, and worth
+  knowing before writing page copy rather than after.
+
+**Next:** Item 4 (the Vault default routing a first-time user into a step that
+cannot complete) or item 5 (the stale preview writing 7 files after promising
+6). Item 5 is the more serious of the two — it is the page showing one thing and
+doing another — so take that unless something louder appears. Item 10, the
+second committed target, is a good standalone after those.

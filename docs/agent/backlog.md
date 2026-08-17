@@ -134,7 +134,14 @@ Framework-level and capability-shaped; no target may be named. Add a
 `tests/framework/` case with a snapshot pair containing a duplicated name — the
 derivation is pure and already unit-testable.
 
-### 2. Verifying after Create silently discards the derived marker — `ready`
+### 2. Verifying after Create silently discards the derived marker — `done`
+
+Shipped on `agent/2026-08-16-ordering-trap`, together with item 3, because they
+are the same trap seen from either end. A sign-in verified after the write now
+says plainly that nothing was written, names the file, and prints the exact
+replacement — proven verbatim: pasting it in makes `setup:auth` pass.
+
+The original text follows.
 
 Order matters and nothing says so. Verify → Create bakes the marker into
 `locators/sign-in.ts`; Create → Verify reports the same marker on the page and
@@ -152,7 +159,19 @@ should be off the table.
 Depends on nothing; can land before or after item 1. Pairs naturally with
 item 3.
 
-### 3. Sign-in is labelled optional but the stated aim depends on it — `ready`
+### 3. Sign-in is labelled optional but the stated aim depends on it — `done`
+
+Shipped on `agent/2026-08-16-ordering-trap`. Step 4 no longer calls signing in
+"optional, and worth it"; step 5's preview warns, before the write, that
+`signedInMarker` will be a guess and that afterwards is too late. No step was
+added — the warning lands on the screen the user is already reading.
+
+Note for whoever writes page copy next: `tests/framework/page-copy.spec.ts`
+caps an explain block at **34 words** and a whole page at 220 visible. The first
+draft of the step 4 wording was 59 and the suite refused it. That is the
+conventions working, not an obstacle.
+
+The original text follows.
 
 Step 4 says *"Signing in once is optional, and worth it."* The banner says the
 aim is that `setup:auth` passes unedited. Skipping the sign-in guarantees it

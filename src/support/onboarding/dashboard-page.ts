@@ -253,7 +253,8 @@ const BODY = `
     <p class="lockhint">Unlocks once step 3 has previewed what will be written.</p>
     <p class="explain">
       One login per role. <b>Nothing typed here appears in any response from this page.</b>
-      Signing in once is optional, and worth it.
+      <b>Sign in once before step 5 writes</b> — it derives the signed-in marker, and
+      afterwards is too late.
     </p>
     <details class="more">
       <summary>Where these go, and what signing in proves</summary>
@@ -360,6 +361,18 @@ const ASIDE = `
 const SCRIPT = `
 let probed = null;
 let marker = null;
+/*
+   Whether step 5 has already written the pack.
+
+   Signing in is offered before *and* after the write, and the two mean very
+   different things. Before, the derived marker is written into the locators
+   file. After, nothing is written — the scaffold never overwrites — so the
+   marker is derived, displayed, and dropped, leaving the guess in the file and
+   a comment claiming verification "was skipped or did not succeed", which by
+   then is untrue. That silence cost a whole onboarding: the sign-in was proven
+   to work and \`setup:auth\` still failed on a locator nobody was told about.
+*/
+let written = false;
 let applications = [];
 /** The new-application form, remembered between page loads. */
 let draft = { fields: {}, flags: {}, services: [], savedAt: '' };
@@ -1078,6 +1091,35 @@ function whyCannotSignIn() {
   return null;
 }
 
+/*
+   What to say about a marker derived *after* the pack was written.
+
+   The scaffold never overwrites, so there is nothing to press: the honest
+   answer is the exact edit, in the one file it belongs in. Returns null before
+   the write, when the marker is about to be used properly, and when nothing
+   was derived to talk about.
+*/
+function markerArrivedTooLate(derived) {
+  if (!written || !derived) return null;
+
+  const name = $('name').value.trim() || '<name>';
+  const file = 'src/targets/' + name + '/locators/sign-in.ts';
+  const call = "page.getByRole('" + derived.role + "', { name: '" + derived.name.replace(/'/g, "\\\\'") + "' })";
+
+  const box = el('div', 'diag error');
+  box.append(el('b', '', 'This was not written to the pack.'), text(
+    ' The files already exist and onboarding never overwrites them, so the marker above ' +
+    'was derived and then dropped. ' + file + ' still holds the guess, and its comment still ' +
+    'says the sign-in was skipped. Change signedInMarker to:'));
+  const edit = el('pre');
+  edit.textContent = 'signedInMarker: (page: Page): Locator =>\\n  ' + call + ',';
+  box.append(edit);
+  box.append(el('div', 'fix',
+    'Then TARGET=' + name + ' npx playwright test --project=setup:auth to prove it. ' +
+    'Signing in before pressing "Create the target" writes this for you.'));
+  return box;
+}
+
 $('verify').onclick = async () => {
   const status = $('verifyStatus');
   const roles = rolesTyped();
@@ -1102,6 +1144,8 @@ $('verify').onclick = async () => {
     status.className = 'status';
     status.replaceChildren(el('span', result.ok ? 'found' : 'missing', result.ok ? 'Signed in. ' : 'Did not sign in. '));
     status.append(text(result.detail));
+    const tooLate = markerArrivedTooLate(result.marker);
+    if (tooLate) status.append(tooLate);
   } catch (error) {
     status.className = 'status error';
     status.textContent = error.message;
@@ -1143,6 +1187,24 @@ $('preview').onclick = async () => {
       const list = el('ul', 'files');
       for (const file of plan.files) list.append(el('li', '', file));
       box.append(list);
+      /*
+         Step 4 calls signing in "optional, and worth it", and the banner says
+         the aim is that setup:auth passes unedited. Both cannot be true: with
+         no sign-in the signedInMarker is a guess, and a guessed marker fails as
+         a bare timeout minutes later, nowhere near the decision that caused it.
+
+         Said here rather than behind a confirmation, because the cure for a
+         wizard nobody reads is not another click. This is the last screen
+         before the write and the one somebody is already looking at.
+      */
+      if (!marker) {
+        box.append(el('div', 'note',
+          'No sign-in has been verified yet, so signedInMarker will be written as a guess — ' +
+          'it is the one locator that cannot be read from a page at rest. setup:auth will fail ' +
+          'until it is corrected by hand. Signing in once in step 4 first derives it and writes ' +
+          'it for you; doing it afterwards is too late, because these files are never ' +
+          'overwritten.'));
+      }
     }
     renderCredentials();
     enable('s4'); enable('s5');
@@ -1176,6 +1238,7 @@ $('create').onclick = async () => {
         result.append(node);
       }
     }
+    written = true;
     const next = el('pre');
     next.textContent = created.nextSteps.map((s, i) => (i + 1) + '. ' + s).join('\\n');
     result.append(el('div', '', 'Next:'), next);
@@ -1386,6 +1449,8 @@ $('assistDone').onclick = async () => {
           'target has a second role — an account menu usually has a stable test id or an ' +
           'aria-label. The generated locator file says so too.'));
       }
+      const tooLate = markerArrivedTooLate(result.marker);
+      if (tooLate) box.append(tooLate);
     }
     for (const line of result.describes) box.append(el('div', 'diag', line));
 

@@ -34,6 +34,23 @@ test.describe('the preview', () => {
     await expect(page.locator('#create')).toBeEnabled();
   });
 
+  test('warns that the signed-in marker will be a guess, before writing one', async ({
+    dashboard,
+  }) => {
+    /*
+       Step 4 used to call signing in "optional, and worth it" while the banner
+       promised setup:auth would pass unedited. Both cannot be true — skipping
+       it writes a guessed marker that fails as a bare timeout minutes later,
+       nowhere near the choice that caused it. Said at the preview, which is the
+       last screen before the write, and not behind a confirmation: the cure for
+       a wizard nobody reads is not another click.
+    */
+    const { page } = dashboard;
+    await readyToWrite(dashboard);
+    await expect(page.locator('#plan')).toContainText('signedInMarker will be written as a guess');
+    await expect(page.locator('#plan')).toContainText('too late');
+  });
+
   test('a conflict refuses, and does not also list the files as outgoing', async ({ dashboard }) => {
     /*
        The contradiction somebody actually met: "nothing will be written",
