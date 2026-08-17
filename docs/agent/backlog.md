@@ -285,15 +285,6 @@ section that owns the button gives no sign it worked.
 Either summarise the plan in step 3 and keep the full list in step 5, or move
 the badge. Small, and it makes item 5's invalidation legible when it lands.
 
-### 8. Create runs several seconds with no status line — `ready`
-
-Probe and verify both disable their button and show a status ("Loading the
-application…", "Signing in once…"). Create shows nothing. Same treatment, one
-line.
-
-Also worth doing here: the probe takes 12–18 seconds behind a static string with
-no elapsed time and no cancel. Not silence, but not progress either.
-
 ### 9. Reloading throws away the unlock state, not the answers — `done`
 
 Shipped on `agent/2026-08-17-reload-keeps-its-place`. A draft carrying step 1's
@@ -447,13 +438,32 @@ Written from source, disproved by use. Recorded so nobody re-adds them.
   dashboard's messages name the file, the fix and often the exact command, and
   are better than most of the framework. The remaining gap is item 1, where a
   correct message points at a locator the tool itself wrote wrongly.
-- **"Long-running routes go silent."** Mostly wrong: probe and verify both
-  report progress. Only Create does not, which survives as item 8.
+- **"Long-running routes go silent."** Wrong for all three routes, not just
+  two. Probe and verify report progress, and so, it turns out, does Create —
+  see the next entry.
 - **"The disclosure pattern may be carrying too much."** Not supported. The
   disclosures hold reasoning; the instruction is in the section body. Nothing
   needed to act was found behind one.
 - **"Recoverability of a part-finished onboarding."** Half wrong — the draft
   keeps more than expected. Only the unlock-state half survives, as item 9.
+- **Former item 8, "Create runs several seconds with no status line."**
+  Wrong, checked directly against a running server rather than assumed.
+  `$('create').onclick` has set `result.textContent = 'Writing…'` and disabled
+  the button since the dashboard's very first commit (`1166f7c`,
+  `src/support/onboarding/dashboard-page.ts`) — the exact "same treatment" the
+  item asked for already existed. Calling `document.getElementById('create').click()`
+  in the live page and reading `#result` synchronously afterwards (before the
+  pending fetch resolves) showed `"Writing…"` with the button disabled, proving
+  it renders. The "several seconds" half was checked too: `performance.getEntriesByType('resource')`
+  timed the real `/api/create` round trip at **66–90ms**, cold, against a real
+  external target (`saucedemo`) as well as a scratch one — the handler is pure
+  local file I/O with no network call in it (`tools/dashboard.ts:306`,
+  `diagnoseWritten`), so there is no path to a multi-second Create at all. The
+  ~10s in `journey-notes.md`'s table almost certainly measured the
+  observing agent's own round-trip, not the page. The probe genuinely does run
+  12–18s behind a static string with no elapsed time or cancel — that half of
+  the original item may still be worth doing, but it is a probe polish, not a
+  "Create shows nothing" bug, and nobody has scoped it as its own item yet.
 
 ---
 

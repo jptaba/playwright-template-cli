@@ -445,3 +445,69 @@ onboarding-UX item in this backlog is now `done`, and item 10 is what keeps the
 agnosticism claim honest; it is also the prerequisite for item 11's loop.
 Item 12 (Vault sign-in verification) and item 13 (two single load-sensitive test
 failures) both need more input than a run can generate on its own.
+
+## 2026-08-17 · run 10 · A status line that was already there
+
+**Picked:** backlog item 8 — "Create runs several seconds with no status line."
+Concurrency note first, because it shaped the run: this session found items 7
+and 9 already shipped on `main` (by other runs of this same loop, one
+co-authored by Opus 5) at points where this session had only just started
+reading them — twice, mid-investigation, the ground moved. Nothing here
+conflicts with that work; this entry is the by-hand cross-check the concurrent
+agent didn't get to before item 8 was next in line.
+
+**Did:** No code change. Checked item 8's claim directly against a running
+`npm run dashboard` rather than trusting the backlog text, per the loop's own
+"evidence beats reading" rule, and it did not hold up.
+
+`$('create').onclick` in `src/support/onboarding/dashboard-page.ts` has set
+`result.textContent = 'Writing…'` and disabled the button since the dashboard's
+very first commit (`1166f7c`, 2026-08-12) — before item 8 was ever written. In
+the live page, `document.getElementById('create').click()` followed
+immediately (same synchronous tick, before the pending fetch resolves) by
+reading `#result` showed `"Writing…"` with the button disabled: the "same
+treatment as probe and verify" the item asked for already existed. The
+"several seconds" half was checked too — `performance.getEntriesByType('resource')`
+timed the real `/api/create` round trip at 66–90ms, cold, against both a
+scratch target and a real external one (`saucedemo`), because `create()` in
+`tools/dashboard.ts` is pure local file I/O with no network call in it. There
+is no path from that handler to a multi-second wait. Retired to "Deleted
+guesses" in `backlog.md`, with the evidence inline rather than a bare "wrong."
+
+**Verify:** not run — no source changed, only `backlog.md` and this log.
+**PR:** none — the diff is documentation; folded into whichever commit lands
+this entry, fast-forwarded to `main` per the standing instruction once pushed.
+
+**Learned:**
+
+- **The ~10s in `journey-notes.md`'s Create row was very likely the observing
+  agent's own round-trip, not the page's.** That table has no column for "what
+  the agent's tooling cost," and this run's own attempts at mid-flight snapshots
+  kept missing a state that turns out to resolve in well under 100ms — the
+  measurement method has a blind spot for anything faster than one tool
+  round-trip, and a naive read of "no status line observed" cannot distinguish
+  "never rendered" from "rendered and gone before the next snapshot." Timing via
+  `performance.getEntriesByType('resource')` after the fact sidesteps that
+  blind spot entirely and is worth reaching for before trusting a duration a
+  snapshot-based journey recorded.
+- **Two runs of this same loop landed real work while this session was still
+  reading files.** Confirmed via `git reflog` and commit timestamps rather than
+  assumed — `a52ffdd` (item 7) and `dd4f5d5` (item 9) both exist on `origin/main`
+  with commit times inside this session's own investigation window. The loop's
+  five-hour schedule and hand-triggered runs are not mutually exclusive, and
+  nothing here enforces one run at a time. Worth the owner knowing: two runs
+  picking the same top `ready` item at once would race on the same branch name
+  and the same fast-forward, which `git merge --ff-only` would simply refuse
+  rather than corrupt — but it is a wasted run, not a safe no-op, and got
+  avoided here only by re-reading the backlog before each pick rather than
+  working from a stale one read at the start.
+- **The probe's own 12–18s with no elapsed time or cancel, mentioned inside the
+  old item 8, is still true and still nobody's item.** Left as a loose thread
+  in the "Deleted guesses" entry rather than promoted, since it is a polish on
+  a working control, not a bug, and the standing priority is decisions removed
+  from the wizard, not indicators added to it.
+
+**Next:** Item 10, unless the other concurrent run already reached it —
+check `git log origin/main` before starting, not just this file, since this
+run is proof that backlog.md on disk can lag what is already pushed. Item 12
+and item 13 still need input this loop cannot generate alone.
