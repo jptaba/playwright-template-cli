@@ -18,6 +18,17 @@ export interface FakeVaultOptions {
   /** Tokens the fake will accept. Anything else gets a 403, like Vault. */
   validToken?: string;
   namespace?: string;
+  /**
+   * Where the KV v2 engine is mounted. Defaults to `kv`, which is what this
+   * framework defaults to — but a real Vault dev server mounts it at `secret`,
+   * and a platform team can mount it anywhere.
+   *
+   * Configurable because the onboarding dashboard now lets somebody state the
+   * mount, and a wrong one is precisely what its connection check exists to
+   * catch. A fake that only ever answered on `kv` could not tell a correct
+   * mount from a hardcoded one.
+   */
+  kvMount?: string;
 }
 
 interface Entry {
@@ -122,7 +133,10 @@ export class FakeVaultServer {
     }
 
     // ---- kv v2 --------------------------------------------------------------
-    const kvMatch = /^kv\/data\/(.+)$/.exec(path);
+    // Answers on its own mount only, exactly like Vault: a read against the
+    // wrong mount is a 404, not a silently-served secret.
+    const mount = this.options.kvMount ?? 'kv';
+    const kvMatch = new RegExp(`^${mount}/data/(.+)$`).exec(path);
     if (kvMatch) {
       const key = kvMatch[1]!;
       if (req.method === 'GET') {

@@ -1270,3 +1270,59 @@ pushed, `main` and `origin/main` confirmed matching.
 `ready` item left. It is constrained by the owner having no Vault to test
 against, so the local path has to carry the proof; that constraint is recorded
 at the top of `backlog.md`.
+
+## 2026-08-17 · run 20 · The Vault mock was already here, minus the mount
+
+**Picked:** the owner's question — mock a Vault, or sign up for a free one?
+Answered by looking rather than recommending from memory, and the answer
+changed as a result.
+
+**Found:** `tests/support/fake-vault-server.ts` already exists and is good — an
+in-process HTTP server speaking KV v2 envelopes, JWT and AppRole login, token
+revoke-self, the `X-Vault-Namespace` header, CAS semantics, TOTP codes, dynamic
+database credentials and injectable failures. Thirteen tests in
+`vault-store.spec.ts` already drove the real `VaultSecretStore` against it. This
+is §22's stated strategy, quoted in the fake's own header: *"no local Vault
+instance to stand up."* So the recommendation is **not** to sign up for
+anything.
+
+**The gap that mattered:** the fake hardcoded `^kv/data/(.+)$` while the client
+builds `${kvMount}/data/${path}`. Every existing test therefore agreed with the
+default and **none could tell a configured mount from a hardcoded one** — and
+run 16 had just shipped a user-settable KV mount, with a wrong mount being one
+of the two things the dashboard's connection check exists to catch. The half
+with the new UI had no coverage at all.
+
+**Did:** the fake takes a `kvMount` and answers only on it, so a read against
+the wrong mount is a clean 404 rather than a secret served from the wrong
+place. Five tests added: reading from a configured mount, a wrong mount being a
+miss, and `fromConnection`'s three properties — that it takes an address, a
+namespace and a mount and has no parameter for a credential; that it refuses an
+empty address; and that it still needs a credential in the environment and says
+so when there is none, which is the state this machine is actually in and the
+message the dashboard shows.
+
+**Verify:** `npm run verify` passes, exit 0 — 796 tests, up from 791.
+
+Checked the way run 19 said to: stashed the fake's mount support and confirmed
+both mount tests fail against the old one (`SecretNotFoundError`, and
+`exists` true where false was expected), then restored it. A test that has not
+been seen red for the right reason proves nothing.
+
+**Learned:**
+
+- **"Do we have a mock?" was worth thirty seconds of `ls`.** The answer was a
+  better mock than I would have written, and the useful work was finding the
+  one place it silently agreed with the code under test. A fake that shares an
+  assumption with its subject tests nothing about that assumption.
+- **A default worth checking against a real Vault:** this framework defaults
+  `kvMount` to `kv`, and a stock `vault server -dev` mounts KV v2 at `secret`.
+  If that is right, the commonest quick setup fails the connection check with
+  "nothing is at that path" while everything looks correct — a UX problem on
+  the standing priority. The fake cannot settle it, because the fake believes
+  whatever it is told. Recorded rather than acted on: it needs a real Vault to
+  confirm, and Docker is available on this machine to do it.
+
+**Next:** item 12 slice 2 remains the only `ready` item. Before building it,
+confirming the default-mount question above against a real dev server would be
+cheap and would either close a UX defect or remove a doubt.

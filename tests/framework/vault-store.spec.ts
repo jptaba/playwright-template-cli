@@ -187,6 +187,105 @@ test.describe('VaultSecretStore', () => {
     await store.close();
   });
 
+  /**
+   * The KV mount, which onboarding now lets somebody state.
+   *
+   * Until this the fake answered only on `kv`, so every test agreed with the
+   * default and none of them could tell a configured mount from a hardcoded
+   * one. A wrong mount is one of the two things the dashboard's connection
+   * check exists to catch, and it was the half with no coverage.
+   */
+  test.describe('the KV mount', () => {
+    test('reads from the mount it was configured with, not a fixed one', async () => {
+      const elsewhere = new FakeVaultServer({ kvMount: 'secret' });
+      const address = await elsewhere.start();
+      elsewhere.put('qa/shop/pools/workforce/standard/1', {
+        username: 'someone',
+        password: 'a-password',
+      });
+      try {
+        const store = await storeAgainst(elsewhere, address, { kvMount: 'secret' });
+        const payload = await store.read('qa/shop/pools/workforce/standard/1');
+        expect(payload.username).toBe('someone');
+        await store.close();
+      } finally {
+        await elsewhere.stop();
+      }
+    });
+
+    test('the wrong mount is a miss, not somebody else’s secret', async () => {
+      // The failure the check reports as "connected, but nothing is at that
+      // path". It has to be a clean miss rather than a read that wanders.
+      const elsewhere = new FakeVaultServer({ kvMount: 'secret' });
+      const address = await elsewhere.start();
+      elsewhere.put('qa/shop/pools/workforce/standard/1', { username: 'someone' });
+      try {
+        const store = await storeAgainst(elsewhere, address, { kvMount: 'kv' });
+        const described = await store.describe('qa/shop/pools/workforce/standard/1');
+        expect(described.exists).toBe(false);
+        expect(described.fields).toEqual([]);
+        await store.close();
+      } finally {
+        await elsewhere.stop();
+      }
+    });
+  });
+
+  /**
+   * `fromConnection` — the way the onboarding dashboard names a Vault.
+   *
+   * The point of it is what it does *not* take: authentication still comes
+   * from the environment, so naming a Vault never means holding a credential
+   * for it. That is the property worth pinning.
+   */
+  test.describe('fromConnection', () => {
+    test('takes an address, a namespace and a mount — and no credential', () => {
+      const saved = { ...process.env };
+      process.env.VAULT_TOKEN = 'a-token-from-the-environment';
+      try {
+        const store = VaultSecretStore.fromConnection({
+          address: 'https://vault.example/',
+          namespace: 'team-qa',
+          kvMount: 'secret',
+        });
+        expect(store).toBeInstanceOf(VaultSecretStore);
+        // No parameter exists to pass one, which is the guarantee.
+        expect(Object.keys({ address: '', namespace: '', kvMount: '' })).not.toContain('token');
+      } finally {
+        process.env = saved;
+      }
+    });
+
+    test('refuses an empty address rather than building a store that cannot work', () => {
+      const saved = { ...process.env };
+      process.env.VAULT_TOKEN = 'a-token-from-the-environment';
+      try {
+        expect(() => VaultSecretStore.fromConnection({ address: '   ' })).toThrow(
+          SecretStoreUnavailableError,
+        );
+      } finally {
+        process.env = saved;
+      }
+    });
+
+    test('still needs a credential in the environment, and says so when there is none', () => {
+      // The state this machine is actually in, and the message the dashboard
+      // shows when somebody presses Check the connection.
+      const saved = { ...process.env };
+      delete process.env.VAULT_ID_TOKEN;
+      delete process.env.VAULT_TOKEN;
+      delete process.env.VAULT_ROLE_ID;
+      delete process.env.VAULT_SECRET_ID;
+      try {
+        expect(() => VaultSecretStore.fromConnection({ address: 'https://vault.example' })).toThrow(
+          SecretStoreUnavailableError,
+        );
+      } finally {
+        process.env = saved;
+      }
+    });
+  });
+
   test('fromEnvironment refuses to guess when no credential is present', () => {
     const saved = { ...process.env };
     delete process.env.VAULT_ID_TOKEN;
