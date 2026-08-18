@@ -45,6 +45,24 @@ export const toolshop: TargetProfile = {
        detail a transcribed-from-memory pool gets wrong.
     */
     poolSize: { customer: 3, admin: 1 },
+
+    /*
+       `customer3` is reserved for the signed-out `auth-flows` project, so the
+       specs that drive the login form never share an identity with the cart
+       specs running beside them.
+
+       They did, deterministically, and it is what made this suite
+       intermittently red: `auth-flows` has no `dependencies` so it runs
+       alongside `e2e`, and `secrets.account('customer')` defaults to index 1
+       — the same account `e2e`'s slot-0 worker holds while it is adding and
+       removing products. Observed as a search whose listing never changed and
+       a cart row that would not detach, both passing in isolation.
+
+       This costs a worker: `e2e` now runs at two rather than three, because
+       the ceiling is what the pool has left. Three workers with a guaranteed
+       collision is worse than two without one.
+    */
+    authFlowAccount: 3,
   },
 
   /*

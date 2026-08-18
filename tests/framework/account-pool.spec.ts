@@ -4,6 +4,7 @@ import {
   poolSizeFor,
   resolveWorkers,
   storageStatePath,
+  usableAccounts,
   workerCeiling,
 } from '../../src/support/paths';
 
@@ -157,6 +158,50 @@ test('a restarted worker must not be partitioned by the index that counts restar
   // The slots those same three workers occupy are always 0, 1, 2.
   const bySlot = [0, 1, 2].map((slot) => accountForWorker(slot, poolSize));
   expect(new Set(bySlot).size, 'parallelIndex gives each live worker its own').toBe(3);
+});
+
+test.describe('an account reserved for the project that signs in', () => {
+  /*
+     `auth-flows` has no `dependencies`, so it runs concurrently with `e2e`,
+     and `secrets.account(role)` defaults to index 1 — the account e2e's
+     slot-0 worker holds. On a target with server-side state that is two live
+     sessions for one identity, one of them mutating a cart. Neither the
+     worker ceiling nor `parallelIndex` prevents it: both bound how *workers*
+     are numbered, and this is two *projects* holding one slot number.
+  */
+  test('is withheld from every worker', () => {
+    expect(usableAccounts(3, 3)).toEqual([1, 2]);
+    expect([0, 1, 2, 3].map((slot) => accountForWorker(slot, 3, 3))).toEqual([1, 2, 1, 2]);
+  });
+
+  test('can be any index, not only the last', () => {
+    // Reserving the middle one must not silently shift the others.
+    expect(usableAccounts(3, 2)).toEqual([1, 3]);
+    expect(accountForWorker(0, 3, 2)).toBe(1);
+    expect(accountForWorker(1, 3, 2)).toBe(3);
+  });
+
+  test('lowers the worker ceiling, because a reserved account cannot be given out', () => {
+    // Toolshop's shape: three customers, one reserved, so e2e runs at two.
+    expect(workerCeiling(['customer', 'admin'], { customer: 3, admin: 1 }, true, 3)).toBe(2);
+  });
+
+  test('is ignored on a pool of one, where there is no spare identity', () => {
+    /*
+       Honouring it would leave workers with no account at all — a silent
+       degradation worse than the collision. The doctor warns about this
+       configuration separately; the runtime simply refuses to make it worse.
+    */
+    expect(usableAccounts(1, 1)).toEqual([1]);
+    expect(accountForWorker(0, 1, 1)).toBe(1);
+    expect(workerCeiling(['customer'], undefined, true, 1)).toBe(1);
+  });
+
+  test('reserving nothing leaves every target exactly as it was', () => {
+    expect(usableAccounts(3)).toEqual([1, 2, 3]);
+    expect([0, 1, 2].map((slot) => accountForWorker(slot, 3))).toEqual([1, 2, 3]);
+    expect(workerCeiling(['customer'], { customer: 3 }, true)).toBe(3);
+  });
 });
 
 test.describe('capping workers at the pool that would collide', () => {

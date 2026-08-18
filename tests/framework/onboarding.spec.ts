@@ -324,6 +324,36 @@ test.describe('the onboarding preflight', () => {
     expect(codes(found)).toContain('a11y-waiver-expired');
   });
 
+  test('an auth-flow reservation on a pool of one is reported, since it cannot be honoured', () => {
+    /*
+       Worse than no reservation: the profile reads as "auth-flows has its own
+       identity" while every worker and every login spec go on sharing account
+       1 — the exact defect it was added to fix.
+    */
+    const found = diagnose(
+      profile({ credentials: { ...profile().credentials, authFlowAccount: 2 } }),
+      facts(),
+    );
+
+    expect(codes(found)).toContain('authflow-account-no-pool');
+    expect(isRunnable(found), 'a reservation that does nothing is a smell, not a blocker').toBe(true);
+  });
+
+  test('an auth-flow reservation outside the pool is an error, not a warning', () => {
+    // It names a credential path that does not exist, so the auth-flow specs
+    // fail at sign-in rather than degrading quietly.
+    const found = diagnose(
+      profile({
+        roles: ['customer'],
+        credentials: { ...profile().credentials, poolSize: { customer: 3 }, authFlowAccount: 9 },
+      }),
+      facts(),
+    );
+
+    expect(codes(found)).toContain('authflow-account-outside-pool');
+    expect(isRunnable(found)).toBe(false);
+  });
+
   test('a contract waiver past its review date is surfaced the same way', () => {
     /*
        Accepted provider drift gets the same treatment as an accepted

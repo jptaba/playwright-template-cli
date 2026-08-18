@@ -1,4 +1,5 @@
 import { describeOrphanedSessions, orphanedSessions } from './sessions';
+import { poolSizeFor } from '../paths';
 import { KNOWN_A11Y_STANDARDS, type TargetProfile } from '../../../config/targets/types';
 
 /**
@@ -267,6 +268,34 @@ function checkRoles(
       'Add it. Without it every spec taking `authedPage` fails with "No storage state for role", ' +
         'which points at the wrong thing entirely.',
     );
+  }
+
+  /*
+     A reservation that cannot be honoured is worse than none: it reads as
+     "auth-flows has its own identity" while every worker and every login spec
+     go on sharing account 1, which is the exact defect it was added to fix.
+  */
+  const reserved = profile.credentials.authFlowAccount;
+  if (reserved !== undefined) {
+    const first = profile.roles[0];
+    const pool = first ? poolSizeFor(profile.credentials.poolSize, first) : 1;
+    if (pool < 2) {
+      warn(
+        'authflow-account-no-pool',
+        `credentials.authFlowAccount reserves account ${reserved}, but role '${first ?? '(none)'}' ` +
+          'has a pool of one, so there is no spare identity and the reservation is ignored.',
+        'Declare poolSize for that role with at least two accounts, or remove ' +
+          'authFlowAccount. A pool of one cannot both run the suite and drive a login form.',
+      );
+    } else if (reserved < 1 || reserved > pool) {
+      error(
+        'authflow-account-outside-pool',
+        `credentials.authFlowAccount is ${reserved}, which is not one of the ${pool} account(s) ` +
+          `role '${first}' declares.`,
+        `Set it to an index between 1 and ${pool}. As written it reserves nothing and the ` +
+          'auth-flow specs read a credential path that does not exist.',
+      );
+    }
   }
 
   if (!facts.credentialsChecked) {

@@ -15,76 +15,69 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 37 | Two projects sign in as the same customer at the same time | `ready` |
+| 38 | toolshop's deployment is unstable enough to drown the suite's signal | `ready` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-
-**Items 30, 29, 32 and 33 shipped in runs 40 to 43**, and **items 34, 28, 31,
-35 and 36 all shipped in run 44**, which the owner asked to run five items back
-to back rather than the usual one.
+**Item 37 shipped in run 45** and **did not stabilise the live suite** — read
+its entry in `backlog.md` before assuming the flakiness was addressed. The
+collision it removed was real and deterministic; the flakiness has a different,
+larger cause, which is item 38.
 
 `npm run suites:live` runs every onboarded application's specs against the real
 deployment, and **step 5 of the working agreement in `backlog.md` says every
-run does this and records the result.** Read that before starting — it is an
-obligation on every run, not an optional extra.
-
-**Item 32 was raised wrong and is worth reading in `backlog.md` for that
-reason.** It said `target:doctor` needed a new check. The checks already
-existed and were silently defeated by the scaffolder's own `.gitkeep` files —
-a reminder that "the tool does not do X" is a claim to verify, not to build on.
-
-Item 37 below is what run 44 found while verifying its own work, and it is the
-one thing standing between the live suites and a stable green.
+run does this and records the result.**
 
 ---
 
-### 37. Two projects sign in as the same customer at the same time — `ready`
+### 38. toolshop's deployment is unstable enough to drown the suite's own signal — `ready`
 
-**The live suites fail intermittently and this is why.** Observed three times
-in run 44, on three different specs, all in full parallel runs and all passing
-in isolation immediately afterwards:
+**Measured in run 45, with the suite taken out of the picture entirely.**
 
-| spec | symptom |
+| what was run | result |
 |---|---|
-| `TOOL-1-02` (×2) | the listing never changed after a search |
-| `TOOL-3-02` | the cart row for "Combination Pliers" would not detach after a remove |
+| full toolshop live suite, ×3 | 3 failed |
+| **`setup:auth` alone, ×4** | **1 failed** |
+| full live suite, after item 37 | 19/20 |
 
-The third is the giveaway, because the locator was plainly working — the call
-log shows it resolving 33 times to a visible row. The row simply never went
-away, which is what a *different session emptying the same cart* looks like.
+The second row is the one that settles it. `setup:auth` alone is one project,
+one worker per account, nothing else running — there is no contention this
+repository is capable of creating, and it still failed one run in four with
+*"Sign-in for role 'customer' (account 1) did not establish a session. The form
+reported no error"*. It failed **through** the two retries that project already
+allows.
 
-**The cause is documented in the conventions and nothing implements around
-it:** *"worker indices repeat across projects: `api` worker 0 and `contract`
-worker 0 pick the same slot."* toolshop runs `auth-flows`, `e2e`, `api`,
-`contract` and `a11y`, and `auth-flows` has no `dependencies`, so it runs
-**concurrently with `e2e`**. Both sign in as `customer`. Slot 0 in each picks
-account 1, and toolshop declares `serverState: true` with a server-side cart
-against the signed-in account.
+The failing specs move run to run — `TOOL-1-02` (a search whose listing never
+changed), `TOOL-3-01`/`TOOL-3-02` (a cart row that would not detach),
+`setup:auth` — and every one of them passes in isolation sooner or later. That
+is the signature of an unreliable dependency, not of a defect in any of them.
 
-So `TOOL-2-01`/`02`/`03` are signing in and out as the very customer whose cart
-`TOOL-3-01`/`02` are mutating.
+**The cause is not a mystery and is already written down:** toolshop is a
+public demo, `sharedEnvironment: true`, and its credentials are the ones the
+vendor publishes in a README. Anybody on the internet can be signed in as
+`customer@practicesoftwaretesting.com`, emptying the cart a spec just filled.
+ParaBank's profile records the same class of thing about its own host — 502s
+for forty seconds in a sixty-second window.
 
-**Item 30 (the worker ceiling) and item 36 (`parallelIndex`) do not fix this
-and were never going to.** 30 bounds how many workers run at once; 36 makes the
-slot numbering honest. Neither has an opinion about two *projects* holding the
-same slot number simultaneously, which is the actual collision.
+**Why this matters more than any single flake:** the loop now runs
+`npm run suites:live` every run and records the result (item 29). A measurement
+that is red for reasons the repository cannot influence is one people learn to
+scroll past, and it takes the real failures with it. This is the item that
+decides whether "until it is bulletproof" is reachable against these targets at
+all.
 
-**Shape, and it wants a decision.** Three candidates, in rough order of
-preference:
+**Options, and this needs a decision rather than an implementation:**
 
-- **Partition across projects as well as workers** — mix the project name into
-  the account index. Correct, and it needs more accounts than a pool has the
-  moment two projects both want three.
-- **Give `auth-flows` its own identity.** It is the only project that
-  deliberately drives a login form, and the conventions already say negative
-  auth specs want a disposable account. A `nonAuthenticatingRoles`-style
-  second customer would decouple it entirely, and is probably the smallest
-  honest fix.
-- **Serialise the projects that share a role**, via `dependencies`. Simple,
-  and it costs wall-clock on every target whether or not it needs it.
+- **Accept it and measure it.** Trend a pass *rate* across runs instead of
+  demanding green, and treat a single red run as noise. Honest, and it weakens
+  the "any failure exits 1" policy `suites:live` deliberately chose.
+- **Stand up a deployment we own.** toolshop publishes a Docker Compose stack;
+  a local instance would have stable data and unshared accounts, and would cost
+  a container to run and a decision about where CI gets one.
+- **Split the claim.** Keep the public demos for coverage breadth, and hold the
+  *bulletproof* claim to an owned deployment only.
 
-**Do not fix this by raising the pool.** Three real customer accounts is what
-the vendor publishes.
+The second is the only one that actually makes the suite green, and it is the
+one with a real cost. Worth the owner's view before anybody builds it.
 
 ### 11. A repeatable learn-fix-optimise loop over a full run — `hypothesis`
 

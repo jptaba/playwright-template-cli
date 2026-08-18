@@ -40,7 +40,13 @@ const target = selection.target;
  * local default of 7, a different spec failing each time (backlog item 30).
  */
 const ceiling = target
-  ? workerCeiling(target.roles, target.credentials.poolSize, target.capabilities.serverState)
+  ? workerCeiling(
+      target.roles,
+      target.credentials.poolSize,
+      target.capabilities.serverState,
+      // An account reserved for auth-flows is not one a worker can be given.
+      target.credentials.authFlowAccount,
+    )
   : null;
 
 /**

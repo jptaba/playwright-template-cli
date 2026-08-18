@@ -12,6 +12,12 @@ import { expect, test } from '../../fixtures';
  * shared account locked it on a previous target, and twenty-one unrelated
  * specs went red. On a deployment shared with strangers there is no way to
  * unlock it either.
+ *
+ * The two that *do* sign in ask for `signInAccount`, not `account`. This
+ * project has no `dependencies`, so it runs concurrently with `e2e` — and
+ * `account('customer')` defaults to index 1, the account an `e2e` worker is
+ * signed in as and mutating a cart with. The profile reserves one identity
+ * for this project precisely so these specs cannot collide with it.
  */
 
 test(
@@ -27,7 +33,7 @@ test(
        Read by name rather than passed through: a secret payload can carry more
        than a login, and an action's parameters say what it actually needs.
     */
-    const account = await secrets.account('customer');
+    const account = await secrets.signInAccount('customer');
     await signIn.withCredentials(page, {
       username: account.username ?? '',
       password: account.password ?? '',
@@ -80,7 +86,7 @@ test(
     ],
   },
   async ({ page, signIn, secrets }) => {
-    const account = await secrets.account('customer');
+    const account = await secrets.signInAccount('customer');
     await signIn.withCredentials(page, {
       username: account.username ?? '',
       password: account.password ?? '',

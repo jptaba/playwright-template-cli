@@ -245,6 +245,36 @@ export interface CredentialRefs {
    * administrator, and `setup:auth` went looking for `admin/2`.
    */
   poolSize?: number | Record<string, number>;
+
+  /**
+   * An account in the first role's pool reserved for the signed-out
+   * `auth-flows` project, and withheld from every worker.
+   *
+   * **Why this exists**, measured rather than theorised: `auth-flows` has no
+   * `dependencies`, so it runs *concurrently* with `e2e`. Its specs drive a
+   * real login form and call `secrets.account(role)` — which defaults to
+   * index 1, the very account `e2e`'s slot-0 worker signs in as. On a target
+   * with `serverState: true` that is two live sessions for one identity, one
+   * of them mutating a server-side cart. The failures land on whichever spec
+   * lost the race and never look like contention: a search whose listing
+   * never changed, a cart row that would not detach.
+   *
+   * Neither the worker ceiling nor partitioning on `parallelIndex` prevents
+   * it, and that is the point worth remembering — both bound how *workers*
+   * are numbered, and this is two **projects** holding the same slot number
+   * at the same time.
+   *
+   * So the pool is partitioned by purpose as well as by worker: reserve one
+   * account for the project that signs in, and the rest stay available to the
+   * projects that assume they own their identity. It costs a worker — a pool
+   * of three runs `e2e` at two — which is the honest trade, because three
+   * workers with a guaranteed collision is worse than two without one.
+   *
+   * Reserving is ignored on a pool of one, where there is no spare identity
+   * to give. Do not answer this by inventing an extra account: on a public
+   * demo the pool is whatever the vendor publishes.
+   */
+  authFlowAccount?: number;
 }
 
 export interface TargetProfile {

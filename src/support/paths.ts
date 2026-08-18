@@ -26,14 +26,35 @@ export const storageStatePath = (role: string, target: string, index = 1): strin
   path.join(AUTH_DIR, index > 1 ? `${target}.${role}.${index}.json` : `${target}.${role}.json`);
 
 /**
+ * The accounts a worker may be given, in order.
+ *
+ * Everything in the pool except one optionally reserved for the signed-out
+ * `auth-flows` project — see `CredentialRefs.authFlowAccount`. Reserving is
+ * refused when it would leave nothing behind, because a pool of one has no
+ * spare identity to give and silently handing every worker no account at all
+ * is worse than the collision it was meant to fix.
+ */
+export const usableAccounts = (poolSize = 1, reserved?: number): number[] => {
+  const all = Array.from({ length: Math.max(1, poolSize) }, (_, index) => index + 1);
+  if (!reserved || all.length < 2) return all;
+  const remaining = all.filter((account) => account !== reserved);
+  return remaining.length > 0 ? remaining : all;
+};
+
+/**
  * Which account in the pool this worker uses.
  *
  * Deterministic and coordination-free: the same worker always gets the same
  * account, so a session established once can be reused, and two workers only
  * collide when there are more workers than accounts.
+ *
+ * Takes the worker's **slot** (`parallelIndex`), never `workerIndex` — only
+ * the former is bounded by the worker count. See `RunContext.parallelIndex`.
  */
-export const accountForWorker = (workerIndex: number, poolSize = 1): number =>
-  poolSize <= 1 ? 1 : (workerIndex % poolSize) + 1;
+export const accountForWorker = (workerIndex: number, poolSize = 1, reserved?: number): number => {
+  const usable = usableAccounts(poolSize, reserved);
+  return usable[workerIndex % usable.length] ?? 1;
+};
 
 /**
  * How many accounts a given role has.
@@ -74,10 +95,13 @@ export const workerCeiling = (
   roles: string[],
   poolSize: number | Record<string, number> | undefined,
   serverState: boolean,
+  reserved?: number,
 ): number | null => {
   const role = roles[0];
   if (!serverState || !role) return null;
-  return poolSizeFor(poolSize, role);
+  // An account reserved for auth-flows is not one a worker can be given, so
+  // the ceiling is what is left rather than what the pool holds.
+  return usableAccounts(poolSizeFor(poolSize, role), reserved).length;
 };
 
 /**

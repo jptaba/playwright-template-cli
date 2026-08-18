@@ -3272,3 +3272,78 @@ from 933 at the start of the batch.
 `ready` item and is what stands between the live suites and a stable green. It
 wants a decision between three shapes, and the smallest honest one is probably
 giving `auth-flows` its own identity. Item 11 remains a standing objective.
+
+## 2026-08-18 · run 45 · The identity was the wrong suspect
+
+**Picked:** item 37, and the owner chose the shape — *"give auth-flows its own
+identity"*. Re-read `open-items.md` and compared `main` to `origin/main` first:
+both at `23f263b`.
+
+**The collision was sharper than the item described, and reading the code is
+what sharpened it.** Item 37 said "worker indices repeat across projects",
+which is true and vague. The actual mechanism: `secrets.account(role)` defaults
+to **index 1**, and `auth-flows` called exactly that. So it was not a sometimes
+overlap — on every run, the project driving a login form signed in as the
+account `e2e`'s slot-0 worker was holding and mutating a cart with.
+
+**Did:** `credentials.authFlowAccount` reserves one account in the first role's
+pool and withholds it from every worker — `usableAccounts` excludes it,
+`accountForWorker` skips it, `workerCeiling` counts what is left.
+`secrets.signInAccount(role)` resolves it and falls back to account 1 where no
+profile reserves one, so every other target is untouched. `target:doctor`
+errors on a reservation outside the pool and warns on one it cannot honour.
+toolshop reserves `customer3`; `e2e` now runs at two workers.
+
+**Verify:** `npm run verify` passes, exit 0 — **945 tests**, up from 938.
+
+**Live suites (step 5), and this is the finding:**
+
+| what was run | result |
+|---|---|
+| toolshop live suite, ×3 after the change | **3 failed** |
+| **`setup:auth` alone, ×4** | **1 failed** |
+| full live suite, final | parabank 3/3, saucedemo 2/2, **toolshop 19/20** |
+
+**The fix did not stabilise the suite, and I am not going to claim it did.**
+The second row is what settles the question: `setup:auth` on its own is one
+project with no other suite running, so there is no contention this repository
+is capable of creating — and it still failed one run in four, *through* the two
+retries that project allows, with "the form reported no error".
+
+So the dominant cause is the deployment, not the suite. toolshop is a public
+demo with vendor-published credentials; anybody on the internet can be signed
+in as `customer@practicesoftwaretesting.com` and empty a cart a spec just
+filled. Raised as item 38 with the numbers, because it now decides whether the
+step-5 measurement means anything.
+
+**Landed anyway, on its own merits.** The collision is provable by reading the
+code and pinned by unit tests, and a real defect does not stop being one
+because a noisy baseline cannot show the improvement. But it cost a worker and
+bought no visible stability, and the entry says so in both files.
+
+**Learned:**
+
+- **I nearly reported a fix as a success because the reasoning was good.** The
+  mechanism was real, the diagnosis was specific, the tests pinned it — and
+  three live runs in a row still failed. Run 39c wrote the rule this would have
+  broken ("I reported a number I had seen rather than a number I had
+  measured"), and the only reason it did not happen again is that the numbers
+  got worse rather than better and forced a second look.
+- **Stripping the suite away was the measurement that mattered**, and it took
+  four commands. Everything before it — which spec failed, on which worker,
+  with which locator — was detail about a symptom. Running `setup:auth` alone
+  answered "is the application reliable at all", and the answer was no. Worth
+  reaching for earlier next time: before attributing an intermittent failure to
+  contention, check whether the thing works at all when nothing is contending.
+- **Three runs have now circled this account pool** — 30 (worker ceiling), 36
+  (`parallelIndex`), 37 (reserved identity). All three found and fixed genuine
+  defects. **None of them made the live suite green**, because none of them was
+  the cause. That is a pattern worth naming: a plausible mechanism plus a
+  reproducible-looking symptom is not causation, and the pool was plausible
+  three times running.
+
+**Next:** item 38 needs the owner. Of the three options written up, only
+standing up an owned toolshop deployment actually makes the suite green, and it
+has a real cost. Until that is decided, `suites:live` will keep reporting red
+for reasons no change in this repository can fix — which is precisely how a
+measurement gets ignored. Item 11 remains a standing objective.

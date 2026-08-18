@@ -71,6 +71,16 @@ export interface SecretsFixture {
   read(path: string): Promise<SecretPayload>;
   /** Credentials for a pooled account, on the profile's path shape. */
   account(role: string, index?: number): Promise<SecretPayload>;
+  /**
+   * The identity reserved for driving a sign-in form.
+   *
+   * A spec in the signed-out `auth-flows` project asks for this rather than
+   * for `account(role)`, which defaults to index 1 — the account a concurrent
+   * `e2e` worker is already signed in as and mutating. Falls back to the
+   * ordinary first account when the profile reserves none, so a target that
+   * needs no reservation behaves exactly as before.
+   */
+  signInAccount(role: string): Promise<SecretPayload>;
   /** Existence and field names only — never values. */
   describe(path: string): Promise<{ exists: boolean; fields: string[] }>;
 }
@@ -230,10 +240,19 @@ export const test = base.extend<
         return payload;
       };
 
+      const accountPath = (role: string, index: number): string =>
+        `${target.credentials.root}/${target.credentials.accountType}/${role}/${index}`;
+
       await use({
         read,
-        account: (role: string, index = 1) =>
-          read(`${target.credentials.root}/${target.credentials.accountType}/${role}/${index}`),
+        account: (role: string, index = 1) => read(accountPath(role, index)),
+        /*
+           The reserved identity, or the ordinary first account where a
+           profile reserves none — so this is safe to call from any target's
+           auth-flow specs, whether or not that target needed a reservation.
+        */
+        signInAccount: (role: string) =>
+          read(accountPath(role, target.credentials.authFlowAccount ?? 1)),
         describe: async (path: string) => {
           const description = await secretStore.describe(path);
           return { exists: description.exists, fields: description.fields };
@@ -293,6 +312,7 @@ export const test = base.extend<
             const index = accountForWorker(
               run.parallelIndex,
               poolSizeFor(target.credentials.poolSize, role),
+              target.credentials.authFlowAccount,
             );
             const payload = await secrets.account(role, index);
             account = {
@@ -390,6 +410,7 @@ export const test = base.extend<
     const index = accountForWorker(
       run.parallelIndex,
       poolSizeFor(target.credentials.poolSize, role),
+      target.credentials.authFlowAccount,
     );
     await use(role ? storageStatePath(role, target.name, index) : undefined);
   },

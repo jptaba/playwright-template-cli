@@ -8,7 +8,7 @@
 > - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
 >   end-to-end coverage programme, with its own per-application state.
 > - **This file** — the working agreement below, which is still binding, plus an
->   archive of the 38 items already shipped. Read it for *why* a thing was done.
+>   archive of the 39 items already shipped. Read it for *why* a thing was done.
 >
 > Split on 2026-08-18: this file had passed 1,900 lines, and the four items that
 > were actually open were scattered through it. A run that has to read an
@@ -2325,3 +2325,43 @@ framework test pins it with the live set `[0, 2, 3]`.
 **Not claimed:** that this fixes the intermittent live failures. It does not —
 see item 37, where the collision is between two *projects* holding the same
 slot number, which neither this nor item 30 addresses.
+
+### 37. Two projects sign in as the same customer at the same time — `done`, and it did not fix the live suite
+
+Shipped on `agent/2026-08-18-authflow-identity` (run 45), at the owner's
+direction to take the "give `auth-flows` its own identity" option.
+
+**The collision was real, deterministic, and is gone.** Not "worker indices
+sometimes repeat" — `secrets.account(role)` defaults to index 1, and
+`auth-flows` called exactly that. So on every single run, the project that
+drives a login form signed in as the account `e2e`'s slot-0 worker was holding
+and mutating a server-side cart with. `auth-flows` also has no `dependencies`,
+so the two genuinely overlap.
+
+`credentials.authFlowAccount` reserves one account in the first role's pool and
+withholds it from every worker: `usableAccounts` excludes it, `accountForWorker`
+skips it, and `workerCeiling` counts what is left. A new `secrets.signInAccount(role)`
+resolves it, falling back to account 1 where no profile reserves one, so every
+other target is untouched. `target:doctor` refuses a reservation outside the
+pool (error) and reports one on a pool of one, where it cannot be honoured
+(warning). toolshop reserves `customer3`, and `e2e` consequently runs at **two**
+workers rather than three.
+
+**And the live suite is still red, which is the part that matters.** Measured
+after the change: 3 toolshop runs, 3 failures; then, with everything else
+stripped away, **`setup:auth` alone failed 1 run in 4** — one project, no
+parallelism, no other suite running, and therefore no contention this
+repository can create. A final full run was 19/20.
+
+So the dominant cause of toolshop's instability is **not** anything the suite
+does. It is the deployment: a public demo whose published accounts are shared
+with everyone else on the internet, which is what `sharedEnvironment: true`
+already says and what ParaBank's profile records about its own host. Raised as
+item 38, with the numbers.
+
+**This is landed on its own merits, not on a measured improvement**, and the
+distinction is deliberate: the collision is a genuine defect provable by
+reading the code and pinned by unit tests, and a fix whose benefit cannot be
+demonstrated against a noisy baseline is still a fix. But it cost a worker and
+bought no visible stability, and any future run reading "item 37 shipped"
+should not conclude the live flakiness was addressed.
