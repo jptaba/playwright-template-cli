@@ -449,6 +449,42 @@ async function post(path, body) {
 }
 
 /*
+   Show the first few of a queue, and a button for the rest.
+
+   For a list somebody works through rather than scans — triage clusters, the
+   defects that would be filed. Those are not capped and scrolled the way the
+   Cases lists are: you read one, act on it, and move to the next, and doing
+   that inside a 24rem box is worse than doing it on a long page.
+
+   What a long page actually costs is the sections after it. Measured at 60
+   clusters, Triage was 22 screens with "Passed on retry" and "Quarantine"
+   below all of them, and Publish was 12.7 with the whole Jira section sitting
+   past 7605px of defect cards.
+
+   Everything is rendered and the overflow is hidden, rather than the rest
+   being left unrendered. Publish decides what to file by reading
+   the checkbox of every defect in the preview — a row that does not exist
+   would throw on send, and a row that exists but was never scrolled to still
+   carries the recommendation the preview computed. What gets filed must not
+   depend on how far somebody scrolled.
+*/
+function showFirst(container, selector, limit, noun) {
+  const rows = Array.from(container.querySelectorAll(selector));
+  const rest = rows.slice(limit);
+  if (rest.length === 0) return;
+  for (const row of rest) row.hidden = true;
+
+  const more = document.createElement('button');
+  more.className = 'secondary';
+  more.textContent = 'Show the other ' + rest.length + ' ' + noun;
+  more.onclick = () => {
+    for (const row of rest) row.hidden = false;
+    more.remove();
+  };
+  container.append(more);
+}
+
+/*
    The application switcher.
 
    It reloads rather than re-rendering. Every page here is a whole document

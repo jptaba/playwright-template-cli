@@ -1354,7 +1354,37 @@ Budgets are 5 screens and a 1200px tallest block, deliberately loose: this is a
 tripwire for a block with no bound, not a design rule, and a tight number is one
 everybody raises.
 
-**Still `ready` here:** `/users`, `/stories` and `/triage` have no harness
-entry. `/triage` is the one worth doing next — it was 4.1 screens on a real
-repository, the closest of the untouched three to the budget. `/users` and
-`/stories` are small and can wait for a reason.
+**`/triage` joined in run 28, and the budget immediately earned its keep** —
+see the item below. **Still `ready` here:** `/users` and `/stories` have no
+harness entry. Both are small (2.6 and 1.9 screens on a real repository) and
+neither has an unbounded list, so they can wait for a reason.
+
+### 23. Two more unbounded queues, found by the budget — `done`
+
+Run 28, on `agent/2026-08-17-queues`. Not a new idea, and that is the point:
+**the budget found them, nobody looked.**
+
+Adding `/triage` to the harness reported **22.0 screens on 60 clusters**, and
+setting the harness's failure count on `/publish` — which the first budget test
+had never done — reported **12.7 screens**, with the whole Jira section sitting
+below 7605px of defect cards. Both are the item 19 defect a third and fourth
+time.
+
+Fixed with one shared `showFirst()` in the shell script: the first ten, and a
+button naming how many remain. A queue is not capped and scrolled the way the
+Cases lists are — you read one, act on it, and move on, and doing that inside a
+24rem box is worse than a long page.
+
+**The invariant that decided how it is built**, and it is worth carrying:
+`showFirst` renders everything and hides the overflow, rather than leaving the
+rest unrendered. Publish decides what to file by reading the checkbox of every
+defect in the preview, so an unrendered row would **throw on send**, and a row
+rendered but never scrolled to still carries the recommendation the preview
+computed. *What gets filed must not depend on how far somebody scrolled.*
+Triage has no such sweep — each verdict is recorded from its own row — but one
+pattern that is safe everywhere beats two that need the difference remembered.
+
+Also corrected here: the tallest-block budget was punishing legitimate content.
+A section holding ten work items is fine; the thing being hunted is one block
+with no bound. It excludes sections, and is stated in screens (4.5) rather than
+pixels, because that is the unit the complaint is in.

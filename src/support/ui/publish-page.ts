@@ -172,6 +172,13 @@ const BODY = `
 const SCRIPT = `
 let preview = null;
 
+/*
+   How many defect cards a bad night puts on the page before asking. The count
+   beside the heading is still the total, and every card is in the DOM whether
+   or not it is on screen — see the note where this is used.
+*/
+const FIRST_DEFECTS = 10;
+
 async function loadRuns() {
   const { runs } = await post('/api/publish/runs', {});
   const select = $('pRun');
@@ -314,6 +321,13 @@ function renderDefects() {
     list.append(el('div', 'empty', 'Nothing failed in this run, so there is nothing to file.'));
   }
   for (const entry of defects) list.append(defectRow(entry));
+  /*
+     Every row is rendered and the overflow is hidden, never left unrendered:
+     the send below reads the checkbox of every defect in the preview, so a row
+     that does not exist would throw, and one that exists but was never
+     scrolled to still carries the recommendation the preview computed.
+  */
+  showFirst(list, '.defect', FIRST_DEFECTS, 'defect(s)');
 
   $('dSend').disabled = !preview.jira.configured || defects.every((entry) => entry.blocked);
 }

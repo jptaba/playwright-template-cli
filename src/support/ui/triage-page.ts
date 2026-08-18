@@ -262,6 +262,15 @@ function verdictBox(cluster) {
   return box;
 }
 
+/*
+   How many clusters a bad night puts on the page before asking.
+
+   Enough to work through; the rest is one button away and the button says how
+   many. The count beside the heading is still the total, so nothing here
+   understates how much there is to do.
+*/
+const FIRST_BATCH = 10;
+
 function clusterRow(cluster) {
   const item = el('div', 'cluster');
 
@@ -478,6 +487,7 @@ function render() {
     list.append(el('div', 'empty', 'Nothing failed in this run.'));
   }
   for (const cluster of review.clusters) list.append(clusterRow(cluster));
+  showFirst(list, '.cluster', FIRST_BATCH, 'cluster(s)');
 
   const flaky = $('fList');
   flaky.replaceChildren();

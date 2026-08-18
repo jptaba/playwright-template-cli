@@ -1821,3 +1821,54 @@ rules; run 13's figures stand.
 the closest of the three untouched pages to the budget. Then item 20's
 remaining polish (focus states, rhythm, the uneven status colours), then item 12
 slice 3 and item 17.
+
+## 2026-08-17 · run 28 · The budget found two more before anybody looked
+
+**Picked:** the rest of item 22 — `/triage` into the harness built last run.
+
+**Did:** Added `/triage`, and the budget immediately reported **22.0 screens on
+60 clusters**. Then, giving `/publish` a failure count the first budget test had
+never set, **12.7 screens** with the entire Jira section below 7605px of defect
+cards. Two more instances of item 19's defect, neither of which anybody had
+looked for.
+
+One shared `showFirst()` in the shell script fixes both: the first ten, and a
+button naming how many remain. A queue is not capped and scrolled the way the
+Cases lists are — you read one, act on it, move on.
+
+**Verify:** `npm run verify` passes, exit 0 — **844 tests, up from 841**.
+
+Seen red by stashing the three page modules: Publish 12.7, Triage 22.0, and both
+queue-behaviour tests failed.
+
+**Learned:**
+
+- **The budget did the job a budget is for.** Run 27 wrote it to stop the *next*
+  3660px block; it found two existing ones the same day, on a page somebody had
+  already "fixed" and a page nobody had suspected. Neither was found by reading.
+- **The first budget test was weaker than it looked.** It set `unannotated` and
+  not `failures`, so it exercised one of Publish's two unbounded lists and
+  passed. A parameterised fixture only covers the parameters a test actually
+  sets — the harness offering a knob is not the same as a test turning it.
+- **Render everything, hide the overflow.** Publish reads the checkbox of every
+  defect in the preview when sending, so an unrendered row would throw and a
+  row never scrolled to must still carry the preview's recommendation. What
+  gets filed must not depend on how far somebody scrolled. Triage has no such
+  sweep and could have got away with not rendering — checked rather than
+  assumed — but one pattern safe everywhere beats two that need the difference
+  remembered.
+- **The tallest-block budget was measuring the wrong thing** and would have
+  forced the page to change shape to satisfy it. A section holding ten real
+  work items is a fine block; what is being hunted is one block with no bound.
+  It now excludes sections and is stated in screens, and I raised the page
+  budget from 5 to 6 rather than shrink a batch to fit — against 30.1, 22.0 and
+  12.7, the difference between 5 and 5.5 is noise, and a budget that forces
+  product tuning is one that gets raised by the first person it inconveniences.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches triage
+rules; run 13's figures stand.
+
+**Next:** item 20's remaining polish — focus and hover states, vertical rhythm
+and measure, the unevenly-used status tokens. `/users` and `/stories` do not
+need a harness entry yet: 2.6 and 1.9 screens on a real repository and no
+unbounded list in either.

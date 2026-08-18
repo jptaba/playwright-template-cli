@@ -6,7 +6,10 @@ import { DASHBOARD_PAGES, renderPage, type DashboardPageContent } from '../../sr
 import { casesPageContent } from '../../src/support/ui/cases-page';
 import { publishPageContent } from '../../src/support/ui/publish-page';
 import { publishRoutes, type PublishService } from '../../src/support/publish/dashboard';
+import { triageRoutes, type TriageService } from '../../src/support/triage/dashboard';
+import { triagePageContent } from '../../src/support/ui/triage-page';
 import { buildReview, type QuarantineView } from '../../src/support/triage/review';
+import type { HumanVerdict } from '../../src/support/triage/verdicts';
 import type { CoverageReport, CaseRow, OrphanSpec } from '../../src/support/cases/coverage';
 import type { RunResult, TestRecord } from '../../src/support/reporters/run-result';
 
@@ -56,18 +59,39 @@ const aTest = (id: string, overrides: Partial<TestRecord> = {}): TestRecord => (
 });
 
 /**
- * A run carrying `unannotated` specs with no case id.
+ * A run carrying `unannotated` specs with no case id, and `failures` failures.
  *
- * Those are what Publish lists as unpostable, and the number of them is the
- * whole point: it is the list that had no bound.
+ * The unannotated ones are what Publish lists as unpostable; the failures are
+ * what Triage clusters. Both counts are the whole point: they are the lists
+ * that had no bound.
+ *
+ * Each failure carries a distinct message, so clustering produces distinct
+ * clusters rather than one. Forty tests failing on one incident is one problem
+ * — which is right, and is not the shape that makes a page tall.
  */
-function aRun(unannotated: number): RunResult {
+function aRun(unannotated: number, failures = 0): RunResult {
   const tests = [
     aTest('t1'),
     ...Array.from({ length: unannotated }, (_, index) =>
       aTest(`u${index}`, {
         caseId: null,
         title: `an unannotated spec number ${index} with a title of a realistic length`,
+      }),
+    ),
+    ...Array.from({ length: failures }, (_, index) =>
+      aTest(`f${index}`, {
+        caseId: String(6000 + index),
+        title: `a spec that fails for reason ${index}`,
+        file: `src/targets/demo/tests/e2e/failing-${index}.spec.ts`,
+        outcome: 'unexpected',
+        status: 'failed',
+        firstRunStatus: 'failed',
+        error: {
+          message: `expect(received).toBe(expected)\n\nExpected: ${index}\nReceived: ${index + 1}`,
+          stack: null,
+          snippet: null,
+        },
+        steps: [{ title: `Step ${index}`, durationMs: 900, failed: true }],
       }),
     ),
   ];
@@ -84,12 +108,12 @@ function aRun(unannotated: number): RunResult {
       commit: null,
       buildId: null,
       trigger: null,
-      status: 'passed',
+      status: failures > 0 ? 'failed' : 'passed',
     },
     totals: {
       total: tests.length,
-      passed: tests.length,
-      failed: 0,
+      passed: tests.length - failures,
+      failed: failures,
       flaky: 0,
       skipped: 0,
       byKind: {} as RunResult['totals']['byKind'],
@@ -113,6 +137,28 @@ function publishService(run: RunResult): PublishService {
     createDefect: async () => 'QA-1',
     comment: async () => undefined,
     reopen: async () => null,
+  };
+}
+
+function triageService(run: RunResult): TriageService {
+  const human: HumanVerdict[] = [];
+  return {
+    runs: () => [
+      {
+        id: RUN_ID,
+        target: 'demo',
+        finishedAt: run.run.finishedAt,
+        failures: run.totals.failed,
+        source: 'dashboard',
+      },
+    ],
+    run: (id) => (id === RUN_ID ? run : null),
+    existingVerdicts: () => [],
+    humanVerdicts: () => human,
+    record: (verdict) => human.push(verdict),
+    quarantine: () => QUARANTINE,
+    who: () => 'a tester',
+    now: () => '2026-08-17T10:00:00.000Z',
   };
 }
 
@@ -159,6 +205,8 @@ function aCoverageReport(sizes: { noSpec: number; orphans: number; automated: nu
 export interface PageData {
   /** Specs in the run with no case id — Publish's unpostable list. */
   unannotated: number;
+  /** Failing specs, each with its own message — Triage's clusters. */
+  failures: number;
   cases: { noSpec: number; orphans: number; automated: number };
 }
 
@@ -166,10 +214,17 @@ export interface PagesHarness {
   page: Page;
   data: PageData;
   /** Open one of the pages this harness serves. */
-  open(path: '/publish' | '/cases'): Promise<void>;
+  open(path: '/publish' | '/cases' | '/triage'): Promise<void>;
   /** Total document height in screens at the current viewport. */
   screens(): Promise<number>;
-  /** The tallest single element inside the page body, and what it is. */
+  /**
+   * The tallest single element inside the page body, and what it is.
+   *
+   * Sections are excluded, and that is the whole usefulness of the number. A
+   * section holding ten things somebody has to work through is legitimately
+   * tall; what this is looking for is **one block** with no bound inside it —
+   * the 3660px paragraph, the list of every row there happens to be.
+   */
   tallestBlock(): Promise<{ label: string; height: number }>;
 }
 
@@ -178,6 +233,7 @@ export const test = base.extend<{ pages: PagesHarness }>({
     const TOKEN = 'a-test-token';
     const data: PageData = {
       unannotated: 0,
+      failures: 0,
       cases: { noSpec: 0, orphans: 0, automated: 0 },
     };
 
@@ -196,12 +252,17 @@ export const test = base.extend<{ pages: PagesHarness }>({
        the sizes at zero, which is the one shape these tests must not be stuck
        with.
     */
-    const routes = (): Route[] => [
-      { method: 'GET', path: '/publish', public: true, handle: () => serve(publishPageContent(), '/publish') },
-      ...publishRoutes(publishService(aRun(data.unannotated))),
-      { method: 'GET', path: '/cases', public: true, handle: () => serve(casesPageContent(), '/cases') },
-      { method: 'POST', path: '/api/cases', handle: () => json(200, aCoverageReport(data.cases)) },
-    ];
+    const routes = (): Route[] => {
+      const run = aRun(data.unannotated, data.failures);
+      return [
+        { method: 'GET', path: '/publish', public: true, handle: () => serve(publishPageContent(), '/publish') },
+        ...publishRoutes(publishService(run)),
+        { method: 'GET', path: '/cases', public: true, handle: () => serve(casesPageContent(), '/cases') },
+        { method: 'POST', path: '/api/cases', handle: () => json(200, aCoverageReport(data.cases)) },
+        { method: 'GET', path: '/triage', public: true, handle: () => serve(triagePageContent(), '/triage') },
+        ...triageRoutes(triageService(run)),
+      ];
+    };
 
     const server = http.createServer((request, response) => {
       void (async () => {
@@ -251,6 +312,7 @@ export const test = base.extend<{ pages: PagesHarness }>({
         page.evaluate(() => {
           let worst = { label: 'nothing', height: 0 };
           for (const node of Array.from(document.querySelectorAll('#content *'))) {
+            if (node.tagName === 'SECTION') continue;
             const height = node.getBoundingClientRect().height;
             if (height <= worst.height) continue;
             const id = node.id ? `#${node.id}` : '';
