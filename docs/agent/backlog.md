@@ -1,5 +1,17 @@
 # Improvement backlog
 
+> **Looking for what to do next? It is not in this file any more.**
+>
+> - **[`open-items.md`](open-items.md)** — the live worklist. Four items, ranked.
+> - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
+>   end-to-end coverage programme, with its own per-application state.
+> - **This file** — the working agreement below, which is still binding, plus an
+>   archive of the 30 items already shipped. Read it for *why* a thing was done.
+>
+> Split on 2026-08-18: this file had passed 1,900 lines, and the four items that
+> were actually open were scattered through it. A run that has to read an
+> archive to find its next task will eventually stop reading either.
+
 A living, ranked list of work the improvement agent may pick up. It is **state
 that survives between runs** — every run starts a fresh session with no memory,
 so without this file the agent re-discovers the same three things forever and
