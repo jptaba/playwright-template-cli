@@ -3451,3 +3451,59 @@ vendor's account. Dropping account 1 from the pool would make the suite green
 and is rejected under the standing instruction. Item 11 remains a standing
 objective, and the coverage phase in `coverage-phase.md` is the largest body of
 work left.
+
+## 2026-08-18 · run 47 · Rule zero, made compulsory everywhere it is read
+
+**Picked:** the owner's instruction — make "always fix and improve the
+framework, not the target artifacts" compulsory and non-negotiable, across the
+board.
+
+**Did:** promoted it from a section in the middle of the conventions to **rule
+zero at the top**, stated as outranking every other rule in the document, and
+put it on every surface anybody actually reads:
+
+| surface | who reads it |
+|---|---|
+| `docs/CONVENTIONS.md` (rule zero, top of file) | the source of truth |
+| `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md` | every coding agent, generated |
+| the `Never` list | what people skim |
+| `docs/agent/backlog.md` | this loop, which reads it before the conventions |
+| the scheduled task's `SKILL.md` | the prompt each scheduled run starts from |
+
+The `SKILL.md` change matters most for this loop specifically: a run begins
+from that prompt and reaches `backlog.md` second, so a rule present only in the
+conventions arrives after the run has already decided what to do.
+
+**Pinned rather than merely written.** `tests/framework/rule-zero.spec.ts`
+asserts the rule, the word *non-negotiable*, and both forbidden paths are
+present on all four documentation surfaces, that the working agreement carries
+it, and that the **exception is stated too** — without "authoring new coverage
+is fine", the rule forbids writing specs, and a rule that is obviously wrong at
+the edges gets ignored in the middle.
+
+Seen red: rewriting *non-negotiable* to *preferred* fails the suite.
+
+**Verify:** `npm run verify` passes, exit 0 — **966 tests**, up from 959.
+
+**Live suites (step 5):** not re-run. No framework behaviour changed — this run
+touched documentation and one new assertion file — and toolshop's account is
+still locked (item 38), so the numbers would be run 46's unchanged.
+
+**Learned:**
+
+- **A rule that lint cannot check is not automatically undocumentable.** No
+  static rule can tell authoring new coverage from patching a pack to silence a
+  failure, so the obvious conclusion was "documentation is the fallback". But
+  the *presence* of the rule on every surface is trivially checkable, and the
+  real failure mode here is silence — the rule being dropped, softened or
+  missing from the one file an agent reads first. That is what the test guards.
+- **Where a rule lives decides whether it is obeyed.** The same words sat in
+  `docs/CONVENTIONS.md` for a whole run and did not stop the very next
+  troubleshooting fix from going into a target pack, because the loop's prompt
+  and its working agreement did not carry them. Reach matters more than
+  wording.
+
+**Next:** item 41 — the framework still cannot see what an application said at
+sign-in, and it is now the highest-ranked `ready` item. Item 38 is `blocked` on
+an administrator unlocking a vendor account. The coverage phase remains the
+largest body of work.

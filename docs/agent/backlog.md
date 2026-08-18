@@ -45,6 +45,31 @@ before picking, not once at the start.** The file on disk can lag what is
 already pushed by minutes. If `origin/main` has moved since the session opened,
 re-read the backlog before committing to an item.
 
+## Rule zero, before anything else
+
+**Fix the framework, never the application's pack. Compulsory and
+non-negotiable.**
+
+Every fix this loop makes goes into the application-agnostic framework —
+`src/fixtures/`, `src/integrations/`, `src/support/`, `tools/`, the scaffolder,
+the doctor, the triage rules — and is validated end to end from there. A run
+does **not** hand-edit `config/targets/<app>.ts` or anything under
+`src/targets/<app>/` to make a failure stop.
+
+A target pack is an *output*. Editing it fixes one application and leaves the
+mechanism that produced it untouched, so the next application meets the same
+problem. Ask which mechanism produced the artifact, fix that, regenerate with
+the tool, and validate the journey.
+
+The exception is authoring **new** coverage — specs and the vocabulary they
+need are written in the pack by design. This rule is about *troubleshooting*.
+
+Run 46 is the worked example, and it is in this file as item 40: a sign-in
+error locator was hand-fixed in a pack, the owner corrected it, and the revert
+turned one target's patch into three framework mechanisms — a triage rule, a
+scaffolder gap and a missing preflight. The full statement is rule zero in
+`docs/CONVENTIONS.md`.
+
 ## How the agent uses this file
 
 1. Read this file and `improvement-log.md` before doing anything else.

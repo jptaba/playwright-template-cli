@@ -1,5 +1,5 @@
 <!-- GENERATED FILE — DO NOT EDIT.
-     Source: docs/CONVENTIONS.md (sha256 aff027ff25f015b0)
+     Source: docs/CONVENTIONS.md (sha256 6d6d99d3ad8d9bb3)
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 
@@ -19,6 +19,37 @@ Every rule below is enforced by a lint rule, a type, or a failing test wherever
 that is possible. Documentation is the fallback for the rest — if you find a
 rule here that a machine could have checked, that is a bug in the rule, not in
 the person who broke it.
+
+---
+
+## Rule zero: fix the framework, never the application's pack
+
+**This is compulsory and non-negotiable, and it outranks every other rule in
+this document.** When something is broken, wrong, flaky or hard to diagnose,
+the fix goes into the **application-agnostic framework** — and is validated end
+to end from there, through onboarding, `target:doctor`, and a run.
+
+**Never troubleshoot by editing an application's own artifacts.** That means no
+hand-fix to `config/targets/<app>.ts`, to anything under `src/targets/<app>/`,
+or to an application's specs and docs, as a way of making a problem go away.
+
+A target pack is an **output**. `npm run onboard` writes it, `target:doctor`
+checks it, healing and triage act on it. Editing the output fixes one
+application and leaves the generator, the preflight and the rules exactly as
+wrong as they were — so the next application onboarded meets the identical
+problem, and nobody finds out until it does.
+
+The question to ask about any fix is **"which mechanism produced this artifact,
+and is that mechanism right?"** Then fix the mechanism, regenerate or re-onboard
+with the tool, and validate the journey rather than the one file.
+
+**The single exception is authoring *new* coverage.** Specs, and the locators
+and actions they need, are written in the pack by design — that is what a pack
+is for. The rule governs *troubleshooting*: if you are changing a pack to make
+an existing failure stop, stop and go and find the mechanism.
+
+Worked through, with the table of symptom → mechanism, under
+[*Fix the framework, never the target pack*](#fix-the-framework-never-the-target-pack).
 
 ---
 
@@ -139,11 +170,19 @@ generated tests. Exploration is the only real fix.
 
 ## Fix the framework, never the target pack
 
+**Rule zero in full. Compulsory, non-negotiable, and it applies across the
+board — every task, every run, every contributor, human or agent.**
+
 **When troubleshooting, the fix goes in the application-agnostic framework and
 is validated end to end from there — through onboarding, the doctor, a run.
 Application-specific artifacts are not touched.** That means no hand-edit to
 `config/targets/<app>.ts`, `src/targets/<app>/**` or an application's specs and
 docs as a way of making a problem go away.
+
+If the framework genuinely cannot express the fix, that is the finding: raise
+it as framework work and say what is missing. "It was quicker in the pack" is
+not a reason, and neither is "only this application has the problem" — the
+second one is nearly always false and is exactly how it stays hidden.
 
 The rule exists because a target pack is an **output**. `npm run onboard`
 writes it, `target:doctor` checks it, healing and triage act on it. Editing the
@@ -465,6 +504,9 @@ alphabetical order does not get to decide which application gets tested.
 
 ## Never
 
+- **Troubleshoot by editing a target's own artifacts** — `config/targets/<app>.ts`,
+  `src/targets/<app>/**`, an application's specs or docs. Fix the mechanism that
+  produced them. See rule zero; it is non-negotiable
 - `waitForTimeout`, `sleep`, or any fixed delay
 - XPath; CSS without a justification comment
 - A URL or hostname literal outside `config/targets/`
