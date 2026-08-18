@@ -134,6 +134,31 @@ test('a worker reads the credential for the account it was given', () => {
   expect(accountForWorker(1, poolSizeFor({ customer: 3, admin: 1 }, 'admin'))).toBe(1);
 });
 
+test('a restarted worker must not be partitioned by the index that counts restarts', () => {
+  /*
+     The bug this pins, found by reading a live failure's `workerIndex` and
+     noticing it was 6 on a suite capped at 3 workers.
+
+     Playwright's `workerIndex` is unique per worker *process* and increments
+     on every restart; only `parallelIndex` is bounded by the worker count. So
+     partitioning a pool on `workerIndex` collides the moment a worker dies:
+     three workers hold accounts 1, 2, 3; worker 1 restarts as worker 3; the
+     live workers are 0, 2, 3 — and 0 and 3 are both on account 1.
+
+     That is precisely the contention the pool exists to remove, and capping
+     the worker count (item 30) does not prevent it, because the cap bounds how
+     many workers run at once and not what they are numbered.
+  */
+  const poolSize = 3;
+  const liveWorkerIndexes = [0, 2, 3]; // worker 1 died and came back as 3
+  const byWorkerIndex = liveWorkerIndexes.map((index) => accountForWorker(index, poolSize));
+  expect(new Set(byWorkerIndex).size, 'workerIndex hands two live workers one account').toBe(2);
+
+  // The slots those same three workers occupy are always 0, 1, 2.
+  const bySlot = [0, 1, 2].map((slot) => accountForWorker(slot, poolSize));
+  expect(new Set(bySlot).size, 'parallelIndex gives each live worker its own').toBe(3);
+});
+
 test.describe('capping workers at the pool that would collide', () => {
   test('no server state means nothing to cap', () => {
     // Client-only state: two workers reusing the same account share nothing

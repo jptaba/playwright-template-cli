@@ -36,7 +36,30 @@ export interface RunContext {
   runId: string;
   /** A value unique to this run and worker — for cleanup by run id (§05). */
   unique(prefix: string): string;
+  /**
+   * Unique to this worker **process**, and incremented every time a worker is
+   * restarted. Use it for identity and uniqueness — an id, a lease holder, a
+   * mailbox — where two processes must never collide.
+   *
+   * **Not for choosing an account.** See `parallelIndex`.
+   */
   workerIndex: number;
+  /**
+   * The worker's slot, always between 0 and `workers - 1`.
+   *
+   * This is the one that partitions a fixed pool, and the distinction is not
+   * academic: Playwright starts a *new* worker process — with a new
+   * `workerIndex` — whenever one is restarted, so `workerIndex` grows past the
+   * worker count during a run. Observed directly on toolshop, which is capped
+   * at 3 workers and reported a failure from `workerIndex` 6.
+   *
+   * Partitioning on `workerIndex` therefore collides. With three accounts:
+   * workers 0, 1, 2 take accounts 1, 2, 3; worker 1 dies and restarts as
+   * worker 3; the live workers are now 0, 2 and 3, which map to accounts 1, 3
+   * and **1** — two concurrent workers signed in as the same customer, which
+   * is exactly the contention the pool exists to remove.
+   */
+  parallelIndex: number;
 }
 
 export interface SecretsFixture {
@@ -173,6 +196,9 @@ export const test = base.extend<
       await use({
         runId: RUN_ID,
         workerIndex,
+        parallelIndex: workerInfo.parallelIndex,
+        // Keyed on workerIndex, not parallelIndex: a restarted worker reuses
+        // the slot but must not reuse the ids of the process it replaced.
         unique: (prefix: string) => `${prefix}-${RUN_ID}-w${workerIndex}-${++counter}`,
       });
     },
@@ -257,11 +283,15 @@ export const test = base.extend<
             /*
                A static pool, partitioned. Leasing needs Vault's
                compare-and-swap; this needs nothing at all, because the worker
-               index already partitions the run — which is why it is the answer
+               slot already partitions the run — which is why it is the answer
                for a target whose credentials live in a local store.
+
+               `parallelIndex`, never `workerIndex`: only the former is bounded
+               by the worker count, and the difference is a real collision
+               rather than a tidiness point. See `RunContext.parallelIndex`.
             */
             const index = accountForWorker(
-              run.workerIndex,
+              run.parallelIndex,
               poolSizeFor(target.credentials.poolSize, role),
             );
             const payload = await secrets.account(role, index);
@@ -358,7 +388,7 @@ export const test = base.extend<
        identity, which is the failure mode partitioning exists to remove.
     */
     const index = accountForWorker(
-      run.workerIndex,
+      run.parallelIndex,
       poolSizeFor(target.credentials.poolSize, role),
     );
     await use(role ? storageStatePath(role, target.name, index) : undefined);
