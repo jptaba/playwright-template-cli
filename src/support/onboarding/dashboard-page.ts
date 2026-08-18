@@ -1,5 +1,6 @@
 import {
   DASHBOARD_PAGES,
+  overview,
   renderPage,
   type DashboardPageContent,
   type ShellOptions,
@@ -18,21 +19,6 @@ import {
 /** Styles only this page needs. Everything shared is already in the shell. */
 const STYLES = `
   .findings > div { font-size: .9rem; margin: .2rem 0; }
-
-  /* ---------- what the journey needs, before any of it is on screen ---------- */
-  .preflight { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1.4rem; }
-  .pf-title {
-    margin: 0 0 .4rem; font-size: .68rem; letter-spacing: .12em;
-    text-transform: uppercase; color: var(--muted); font-weight: 700;
-  }
-  .preflight ul { list-style: none; margin: 0; padding: 0; }
-  .preflight li {
-    position: relative; padding: .22rem 0 .22rem 1.1rem;
-    font-size: .9rem; color: var(--ink-2); line-height: 1.45;
-  }
-  .preflight li::before {
-    content: "·"; position: absolute; left: .3rem; color: var(--accent); font-weight: 700;
-  }
 
   /*
      A step that cannot be reached yet is not on the page.
@@ -127,24 +113,24 @@ const BODY = `
     <p class="explain">
       Five steps. Each appears as the one before it is done.
     </p>
-    <div class="preflight">
-      <div>
-        <p class="pf-title">You bring</p>
-        <ul>
-          <li>A URL — a test deployment, never production</li>
-          <li>The roles the suite signs in as</li>
-          <li>Where credentials live, and the login if it is local</li>
-        </ul>
-      </div>
-      <div>
-        <p class="pf-title">It reads for you</p>
-        <ul>
-          <li>Which attribute <code>getByTestId</code> reads</li>
-          <li>The sign-in field names a screen reader announces</li>
-          <li>Whether it publishes an OpenAPI document</li>
-        </ul>
-      </div>
-    </div>
+${overview([
+  {
+    title: 'You bring',
+    items: [
+      'A URL — a test deployment, never production',
+      'The roles the suite signs in as',
+      'Where credentials live, and the login if it is local',
+    ],
+  },
+  {
+    title: 'It reads for you',
+    items: [
+      'Which attribute <code>getByTestId</code> reads',
+      'The sign-in field names a screen reader announces',
+      'Whether it publishes an OpenAPI document',
+    ],
+  },
+])}
   </section>
 
   <section id="s0">

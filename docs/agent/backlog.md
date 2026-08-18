@@ -1217,7 +1217,31 @@ assuming otherwise.
 
 The original item follows.
 
-### 19b. The original item
+### 19b. The overview panel, shared — `done`
+
+**Shipped in run 36**, and it is what this item's own note said the first slice
+should be: `.preflight` and `.pf-title` into `tokens.ts`, an `overview()`
+helper in `shell.ts`, and one non-wizard page given one. Not `enable` — that is
+about steps, and no other page has steps.
+
+**Publish got the overview**, because it is the page where knowing the shape
+before starting is worth most: it is the one that leaves the building. The two
+columns are *You bring* and *It leaves behind*, and the pairing is the rule
+rather than symmetry — a list of what a page needs, with no matching list of
+what it produces, reads as a warning.
+
+Onboarding's own panel was converted to the helper rather than left beside it,
+so there is one way to write one. Its markup is unchanged in the browser,
+`<code>` and all.
+
+The copy budget already counted overview words against the page total, so an
+overview is paid for out of the same 220 as everything else — which is what
+stops it becoming a second lede. Two more tests hold the shape: two columns,
+the second saying what the page leaves behind, and a phrase per line.
+
+The original item follows.
+
+### 19c. The original note
 
 "It should be applied to all sections of the UI dashboard." The other pages —
 `/users`, `/runs`, `/cases`, `/stories`, `/triage`, `/publish` — are not

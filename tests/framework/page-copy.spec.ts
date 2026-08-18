@@ -127,6 +127,46 @@ test.describe('the instructions on screen', () => {
   });
 });
 
+test.describe('the overview a page opens with', () => {
+  /*
+     Item 18 established that a reveal with no stated shape is a wizard nobody
+     can see the end of, and that the overview is what pays for the hiding. The
+     rule that keeps it from becoming seven hand-rolled versions is that it
+     lives in `shell.ts` and is *used* — so this checks the shape rather than
+     any one page's words.
+  */
+  const withOverview = Object.entries(PAGES).filter(([, page]) => overviewLists(page));
+
+  test('is built from the shell, not hand-rolled per page', () => {
+    expect(withOverview.length, 'no page has an overview at all').toBeGreaterThan(1);
+
+    for (const [name, page] of withOverview) {
+      const columns = [...page.body.matchAll(/<p class="pf-title">([^<]+)<\/p>/g)];
+      expect(columns.length, `${name}: an overview is two columns`).toBe(2);
+      /*
+         Both halves, and this is the point rather than symmetry. A list of what
+         a page needs, with no matching list of what it produces, reads as a
+         warning — the second column is what makes the first an orientation.
+      */
+      expect(
+        columns.map((column) => column[1]!.trim()).join(' · '),
+        `${name}: the second column has to say what the page leaves behind`,
+      ).toMatch(/^You bring · It /);
+    }
+  });
+
+  test('is a phrase per line, not a paragraph', () => {
+    for (const [name, page] of withOverview) {
+      for (const item of overviewLists(page).matchAll(/<li>([\s\S]*?)<\/li>/g)) {
+        expect(
+          words(item[1]!).length,
+          `${name}: "${words(item[1]!).slice(0, 8).join(' ')}…" is a sentence, not a line`,
+        ).toBeLessThanOrEqual(12);
+      }
+    }
+  });
+});
+
 test.describe('the reasoning', () => {
   test('is kept, not deleted — it just moved behind a disclosure', () => {
     /*

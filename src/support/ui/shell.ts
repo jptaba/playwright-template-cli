@@ -180,6 +180,47 @@ export interface ShellOptions {
  * guarding against an attacker — it is guarding against an ampersand in a
  * target name silently breaking a page.
  */
+/**
+ * The overview a page opens with: what you bring, and what it does.
+ *
+ * Onboarding has had one since item 18, and it is the half that paid for
+ * hiding the steps — a reveal with no stated shape is a wizard nobody can see
+ * the end of. The same argument holds for a page that is not a wizard: what
+ * makes a dense page bearable is knowing its shape before reading it.
+ *
+ * Here rather than copied into each page, per item 19's own rule: seven
+ * hand-rolled versions is the outcome to avoid, and it is the likely one.
+ *
+ * **Two columns, and the pairing is the point.** A list of what a page needs,
+ * with no matching list of what it produces, reads as a warning; the second
+ * column is what makes the first one an orientation rather than a hurdle.
+ *
+ * The copy budget in `tests/framework/page-copy.spec.ts` counts these words
+ * against the page's total, so an overview is paid for out of the same budget
+ * as everything else — which is what stops it becoming a second lede.
+ */
+/** Joined out of line: a literal newline inside a nested template is a parse error. */
+const NEWLINE = String.fromCharCode(10);
+
+export interface Overview {
+  /** Column heading, e.g. "You bring". Two or three words. */
+  title: string;
+  /** One line each. A phrase, not a sentence. */
+  items: string[];
+}
+
+export function overview(columns: [Overview, Overview]): string {
+  const column = (one: Overview): string => `
+      <div>
+        <p class="pf-title">${escapeHtml(one.title)}</p>
+        <ul>
+${one.items.map((item) => `          <li>${item}</li>`).join(NEWLINE)}
+        </ul>
+      </div>`;
+  return `    <div class="preflight">${columns.map(column).join('')}
+    </div>`;
+}
+
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')

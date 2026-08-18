@@ -1,4 +1,4 @@
-import type { DashboardPageContent } from './shell';
+import { overview, type DashboardPageContent } from './shell';
 
 /**
  * The publish page — §08 phase 6, §14, §15.
@@ -82,6 +82,30 @@ const STYLES = `
 `;
 
 const BODY = `
+  <section id="pOverview">
+    <div class="head">
+      <h2>Before you send anything</h2>
+    </div>
+${overview([
+  {
+    title: 'You bring',
+    items: [
+      'A finished run, and the id of it typed back',
+      'A PractiTest project, and a Jira project for defects',
+      'A decision on each defect — file, comment, or leave',
+    ],
+  },
+  {
+    title: 'It leaves behind',
+    items: [
+      'A result against every case the run carries an id for',
+      'A ticket, or a comment on the ticket that is already open',
+      'Nothing at all for a spec with no case id',
+    ],
+  },
+])}
+  </section>
+
   <section>
     <div class="head">
       <h2>A run</h2>

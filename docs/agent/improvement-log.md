@@ -2326,3 +2326,50 @@ rules; run 13's figures stand.
 **Next:** item 19b — the overview panel into `shell.ts`, and one non-wizard
 page given one. That is the last shaped item; after it the `ready` list is the
 status tokens and the spacing scale, both still wanting a stated defect.
+
+## 2026-08-17 · run 36 · The panel that was never about onboarding
+
+**Picked:** item 19b — the overview panel into `shell.ts`, and one non-wizard
+page given one. Which is what the item's own note said the first slice should
+be, once item 18 had shipped and shown that `enable` is about *steps* and no
+other page has steps.
+
+**Did:** `.preflight` and `.pf-title` into `tokens.ts`; an `overview()` helper
+in `shell.ts` taking two columns; **Publish** given one; and onboarding's own
+panel converted to the helper rather than left beside it, so there is one way
+to write one rather than two.
+
+Publish because it is the page where knowing the shape first is worth most —
+the one that leaves the building. *You bring* against *It leaves behind*, and
+that pairing is the rule rather than symmetry: a list of what a page needs,
+with no matching list of what it produces, reads as a warning.
+
+**Verify:** `npm run verify` passes, exit 0 — **899 tests, up from 897.**
+
+Checked in a browser in both places: Publish renders two columns and is still
+2.4 screens; onboarding's panel is unchanged through the helper, `<code>` and
+bullet colour intact.
+
+**Learned:**
+
+- **The budget for this already existed and was already general.**
+  `page-copy.spec.ts` has counted `.preflight` words against the page's 220
+  since item 18 — written for onboarding, and it applied to Publish the moment
+  Publish had one. A budget that names a mechanism rather than a page is the
+  one that keeps working.
+- **A literal newline inside a nested template literal is a parse error**, and
+  it is the third variant of this trap the log has recorded — after a backtick
+  in a comment in `dashboard-page.ts` and the same in `tokens.ts`. Joined with
+  a constant here. Anything that builds HTML out of nested templates in this
+  repository will meet one of the three.
+- **Converting the original caller is what makes it shared.** Leaving
+  onboarding's hand-written markup beside a helper that produces the same thing
+  would have been two ways to write one panel and a guarantee they diverge —
+  which is the outcome item 19 named at the start.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches triage
+rules; run 13's figures stand.
+
+**Next:** the backlog's `ready` list is down to item 20's status tokens and the
+spacing scale, both of which still want a stated defect measured before they
+are worth doing. That is a scan run.

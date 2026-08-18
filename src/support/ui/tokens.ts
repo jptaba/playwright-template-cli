@@ -489,6 +489,32 @@ export const DASHBOARD_STYLES = `
   }
   .badge.locked { color: var(--muted); background: var(--surface-2); border-color: var(--rule); }
 
+  /* ---------- what a page needs, before any of it is on screen ---------- */
+  /*
+     The overview panel. Lifted out of the onboarding page in run 36, because
+     it was never about onboarding: it is the half that pays for hiding things.
+     A reveal with no stated shape is a wizard nobody can see the end of, and a
+     page that only shows you what it needs one field at a time is the same
+     problem wearing a shorter form.
+
+     Two columns by default, and one on a narrow screen, because the pairing
+     that earns its place is "what you bring" against "what it does" — a list
+     of requirements with no matching list of outcomes reads as a warning.
+  */
+  .preflight { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1.4rem; }
+  .pf-title {
+    margin: 0 0 .4rem; font-size: .68rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted); font-weight: 700;
+  }
+  .preflight ul { list-style: none; margin: 0; padding: 0; }
+  .preflight li {
+    position: relative; padding: .22rem 0 .22rem 1.1rem;
+    font-size: .9rem; color: var(--ink-2); line-height: 1.45;
+  }
+  .preflight li::before {
+    content: "·"; position: absolute; left: .3rem; color: var(--accent); font-weight: 700;
+  }
+
   p.explain { color: var(--ink-2); font-size: .9rem; margin: .8rem 0 1.1rem; max-width: 68ch; }
   p.explain b { color: var(--ink); font-weight: 620; }
 
