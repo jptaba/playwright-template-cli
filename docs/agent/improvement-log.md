@@ -2420,6 +2420,25 @@ badge rule that sets anything else.
 **Not measured this run:** `npm run triage:measure`. Nothing here touches triage
 rules; run 13's figures stand.
 
-**Next:** the spacing scale is the last thing in the file with a `ready` label,
-and it still has no measured defect. Given three of four polish claims here
-were mis-shaped, it should be measured before it is believed — a scan run.
+**Then, in the same run: the spacing scale, measured and declined.**
+
+- **38 distinct rem spacing values across 238 declarations**, eight of them
+  inside one 0.4rem band and used 116 times between them. 25 of the 38 are off
+  a `.25rem` grid. Real inconsistency, in the source.
+- **And none of it misaligns anything.** Driven at 1280×720 on Triage and Test
+  users: section gaps uniform at 18px, every section and every heading on one
+  left edge, heading-to-prose 13–14px where the 1px is font metrics. The rhythm
+  a reader perceives comes from `section`, `.head` and `p.explain`, which are
+  already shared; the 38 values live inside page-specific components where
+  nothing aligns across them and nothing can.
+
+So it is declined, and that closes item 20. Normalising 238 declarations puts
+every visual detail in the tool at risk for no defect anybody meets, and a
+partial scale would be two systems — which is the thing the badge fix in this
+same run existed to remove. **What would change the answer:** an owner asking
+for a visual refresh, at which point the scale is the right vehicle and should
+be one deliberate pass rather than a background refactor.
+
+**Next:** nothing in `backlog.md` carries a `ready` label. Item 11 is a
+standing objective rather than a task. A future run should scan — drive the
+dashboard and the onboarding journey and find the next thing — rather than pick.

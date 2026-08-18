@@ -197,9 +197,19 @@ cause — and the layout followed because twenty cards is still eight screens.
 Item 12 is now `done` in full: a Vault connected on the dashboard is kept, and
 a run resolves it with nothing exported.
 
-**What is `ready` now:** item 20's hover states (evidenced, three rules), item
-17 (small), item 22's last page (`/stories`), and item 19b. Nothing in the file
-is blocked.
+**Runs 33 to 37 emptied the `ready` list.** Hover states, item 17, `/stories`
+into the harness, the shared overview panel, and item 20's status tokens all
+shipped; the spacing scale was measured and declined with its numbers. All
+seven pages are behind four budgets — copy, height, measure and contrast — and
+every one of those budgets was written after something got past a green suite.
+
+**Nothing in this file carries a `ready` label, and nothing is blocked.** Item
+11 is a standing objective rather than a task. **So the next run is a scan
+run**, and the file's own rule for one applies: drive the dashboard and the
+onboarding journey, record what actually happens, and raise what is found with
+evidence. Do not pick something from the closed items and re-open it on
+reasoning alone — three of item 20's four polish claims were written that way
+and all three turned out mis-shaped when driven.
 
 **Correcting the standing note on Vault, 2026-08-17 (run 21).** It said the
 owner has no Vault to test against. There is no *hosted* one and none is
@@ -1262,7 +1272,7 @@ reusable is the **overview panel** (`.preflight`, `.pf-title`) and the copy
 budget that now counts it, so the first slice here is moving those two into
 `shell.ts` and giving one page an overview — not lifting `enable`.
 
-### 20. A theme control, and the polish it makes visible — `done` bar the status tokens
+### 20. A theme control, and the polish it makes visible — `done`
 
 **The theme control shipped** on `agent/2026-08-17-theme-control` (run 24), and
 the finding below was right: the palette was already complete and nothing ever
@@ -1371,9 +1381,31 @@ the line it is mixed from). Twelve restatements became twelve one-liners.
 `tests/framework/ui-shell.spec.ts` refuses a badge rule that sets anything
 else, naming the page and the property.
 
-**Still `ready` here:** the spacing scale, which still wants a stated defect —
-and, given that both other polish items turned out to be differently-shaped
-than this file claimed, it should be measured before it is believed.
+**The spacing scale was measured in run 37 and declined**, which closes this
+item. The numbers, and they do show real inconsistency in the source:
+
+- **38 distinct rem spacing values across 238 declarations.** Eight of them
+  sit inside a single 0.4rem band — `.3`, `.35`, `.4`, `.45`, `.5`, `.55`,
+  `.6`, `.7` — used 116 times between them. At a 16.5px root, `.4rem` and
+  `.45rem` differ by 0.8 of a pixel.
+- **25 of the 38 are off a `.25rem` grid**, accounting for 175 of the uses.
+
+**And none of it misaligns anything.** Driven at 1280×720 on Triage and Test
+users: section gaps uniform at 18px on both, every section on one left edge,
+every heading on one left edge, heading-to-prose 13–14px where the 1px is font
+metrics rather than spacing. The rhythm a reader actually perceives comes from
+the repeated structures — `section`, `.head`, `p.explain` — and those live in
+the shared stylesheet already. The 38 values are inside page-specific
+components, where nothing aligns across them and nothing can.
+
+So this is the taste-only refactor the guardrails refuse: 238 declarations
+touched, every visual detail in the tool at risk, and no defect anybody meets.
+A partial scale would be worse than none, because two systems is what the badge
+item was about.
+
+**What would change the answer:** an owner asking for a visual refresh. Then
+the scale is the right vehicle and should be done deliberately in one pass —
+not arrived at as a background refactor with no brief.
 
 **Run 29 measured the two that were stated as one item, and they are not.**
 Driven at 1280×720 against the real repository, reading the computed style of
