@@ -2442,3 +2442,99 @@ be one deliberate pass rather than a background refactor.
 **Next:** nothing in `backlog.md` carries a `ready` label. Item 11 is a
 standing objective rather than a task. A future run should scan — drive the
 dashboard and the onboarding journey and find the next thing — rather than pick.
+
+## 2026-08-18 · run 38 · A row that wrapped, and two things inside it that could not
+
+**Picked:** scan run. Re-checked before starting, per the file's own warning:
+`git fetch origin` then `git rev-parse --short main origin/main` both gave
+`503a567`, matching run 37's final commit — nothing had landed since, and
+nothing in `backlog.md` carries a `ready` label. `target:doctor` reported both
+targets OK, so this was a clean scan rather than a recovery.
+
+**Did:** drove all seven pages live against `npm run dashboard` rather than
+reading source — the onboarding page, `/users`, `/stories`, `/cases`, `/runs`,
+`/triage`, `/publish` — first at 1280×720 and in dark theme, where everything
+held up. Then resized to a real phone width, 375×812, which is where item 20
+(the theme control) and item 21 (the application switcher) had each been
+checked separately but never together at that width.
+
+**Found a real overflow.** `document.documentElement.scrollWidth` measured
+427–428px against a 375px `clientWidth` — the whole page scrolled
+horizontally, on every page, because the top bar is shared shell code. Traced
+to `.topbar-end` in `src/support/ui/tokens.ts`: it holds the application
+switcher (`.ctx`, 270px measured) and the theme control (`.theme`, 122px) as
+two flex items with `gap: 1rem` and no `flex-wrap` of its own. Run 24's
+`@media (max-width: 60rem) { .topbar { flex-wrap: wrap; } }` wraps the bar as
+a whole onto a second row, but `.topbar-end` is one item on that row — wrapping
+the row did nothing for what was inside the one thing left on it, and at a
+width narrower than their combined 408px the two controls overflowed instead
+of dropping onto their own lines.
+
+Fixed with one rule in the same media query: `.topbar-end { flex-wrap: wrap;
+justify-content: flex-end; row-gap: .4rem; }`. Confirmed live before and after
+on `/onboard` and `/runs`: `scrollWidth` 428px → 375px, the switcher and the
+theme control now stack without overlapping, and both 1280px (desktop) and
+960px (the 60rem breakpoint itself) are unaffected — the two controls still
+share one line there, exactly as before.
+
+Two tests added to the existing "narrow windows" block in
+`tests/dashboard/shell-navigation.spec.ts`, at 375px rather than the block's
+existing 560px (which is where the *rail* moves, not where this box breaks):
+no horizontal overflow, and the switcher/theme control do not share a row
+without also not overlapping. **Seen red first** — stashed the CSS change and
+ran both new tests against the old rule: the "stack rather than collide" test
+failed (`theme.y` 37px short of `ctx.y + ctx.height` in the test's synthetic
+fixture), and the overflow test passed on that same fixture, because its
+`.ctx` renders shorter static text than the real `<select>` on a live page.
+Recorded in the test file's own comment so the next person does not read that
+pass as proof the bug never existed — the collide test is the one that earns
+its place.
+
+**Verify:** `npm run verify` passes, exit 0 — **903 tests, up from 901.**
+
+**Also checked, and deliberately not acted on.** `/triage` currently lists an
+unresolved cluster from a toolshop run dated 2026-08-16 16:22 —
+*"Tearing down 'dashboard' exceeded the test timeout of 60000ms."* That
+predates both run 19's poll-race fix and run 30's `closeAllConnections()` fix
+(both 2026-08-17). `grep -rn "Tearing down" src/ tests/ tools/` finds nothing
+in this repository — it is Playwright's own fixture-teardown wording, not
+framework text — and this run's own `npm run verify`, including the
+`dashboard` project, finished in 58 seconds with no teardown timeout anywhere.
+One two-day-old sample, on a run predating two fixes that plausibly explain
+it, is exactly the "three singletons is not a rate" trap item 13 corrected
+once already. Left untriaged rather than promoted to an item; worth acting on
+only if it recurs on a fresh run.
+
+**Learned:**
+
+- **A width that was checked for one control is not checked for two.** Item
+  20 measured the theme control down to phone width and item 21 measured the
+  switcher separately; nobody measured both together in the same box after
+  21 landed second. The lesson already written into item 18's log entry — "a
+  page looks bounded on the repository somebody looks at it on" — has a
+  sibling for layout: a bar looks like it fits at the width somebody last
+  resized to.
+- **`.topbar` wrapping is not the same claim as "everything in the bar
+  wraps."** A flex container's own `flex-wrap` only concerns its direct
+  children; a child that is itself a flex row with un-wrapped children of its
+  own does not inherit the behaviour, and reads as fixed exactly where the
+  parent reads as flexible. Worth watching anywhere else in `tokens.ts` a
+  `.topbar`-style nested flex box exists.
+- **A regression test can pass on a fixture for the wrong reason.** The
+  overflow test stayed green against the unfixed CSS in this file's own
+  synthetic page, not because the bug was absent but because the fixture's
+  `.ctx` is shorter than a live `<select>`. The collide test is what actually
+  exercises the missing wrap, and is now the one doing the work; the overflow
+  test is kept as the more direct statement of the user-facing symptom.
+- **The triage page surfaces real signal even when it is the wrong thing to
+  act on this run.** An old, unrepeated failure sitting in `/triage` is worth
+  a five-minute check against current `verify` output before either fixing it
+  blind or ignoring it silently — and "checked, evidence points at already
+  fixed, declined" is itself the record worth leaving, per this file's own
+  rule that a dead end is as valuable as a change.
+
+**Next:** nothing in `backlog.md` carries a `ready` label after this run
+either. The next run is another scan — drive the dashboard and the onboarding
+journey — and should check a real phone width (375px) as part of that, not
+only the 560px the existing "narrow windows" tests cover, since that is what
+this run's finding was hiding behind.

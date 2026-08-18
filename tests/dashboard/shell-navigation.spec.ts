@@ -150,6 +150,30 @@ test.describe('narrow windows', () => {
       await expect(p.getByRole('link', { name: new RegExp(link.label) })).toBeVisible();
     }
   });
+
+  test('the bar does not overflow the viewport at phone width', async ({ page: p }) => {
+    /*
+       560px is where the rail moves. 375px is where .topbar-end itself needs
+       to wrap: the application switcher and the theme control are two flex
+       items inside it with no wrap of their own, so .topbar wrapping onto a
+       second row was not enough — that second row still had to fit both of
+       them side by side, and at a real phone width it could not.
+    */
+    await p.setViewportSize({ width: 375, height: 812 });
+    const scrollWidth = await p.evaluate(() => document.documentElement.scrollWidth);
+    const clientWidth = await p.evaluate(() => document.documentElement.clientWidth);
+    expect(
+      scrollWidth,
+      `${scrollWidth}px of content in a ${clientWidth}px window`,
+    ).toBeLessThanOrEqual(clientWidth);
+  });
+
+  test('the switcher and the theme control stack there rather than collide', async ({ page: p }) => {
+    await p.setViewportSize({ width: 375, height: 812 });
+    const ctx = (await p.locator('.ctx').boundingBox())!;
+    const theme = (await p.locator('.theme').boundingBox())!;
+    expect(theme.y).toBeGreaterThanOrEqual(ctx.y + ctx.height - 1);
+  });
 });
 
 test('a window too short for chrome gives the room back', async ({ page: p }) => {

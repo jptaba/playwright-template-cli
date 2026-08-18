@@ -211,6 +211,17 @@ evidence. Do not pick something from the closed items and re-open it on
 reasoning alone — three of item 20's four polish claims were written that way
 and all three turned out mis-shaped when driven.
 
+**Run 38 was that scan, and shipped item 25**: the top bar overflowed
+horizontally at a real phone width (375px) because `.topbar-end` wrapped as a
+single row inside the already-wrapping `.topbar`, but the application switcher
+and the theme control inside it had no wrap of their own. Found by resizing to
+375px, which no run since item 21 added the switcher had done — item 20's
+"wraps below 60rem" note was measured at 1280px and 560px, never at a phone's
+own width. **Nothing in this file carries a `ready` label after run 38
+either.** The next run is another scan; the file's own rule still applies, and
+run 38's own lesson applies too — check a real phone width, not just the
+560px "narrow windows" tests already cover.
+
 **Correcting the standing note on Vault, 2026-08-17 (run 21).** It said the
 owner has no Vault to test against. There is no *hosted* one and none is
 needed: `docker run --rm -p 8200:8200 -e VAULT_DEV_ROOT_TOKEN_ID=<token>
@@ -1686,3 +1697,59 @@ Also corrected here: the tallest-block budget was punishing legitimate content.
 A section holding ten work items is fine; the thing being hunted is one block
 with no bound. It excludes sections, and is stated in screens (4.5) rather than
 pixels, because that is the unit the complaint is in.
+
+### 25. The bar wrapped as a row, but not the two things inside it — `done`
+
+Found and shipped in run 38, a scan run, by driving the dashboard at a real
+phone width rather than only the 560px "narrow windows" width the existing
+tests use. Every other scan of the theme control and the application switcher
+(items 20, 21) was done at 1280px or at 560px; nobody had resized to 375px
+since item 21 added a second control into the same box item 20 had already
+filled.
+
+**Measured before touching anything.** At 375×812, `document.documentElement`
+had a `scrollWidth` of 427–428px against a `clientWidth` of 375 — the whole
+page scrolled horizontally, on every page, because the shell's top bar is
+shared. The cause: `.topbar-end` (`src/support/ui/tokens.ts`) holds the
+application switcher (`.ctx`, 270px) and the theme control (`.theme`, 122px)
+as two flex items with `gap: 1rem` and **no `flex-wrap` of its own**. The
+`@media (max-width: 60rem)` block added in run 24 wraps `.topbar` itself, but
+that only moves `.topbar-end` onto its own row — it does not let the two
+things inside that row drop onto separate lines, so at a width narrower than
+their combined 408px they overflowed the viewport instead.
+
+**Fixed with one rule in the same media query**: `.topbar-end { flex-wrap:
+wrap; justify-content: flex-end; row-gap: .4rem; }`. Confirmed live,
+before/after: `scrollWidth` 428px → 375px at 375px width, on `/onboard` and
+on `/runs`; the switcher and the theme control stack without overlapping
+(`.theme`'s top edge at or below `.ctx`'s bottom edge); and desktop width
+(1280px) and the 60rem breakpoint itself (960px) are both unaffected — the
+two controls stay on one line there, exactly as before.
+
+Two tests added to `tests/dashboard/shell-navigation.spec.ts`'s existing
+"narrow windows" block, at 375px rather than the block's existing 560px:
+**no horizontal overflow**, and **the switcher and the theme control do not
+occupy the same row without also not overlapping**. Seen red first — stashed
+the CSS fix and confirmed the second test fails against the old rule
+(`theme.y` short of `ctx.y + ctx.height` by 37px in the test's synthetic
+fixture); the first test happened to pass on that same fixture, because its
+`.ctx` renders shorter static text there than the real `<select>` does on a
+live page — recorded so the next run does not read that pass as the bug not
+existing.
+
+**Verify:** `npm run verify` passes, exit 0 — 903 tests (2 more than run 37's
+901).
+
+**Also checked, and declined:** `/triage` currently lists a two-year-old
+unresolved cluster, *"Tearing down 'dashboard' exceeded the test timeout of
+60000ms"*, from a toolshop run dated 2026-08-16 16:22 — before run 19's poll-
+race fix and run 30's `closeAllConnections()` fix, both landed 2026-08-17.
+`grep -rn "Tearing down"` across `src/`, `tests/` and `tools/` finds nothing —
+it is Playwright's own fixture-teardown message, not framework text. This
+run's own `npm run verify` (903 tests, including the `dashboard` project)
+completed in 58 seconds with no teardown timeout anywhere. Likely already
+fixed by one of those two runs and simply never re-triaged; left as `unclassified`-worthy
+rather than reopened as an item, since nothing here reproduces it and chasing
+a two-day-old single sample would be exactly the "three singletons" mistake
+item 13 already corrected once. If it recurs on a fresh run, that is the
+moment to act on it, not this one.

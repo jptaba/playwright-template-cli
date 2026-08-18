@@ -442,8 +442,16 @@ export const DASHBOARD_STYLES = `
        Three things in one row stops fitting somewhere around a phone. Wrapping
        is the graceful end of that — the alternative is the theme control
        hanging off the right edge, which is what it did before this rule.
+
+       Wrapping .topbar itself is not enough: .topbar-end holds the
+       application switcher and the theme control as two flex items with no
+       wrap of their own, so on a real phone width (375px) their combined
+       content width (408px, measured) overflowed the viewport rather than
+       dropping to a second line — .topbar had wrapped, but its one remaining
+       child had nothing left to shrink into.
     */
     .topbar { flex-wrap: wrap; row-gap: .4rem; }
+    .topbar-end { flex-wrap: wrap; justify-content: flex-end; row-gap: .4rem; }
     .theme button { padding: .26rem .4rem; font-size: .68rem; }
     /* A wrapped bar is taller, so what a jump has to clear is taller too. */
     section, .masthead { scroll-margin-top: 6rem; }
