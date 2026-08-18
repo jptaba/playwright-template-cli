@@ -31,6 +31,40 @@ _Target-agnostic. Available in every spec, whichever application is under test._
 | `contracts` | `ContractRegistry \| null` | The vendored contract document, when the target publishes one. |
 | `a11y` | `A11yScanner` | Accessibility scanning against the standard the target declares. |
 
+## Fixtures — parabank
+
+_Added on top of the framework fixtures when TARGET=parabank._
+
+| Name | Signature | What it does |
+|---|---|---|
+| `signIn` | `named actions — see the table below` | Signing in, and reading what the form reported. |
+| `banking` | `named actions — see the table below` | Accounts, and moving money between two of them. |
+| `testData` | `ParabankTestData` | Builders for the data a spec needs. |
+
+## actions/ — parabank
+
+_L2 UI vocabulary. Composes locators, returns data, asserts nothing._
+
+| Name | Signature | What it does |
+|---|---|---|
+| `banking.openOverview` | `(page: Page) => Promise<void>` | Open the overview and wait for the account rows to be there. |
+| `banking.accountNumbers` | `(page: Page) => Promise<string[]>` | The account numbers this customer holds, in the order shown. |
+| `banking.transfer` | `(page: Page, transfer: { amount: string; from: string; to: string; }) => Promise<TransferReceipt>` | Move money between two accounts and return what the application said. |
+| `signIn.withCredentials` | `(page: Page, credentials: Credentials) => Promise<void>` | Submit the sign-in form. |
+| `signIn.isSignedIn` | `(page: Page) => Promise<boolean>` | Whether the page currently carries a session. |
+| `signIn.signedInAs` | `(page: Page) => Promise<string \| null>` | Who the session belongs to, or null when signed out. |
+| `signIn.signOut` | `(page: Page) => Promise<void>` | End the session, so a spec about signing out can be written. |
+| `signIn.readError` | `(page: Page) => Promise<string \| null>` | The error the form reported, or null when it reported none. |
+
+## api/ — parabank
+
+_L2 HTTP vocabulary. Typed clients with response-schema validation._
+
+| Name | Signature | What it does |
+|---|---|---|
+| `ordersApi.create` | `(order: NewOrder) => Promise<Order>` | Create an order and register it for cleanup at the end of the test. |
+| `ordersApi.get` | `(id: string) => Promise<Order>` | Read one order. |
+
 ## Fixtures — saucedemo
 
 _Added on top of the framework fixtures when TARGET=saucedemo._

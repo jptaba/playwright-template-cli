@@ -18,6 +18,7 @@ decide what to do.
 | 30 | More workers than accounts, on a server-state target | `ready` |
 | 29 | The live suites are not part of any loop | `ready` |
 | 28 | `cartLocators.line` has the same substring trap | `ready` |
+| 31 | The a11y scan counts incomplete checks and discards what they were | `ready` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
 **Take them in that order.** 30 before 29, because 29 makes a run report the
@@ -62,6 +63,37 @@ Full text: `backlog.md`, item 28.
 cart spec adds one product — but `cart.empty()` removes by name in a `finally`
 against a shared account, so the first spec that adds two nesting names hands
 every later spec on that worker a dirty cart.
+
+### 31. The a11y scan counts incomplete checks and discards what they were — `ready`
+
+Found while onboarding ParaBank (coverage phase, application 3), by meeting it
+rather than reading for it.
+
+`summarise()` in `src/integrations/a11y/scanner.ts` stores
+`incomplete: raw.incomplete.length` — **a number**. Axe's `incomplete` array
+carries a rule id, a description and the nodes for every check it could not
+decide, and all of it is thrown away.
+
+**Why that matters more than it sounds.** The conventions are emphatic that
+`scan.incomplete` is not a pass — *"those are checks axe could not decide, and
+a spec that ignores them overstates its result"* — and the scaffolded spec duly
+asserts `toBe(0)`. So a target with one indeterminate check has a failing
+accessibility spec, a message reading `Expected: 0, Received: 1`, and **no way
+whatsoever to discover what the check was.** The only two moves available are
+to loosen the assertion, which the conventions forbid, or to delete the spec.
+
+That is exactly where ParaBank's accessibility spec is parked, and it is the
+one thing blocking it: the violations are all measured and waived, and the run
+is otherwise clean.
+
+**Shape:** keep the count, and add the findings beside it — rule id, impact,
+description and node targets — the way `violations` and `waived` already carry
+theirs. `WaivedViolation` is the precedent: it exists precisely so an exception
+is *visible* rather than merely subtracted. Then a spec can say which check
+needs a person, and `describeFindings` can name it.
+
+Pure, and testable without a browser: `summarise()` already takes a
+`RawAxeResult` and the framework tests already build them by hand.
 
 ### 11. A repeatable learn-fix-optimise loop over a full run — `hypothesis`
 

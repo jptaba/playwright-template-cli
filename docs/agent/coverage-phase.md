@@ -81,7 +81,7 @@ applicable to this application
 |---|---|---|---|---|---|---|---|---|
 | 1 | toolshop | ✓ | ✓ | — | — | — | — | 13/13 at `--workers=3` |
 | 2 | saucedemo | ✓ | ✓ | — | — | — | — | 2/2 |
-| 3 | ParaBank | — | — | — | — | — | — | — |
+| 3 | ParaBank | ✓ | ✓ | — | — | — | — | 2/2 (`setup:auth`, `@smoke`) |
 | 4 | restful-booker-platform | — | — | — | — | — | — | — |
 | 5 | DemoBlaze | — | — | — | — | — | — | — |
 | 6 | AutomationExercise | — | — | — | — | — | — | — |
@@ -99,4 +99,73 @@ One short entry each, appended as work lands. What was built, what the live run
 said, and anything the application taught the framework. Long reasoning goes in
 `improvement-log.md`; this stays a status file.
 
-<!-- entries appended below -->
+### 3 · ParaBank — onboarded, happy path passing
+
+**Onboarded** with `target:new` and then rewritten from the running
+application. `setup:auth` passes and `PB-1-01 · A transfer between two accounts
+is confirmed with its amount @smoke` passes live. **2/2.**
+
+**What it taught the framework**, all of it found by driving rather than
+reading:
+
+- **The sign-in fields have no accessible name at all.** "Username" and
+  "Password" are `<b>` elements in a layout table, not labels, so the
+  accessibility tree shows two bare `textbox` nodes and `getByLabel` matches
+  nothing. A DOM dump reports them as labelled — this is the conventions'
+  warning reproduced exactly, and it is why the pack uses CSS with
+  justifications here.
+- **The page pre-renders every error it might show.** `p.error` matches three
+  hidden paragraphs on a page reporting nothing, so `isVisible()` is a
+  strict-mode violation rather than an answer. **The presence of an error
+  element is not the presence of an error** — `:visible` is load-bearing.
+- **The transfer pickers are filled by script after load**, and hold zero
+  options in the served HTML. Selecting before they fill selects nothing and
+  the transfer silently uses a default — a wrong answer that looks like a pass.
+  The verb waits on the option count.
+- **`accounts` is already a framework fixture** (the account pool, with
+  `lease`). A target fixture of that name does not shadow it, it fails to
+  typecheck. This pack's verb is `banking`.
+- **The `no-raw-locators` rule reads exactly one line above the call.** A
+  two-line justification fails even when it says the right thing, and a
+  multi-line chained locator needs the comment above the *call*, not above the
+  property. Tripped it thirteen times — and the rule declining a misplaced
+  justification is what sent me back to `getByRole('row')`/`getByRole('link')`
+  for the overview table, which is the better locator anyway.
+
+**Accessibility: measured, waived, and the spec deferred.** The sign-in page
+fails with **one critical** (`image-alt`) and **four serious**
+(`color-contrast` ×6 nodes, `html-has-lang`, `link-name`, `target-size` ×15).
+These are the vendor's defects on a demo this repository does not own, so they
+are recorded as **profile waivers with a reason and a review date of
+2026-11-18**, scoped by `urlPattern` to that page so the rest of the rule stays
+live everywhere else.
+
+The spec itself is **not shipped**, and the reason is a real framework gap
+rather than the application: after the waivers apply, the scan reports
+`incomplete: 1` — one check axe could not decide. The conventions are right
+that this is not a pass. But `summarise()` stores `incomplete:
+raw.incomplete.length` and throws the rule ids away, so **there is no way to
+find out which check needs a human.** I could not honestly claim to have
+reviewed it, and loosening the assertion is what the conventions forbid, so the
+spec waits on the gap being closed. Raised in `open-items.md`.
+
+**Availability, measured:** the host returned Cloudflare **502s for about forty
+seconds** in a sixty-second window, then stayed up for twelve consecutive
+probes. Failures here are as likely to be the deployment as the suite.
+
+**The API layer is still the scaffold's guess and must not be trusted.**
+`--with=api` wrote `endpoints/orders.ts` and `api/orders.ts`; ParaBank has no
+orders, and every path in them is invented. They are shipped because the
+capability is declared and `target:doctor` expects the directories, but nothing
+imports them and no spec calls them. Rewrite them from
+`/parabank/services/bank/*` before writing the API specs — the endpoints that
+matter are `customers/{id}/accounts` and `accounts/{id}/transactions`, both
+confirmed returning real JSON on 2026-08-18.
+
+**Still to write:** negative, idempotency, audit and boundary. The vocabulary
+was built for them — `transfer()` returns a receipt that can describe a refusal
+as well as a success, which is what lets one verb serve all four without
+near-copies — and the evidence is captured: the form's own refusals are "The
+amount cannot be empty." and "Please enter a valid amount.", and the REST API
+exposes `/accounts/{id}/transactions`, which is the audit surface.
+
