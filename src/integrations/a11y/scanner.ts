@@ -69,21 +69,46 @@ export interface A11yScan {
   passes: number;
   /** Checks axe could not decide — a human has to look. Never a pass. */
   incomplete: number;
+  /**
+   * *Which* checks axe could not decide, in the same shape as a violation.
+   *
+   * The count alone was a dead end, and a real one: the conventions are
+   * emphatic that `scan.incomplete` is not a pass, and the scaffolded spec
+   * duly asserts `toBe(0)` — so a target with one indeterminate check had a
+   * failing accessibility spec reading `Expected: 0, Received: 1` and **no way
+   * to discover what the check was**. The only moves left were to loosen the
+   * assertion, which the conventions forbid, or delete the spec. ParaBank's
+   * accessibility spec sat unshipped on exactly that.
+   *
+   * Waivers deliberately do **not** apply here. A waiver accepts a known
+   * failure; an undecided check is not known to be anything yet, and waiving
+   * one would be accepting an answer nobody has.
+   */
+  undecided: A11yViolation[];
+}
+
+/** One axe finding, in the shape axe reports both violations and incompletes. */
+export interface RawAxeFinding {
+  id: string;
+  impact?: string | null;
+  help: string;
+  helpUrl: string;
+  tags: string[];
+  nodes: { target: unknown[]; html: string; failureSummary?: string }[];
 }
 
 /** The subset of an axe result this module reads. Keeps the seam testable. */
 export interface RawAxeResult {
   url?: string;
-  violations: {
-    id: string;
-    impact?: string | null;
-    help: string;
-    helpUrl: string;
-    tags: string[];
-    nodes: { target: unknown[]; html: string; failureSummary?: string }[];
-  }[];
+  violations: RawAxeFinding[];
   passes: unknown[];
-  incomplete: unknown[];
+  /**
+   * Typed like `violations` because it *is* shaped like them — axe reports a
+   * rule id, an impact, a description and the failing nodes for a check it
+   * could not decide, and this module used to read `.length` and throw all of
+   * it away.
+   */
+  incomplete: RawAxeFinding[];
 }
 
 /**
@@ -221,7 +246,46 @@ export function summarise(
     waived,
     passes: raw.passes.length,
     incomplete: raw.incomplete.length,
+    undecided: raw.incomplete.map(asFinding),
   };
+}
+
+/** An axe finding in this module's own shape. Shared by violations and incompletes. */
+function asFinding(finding: RawAxeFinding): A11yViolation {
+  return {
+    id: finding.id,
+    impact: IMPACTS.includes(finding.impact ?? '') ? (finding.impact as Impact) : null,
+    help: finding.help,
+    helpUrl: finding.helpUrl,
+    criteria: criteriaOf(finding.tags),
+    nodes: finding.nodes.map((node) => ({
+      target: node.target.map((part) => String(part)).join(' '),
+      html: node.html,
+      failureSummary: node.failureSummary ?? '',
+    })),
+  };
+}
+
+/**
+ * One line per undecided check, so "1 needs a human" says *which* one.
+ *
+ * Without this the only honest reactions to a failing `incomplete` assertion
+ * were to loosen it or delete the spec, because nothing on the page or in the
+ * message said what to go and look at.
+ */
+export function describeUndecided(scan: A11yScan): string {
+  if (scan.undecided.length === 0) return 'no undecided checks';
+  const lines = scan.undecided.map((finding) => {
+    const where = finding.nodes
+      .slice(0, 3)
+      .map((node) => node.target)
+      .join(', ');
+    const more = finding.nodes.length > 3 ? ` +${finding.nodes.length - 3} more` : '';
+    return `  [${finding.impact ?? 'unknown'}] ${finding.id} — ${finding.help}\n` +
+      `      ${finding.nodes.length} node(s): ${where}${more}\n` +
+      `      ${finding.helpUrl}`;
+  });
+  return `${scan.undecided.length} check(s) axe could not decide:\n${lines.join('\n')}`;
 }
 
 /** One line per violation, for a failure message somebody has to act on. */

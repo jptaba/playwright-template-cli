@@ -1,4 +1,5 @@
 import { expect, test } from '../../fixtures';
+import { describeUndecided } from '../../../../integrations/a11y/scanner';
 
 /**
  * TOOL-5 — accessibility, against the standard the profile declares.
@@ -34,14 +35,18 @@ test(
 
     /*
        Incomplete is not a pass. These are checks axe could not decide, and a
-       spec that ignores them overstates its result — so the count is recorded
+       spec that ignores them overstates its result — so they are recorded
        against the result, and the spec still fails only on what axe was sure
        about.
+
+       Naming them rather than counting them: "1 check needs a human" gives a
+       reviewer nowhere to go, and the only moves left from there are to
+       loosen the assertion or delete the spec.
     */
-    if (scan.incomplete > 0) {
+    if (scan.undecided.length > 0) {
       test.info().annotations.push({
         type: 'a11y-undecided',
-        description: `${scan.incomplete} check(s) axe could not decide — a human has to look`,
+        description: describeUndecided(scan),
       });
     }
   },

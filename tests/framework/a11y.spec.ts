@@ -4,6 +4,7 @@ import {
   createScanner,
   criteriaOf,
   describe,
+  describeUndecided,
   summarise,
   tagsForStandard,
   UnknownStandardError,
@@ -23,7 +24,14 @@ function raw(overrides: Partial<RawAxeResult> = {}): RawAxeResult {
     url: 'https://app.internal.corp/orders',
     violations: [],
     passes: [1, 2, 3],
-    incomplete: [1],
+    /*
+       A real finding, not a placeholder number. This fixture used to hold
+       `[1]`, which described something axe never produces — and it is exactly
+       why nobody noticed that `summarise` was reading `.length` and discarding
+       the rule id, the description and the nodes for every check axe could
+       not decide.
+    */
+    incomplete: [incomplete('color-contrast')],
     ...overrides,
   };
 }
@@ -46,6 +54,11 @@ function violation(
       failureSummary: 'Fix any of the following: ...',
     })),
   };
+}
+
+/** An undecided check, which axe reports in the same shape as a violation. */
+function incomplete(id: string, nodes = 1): RawAxeResult['incomplete'][number] {
+  return violation(id, 'serious', ['wcag2aa', 'wcag143'], nodes);
 }
 
 test.describe('which rules a declared standard means', () => {
@@ -147,12 +160,52 @@ test.describe('what a result means', () => {
 
   test('checks axe could not decide are reported, never counted as passes', () => {
     const scan = summarise(
-      raw({ passes: [1, 2, 3, 4], incomplete: [1, 2] }),
+      raw({ passes: [1, 2, 3, 4], incomplete: [incomplete('color-contrast'), incomplete('aria-hidden-focus')] }),
       { standard: 'wcag22aa' },
       tagsForStandard('wcag22aa'),
     );
     expect(scan.passes).toBe(4);
     expect(scan.incomplete).toBe(2);
+  });
+
+  test('an undecided check says which rule it was, not just that there was one', () => {
+    /*
+       The count on its own was a dead end. The conventions forbid loosening
+       the assertion, so a target with one indeterminate check had a failing
+       spec reading `Expected: 0, Received: 1` and no way to find out what to
+       look at — which is where ParaBank's accessibility spec was parked.
+    */
+    const scan = summarise(
+      raw({ incomplete: [incomplete('color-contrast', 2)] }),
+      { standard: 'wcag22aa' },
+      tagsForStandard('wcag22aa'),
+    );
+
+    expect(scan.incomplete, 'the count is kept').toBe(1);
+    expect(scan.undecided).toHaveLength(1);
+    expect(scan.undecided[0]?.id).toBe('color-contrast');
+    expect(scan.undecided[0]?.nodes.map((node) => node.target)).toEqual(['#node-0', '#node-1']);
+    expect(describeUndecided(scan)).toContain('color-contrast');
+    expect(describeUndecided(scan)).toContain('#node-0');
+  });
+
+  test('a waiver does not silence an undecided check, because nobody decided it', () => {
+    /*
+       Deliberate asymmetry with violations. A waiver accepts a known failure;
+       an undecided check is not known to be anything yet, so waiving one
+       would be accepting an answer nobody has.
+    */
+    const scan = summarise(
+      raw({ incomplete: [incomplete('color-contrast')] }),
+      {
+        standard: 'wcag22aa',
+        waived: [{ rule: 'color-contrast', reason: 'brand palette', reviewBy: '2026-12-01' }],
+      },
+      tagsForStandard('wcag22aa'),
+    );
+
+    expect(scan.undecided).toHaveLength(1);
+    expect(scan.waived, 'nothing was suppressed, because nothing failed').toEqual([]);
   });
 
   test('an unrecognised impact becomes null rather than a made-up level', () => {
