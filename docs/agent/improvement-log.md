@@ -2877,3 +2877,110 @@ failures are the evidence that a single-item rate is not enough on a live
 public demo. Item 28 (the same substring trap in `cartLocators.line`) after
 that, then item 31 (the a11y scan discarding what an incomplete check was).
 Item 11 remains a standing objective rather than a task.
+
+## 2026-08-18 · run 41 · The suites the loop was never told to run
+
+**Picked:** item 29 — the live suites are not part of any loop. Re-read
+`open-items.md` and compared `main` to `origin/main` before starting: both at
+`14719dc`, nothing had landed since run 40, and 29 was top of the ranking.
+
+**Did:** `npm run suites:live` (`tools/live-suites.ts`) runs every onboarded
+application's own specs against the real deployment, one process per
+application, and reports pass/fail per application with the triage category for
+anything that failed. The shaping and reporting live in
+`src/support/live-suites.ts` as pure functions — a `RunResult` in, a summary
+out — so the thing that reports on three public demos is itself testable with
+no browser, no network and no target.
+
+**The half that matters more than the command:** step 5 of the working
+agreement in `backlog.md` now obliges **every** run to execute it and record
+the result. A command nobody is told to run is precisely how this item came to
+exist.
+
+Three decisions worth recording, because each had a plausible alternative:
+
+- **Not in `npm run verify`, on purpose.** Verify has to work with no network,
+  no credentials and every demo down; that is what makes it the one command CI
+  and every contributor can run. Folding a live suite in would have traded a
+  real guarantee for a reporting convenience.
+- **The run triages its own result** — the open question the item left. It
+  reuses `clusterFailures` and `classifyByRule` verbatim rather than inventing
+  a fault vocabulary beside the taxonomy, which would then be free to disagree
+  with it. A failure arrives as `network-infrastructure (rule:
+  transport-failure)` or as `no rule matched — needs judgement`.
+- **Any failure exits 1, whatever the category**, following run 13's precedent
+  that exit codes are a policy statement. Forgiving a deployment-blamed failure
+  was considered and rejected: a rule is a heuristic over error text, an outage
+  is worth knowing about, and a command that goes green on "the application was
+  down" cannot answer the question it was built for. A suite that could not run
+  at all exits **2** — nothing was measured, which is different from something
+  failing.
+
+One small config change enabled it: `LIVE_ONLY=true` leaves the `framework` and
+`dashboard` projects out. There is no "every project except these" flag, and
+the alternative — naming the live projects on the command line — means
+re-deriving the capability gating outside `playwright.config.ts` and letting
+the two drift.
+
+**Verify:** `npm run verify` passes, exit 0 — **924 tests**, up from 914 (10
+new cases in `tests/framework/live-suites.spec.ts`). Diff: 476 lines across 7
+files, of which ~150 are tests and ~90 are documentation; hand-written source
+is ~230.
+
+**Live suites — the measurement this run exists to start recording:**
+
+| application | result |
+|---|---|
+| parabank | **2/2 passed** |
+| saucedemo | **2/2 passed** |
+| toolshop | **13/13 passed** |
+
+**17/17, exit 0, 54 seconds for all three.** That is the number future entries
+trend against.
+
+**Seen red as well, and not by waiting for it.** Pointing a target at a dead
+loopback port — loopback is always in the allowlist, so no profile was edited —
+produced a real `ECONNREFUSED`, reported as `network-infrastructure (rule:
+transport-failure)`, exit 1, with the dependent spec correctly shown as skipped
+rather than passed. The exit-2 path was exercised with an unknown `--target`.
+
+**Triage agreement:** `1 agreed · 0 contradicted · 3 declined`, exit 0 —
+unchanged from runs 13, 26 and 39, as expected, since nothing here touched
+triage rules or clustering.
+
+**PR:** branch `agent/2026-08-18-live-suites`; `main` fast-forwarded and pushed,
+`main` and `origin/main` confirmed matching.
+
+**Learned:**
+
+- **Running the thing found a defect that reading for it would not have, on the
+  first execution.** toolshop declares `contracts: enabled: true` with a
+  vendored OpenAPI document and `tests/contract/` holds only a `.gitkeep`; the
+  `contract` project is built, collects zero specs, and the run is green.
+  toolshop's 13/13 contains no contract assertion at all. Parabank's `api` is
+  the same shape. The conventions are careful that a capability declared *off*
+  reports "not applicable" rather than a silent zero — a capability declared
+  *on* with no specs is a silent zero wearing the opposite label, and it is the
+  more misleading of the two. Raised as item 32 rather than folded in, per the
+  norm since run 17.
+- **The loop had a measurement-shaped hole and the fix is half command, half
+  working agreement.** Writing only the command would have reproduced the
+  original failure at one remove: available, correct, and unrun. The
+  obligation in step 5 is the part that closes it, and it is the part with no
+  code in it.
+- **Two directories being empty is not two instances of one problem.**
+  Parabank's empty `tests/a11y/` is already explained — the coverage phase
+  parked that spec pending item 31 — so counting it alongside the genuinely
+  unexplained ones would have inflated item 32 and sent the next run looking
+  for a cause that is already written down. Item 32 says which two are real.
+- **A pure core made the untestable testable.** The command drives three public
+  demos, so nothing about it could be asserted in `verify` — but the summarising
+  and the exit-code policy are pure functions over a run model, and those are
+  where every decision worth pinning actually lives.
+
+**Next:** item 32 (declared capabilities with no specs — `target:doctor` is the
+natural home, and whether it warns or errors is the call to make), then item 28
+(the substring trap in `cartLocators.line`), then item 31 (the a11y scan
+discarding what an incomplete check was). Item 11 remains a standing objective.
+**Every run from here also runs `npm run suites:live` and records the table** —
+that is now step 5, not an optional extra.

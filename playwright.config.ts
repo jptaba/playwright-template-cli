@@ -43,7 +43,19 @@ const ceiling = target
   ? workerCeiling(target.roles, target.credentials.poolSize, target.capabilities.serverState)
   : null;
 
-const projects: Project<FrameworkOptions>[] = [
+/**
+ * `LIVE_ONLY=true` leaves the framework's own two projects out, so a run
+ * contains only what tests the application under test.
+ *
+ * `npm run suites:live` sets it. It exists because the two framework projects
+ * are ~900 tests that say nothing about any application, and there is no
+ * "every project except these" flag — the alternative was naming the live
+ * projects on the command line, which means re-deriving the capability gating
+ * below outside this file and letting the two disagree.
+ */
+const liveOnly = process.env.LIVE_ONLY === 'true';
+
+const frameworkProjects: Project<FrameworkOptions>[] = [
   {
     /*
        The framework's own tests — lint rules, adapters, reporters, triage,
@@ -80,6 +92,8 @@ const projects: Project<FrameworkOptions>[] = [
     use: { ...devices['Desktop Chrome'] },
   },
 ];
+
+const projects: Project<FrameworkOptions>[] = liveOnly ? [] : [...frameworkProjects];
 
 if (!target) {
   console.warn(

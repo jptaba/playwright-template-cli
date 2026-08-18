@@ -41,6 +41,7 @@
     "triage:rules": "tsx tools/triage.ts --stage=rules",
     "triage:agent": "tsx tools/triage.ts --stage=agent",
     "triage:measure": "tsx tools/triage-measure.ts",
+    "suites:live": "tsx tools/live-suites.ts",
     "publish:practitest": "tsx tools/publish-practitest.ts",
     "publish:jira": "tsx tools/publish-jira.ts",
     "rotate:passwords": "tsx tools/rotate-passwords.ts",

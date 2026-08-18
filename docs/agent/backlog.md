@@ -3,7 +3,8 @@
 > **Looking for what to do next? It is not in this file any more.**
 >
 > - **[`open-items.md`](open-items.md)** — the live worklist. Three items ready,
->   one standing objective.
+>   one standing objective. **Step 5 of the working agreement below now obliges
+>   every run to execute `npm run suites:live` and record the result.**
 > - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
 >   end-to-end coverage programme, with its own per-application state.
 > - **This file** — the working agreement below, which is still binding, plus an
@@ -55,7 +56,25 @@ re-read the backlog before committing to an item.
    containing the updated backlog.
 4. After implementing, move the item to `done` with the branch name, and append
    to `improvement-log.md`.
-5. **Measure, and record the numbers in the log entry.** The owner's definition
+5. **Run the live suites, and record the result in the log entry.**
+   `npm run suites:live` runs every onboarded application's own specs against
+   the real deployment and reports pass/fail per application, with the triage
+   category for anything that failed. **Every run does this**, not only one
+   that touched a target pack — that is the whole point of item 29, which was
+   raised because 39 consecutive runs recorded a green `verify` while the specs
+   this repository exists to run went unexecuted for two days.
+
+   It is **not** part of `npm run verify` and must not be added to it: verify
+   has to work with no network, no credentials and every demo down, which is
+   what makes it the command CI and every contributor can run.
+
+   Roughly 55 seconds for the three applications currently onboarded. A failure
+   here is not automatically a reason to abandon the run's own item — these are
+   public demos and a `network-infrastructure` verdict often means exactly what
+   it says — but it **must** be reported in the entry either way, with the
+   category. Silence about a red suite is the failure mode this item exists to
+   remove.
+6. **Measure, and record the numbers in the log entry.** The owner's definition
    of "continuously" is this loop rather than a CI job (see item 11), so a run
    that changed triage rules — or that had nothing better ranked — runs
    `npm run triage:measure` and writes the result down. Trending lives in the
@@ -1900,7 +1919,65 @@ Also here, and lower value: `saucedemo/locators/inventory.ts:17` has the same
 shape. Its six product names do not nest, so it is correct today by luck rather
 than by construction.
 
-### 29. The live suites are not part of any loop — `ready`
+### 29. The live suites are not part of any loop — `done`
+
+Shipped on `agent/2026-08-18-live-suites` (run 41). `npm run suites:live` runs
+every onboarded application's own specs against the real deployment, one
+process per application, and reports pass/fail per application with the triage
+category for anything that failed. **The loop's working agreement now says
+every run does this and records the result** — step 5 of "How the agent uses
+this file", above. That half matters more than the command: a command nobody is
+told to run is how this item happened in the first place.
+
+**Deliberately not folded into `npm run verify`**, and this is the load-bearing
+decision. Verify must keep working with no network, no credentials and every
+demo down — that is what makes it the one command CI and every contributor can
+run. Making the repository's always-runnable command depend on three public
+demos staying up would have traded a real guarantee for a reporting
+convenience.
+
+**The open question the item raised, answered:** a run *triages* its own
+result rather than reporting a bare number. `summariseLiveRun` reuses
+`clusterFailures` and `classifyByRule` verbatim, so a failure arrives carrying
+`network-infrastructure (rule: transport-failure)` or `no rule matched — needs
+judgement`. It deliberately does **not** invent a second fault vocabulary on
+top of the taxonomy: `triage/types.ts` already exists so a category routes
+somewhere, and a parallel classification would be free to disagree with it.
+
+**The exit code is a policy statement, following run 13's precedent.** Any
+failure exits 1 *whatever its category* — the alternative considered was
+forgiving a failure a rule blamed on the deployment, and it was rejected on
+three grounds: a rule is a heuristic over error text, an outage is itself worth
+knowing about, and a command that goes green on "the application was down"
+cannot answer the question it was built to answer. A suite that could not run
+at all exits **2** rather than 1: nothing was measured, which is different from
+something failing, and reporting it as red would hide a broken command behind a
+plausible failure.
+
+**Measured live, all three applications, on the committed state:**
+
+| application | result |
+|---|---|
+| parabank | **2/2 passed** |
+| saucedemo | **2/2 passed** |
+| toolshop | **13/13 passed** |
+
+17/17, exit 0, 54 seconds for all three. **Seen red as well**, and not by
+waiting for it: pointing a target at a dead loopback port (loopback is always
+allowlisted, so no profile was edited) produced a real `ECONNREFUSED`, which
+the command reported as `network-infrastructure (rule: transport-failure)`,
+exit 1, with the dependent spec correctly shown as skipped rather than passed.
+The exit-2 path was exercised too, with an unknown `--target`.
+
+**One thing this immediately surfaced, raised as item 32 rather than fixed
+here:** toolshop declares `contracts: enabled: true` with a vendored OpenAPI
+document, and `src/targets/toolshop/tests/contract/` holds nothing but a
+`.gitkeep`. Parabank's `tests/a11y/` and `tests/api/` are empty the same way
+while both capabilities are declared on. The `contract` and `api` projects are
+built, run zero specs, and the run is green — a declared capability validating
+nothing, reported as a pass.
+
+The original item follows.
 
 The finding underneath item 27, and worth more than it.
 

@@ -15,30 +15,50 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 29 | The live suites are not part of any loop | `ready` |
+| 32 | Three declared capabilities have no specs, and report as a pass | `ready` |
 | 28 | `cartLocators.line` has the same substring trap | `ready` |
 | 31 | The a11y scan counts incomplete checks and discards what they were | `ready` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Item 30 shipped in run 40** — `backlog.md` has the full writeup, including a
-measurement worth carrying forward: even at the corrected worker count, two of
-six live toolshop runs still failed, on symptoms that do not match the
-account-collision shape the fix targets. That is exactly what item 29 exists to
-turn into a rate instead of another anecdote, so it now ranks first with one
-more reason behind it.
+**Items 30 and 29 shipped in runs 40 and 41.** `npm run suites:live` now runs
+every onboarded application's specs against the real deployment, and **step 5
+of the working agreement in `backlog.md` says every run does this and records
+the result.** Read that before starting — it is a new obligation on every run,
+not an optional extra, and it is what item 29 was actually for.
+
+Item 32 below was found by running that command for the first time.
 
 ---
 
-### 29. The live suites are not part of any loop — `ready`
+### 32. Three declared capabilities have no specs, and report as a pass — `ready`
 
-Full text: `backlog.md`, item 29.
+Found by running `npm run suites:live` (run 41), by reading what it listed
+rather than by looking for it.
 
-**One line:** `npm run verify` runs `framework` and `dashboard` and not one spec
-against a real application, so in 39 runs this loop never executed the specs it
-exists to keep bulletproof — and two `@smoke` failures sat on `/triage` for two
-days under a green log.
+`src/targets/toolshop/tests/contract/` contains nothing but a `.gitkeep`, while
+`config/targets/toolshop.ts` declares `contracts: { enabled: true, spec:
+'src/targets/toolshop/contracts/openapi.json' }` — a vendored document, pinned,
+and nothing validates against it. `src/targets/parabank/tests/a11y/` and
+`tests/api/` are empty the same way, with both capabilities declared on.
 
-Pairs with 30. Roughly 50 seconds for both current targets.
+**Why this is worse than an empty directory.** `playwright.config.ts` builds a
+project per enabled capability, so the `contract` and `api` projects are
+created, collect zero specs, and the run is green. The conventions are explicit
+that a capability declared off should report "not applicable for `<target>`"
+rather than a silent zero — but a capability declared *on* with no specs is a
+silent zero wearing the opposite label, and it is the more misleading of the
+two. toolshop's 13/13 does not include a single contract assertion.
+
+Note parabank's a11y emptiness is **already explained** and should not be
+double-counted: the coverage phase parked that spec deliberately, pending item
+31. The unexplained ones are toolshop's contract and parabank's api.
+
+**Shape, and it wants a decision rather than a patch.** `target:doctor` is the
+natural home — it already checks a profile's claims against what is on disk,
+and "declared capability, no specs" is exactly that shape. Whether it is an
+error or a warning is the call: an error blocks a run, and a target mid-build
+legitimately has empty directories for a while. A warning that names the file
+is probably right, with the same wording as the other doctor findings.
 
 ### 28. `cartLocators.line` has the same substring trap — `ready`
 
@@ -91,9 +111,10 @@ suites are, not when a list is empty.
 
 **What is left:**
 
-- A `toolshop` triage-fixture. **Now ranks below 29**, and run 39b is the
-  evidence: a fixture of deliberate failures is worth less than running the
-  suite that is meant to pass.
+- A `toolshop` triage-fixture. **Ranked below the real suites**, and run 39b is
+  the evidence: a fixture of deliberate failures is worth less than running the
+  suite that is meant to pass. Run 41 shipped the running half
+  (`npm run suites:live`), so this is now the smaller remaining piece.
 - **Only 1 of the 7 rules in `rules.ts` has ever been settled against ground
   truth** (`transport-failure`). The other six have unit coverage on synthetic
   message text and no ground truth at all. That is the measurement's real blind
