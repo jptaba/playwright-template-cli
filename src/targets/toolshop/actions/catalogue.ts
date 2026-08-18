@@ -48,6 +48,30 @@ export const catalogue = {
     return names.map((name) => name.trim());
   },
 
+  /**
+   * The names of the products that can actually be added to a cart.
+   *
+   * Stock is shared mutable state on a demo everybody uses — anybody in the
+   * world can buy the last pair of Combination Pliers — and the application
+   * renders an out-of-stock product with `add-to-cart` and the quantity
+   * controls *disabled*. A spec that takes the first card and adds it dies as
+   * a fifteen-second timeout on a disabled button, which reads as the cart
+   * being broken when it is the catalogue telling the truth. Observed live:
+   * two of the nine products on page one were out of stock, and both cart
+   * specs failed that way in the same run.
+   *
+   * The same lesson `cart.ts` records one level down — a vocabulary must be
+   * able to express every state the application has. This one could describe
+   * a product but not whether it could be bought.
+   */
+  async addableProductNames(page: Page): Promise<string[]> {
+    const names = await catalogueLocators
+      .inStockCards(page)
+      .getByTestId('product-name')
+      .allTextContents();
+    return names.map((name) => name.trim());
+  },
+
   /** Whether the search reported that nothing matched. */
   async foundNothing(page: Page): Promise<boolean> {
     return catalogueLocators.noResults(page).isVisible();

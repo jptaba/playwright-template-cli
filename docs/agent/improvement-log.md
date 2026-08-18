@@ -2634,3 +2634,102 @@ which is now two runs of `verify` further from reproducing and is still not wort
 chasing; and the four budgets all measure page *shape*, so a run looking for the
 next class of defect should read what the pages actually say rather than measure
 how tall they are — that is where this run's finding was hiding.
+
+## 2026-08-18 · run 39b · The suite nobody had run
+
+**Picked:** item 11, at the owner's direction — *"circle back on item 11 which
+i believe is live runs"*. That reading is right, and it turned out to be the
+thing the item was missing rather than a slice of it.
+
+**The premise I started on was the backlog's, and it was the wrong one.** Item
+11's only remaining shaped slice was "build a triage-fixture for `toolshop`".
+Before building one I checked what the rules actually measure, and found
+something better: of the **seven** rules in `rules.ts`, exactly **one**
+(`transport-failure`) has ever been settled against ground truth. But that is
+still a measurement about the *fixture*, and the owner's ask is about **every
+end-to-end test**. So I ran the live suites instead — and discovered this loop
+has never run them.
+
+**`npm run verify` covers `framework` and `dashboard` only.** No spec against a
+real application is in it, by design. In 39 runs, every entry in this file
+records a green verify while the 13 toolshop specs went unexecuted since run 11.
+`/triage` had been showing their failures since 2026-08-16, which is the same
+two-day-old cluster run 38 looked at and declined to chase — correctly, on the
+evidence it had, but the reason it was there was that nobody was running the
+suite.
+
+**Did:** ran the full live toolshop suite. `TOOL-1-01 @smoke` failed. Re-ran the
+whole suite; **a different pair failed** — both cart specs, `TOOL-3-01 @smoke`
+and `TOOL-3-02` — on `add-to-cart` and `increase-quantity` resolving to a
+`disabled` button.
+
+**Root cause, read off the live application rather than inferred.** Toolshop
+renders an out-of-stock product with `data-test="out-of-stock"` and the whole
+quantity/add control set disabled. The API confirmed **two of the nine products
+on page one were out of stock**, and the first of the nine was one of them. Both
+cart specs take `[first]` from the shared listing and assume it can be bought.
+Stock is shared mutable state on a public demo — anybody in the world can buy
+the last Combination Pliers — so this is the conventions' own *never assert on
+data the spec did not create*, and the same lesson `actions/cart.ts` records one
+level down: the vocabulary could describe a product but not whether it could be
+bought.
+
+Fixed in L1 so the spec can ask: `cardLinks`, `inStockCards` (a `hasNot` filter,
+so it auto-waits instead of being sifted with a non-waiting `count()`),
+`outOfStock`, and an `addableProductNames` action. Both specs assert the
+precondition with a message rather than dying on `undefined`.
+
+**The second defect is the better one, and the fix is what exposed it.** With
+selection fixed, TOOL-3-01 failed differently: `Expected "Pliers", Received
+" Combination Pliers "`. `card(page, name)` used `filter({ hasText: name })` —
+a **substring** match — and this catalogue is full of nesting names ("Pliers"
+inside three others, "Hammer" inside four). Asking for "Pliers" and taking
+`.first()` opened the wrong product. It had been invisible for as long as the
+spec asked for whatever was already first, because then the wrong answer and
+the right one were the same element. Anchored with `exactly()`.
+
+**Verify:** `npm run verify` passes, exit 0 — **906 tests**, unchanged, because
+it does not cover any of this. The number that matters here is the live one:
+**13/13 toolshop and 2/2 saucedemo pass**, where 2 of 13 failed before.
+
+**Seen red then green, deterministically and without load** — unfixed, both
+cart specs fail on the disabled button in isolation; selection-only, TOOL-3-01
+catches the substring bug in the act; both, green.
+
+**Not re-measured:** `npm run triage:measure`. Run 39 measured it four hours ago
+at 1 agreed · 0 contradicted · 3 declined and nothing since has touched triage
+rules or clustering.
+
+**PR:** branch `agent/2026-08-18-live-suite`; `main` fast-forwarded and pushed,
+`main` and `origin/main` confirmed matching.
+
+**Learned:**
+
+- **The loop was measuring the framework and calling it the suite.** This is the
+  most useful thing found in several runs and it is not a bug in any file: 39
+  green entries, and the specs the whole repository exists to run were not among
+  them. Raised as item 29, and it outranks the fixture work item 11 had queued.
+- **A failure that moves between specs on each run is a data problem, not a
+  flake.** Run 1 failed the search spec; run 2 failed both cart specs; both
+  passed in isolation three times. The instinct trained by item 13 is "measure a
+  rate" — and the rate would have been noise, because the variable was the
+  *catalogue's stock*, which changes when a stranger buys something. Reading the
+  disabled button beat counting the failures.
+- **Fixing selection exposed a locator that had been wrong all along.** The
+  substring match was only ever *correct by coincidence* — it agreed with
+  `.first()` because the spec asked for the first thing. Worth generalising:
+  a locator whose input is always the same value it would have returned anyway
+  is untested, and the day something else chooses the input is the day it
+  breaks.
+- **`filter({ hasText })` is a substring, and `getByRole(..., { name })` is
+  not.** Checked rather than assumed, because `cartLocators.quantity` relies on
+  the difference and is correct.
+- **Two more instances of the substring trap exist** and were deliberately left
+  as item 28 rather than folded in — neither is reachable today, and this file
+  has followed "raise it, do not smuggle it" since run 17. The `empty()`
+  argument for why it still matters is in the item.
+
+**Next:** item 29 — put the live suites in the loop — then item 28. Item 11's
+`toolshop` triage-fixture is still open but now ranks below both: a fixture of
+deliberate failures is worth less than running the suite that is meant to pass,
+and this run is the evidence for that ordering.

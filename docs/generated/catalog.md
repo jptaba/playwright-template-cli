@@ -93,6 +93,7 @@ _L2 UI vocabulary. Composes locators, returns data, asserts nothing._
 | `cart.empty` | `(page: Page) => Promise<void>` | Leave the cart as it was found — empty. |
 | `catalogue.open` | `(page: Page) => Promise<void>` |  |
 | `catalogue.productNames` | `(page: Page) => Promise<string[]>` | The names on the listing, in the order shown. |
+| `catalogue.addableProductNames` | `(page: Page) => Promise<string[]>` | The names of the products that can actually be added to a cart. |
 | `catalogue.foundNothing` | `(page: Page) => Promise<boolean>` | Whether the search reported that nothing matched. |
 | `catalogue.search` | `(page: Page, term: string) => Promise<string[]>` | Search, and return what came back. |
 | `catalogue.openProduct` | `(page: Page, name: string) => Promise<void>` | Open one product by the name printed on its card. |

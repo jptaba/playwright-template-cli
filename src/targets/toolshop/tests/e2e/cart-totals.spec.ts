@@ -32,8 +32,15 @@ test(
     await cart.empty(authedPage);
 
     await catalogue.open(authedPage);
-    const [first] = await catalogue.productNames(authedPage);
-    await catalogue.openProduct(authedPage, first!);
+    /*
+       Addable, not simply first. Stock is shared mutable state here and an
+       out-of-stock product renders "Add to cart" disabled, so taking the first
+       card fails as a timeout on a disabled button and reads as a broken cart.
+    */
+    const addable = await catalogue.addableProductNames(authedPage);
+    expect(addable.length, 'nothing on the listing is in stock, so there is nothing to add')
+      .toBeGreaterThan(0);
+    await catalogue.openProduct(authedPage, addable[0]!);
     const product = await catalogue.readProduct(authedPage);
 
     try {
@@ -73,8 +80,10 @@ test(
     await cart.empty(authedPage);
 
     await catalogue.open(authedPage);
-    const [first] = await catalogue.productNames(authedPage);
-    await catalogue.openProduct(authedPage, first!);
+    const addable = await catalogue.addableProductNames(authedPage);
+    expect(addable.length, 'nothing on the listing is in stock, so there is nothing to add')
+      .toBeGreaterThan(0);
+    await catalogue.openProduct(authedPage, addable[0]!);
 
     let added = '';
     try {

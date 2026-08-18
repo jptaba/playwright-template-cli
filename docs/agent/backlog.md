@@ -1809,3 +1809,106 @@ once verdicts accumulate, a change here costs a migration.
 strict-mode violation *is* a stack of near-identical rows, so the dedup
 compares a line only against the one before it. Collapsing any lookalike would
 merge two locators into one signature.
+
+### 27. Two `@smoke` cart specs picked a product they were not allowed to buy — `done`
+
+Found and shipped in run 39b, by **running the live suite** rather than the
+framework's own — which, checked against the log, this loop had never done in
+39 runs. `npm run verify` covers `framework` and `dashboard`; the 13 toolshop
+specs and 1 saucedemo spec against the real applications had not been run since
+run 11, and `/triage` had been showing their failures for two days.
+
+**Both cart specs took `[first]` from the shared listing and assumed it could
+be added to a cart.** Toolshop's stock is shared mutable state on a demo
+everybody uses — anybody in the world can buy the last pair of Combination
+Pliers — and an out-of-stock product renders `add-to-cart`, `quantity`,
+`increase-quantity` and `decrease-quantity` **disabled**. So the spec died as a
+15-second timeout on a disabled button, which reads as a broken cart and is the
+catalogue telling the truth.
+
+Measured live at the time of the fix: **two of the nine products on page one
+were out of stock**, and the first of the nine was one of them — so this was
+deterministic, not a flake, once the catalogue drifted into that state. It
+passed on the first full run of the day and failed on the second; nothing in
+the repository changed in between.
+
+**This is the conventions' own rule** — *never assert on data the spec did not
+create* — and the same lesson `actions/cart.ts` already records one level down:
+a vocabulary must be able to express every state the application has. The
+catalogue could describe a product but not whether it could be bought.
+
+Fixed by teaching L1 the state and letting the spec ask: `cardLinks`,
+`inStockCards` (composed as a `hasNot` filter, so it auto-waits rather than
+being sifted with `count()`), `outOfStock`, and an
+`addableProductNames` action. Both specs now assert the precondition with a
+message rather than dying on `undefined`.
+
+**And it exposed a latent locator defect, which is the more valuable half.**
+`card(page, name)` used `filter({ hasText: name })` — a **substring** match —
+and this catalogue is full of names that contain one another: "Pliers" is
+inside "Combination Pliers", "Long Nose Pliers" and "Slip Joint Pliers";
+"Hammer" is inside four more. Asking for "Pliers" and taking `.first()` opened
+**"Combination Pliers"**. It had been invisible because the spec always asked
+for whatever was already first, so the wrong answer and the right one were the
+same element. The moment a spec chose by *stock* instead of by *position*, the
+two came apart. Now anchored with `exactly()`.
+
+**Seen red then green, deterministically**, both in isolation with no load
+needed: unfixed → both specs fail on the disabled button; selection fixed only
+→ TOOL-3-01 fails with `Expected "Pliers", Received " Combination Pliers "`,
+which is the substring bug caught in the act; both fixed → 13/13 toolshop and
+2/2 saucedemo pass live.
+
+### 28. `cartLocators.line` has the same substring trap — `ready`
+
+Found by grep while fixing item 27, **not observed failing**, and deliberately
+not folded into that diff — the norm this file has followed since run 17.
+
+`src/targets/toolshop/locators/cart.ts:27` is
+`lines(page).filter({ hasText: product })`, the same substring match item 27
+just anchored in `catalogue.ts`. It is currently **unreachable**: both cart
+specs add exactly one product, so no cart ever holds two lines whose names
+nest.
+
+**Why it is still worth doing.** `cart.empty()` removes line by line *by name*,
+and every cart spec calls it in a `finally` against a **shared, static account**
+with `serverState: true`. The first spec that adds two products whose names nest
+— "Pliers" and "Combination Pliers" are both on page one — gets a `remove` that
+matches two rows, and then hands every later spec on that worker a dirty cart.
+The failure lands on whichever spec lost the race, which is the exact shape the
+profile's own comment warns about.
+
+`exactly()` lives in `locators/catalogue.ts` today. Two call sites is the second
+caller that justifies sharing it — a small `locators/text.ts` in the toolshop
+pack, not framework surface, since no other target has names that nest
+(checked: saucedemo's six do not).
+
+Also here, and lower value: `saucedemo/locators/inventory.ts:17` has the same
+shape. Its six product names do not nest, so it is correct today by luck rather
+than by construction.
+
+### 29. The live suites are not part of any loop — `ready`
+
+The finding underneath item 27, and worth more than it.
+
+`npm run verify` runs `framework` and `dashboard`. **It does not run a single
+spec against a real application**, by design — those need network and
+credentials. The consequence nobody had written down: in 39 runs this loop has
+never executed the specs it exists to keep bulletproof, and item 27's two
+failures sat on `/triage` from 2026-08-16 until 2026-08-18 with the log
+recording green verifies throughout.
+
+`triage:measure` has the same shape and does run live — but only against the
+`triage-fixture` project, whose specs are *meant* to fail. So the one live thing
+the loop does is the one that proves nothing about the real suite.
+
+**Shape to aim for**, and it is a decision rather than a patch: a run should
+execute the live suites for every onboarded target and record pass/fail in its
+log entry, the way it already records `triage:measure`. That is roughly 45
+seconds for toolshop and 6 for saucedemo. The open question is what a run does
+when a live failure is the application's fault rather than the suite's — which
+is what `/triage` is for, and is an argument for the run *triaging* its own
+result rather than just reporting a number.
+
+Ranked below the dashboard work as usual, but this is the item that decides
+whether "until it is bulletproof" is measured or asserted.
