@@ -8,7 +8,7 @@
 > - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
 >   end-to-end coverage programme, with its own per-application state.
 > - **This file** — the working agreement below, which is still binding, plus an
->   archive of the 46 items already shipped. Read it for *why* a thing was done.
+>   archive of the 47 items already shipped. Read it for *why* a thing was done.
 >
 > Split on 2026-08-18: this file had passed 1,900 lines, and the four items that
 > were actually open were scattered through it. A run that has to read an
@@ -2700,3 +2700,39 @@ does not re-investigate:
 - The probe refuses until "this is a test environment" is ticked, and that flag
   is not persisted in the draft as true.
 - No horizontal overflow at 1280px.
+
+### 44. Every preview wiped the credentials, and Create wrote the placeholder — `done`
+
+Found in run 51 while onboarding application 4, by doing the whole journey
+rather than a step of it, and fixed in `dashboard-page.ts`.
+
+**The sequence, which is the ordinary one:** type the real credential, press
+**Sign in once** — *"Signed in. The button "Create" appeared, and is proposed
+as the signed-in marker."* — press **Preview**, press **Create**. Ten files
+written, success panel, two harmless warnings.
+
+And `config/secrets.private.json` held `username: "replace-me"`.
+
+`renderCredentials()` calls `box.replaceChildren()`, and **every preview calls
+it**. So the page proved a credential worked and then wrote a different one,
+with no warning anywhere. The dashboard's stated aim — `setup:auth` passes with
+no file edited by hand — failed silently, on the one path onboarding exists for.
+
+**Run 5 recorded the mechanism and missed the cost.** Its note says "selecting
+a secret source afterwards re-renders the credential fields and empties them",
+filed as a test-ordering trap for spec authors. Nobody followed it to the write:
+the same re-render on the *happy path* substitutes a placeholder for a proven
+credential.
+
+**Caught by run 50's own preflight**, which is the neatest part.
+`target:doctor --sign-in` reported *"Sign-in did not establish a session. The
+application said: 'Invalid credentials'"* — the tool built two runs earlier to
+catch exactly a credential that resolves but cannot be used, catching one.
+
+**Fixed** by snapshotting the typed values before the rebuild and restoring
+them per role, so a credential follows its role across a re-render and a role
+that has been removed takes its value with it.
+
+**Proven by re-running the whole journey** on a clean target: credentials
+survive the preview, Create writes `admin` rather than `replace-me`, and
+`TARGET=restful-booker npx playwright test --project=setup:auth` **passes**.

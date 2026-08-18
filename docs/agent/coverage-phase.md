@@ -82,7 +82,7 @@ applicable to this application
 | 1 | toolshop | ✓ | ✓ | — | — | — | — | 20/20 (incl. 7 contract) |
 | 2 | saucedemo | ✓ | ✓ | — | — | — | — | 2/2 |
 | 3 | ParaBank | ✓ | ✓ | — | — | — | — | 3/3 (`setup:auth`, `@smoke`, `@a11y`) |
-| 4 | restful-booker-platform | — | — | — | — | — | — | — |
+| 4 | restful-booker | ✓ | — | — | — | — | — | 1/1 (`setup:auth`) |
 | 5 | DemoBlaze | — | — | — | — | — | — | — |
 | 6 | AutomationExercise | — | — | — | — | — | — | — |
 | 7 | OrangeHRM | — | — | — | — | — | — | — |
@@ -187,3 +187,39 @@ near-copies — and the evidence is captured: the form's own refusals are "The
 amount cannot be empty." and "Please enter a valid amount.", and the REST API
 exposes `/accounts/{id}/transactions`, which is the audit surface.
 
+
+### 4 · restful-booker-platform — onboarded, sign-in proven
+
+**Onboarded entirely through the dashboard** (`npm run dashboard`), no file
+edited by hand, and `setup:auth` passes. **1/1.** Name on disk is
+`restful-booker`.
+
+`admin` / `password`, published by the project itself, so `secretSource: local`
+is legitimate here as it is for the other three demos — and the credential was
+written to the **gitignored** `config/secrets.private.json`, which is the
+default the page offers.
+
+**It found two framework defects before it found anything about the
+application**, both fixed framework-side in run 51 and both invisible from the
+source:
+
+- The probe **discarded the sign-in path the operator typed**. `/admin` was
+  entered, the probe tried eight guessed paths without it, and reported "no
+  sign-in form found" for a form sitting on the path it had been given.
+  Backlog item 43.
+- Every preview **wiped the typed credentials**, so Create wrote
+  `replace-me` to the secret store minutes after the same page had signed in
+  successfully with the real values. Backlog item 44.
+
+**What it taught about the application:** the admin sign-in is at `/admin`, not
+behind the hash route `/#/admin` that the public site links to — `/#/admin`
+renders the *contact* form, whose fields would have been read as a sign-in had
+the probe found them first. The accessible names are `Username`, `Password`,
+`Login`, and the signed-in marker derived as `button "Create"`.
+
+**Still to write:** every kind of coverage. The pack is the scaffold plus a
+proven sign-in, and `endpoints/orders.ts` / `api/orders.ts` are the
+scaffolder's invented starters — this application has rooms, bookings and
+messages, not orders, so they must be rewritten from `/api/room` before any API
+spec. Same caveat recorded for ParaBank, and `target:upgrade` reports them as
+superseded once real ones exist.

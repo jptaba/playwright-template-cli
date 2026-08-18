@@ -66,6 +66,35 @@ _L2 HTTP vocabulary. Typed clients with response-schema validation._
 | `ordersApi.create` | `(order: NewOrder) => Promise<Order>` | Create an order and register it for cleanup at the end of the test. |
 | `ordersApi.get` | `(id: string) => Promise<Order>` | Read one order. |
 
+## Fixtures — restful-booker
+
+_Added on top of the framework fixtures when TARGET=restful-booker._
+
+| Name | Signature | What it does |
+|---|---|---|
+| `signIn` | `named actions — see the table below` | Signing in, and reading what the form reported. |
+| `testData` | `RestfulBookerTestData` | Builders for the data a spec needs. |
+
+## actions/ — restful-booker
+
+_L2 UI vocabulary. Composes locators, returns data, asserts nothing._
+
+| Name | Signature | What it does |
+|---|---|---|
+| `signIn.withCredentials` | `(page: Page, credentials: Credentials) => Promise<void>` | Submit the sign-in form. |
+| `signIn.isSignedIn` | `(page: Page) => Promise<boolean>` | Whether the page currently carries a session. |
+| `signIn.signedInAs` | `(page: Page) => Promise<string \| null>` | Who the session belongs to, or null when signed out. |
+| `signIn.readError` | `(page: Page) => Promise<string \| null>` | What the application said when the sign-in failed. |
+
+## api/ — restful-booker
+
+_L2 HTTP vocabulary. Typed clients with response-schema validation._
+
+| Name | Signature | What it does |
+|---|---|---|
+| `ordersApi.create` | `(order: NewOrder) => Promise<Order>` | Create an order and register it for cleanup at the end of the test. |
+| `ordersApi.get` | `(id: string) => Promise<Order>` | Read one order. |
+
 ## Fixtures — saucedemo
 
 _Added on top of the framework fixtures when TARGET=saucedemo._

@@ -1412,6 +1412,27 @@ $('credentialLocation').onchange = renderStoreNote;
 
 function renderCredentials() {
   const box = $('credentials');
+  /*
+     What was typed, kept across the rebuild.
+
+     This function replaces the whole block, and every preview calls it — so
+     typing a real credential, pressing "Sign in once", watching it report
+     "Signed in", then pressing Preview and Create wrote the scaffolder's
+     "replace-me" placeholder to the secret store. The page had just proved
+     the credential worked and then wrote a different one, with a success
+     panel and no warning anywhere.
+
+     Measured onboarding a real application: setup:auth answered "Invalid
+     credentials" against a store holding replace-me / replace-me, minutes
+     after the same page signed in successfully with the real values.
+
+     Keyed by role, so a credential follows its role across a re-render and a
+     role that has been removed takes its value with it.
+  */
+  const typed = {};
+  for (const input of box.querySelectorAll('input')) {
+    if (input.value) typed[input.id] = input.value;
+  }
   box.replaceChildren();
   const roles = rolesTyped();
   /*
@@ -1487,10 +1508,12 @@ function renderCredentials() {
     const u = el('div');
     u.append(Object.assign(el('label'), { textContent: role + ' — username', htmlFor: 'cu-' + role }));
     const ui = el('input'); ui.type = 'text'; ui.id = 'cu-' + role; ui.autocomplete = 'off';
+    if (typed[ui.id]) ui.value = typed[ui.id];
     u.append(ui);
     const p = el('div');
     p.append(Object.assign(el('label'), { textContent: role + ' — password', htmlFor: 'cp-' + role }));
     const pi = el('input'); pi.type = 'password'; pi.id = 'cp-' + role; pi.autocomplete = 'off';
+    if (typed[pi.id]) pi.value = typed[pi.id];
     p.append(pi);
     wrap.append(u, p);
     box.append(wrap);

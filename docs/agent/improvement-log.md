@@ -3772,3 +3772,63 @@ true; no horizontal overflow at 1280px.
 
 **Next:** onboarding restful-booker-platform as application 4 of the coverage
 phase, which is now unblocked — the probe reads its sign-in form.
+
+## 2026-08-18 · run 51b · Onboarding application 4, and the two defects it found on the way
+
+**Picked:** the second half of the owner's instruction — onboard the next live
+application, after the scan.
+
+**Did:** `restful-booker-platform` (`automationintesting.online`) is onboarded
+as application 4, entirely through the dashboard, and **`setup:auth` passes
+with no file edited by hand** — the aim the tool states in its own banner.
+
+**It found two framework defects before it found anything about the
+application**, and neither is visible from the source:
+
+1. **The probe discarded the sign-in path I typed** (item 43, committed
+   earlier this run). Three layers dropped the hint and fixing two of them was
+   indistinguishable from fixing none.
+2. **Every preview wiped the typed credentials** (item 44). Type the
+   credential, sign in — *"Signed in."* — preview, create: ten files written, a
+   success panel, and `replace-me` in the secret store. The page proved a
+   credential worked and then wrote a different one.
+
+**Run 50's preflight caught the second one**, which is the part worth noting.
+`target:doctor --sign-in` reported *"Sign-in did not establish a session. The
+application said: 'Invalid credentials'"* — a tool built two runs earlier to
+catch a credential that resolves but cannot be used, catching one for real, on
+its first unplanned outing.
+
+**Run 5 had recorded the mechanism and missed the cost.** Its entry notes that
+a re-render empties the credential fields, filed as a *test-ordering trap for
+spec authors*. Nobody followed it to the write, where the same re-render
+substitutes a placeholder for a proven credential on the happy path.
+
+**Verify:** `npm run verify` passes, exit 0 — **997 tests**.
+
+**Proven by re-running the whole journey** on a clean target after the fix:
+credentials survive the preview, Create writes the real username, `setup:auth`
+passes 1/1.
+
+**Learned:**
+
+- **A note that records a mechanism is not a note that records a cost.** Run 5
+  described this exact re-render six weeks of runs ago, scoped to "tests get
+  confused by it". The same behaviour on the operator's path silently defeats
+  the tool's stated purpose. Worth asking of any recorded quirk: *what does
+  this do to somebody who is not writing a test?*
+- **Onboarding a new application is the best framework test there is.** Two
+  defects in one journey, both on the happy path, both in code that had been
+  exercised by hundreds of passing tests. The tests assert behaviour a step at
+  a time; only the journey crosses the seams between steps.
+- **The scaffolder's own a11y spec trips the `startedWriting` guard**, so a
+  fresh pack scaffolded with `--with=a11y` immediately reports `api-no-specs`
+  on its success panel. Run 42 added that guard to keep the panel quiet for a
+  pack nobody has written yet, and the scaffolder defeats it the same way its
+  `.gitkeep` defeated the check run 42 was fixing. Not fixed here — noted, and
+  it is small.
+
+**Next:** coverage for `restful-booker` — happy path first, then the other four
+kinds. Its `endpoints/orders.ts` and `api/orders.ts` are the scaffolder's
+invented starters and must be rewritten from `/api/room` before any API spec,
+the same caveat ParaBank carries.
