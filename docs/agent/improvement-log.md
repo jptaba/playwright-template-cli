@@ -3832,3 +3832,58 @@ passes 1/1.
 kinds. Its `endpoints/orders.ts` and `api/orders.ts` are the scaffolder's
 invented starters and must be rewritten from `/api/room` before any API spec,
 the same caveat ParaBank carries.
+
+## 2026-08-18 · run 52 · The placeholder that counted as work, and application 4's happy path
+
+**Picked:** the owner's two asks — fix the small finding from run 51b if it was
+fixable, then write the happy path.
+
+**The small finding was fixable, and it was the third instance of one shape.**
+`startedWriting` asked "is there any `.spec.ts` in this pack", and the
+scaffolder writes one: `tests/a11y/landing.spec.ts`. So a brand-new pack looked
+written-in and `api-no-specs` appeared on the success panel of a target nobody
+had touched. `SCAFFOLDED_SPECS` is now exported from `scaffold.ts`, read by
+`diagnose`, and **held in step by a test** that compares it with what
+`planScaffold` actually emits.
+
+Third instance: `.gitkeep` defeating the very checks run 42 was fixing, this,
+and `usableAccounts` reserving a slot. **The question is never "does a file
+exist" but "did a person put it there".**
+
+`restful-booker` went from two warnings to one, and the one left is correct.
+
+**Then the happy path.** `RB-1-01` (a room an administrator creates appears in
+the list, `@smoke`) and `RB-1-02` (a room removed is gone). **4/4 live.**
+Administering rooms is what the application exists for and what the onboarded
+`admin` role can drive; every room is named per run, created by the spec that
+asserts about it, and removed again — the demo's own 101/102/103 are edited by
+anybody on the internet.
+
+**Verify:** `npm run verify` passes, exit 0 — **1000 tests**, up from 997.
+
+**Live suites (step 5):** restful-booker 4/4, saucedemo 2/2, toolshop 20/20,
+**parabank 2/3** — the same intermittent that has moved between applications
+all day on shared public demos. Left red.
+
+**Learned:**
+
+- **`CSS.escape` does not exist where locators are built.** A locator is
+  constructed in Node; `CSS.escape` is a browser global. It threw on the first
+  run. An attribute selector needs no escaping *and* is more precise here — the
+  create form's own input has the id `roomName`, so `#roomName<name>` was one
+  reseeding away from ambiguity anyway.
+- **Cleanup has to cover the window between the click and the verb
+  returning.** `add` creates the room and *then* waits for it to be listed;
+  when that wait threw, the room existed and the `finally` never ran, because
+  `add` sat outside the `try`. Three rooms were left on a shared demo before I
+  noticed. The habit worth keeping: if a verb has a side effect before its
+  last await, the call belongs inside the `try`, not before it.
+- **A stale session looks exactly like a broken locator.** Exploring with a
+  storage state from twenty minutes earlier, the admin page rendered the login
+  form and `Create` never appeared. The cause was `POST /api/auth/validate`
+  answering 403. Checking the network before rewriting a locator saved
+  inventing a fix for a page that was simply signed out.
+
+**Next:** the other four coverage kinds for `restful-booker` — negative,
+idempotency, audit, boundary — starting with the API layer, whose scaffolded
+`orders` endpoints are invented and must be rewritten from `/api/room` first.

@@ -73,6 +73,7 @@ _Added on top of the framework fixtures when TARGET=restful-booker._
 | Name | Signature | What it does |
 |---|---|---|
 | `signIn` | `named actions — see the table below` | Signing in, and reading what the form reported. |
+| `rooms` | `named actions — see the table below` | Administering rooms: the journey this application exists for. |
 | `testData` | `RestfulBookerTestData` | Builders for the data a spec needs. |
 
 ## actions/ — restful-booker
@@ -81,6 +82,11 @@ _L2 UI vocabulary. Composes locators, returns data, asserts nothing._
 
 | Name | Signature | What it does |
 |---|---|---|
+| `rooms.open` | `(page: Page) => Promise<void>` | Open the admin room list and wait for it to have actually loaded. |
+| `rooms.add` | `(page: Page, room: NewRoom) => Promise<string>` | Add a room, and return the name it was created with. |
+| `rooms.listed` | `(page: Page) => Promise<string[]>` | Every room name currently listed, in the order shown. |
+| `rooms.remove` | `(page: Page, name: string) => Promise<void>` | Remove a room, and wait for it to be gone. |
+| `rooms.isListed` | `(page: Page, name: string) => Promise<boolean>` | Whether a room with this name is listed. |
 | `signIn.withCredentials` | `(page: Page, credentials: Credentials) => Promise<void>` | Submit the sign-in form. |
 | `signIn.isSignedIn` | `(page: Page) => Promise<boolean>` | Whether the page currently carries a session. |
 | `signIn.signedInAs` | `(page: Page) => Promise<string \| null>` | Who the session belongs to, or null when signed out. |

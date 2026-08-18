@@ -11,6 +11,7 @@ import {
   defaultAllowlist,
   pascalCase,
   planScaffold,
+  SCAFFOLDED_SPECS,
   ScaffoldError,
 } from '../../src/support/onboarding/scaffold';
 import { resolveExploreUrl } from '../../src/support/onboarding/explore-url';
@@ -792,5 +793,74 @@ test.describe('the sign-in path the operator typed', () => {
     expect(signInPathsToTry(undefined)).toEqual(SIGN_IN_PATHS);
     expect(signInPathsToTry('   ')).toEqual(SIGN_IN_PATHS);
     expect(signInPathsToTry('/'), 'the field default is not a hint').toEqual(SIGN_IN_PATHS);
+  });
+});
+
+test.describe('a spec the scaffolder wrote is not somebody having started', () => {
+  /*
+     Scaffolding with `--with=a11y` ships `tests/a11y/landing.spec.ts`. That
+     made a brand-new pack look written-in, so `api-no-specs` appeared on the
+     success panel of a target nobody had touched — the same way `.gitkeep`
+     defeated the check this guard belongs to. Observed onboarding
+     restful-booker-platform.
+  */
+  const withApiAndA11y = profile({
+    capabilities: {
+      ...profile().capabilities,
+      api: { enabled: true, baseURL: 'https://api.demo.internal.corp' },
+      a11y: { enabled: true, standard: 'wcag22aa' },
+    },
+  });
+
+  test('a freshly scaffolded pack is told once, not per capability', () => {
+    const found = diagnose(
+      withApiAndA11y,
+      facts({
+        packFiles: [
+          'fixtures.ts',
+          'locators/sign-in.ts',
+          'actions/sign-in.ts',
+          'tests/auth.setup.ts',
+          'tests/e2e/.gitkeep',
+          'tests/api/.gitkeep',
+          'tests/a11y/landing.spec.ts',
+        ],
+      }),
+    );
+
+    expect(codes(found)).toContain('no-e2e-specs');
+    expect(codes(found), 'the scaffolder wrote that a11y spec, not a person').not.toContain(
+      'api-no-specs',
+    );
+  });
+
+  test('one real spec anywhere and the capability warnings come back', () => {
+    // The counterweight: once somebody has written something, a declared
+    // capability validating nothing is exactly what should be reported.
+    const found = diagnose(
+      withApiAndA11y,
+      facts({
+        packFiles: [...HEALTHY_PACK, 'tests/a11y/landing.spec.ts', 'tests/api/.gitkeep'],
+      }),
+    );
+
+    expect(codes(found)).toContain('api-no-specs');
+  });
+
+  test('the list matches what the scaffolder actually writes', () => {
+    // Two copies of a list is how the two came to disagree. If the scaffolder
+    // gains or renames a spec, this fails rather than silently re-breaking the
+    // guard.
+    const written = planScaffold({
+      name: 'demo',
+      baseURL: 'https://demo.internal.corp',
+      roles: ['standard'],
+      include: { api: true, db: true, contracts: true, a11y: true },
+      apiBaseURL: 'https://api.demo.internal.corp',
+    })
+      .files.map((file) => file.path.replace('src/targets/demo/', ''))
+      .filter((path) => path.endsWith('.spec.ts'));
+
+    expect([...SCAFFOLDED_SPECS].sort()).toEqual(written.sort());
   });
 });

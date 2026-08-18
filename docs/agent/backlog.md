@@ -8,7 +8,7 @@
 > - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
 >   end-to-end coverage programme, with its own per-application state.
 > - **This file** — the working agreement below, which is still binding, plus an
->   archive of the 47 items already shipped. Read it for *why* a thing was done.
+>   archive of the 48 items already shipped. Read it for *why* a thing was done.
 >
 > Split on 2026-08-18: this file had passed 1,900 lines, and the four items that
 > were actually open were scattered through it. A run that has to read an
@@ -2736,3 +2736,29 @@ that has been removed takes its value with it.
 **Proven by re-running the whole journey** on a clean target: credentials
 survive the preview, Create writes `admin` rather than `replace-me`, and
 `TARGET=restful-booker npx playwright test --project=setup:auth` **passes**.
+
+### 45. The scaffolder's own a11y spec made a fresh pack look written-in — `done`
+
+Shipped in run 52, and it is the third instance of one shape: **a placeholder
+the tool wrote being counted as somebody's work.**
+
+Run 42 added `startedWriting` so a pack nobody has written yet is told *once*
+that it needs specs, rather than once per declared capability — the dashboard's
+success panel renders every diagnostic in full, and three of them at the moment
+somebody succeeds is noise. The guard asked "is there any `.spec.ts` here".
+
+Scaffolding with `--with=a11y` writes `tests/a11y/landing.spec.ts`. So a
+brand-new pack answered yes, and `api-no-specs` appeared on the success panel
+of a target nobody had touched. Observed onboarding application 4.
+
+`SCAFFOLDED_SPECS` now lists what the scaffolder writes, exported from
+`scaffold.ts` so `diagnose` reads it rather than keeping a second copy, and
+**held in step by a test** that compares it against what `planScaffold`
+actually emits — so a template gaining or renaming a spec fails loudly instead
+of silently re-breaking the guard.
+
+Same lesson as `.gitkeep` (item 32) and as `usableAccounts` reserving a slot:
+the question is never "does a file exist" but "did a person put it there".
+
+Confirmed on the real pack: `restful-booker` went from two warnings to one, and
+the one left — `no-e2e-specs` — is correct and actionable.

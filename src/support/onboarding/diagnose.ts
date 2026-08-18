@@ -1,5 +1,6 @@
 import { describeOrphanedSessions, orphanedSessions } from './sessions';
 import { poolSizeFor } from '../paths';
+import { SCAFFOLDED_SPECS } from './scaffold';
 import { KNOWN_A11Y_STANDARDS, type TargetProfile } from '../../../config/targets/types';
 
 /**
@@ -113,7 +114,18 @@ export function diagnose(profile: TargetProfile, facts: TargetFacts): Diagnostic
     hasUnder: (dir) => facts.packFiles.some((file) => file.startsWith(`${dir}/`)),
     specsUnder: (dir) =>
       facts.packFiles.some((file) => file.startsWith(`${dir}/`) && file.endsWith('.spec.ts')),
-    startedWriting: facts.packFiles.some((file) => file.endsWith('.spec.ts')),
+    /*
+       A spec the *scaffolder* wrote does not count as somebody having
+       started. Scaffolding with `--with=a11y` ships
+       `tests/a11y/landing.spec.ts`, which made a brand-new pack look
+       written-in and put `api-no-specs` on the success panel of a target
+       nobody had touched yet — the same way `.gitkeep` used to defeat the
+       check this guard belongs to.
+    */
+    startedWriting: facts.packFiles.some(
+      (file) =>
+        file.endsWith('.spec.ts') && !(SCAFFOLDED_SPECS as readonly string[]).includes(file),
+    ),
   };
   const error = (code: string, message: string, fix: string): void => {
     found.push({ level: 'error', code, message, fix });

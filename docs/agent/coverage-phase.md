@@ -82,7 +82,7 @@ applicable to this application
 | 1 | toolshop | ✓ | ✓ | — | — | — | — | 20/20 (incl. 7 contract) |
 | 2 | saucedemo | ✓ | ✓ | — | — | — | — | 2/2 |
 | 3 | ParaBank | ✓ | ✓ | — | — | — | — | 3/3 (`setup:auth`, `@smoke`, `@a11y`) |
-| 4 | restful-booker | ✓ | — | — | — | — | — | 1/1 (`setup:auth`) |
+| 4 | restful-booker | ✓ | ✓ | — | — | — | — | 4/4 |
 | 5 | DemoBlaze | — | — | — | — | — | — | — |
 | 6 | AutomationExercise | — | — | — | — | — | — | — |
 | 7 | OrangeHRM | — | — | — | — | — | — | — |
@@ -223,3 +223,42 @@ scaffolder's invented starters — this application has rooms, bookings and
 messages, not orders, so they must be rewritten from `/api/room` before any API
 spec. Same caveat recorded for ParaBank, and `target:upgrade` reports them as
 superseded once real ones exist.
+
+**Happy path shipped (run 52).** `RB-1-01 · A room an administrator creates
+appears in the room list @smoke` and `RB-1-02 · A room removed by an
+administrator is gone from the list`. **4/4 live.**
+
+Administering rooms is the journey this application exists for — without rooms
+there is nothing for a guest to book — and it is the one the onboarded `admin`
+role can drive. Every room is named per run, created by the spec that asserts
+about it, and removed again: the demo's own 101/102/103 are changed by anybody
+on the internet, so asserting anything about them would pass until a stranger
+edited one.
+
+**What it taught the framework**, all found by driving rather than reading:
+
+- **`CSS.escape` does not exist where locators are built.** It is a browser
+  global; a locator is constructed in Node. `#roomName${CSS.escape(name)}`
+  threw `ReferenceError: CSS is not defined` on the first run. An attribute
+  selector — `p[id="roomName<name>"]` — needs no escaping and also keeps the
+  locator off the create form's own input, whose id is exactly `roomName`.
+- **Cleanup has to cover the window between the click and the verb
+  returning.** `add` creates the room and then waits for it to be listed;
+  when that wait threw, the room existed and the `finally` never ran because
+  `add` sat outside the `try`. Three rooms were left on a shared demo before
+  this was noticed. Creation now happens inside the `try`, and `remove`
+  tolerates a room that is already gone.
+- **The admin session expires quickly.** `POST /api/auth/validate` answers
+  **403** on a token minutes old, and the admin page then silently renders the
+  login form instead of the room list. `setup:auth` runs as an `e2e`
+  dependency so a real run is always fresh, but exploring with a stored
+  session from earlier looks exactly like a broken locator.
+- **The application has almost no accessible names.** Four form fields with
+  ids and no labels, rooms as bare paragraphs, an icon `<span>` for delete —
+  so `getByRole` is available for exactly one control on the page and the rest
+  carry written justifications. That is the vendor's WCAG defect, recorded
+  rather than worked around.
+
+**Still to write:** negative, idempotency, audit and boundary. The API layer is
+still the scaffolder's invented `orders` starter and must be rewritten from
+`/api/room` first.

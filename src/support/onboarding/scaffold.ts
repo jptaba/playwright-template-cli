@@ -19,6 +19,21 @@ import {
   type GauntletStep,
 } from './gauntlet';
 
+/**
+ * Specs the scaffolder writes itself, pack-relative.
+ *
+ * A placeholder the tool wrote is **not** somebody's work, and the checks that
+ * ask "has anybody written specs here yet" have to know the difference — the
+ * same distinction `.gitkeep` needed. Without it, scaffolding with
+ * `--with=a11y` produces a pack whose success panel immediately complains that
+ * `tests/api/` has no specs, because the scaffolder's own accessibility
+ * placeholder made the pack look written-in.
+ *
+ * Exported so `diagnose` reads the list rather than keeping a second copy of
+ * it, and held in step with what `planScaffold` actually writes by a test.
+ */
+export const SCAFFOLDED_SPECS = ['tests/a11y/landing.spec.ts'] as const;
+
 export interface ScaffoldOptions {
   /** Directory-safe target name, e.g. `acme-shop`. */
   name: string;
