@@ -44,7 +44,15 @@ const SCREENS = 6;
 const TALLEST_BLOCK_SCREENS = 4.5;
 
 /** More than anybody has, which is the point: the failures were of quantity. */
-const A_LOT = { unannotated: 200, failures: 60, cases: { noSpec: 120, orphans: 90, automated: 60 } };
+const A_LOT = {
+  unannotated: 200,
+  failures: 60,
+  cases: { noSpec: 120, orphans: 90, automated: 60 },
+  /* Eight roles against a pool of twenty. The profile decides this, not the page. */
+  users: { roles: 8, poolSize: 20 },
+  /* Twelve runs pressed this session, each holding the 25 failures the card shows. */
+  runs: { count: 12, failuresEach: 25 },
+};
 
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -92,6 +100,40 @@ test.describe('with a repository that has grown', () => {
 
     const screens = await pages.screens();
     expect(screens, `Triage is ${screens.toFixed(1)} screens on 60 clusters`).toBeLessThan(SCREENS);
+
+    const worst = await pages.tallestBlock();
+    expect(
+      worst.height / 720,
+      `${worst.label} is ${(worst.height / 720).toFixed(1)} screens tall on its own`,
+    ).toBeLessThan(TALLEST_BLOCK_SCREENS);
+  });
+
+  test('Test users stays inside its budget', async ({ pages }) => {
+    pages.data.users = A_LOT.users;
+    await pages.open('/users');
+
+    const screens = await pages.screens();
+    expect(screens, `Test users is ${screens.toFixed(1)} screens on 160 accounts`)
+      .toBeLessThan(SCREENS);
+
+    const worst = await pages.tallestBlock();
+    expect(
+      worst.height / 720,
+      `${worst.label} is ${(worst.height / 720).toFixed(1)} screens tall on its own`,
+    ).toBeLessThan(TALLEST_BLOCK_SCREENS);
+  });
+
+  test('Runs stays inside its budget', async ({ pages }) => {
+    /*
+       Nothing ever removes a run from the manager's map, so this page holds a
+       card for every run started since the dashboard was opened. Twelve is a
+       morning.
+    */
+    pages.data.runs = A_LOT.runs;
+    await pages.open('/runs');
+
+    const screens = await pages.screens();
+    expect(screens, `Runs is ${screens.toFixed(1)} screens on 12 runs`).toBeLessThan(SCREENS);
 
     const worst = await pages.tallestBlock();
     expect(
@@ -155,6 +197,29 @@ test.describe('the lists on Cases', () => {
 
     await expect(pages.page.locator('#uList')).not.toHaveClass(/longlist/);
     await expect(pages.page.locator('#oList')).not.toHaveClass(/longlist/);
+  });
+});
+
+test.describe('the accounts on Test users', () => {
+  test('scroll rather than bury the form somebody came to use', async ({ pages }) => {
+    /*
+       Roles times pool size, which the profile decides and the page does not.
+       Eight against twenty is 160 rows and was 14.1 screens, with the two
+       fields for setting a password below all of them.
+    */
+    pages.data.users = { roles: 8, poolSize: 20 };
+    await pages.open('/users');
+
+    const list = pages.page.locator('#slots');
+    await expect(list.locator('.slot'), 'nothing is dropped').toHaveCount(160);
+    const capped = await list.evaluate((node) => node.scrollHeight > node.clientHeight);
+    expect(capped, '#slots holds 160 rows and does not scroll').toBe(true);
+  });
+
+  test('a profile with two accounts is not given a box built for a hundred', async ({ pages }) => {
+    pages.data.users = { roles: 2, poolSize: 1 };
+    await pages.open('/users');
+    await expect(pages.page.locator('#slots')).not.toHaveClass(/longlist/);
   });
 });
 

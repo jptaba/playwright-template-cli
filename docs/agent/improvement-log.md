@@ -1952,3 +1952,71 @@ rules; run 13's figures stand.
 **Next:** `/runs`, `/users` and `/stories` into `pages-harness.ts`, so the two
 budgets cover the pages where the worst of both were found. Then item 20's
 hover states, then item 12 slice 3 and item 17.
+
+## 2026-08-17 · run 30 · The budget found the fifth one on the day it could see it
+
+**Picked:** the rest of item 22 — `/runs` and `/users` into `pages-harness.ts`,
+so the two budgets cover the pages where run 29's worst numbers were found by
+hand.
+
+**Did:** Added both to the harness and to both budgets. `/users` takes the same
+service interface the three already there do; `/runs` needed an event-stream
+endpoint, served outside the router exactly as `tools/dashboard.ts` serves it.
+
+**The budget found a fifth unbounded list immediately: Test users at 14.1
+screens on 160 accounts.** Roles times pool size — a property of the profile,
+which the page has no say in — with the two fields for setting a password below
+all of it. Capped and scrolled above six rows, like the Cases lists rather than
+like the Triage queue, because this list is the page's answer rather than a
+queue you work through.
+
+**Verify:** `npm run verify` passes, exit 0 — **855 tests, up from 848.**
+
+**Seen red** by stashing `users-page.ts`: the budget at 14.1 screens and
+`#slots holds 160 rows and does not scroll`. The third of the three, the one
+guarding the over-application, passed — as it should, since the class is absent
+either way.
+
+**Measured, and left for the next run — the Runs page is unbounded too:**
+
+| runs held | page |
+|---|---|
+| 12 | 5.3 screens |
+| 20 | 8.0 |
+| 30 | 11.5 |
+
+Raised as item 24 rather than fixed here, and the reasoning is in the item: the
+cause is that **nothing ever removes a run from `RunManager`'s map**, so the
+layout fix and the data-lifetime fix are different answers to different
+questions, and `#runs` being the last block on the page weakens the argument
+that made item 23 obvious. A change with no settled defect is the taste-only
+refactor the guardrails refuse. The budget is armed at 12 and fires at about 14.
+
+**Learned:**
+
+- **A harness entry is worth more than the fix it enables.** `/users` had been
+  called "small, and it can wait for a reason" twice, on a real repository where
+  it renders four rows. It renders a hundred and sixty on a profile nobody in
+  this repository has, and the page was fourteen screens. The reason it could
+  wait was that nobody had looked at it with a number.
+- **An event stream needs `closeAllConnections()` before `close()`.** The
+  `/runs` tests failed as `Tearing down "pages" exceeded the test timeout` —
+  sixty seconds spent waiting on an SSE socket doing exactly what SSE sockets
+  do. The failure names the fixture, not the cause, which is worth remembering
+  the next time a harness grows a long-lived connection.
+- **Check the page rendered before believing a budget it passed.** `/runs` came
+  in at 5.3 screens on twelve runs, which is a pass — and a page that never
+  received its stream would also have passed. Probed it: twelve cards, three
+  hundred failure rows, 3802px. Run 28 recorded this trap and it was still
+  worth spending two minutes on.
+- **Choose the fixture's size from the domain, not from the result.** Twelve
+  runs is a morning; twenty is a long one. Setting the parameter where the page
+  passes and saying so is honest, and it leaves a tripwire armed just above
+  today's load. Setting it at twenty to force a red would have been picking the
+  number to make an argument.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches triage
+rules; run 13's figures stand.
+
+**Next:** item 24 — the Runs page, and which of the two treatments it should
+get. Then item 20's hover states, then item 12 slice 3 and item 17.

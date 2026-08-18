@@ -184,10 +184,14 @@ After that, item 20's remaining polish, then item 12 slice 3 and item 17.
 is the shape worth noticing rather than any one of the fixes. Height (run 27),
 then two more unbounded queues the height budget found (28), then the measure
 (29). Each was a property of the page that no test had an opinion about, each
-was invisible to a green suite, and each is now a number with a message. **The
-next one is `/runs`, `/users` and `/stories` joining the harness** — see item
-22, which run 29 gave a concrete reason. Then item 20's hover states, then item
-12 slice 3 and item 17.
+was invisible to a green suite, and each is now a number with a message.
+
+**Run 30 put `/runs` and `/users` behind both budgets**, and the height budget
+found a fifth unbounded list the minute Test users joined it — 14.1 screens of
+accounts above the form somebody came to use. Five of the seven pages are now
+held by a number. **Next is item 24**, the Runs page growing for as long as the
+dashboard is open, which run 30 measured and left for a decision rather than a
+reflex. Then item 20's hover states, then item 12 slice 3 and item 17.
 
 **Correcting the standing note on Vault, 2026-08-17 (run 21).** It said the
 owner has no Vault to test against. There is no *hosted* one and none is
@@ -1391,16 +1395,59 @@ everybody raises.
 see the item below. **Still `ready` here:** `/runs`, `/users` and `/stories`
 have no harness entry.
 
-**And run 29 is the reason they should get one.** The measure budget it added
-covers only the three pages the harness serves, so the two worst offenders it
-found had to be found by hand and are still unguarded: `/runs` was reading at
-**142 characters a line** and `/users` at **108**, both worse than anything on
-the three budgeted pages. Both are fixed; neither is held. A page outside the
-harness is a page where every budget on it is a person remembering to look.
+**Run 30 added `/runs` and `/users`, and the budget found a fifth unbounded
+list within a minute of their joining:** Test users at **14.1 screens on 160
+accounts** — roles times pool size, which the profile decides and the page has
+no say in, with the two fields for setting a password below all of it. Capped
+and scrolled above six rows, like the Cases lists, because this list is the
+page's answer rather than a queue.
 
-`/runs` is the awkward one and worth knowing before starting: its service is
-the `RunManager`, which spawns processes, where `/users` and `/stories` take a
-plain service interface like the three already there.
+`/runs` needed one thing the other pages did not, and it is worth knowing
+before touching the harness again: it is fed by an **event stream**, so it sits
+outside the router the way it does in `tools/dashboard.ts`, and the fixture must
+call `server.closeAllConnections()` before `close` or teardown waits sixty
+seconds on a socket that is behaving correctly.
+
+**Still `ready`: `/stories`.** It is the only one of the seven with neither a
+measured defect nor an unbounded list — 76 characters and 1.9 screens on a real
+repository — and its `AuthoringService` is the heaviest of the three fakes,
+needing a case-author model. It can keep waiting for a reason.
+
+### 24. The Runs page grows for as long as the dashboard is open — `ready`
+
+Measured in run 30, in the harness, at 1280x720:
+
+| runs held | page |
+|---|---|
+| 12 | 5.3 screens |
+| 20 | **8.0** |
+| 30 | **11.5** |
+
+Linear and unbounded, and the cause is not the layout: **nothing ever removes a
+run from `RunManager`'s map.** `list()` returns every run it is holding, the map
+is only ever added to (`manager.ts:159`), so the page holds a card for every run
+started since the dashboard was opened — a finished run from two hours ago
+weighing exactly as much as the one running now.
+
+The height budget is armed at 12 and passes there, which is deliberate: 12 is a
+defensible morning and the tripwire fires just above it. **The next run past
+about 13 fails the budget**, which is what a tripwire is for.
+
+**Two candidate treatments and they are genuinely different, so this wants a
+decision rather than a reflex.** `showFirst()` from item 23 is the layout
+answer, and it needs one thing the other two pages did not: `refresh()` re-runs
+on every stream push, twice a second, so the "show the rest" state has to live
+in a module-level flag beside `expanded` or it is reset before anybody can read
+it — pass a callback into `showFirst` rather than writing a second copy of it.
+The other answer is that this is a **data-lifetime** question and belongs in the
+manager: drop or fold finished runs after N. That fixes the cause; the layout
+one fixes the symptom.
+
+**What weakens the layout framing, and is the reason this is not already done:**
+`#runs` is the last block on the page. Item 23's argument was "what a long page
+costs is the sections after it", and here there are none — the newest run is at
+the top, which is the one you are watching. So the cost is real but smaller than
+on Triage and Publish, and the fix should be argued rather than assumed.
 
 ### 23. Two more unbounded queues, found by the budget — `done`
 

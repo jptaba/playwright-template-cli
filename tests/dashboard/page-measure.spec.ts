@@ -25,7 +25,13 @@ import { openEveryDisclosure, widestProse } from './measure';
 const CHARACTERS = 90;
 
 /** The same quantities the height budget uses: more than anybody has. */
-const A_LOT = { unannotated: 200, failures: 60, cases: { noSpec: 120, orphans: 90, automated: 60 } };
+const A_LOT = {
+  unannotated: 200,
+  failures: 60,
+  cases: { noSpec: 120, orphans: 90, automated: 60 },
+  users: { roles: 8, poolSize: 20 },
+  runs: { count: 12, failuresEach: 25 },
+};
 
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -35,6 +41,8 @@ for (const [path, data] of [
   ['/publish', { unannotated: A_LOT.unannotated, failures: A_LOT.failures }],
   ['/triage', { failures: A_LOT.failures }],
   ['/cases', { cases: A_LOT.cases }],
+  ['/users', { users: A_LOT.users }],
+  ['/runs', { runs: A_LOT.runs }],
 ] as const) {
   test(`${path} reads at a measure`, async ({ pages }) => {
     Object.assign(pages.data, data);

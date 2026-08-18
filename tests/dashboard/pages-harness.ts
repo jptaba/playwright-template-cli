@@ -8,6 +8,10 @@ import { publishPageContent } from '../../src/support/ui/publish-page';
 import { publishRoutes, type PublishService } from '../../src/support/publish/dashboard';
 import { triageRoutes, type TriageService } from '../../src/support/triage/dashboard';
 import { triagePageContent } from '../../src/support/ui/triage-page';
+import { usersPageContent } from '../../src/support/ui/users-page';
+import { runsPageContent } from '../../src/support/ui/runs-page';
+import { testUsersRoutes, type TestUsersService } from '../../src/support/secrets/dashboard';
+import type { LiveRun } from '../../src/support/runs/manager';
 import { buildReview, type QuarantineView } from '../../src/support/triage/review';
 import type { HumanVerdict } from '../../src/support/triage/verdicts';
 import type { CoverageReport, CaseRow, OrphanSpec } from '../../src/support/cases/coverage';
@@ -201,6 +205,71 @@ function aCoverageReport(sizes: { noSpec: number; orphans: number; automated: nu
   };
 }
 
+/**
+ * The accounts a profile implies, which is roles times pool size.
+ *
+ * Nothing about that is a design decision — a profile declaring eight roles
+ * against a pool of twenty is a hundred and sixty rows, and the page has no
+ * say in it. Only existence and field names ever cross this boundary; the
+ * service contract has no way to return a value and this fake has none either.
+ */
+function usersService(roles: number, poolSize: number): TestUsersService {
+  return {
+    targets: () => ['demo'],
+    credentialRefs: (target) =>
+      target === 'demo'
+        ? {
+            source: 'local',
+            root: 'qa/demo',
+            accountType: 'pools',
+            roles: Array.from({ length: roles }, (_, index) => `role-number-${index}`),
+            poolSize,
+          }
+        : null,
+    describe: () => Promise.resolve({ exists: true, fields: ['username', 'password'] }),
+    write: () => Promise.resolve({ file: 'config/secrets.private.json' }),
+    forget: () => Promise.resolve({ file: 'config/secrets.private.json' }),
+  };
+}
+
+/**
+ * What the Runs page is watching, as its stream would push it.
+ *
+ * `RunManager.list()` returns every run it is holding, and nothing ever
+ * removes one — the map only grows for as long as the dashboard is open. So
+ * the number of cards on this page is how many times somebody has pressed Run
+ * this session, which is exactly the kind of quantity these budgets exist for.
+ */
+function liveRuns(count: number, failuresEach: number): LiveRun[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `run-2026-08-17-${String(index).padStart(4, '0')}`,
+    request: { target: 'demo', projects: ['e2e'], headed: false, liveView: false },
+    state: 'running',
+    startedAt: 1_755_000_000_000 + index * 1000,
+    finishedAt: null,
+    directory: `.runs/run-${index}`,
+    pid: 1000 + index,
+    liveView: false,
+    progress: {
+      planned: 40,
+      started: 20,
+      finished: 12,
+      passed: 12 - failuresEach,
+      failed: failuresEach,
+      skipped: 0,
+      lanes: { 0: { title: 'a spec that is running now', project: 'e2e', since: 0 } },
+      failures: Array.from({ length: failuresEach }, (_, f) => ({
+        title: `a spec that failed, number ${f}`,
+        project: 'e2e',
+        error: `expect(received).toBe(expected)\n\nExpected: ${f}\nReceived: ${f + 1}`,
+      })),
+      status: 'running',
+      startedAt: 1_755_000_000_000,
+      finishedAt: null,
+    },
+  }));
+}
+
 /** How much each page is given. Every test may set it before opening. */
 export interface PageData {
   /** Specs in the run with no case id — Publish's unpostable list. */
@@ -208,13 +277,17 @@ export interface PageData {
   /** Failing specs, each with its own message — Triage's clusters. */
   failures: number;
   cases: { noSpec: number; orphans: number; automated: number };
+  /** Roles and pool size, which multiply into Test users' rows. */
+  users: { roles: number; poolSize: number };
+  /** Runs the manager is still holding, and failures inside each. */
+  runs: { count: number; failuresEach: number };
 }
 
 export interface PagesHarness {
   page: Page;
   data: PageData;
   /** Open one of the pages this harness serves. */
-  open(path: '/publish' | '/cases' | '/triage'): Promise<void>;
+  open(path: '/publish' | '/cases' | '/triage' | '/users' | '/runs'): Promise<void>;
   /** Total document height in screens at the current viewport. */
   screens(): Promise<number>;
   /**
@@ -235,6 +308,8 @@ export const test = base.extend<{ pages: PagesHarness }>({
       unannotated: 0,
       failures: 0,
       cases: { noSpec: 0, orphans: 0, automated: 0 },
+      users: { roles: 1, poolSize: 1 },
+      runs: { count: 0, failuresEach: 0 },
     };
 
     const shell = (current: string) => ({
@@ -261,12 +336,32 @@ export const test = base.extend<{ pages: PagesHarness }>({
         { method: 'POST', path: '/api/cases', handle: () => json(200, aCoverageReport(data.cases)) },
         { method: 'GET', path: '/triage', public: true, handle: () => serve(triagePageContent(), '/triage') },
         ...triageRoutes(triageService(run)),
+        { method: 'GET', path: '/users', public: true, handle: () => serve(usersPageContent(), '/users') },
+        ...testUsersRoutes(usersService(data.users.roles, data.users.poolSize)),
+        { method: 'GET', path: '/runs', public: true, handle: () => serve(runsPageContent(), '/runs') },
       ];
     };
 
     const server = http.createServer((request, response) => {
       void (async () => {
         const url = new URL(request.url ?? '/', `http://${request.headers.host}`);
+
+        /*
+           The Runs page is fed by an event stream rather than a POST, so it
+           sits outside the router exactly as it does in `tools/dashboard.ts`.
+           One push and then nothing: a test measuring a page does not want it
+           redrawing underneath the measurement.
+        */
+        if (url.pathname === '/api/runs/stream') {
+          response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store' });
+          const payload = JSON.stringify({
+            runs: liveRuns(data.runs.count, data.runs.failuresEach),
+            slotsFree: Math.max(0, 2 - data.runs.count),
+          });
+          response.write(`data: ${payload}\n\n`);
+          return;
+        }
+
         const body: Record<string, unknown> | null =
           request.method === 'POST'
             ? await new Promise((resolve) => {
@@ -325,6 +420,12 @@ export const test = base.extend<{ pages: PagesHarness }>({
         }),
     });
 
+    /*
+       The Runs page holds its event stream open, so `close` alone waits for a
+       socket that is behaving exactly as it should. Dropping the connections
+       first is the difference between a teardown and a sixty-second timeout.
+    */
+    server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   },
 });

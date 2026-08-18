@@ -134,6 +134,16 @@ function renderSlots() {
   slotPicker.replaceChildren();
   if (!view) return;
 
+  /*
+     How many rows this is, is roles times pool size — a property of the
+     profile, and one nothing here has a say in. Eight roles against a pool of
+     twenty measured 14.1 screens, with the credential form somebody came to
+     use below all of it. Capped and scrolled like the Cases lists rather than
+     disclosed, for the same reason: this list is the page's answer. Only above
+     six, so a one-account profile does not get a box built for a hundred.
+  */
+  box.className = view.slots.length > 6 ? 'longlist' : '';
+
   for (const slot of view.slots) {
     const row = el('div', 'slot');
     row.append(el('div', 'who', slot.role + ' \\u00b7 ' + slot.index));
