@@ -349,16 +349,26 @@ export const test = base.extend<{ pages: PagesHarness }>({
         /*
            The Runs page is fed by an event stream rather than a POST, so it
            sits outside the router exactly as it does in `tools/dashboard.ts`.
-           One push and then nothing: a test measuring a page does not want it
-           redrawing underneath the measurement.
+
+           It pushes twice, and that is the point rather than an accident: the
+           real one pushes every 500ms, the page redraws on each, and a harness
+           that pushed once could not show whether anything the reader chose
+           survives a redraw. Only `slotsFree` differs between the two, so a
+           test can wait for the second by name and the page measures the same
+           height either side of it.
         */
         if (url.pathname === '/api/runs/stream') {
           response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store' });
-          const payload = JSON.stringify({
-            runs: liveRuns(data.runs.count, data.runs.failuresEach),
-            slotsFree: Math.max(0, 2 - data.runs.count),
-          });
-          response.write(`data: ${payload}\n\n`);
+          const push = (slotsFree: number): void => {
+            const payload = JSON.stringify({
+              runs: liveRuns(data.runs.count, data.runs.failuresEach),
+              slotsFree,
+            });
+            response.write(`data: ${payload}\n\n`);
+          };
+          push(Math.max(0, 2 - data.runs.count));
+          const again = setTimeout(() => push(1), 250);
+          request.on('close', () => clearTimeout(again));
           return;
         }
 

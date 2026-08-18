@@ -30,7 +30,7 @@ const A_LOT = {
   failures: 60,
   cases: { noSpec: 120, orphans: 90, automated: 60 },
   users: { roles: 8, poolSize: 20 },
-  runs: { count: 12, failuresEach: 25 },
+  runs: { count: 20, failuresEach: 25 },
 };
 
 test.beforeEach(async ({ page }) => {

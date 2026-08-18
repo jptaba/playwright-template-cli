@@ -144,6 +144,16 @@ const SCRIPT = `
 let expanded = null;
 
 /*
+   Whether the whole list has been asked for.
+
+   Beside the expanded flag rather than inside the render, for the same reason:
+   this page redraws off its event stream twice a second, and a decision kept
+   in the DOM is undone before it can be read. (No backticks in here: the whole
+   script is one template literal and one would close it.)
+*/
+let showingAll = false;
+
+/*
    A run needs an application, and this page no longer chooses one.
 
    It had its own picker, filled from /api/targets, defaulting to whichever
@@ -323,6 +333,16 @@ function refresh() {
     return;
   }
   for (const run of runs) box.append(renderRun(run));
+
+  /*
+     The newest ten, and a button naming the rest.
+
+     The manager now forgets a run once twenty newer ones exist, so this list
+     has a bound — but twenty cards is eight screens, and the run somebody is
+     watching is the one at the top. Same treatment as the Triage and Publish
+     queues, against a bound rather than against nothing.
+  */
+  if (!showingAll) showFirst(box, '.run', 10, 'run(s)', () => { showingAll = true; });
 }
 
 /*

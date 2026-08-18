@@ -1,4 +1,5 @@
 import { expect, test } from './pages-harness';
+import { RETENTION } from '../../src/support/runs/manager';
 
 /**
  * How tall a page is allowed to get on data nobody chose the size of.
@@ -50,8 +51,12 @@ const A_LOT = {
   cases: { noSpec: 120, orphans: 90, automated: 60 },
   /* Eight roles against a pool of twenty. The profile decides this, not the page. */
   users: { roles: 8, poolSize: 20 },
-  /* Twelve runs pressed this session, each holding the 25 failures the card shows. */
-  runs: { count: 12, failuresEach: 25 },
+  /*
+     The most the manager will ever hand this page: it forgets a run once
+     RETENTION.runs newer ones exist, so this is not a guess about a busy
+     morning — it is the bound, measured at the bound.
+  */
+  runs: { count: RETENTION.runs, failuresEach: 25 },
 };
 
 test.beforeEach(async ({ page }) => {
@@ -125,15 +130,16 @@ test.describe('with a repository that has grown', () => {
 
   test('Runs stays inside its budget', async ({ pages }) => {
     /*
-       Nothing ever removes a run from the manager's map, so this page holds a
-       card for every run started since the dashboard was opened. Twelve is a
-       morning.
+       At the manager's own retention, which is where a budget on this page has
+       to be measured: anything below it is a number somebody chose, and the
+       manager will hand over this many.
     */
     pages.data.runs = A_LOT.runs;
     await pages.open('/runs');
 
     const screens = await pages.screens();
-    expect(screens, `Runs is ${screens.toFixed(1)} screens on 12 runs`).toBeLessThan(SCREENS);
+    expect(screens, `Runs is ${screens.toFixed(1)} screens on ${RETENTION.runs} runs`)
+      .toBeLessThan(SCREENS);
 
     const worst = await pages.tallestBlock();
     expect(
@@ -237,6 +243,32 @@ test.describe('a queue longer than a screen', () => {
     await more.click();
     expect(await clusters.filter({ visible: true }).count()).toBe(60);
     await expect(more, 'and it withdraws itself once there is no more').toHaveCount(0);
+  });
+
+  test('Runs shows the newest ten, and the choice survives a redraw', async ({ pages }) => {
+    /*
+       The redraw is the whole test. This page rebuilds itself on every push of
+       its event stream — twice a second in the tool — so a choice recorded in
+       the DOM is undone before anybody can read what they asked for. The
+       harness pushes a second time with a different slot count, which is the
+       signal to wait on.
+    */
+    pages.data.runs = { count: RETENTION.runs, failuresEach: 4 };
+    await pages.open('/runs');
+
+    const cards = pages.page.locator('#runs .run');
+    await expect(cards, 'every run the manager is holding is in the page').toHaveCount(RETENTION.runs);
+    expect(await cards.filter({ visible: true }).count()).toBe(10);
+
+    const more = pages.page.getByRole('button', { name: `Show the other ${RETENTION.runs - 10} run(s)` });
+    await more.click();
+    expect(await cards.filter({ visible: true }).count()).toBe(RETENTION.runs);
+
+    await expect(pages.page.locator('#slots'), 'the stream pushed again').toHaveText('1 slot free');
+    expect(
+      await cards.filter({ visible: true }).count(),
+      'a redraw put the other runs back away',
+    ).toBe(RETENTION.runs);
   });
 
   test('every defect Publish would file is in the page, seen or not', async ({ pages }) => {

@@ -468,7 +468,7 @@ async function post(path, body) {
    carries the recommendation the preview computed. What gets filed must not
    depend on how far somebody scrolled.
 */
-function showFirst(container, selector, limit, noun) {
+function showFirst(container, selector, limit, noun, onShowAll) {
   const rows = Array.from(container.querySelectorAll(selector));
   const rest = rows.slice(limit);
   if (rest.length === 0) return;
@@ -480,6 +480,13 @@ function showFirst(container, selector, limit, noun) {
   more.onclick = () => {
     for (const row of rest) row.hidden = false;
     more.remove();
+    /*
+       For a page that redraws itself. Triage and Publish render once and the
+       unhiding above is the whole answer; Runs redraws twice a second off its
+       event stream, so without somewhere for the decision to live it is undone
+       before anybody can read what they asked to see.
+    */
+    if (onShowAll) onShowAll();
   };
   container.append(more);
 }

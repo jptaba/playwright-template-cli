@@ -68,6 +68,18 @@ export const DASHBOARD_STYLES = `
 
   * { box-sizing: border-box; }
 
+  /*
+     The hidden attribute means hidden, whatever the element's own rule says.
+
+     A browser's own sheet has [hidden] { display: none }, and any author rule
+     setting display beats it — so a Runs card, which is a flex column, stayed
+     on screen after showFirst had hidden it, and the page measured the same
+     eight screens with ten rows supposedly put away. Anything that hides by
+     attribute needs this, and it is the reason normalising sheets have carried
+     the same line for twenty years.
+  */
+  [hidden] { display: none !important; }
+
   body {
     margin: 0;
     background: var(--bg);

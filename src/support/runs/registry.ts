@@ -75,6 +75,33 @@ export function canStart(
 }
 
 /**
+ * Which runs the manager should stop holding, newest kept.
+ *
+ * Nothing used to remove a run from the manager's map, so it grew for as long
+ * as the dashboard stayed open — a card for every run started since launch,
+ * each one weighing what the run in flight weighs. Measured: 5.3 screens at
+ * twelve runs, 8.0 at twenty, 11.5 at thirty.
+ *
+ * Height was the visible half. The one that is actually wrong is that
+ * `pruneRuns` deletes a run's **directory** past the same retention, and the
+ * page reads its progress out of that directory — so a run the map kept past
+ * the prune renders as a card with no numbers in it, describing a run whose
+ * every artefact has been deleted. The map should not outlive the disk.
+ *
+ * An active run is never forgotten, however old. Two runs may go at once and
+ * one of them can be much the older; dropping the one still going because
+ * twenty finished ones started after it is the one mistake this can make.
+ */
+export function runsToForget(runs: readonly RunRecord[], keep: number): string[] {
+  const active = new Set(activeRuns(runs).map((run) => run.id));
+  return [...runs]
+    .sort((a, b) => b.startedAt - a.startedAt)
+    .slice(keep)
+    .filter((run) => !active.has(run.id))
+    .map((run) => run.id);
+}
+
+/**
  * Whether both active runs point at the same application.
  *
  * Warned, never refused. With `accountPool: 'static'` and `serverState: true` —

@@ -10,6 +10,7 @@ import {
   contentionWarning,
   newRunId,
   runCommand,
+  runsToForget,
   type RunRecord,
   type RunRequest,
 } from './registry';
@@ -157,6 +158,15 @@ export class RunManager {
     });
 
     this.runs.set(id, { record, child, expanded: false });
+    /*
+       Forget the oldest finished runs, on the way in rather than on a timer.
+       Starting a run is the only thing that makes the map bigger, so it is the
+       only moment it can need trimming — and doing it here means the count
+       the page is handed can never exceed what the disk still holds.
+    */
+    for (const stale of runsToForget([...this.runs.values()].map((t) => t.record), RETENTION.runs)) {
+      this.runs.delete(stale);
+    }
     return { id, warning: contentionWarning(this.list()) };
   }
 

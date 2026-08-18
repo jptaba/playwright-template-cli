@@ -11,6 +11,7 @@ import {
   contentionWarning,
   newRunId,
   runCommand,
+  runsToForget,
   type RunRecord,
 } from '../../src/support/runs/registry';
 import {
@@ -167,6 +168,53 @@ test.describe('the two slots', () => {
   test('run ids sort by time and cannot collide within a millisecond', () => {
     expect(newRunId(at, 'aa') < newRunId(at + 60_000, 'aa')).toBe(true);
     expect(newRunId(at, 'aa')).not.toBe(newRunId(at, 'bb'));
+  });
+});
+
+test.describe('what the manager stops holding', () => {
+  const record = (index: number, state: RunRecord['state'] = 'finished'): RunRecord => ({
+    id: `r${index}`,
+    request: { target: 'shop', projects: [] },
+    state,
+    startedAt: at + index * 1000,
+    finishedAt: at + index * 1000 + 500,
+    directory: `.runs/r${index}`,
+    pid: 1,
+  });
+
+  test('keeps the newest and forgets the rest', () => {
+    /*
+       Nothing used to forget anything, so the map grew for as long as the
+       dashboard stayed open. The height was the visible half; the wrong half
+       is that `pruneRuns` deletes a run's directory past the same retention
+       and the page reads progress out of that directory — so a run held past
+       the prune renders as a card with no numbers, about a run whose every
+       artefact is gone.
+    */
+    const runs = Array.from({ length: 25 }, (_, index) => record(index));
+    const forgotten = runsToForget(runs, 20);
+
+    expect(forgotten).toHaveLength(5);
+    // The five oldest, by start time, and nothing newer.
+    expect(forgotten.sort()).toEqual(['r0', 'r1', 'r2', 'r3', 'r4'].sort());
+  });
+
+  test('forgets nothing while there is room', () => {
+    expect(runsToForget(Array.from({ length: 20 }, (_, i) => record(i)), 20)).toEqual([]);
+    expect(runsToForget([], 20)).toEqual([]);
+  });
+
+  test('never forgets a run that is still going, however old it is', () => {
+    /*
+       The one mistake this can make. Two runs go at once and one can be much
+       the older; twenty finished runs starting after it must not drop the one
+       somebody is still watching.
+    */
+    const runs = [record(0, 'running'), ...Array.from({ length: 24 }, (_, i) => record(i + 1))];
+    const forgotten = runsToForget(runs, 20);
+
+    expect(forgotten).not.toContain('r0');
+    expect(forgotten).toHaveLength(4);
   });
 });
 
