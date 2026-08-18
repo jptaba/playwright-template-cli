@@ -411,6 +411,18 @@ function checkCapabilities(
         'schema-checked on the way through, including the setup calls inside UI tests (§05).',
     );
   }
+  for (const waiver of contracts.waived ?? []) {
+    if (Date.parse(waiver.reviewBy) < Date.now()) {
+      warn(
+        'contract-waiver-expired',
+        `The contract waiver for '${waiver.endpoint}'${waiver.at ? ` at ${waiver.at}` : ''} was ` +
+          `due for review on ${waiver.reviewBy}.`,
+        'Re-agree it with the provider and move the date, or remove the waiver and let the ' +
+          'drift fail. Accepted drift nobody revisits is a provider defect with better paperwork.',
+      );
+    }
+  }
+
   if (contracts.enabled && startedWriting && !specsUnder('tests/contract')) {
     warn(
       'contracts-no-specs',

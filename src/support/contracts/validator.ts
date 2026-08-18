@@ -4,6 +4,7 @@ import Ajv, { type AnySchema, type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import YAML from 'yaml';
 import { REPO_ROOT } from '../paths';
+import type { ContractWaiver } from '../../../config/targets/types';
 
 /**
  * Schema conformance — §05.
@@ -25,6 +26,19 @@ export interface ValidationFailure {
   /** JSON pointer into the response body. */
   at: string;
   message: string;
+}
+
+/**
+ * A failure the profile accepts, kept so an exception stays visible.
+ *
+ * Waived drift is subtracted from what throws and added here, never dropped —
+ * the same rule `A11yScan.waived` follows, and for the same reason: an
+ * exception granted for one property should be obvious when it starts firing
+ * on nine.
+ */
+export interface WaivedDrift extends ValidationFailure {
+  reason: string;
+  reviewBy: string;
 }
 
 export class ContractDriftError extends Error {
@@ -66,9 +80,12 @@ export class ContractRegistry {
   private readonly ajv: Ajv;
   private readonly compiled = new Map<string, ValidateFunction>();
   private readonly document: OpenApiDocument;
+  private readonly waivers: readonly ContractWaiver[];
+  private readonly waivedFound: WaivedDrift[] = [];
 
-  private constructor(document: OpenApiDocument) {
+  private constructor(document: OpenApiDocument, waivers: readonly ContractWaiver[] = []) {
     this.document = document;
+    this.waivers = waivers;
     this.ajv = new Ajv({ allErrors: true, strict: false, validateFormats: true });
     addFormats(this.ajv);
     // Component schemas are referenced as #/components/schemas/... by the
@@ -78,7 +95,7 @@ export class ContractRegistry {
     }
   }
 
-  static fromFile(specPath: string): ContractRegistry {
+  static fromFile(specPath: string, waivers: readonly ContractWaiver[] = []): ContractRegistry {
     const full = path.isAbsolute(specPath) ? specPath : path.join(REPO_ROOT, specPath);
     if (!fs.existsSync(full)) {
       throw new Error(
@@ -88,11 +105,25 @@ export class ContractRegistry {
     }
     const text = fs.readFileSync(full, 'utf8');
     const document = (/\.ya?ml$/.test(full) ? YAML.parse(text) : JSON.parse(text)) as OpenApiDocument;
-    return new ContractRegistry(document);
+    return new ContractRegistry(document, waivers);
   }
 
-  static fromDocument(document: OpenApiDocument): ContractRegistry {
-    return new ContractRegistry(document);
+  static fromDocument(
+    document: OpenApiDocument,
+    waivers: readonly ContractWaiver[] = [],
+  ): ContractRegistry {
+    return new ContractRegistry(document, waivers);
+  }
+
+  /**
+   * Drift the profile accepted, in the order it was met.
+   *
+   * Exposed so a spec or a report can say what is being tolerated. A waiver
+   * that suppresses without counting is the blindfold the accessibility
+   * waivers were carefully built not to be.
+   */
+  waived(): readonly WaivedDrift[] {
+    return this.waivedFound;
   }
 
   /** Documented operations, so the contract project can walk every endpoint. */
@@ -170,12 +201,33 @@ export class ContractRegistry {
     }
 
     if (validator(body)) return [];
-    return (validator.errors ?? []).map((error) => ({
-      endpoint: `${method} ${pathTemplate}`,
+    const endpoint = `${method} ${pathTemplate}`;
+    const failures = (validator.errors ?? []).map((error) => ({
+      endpoint,
       status,
       at: error.instancePath,
       message: error.message ?? 'failed validation',
     }));
+
+    /*
+       Accepted drift is subtracted here rather than at the throw site, so
+       every caller gets the same answer — the client that throws, the report
+       that counts, and a spec asking what is tolerated. Recorded on the way
+       past: waiving without counting is how an exception granted for one
+       property quietly grows into nine.
+    */
+    const remaining: ValidationFailure[] = [];
+    for (const failure of failures) {
+      const waiver = this.waivers.find(
+        (entry) => entry.endpoint === endpoint && (!entry.at || entry.at === failure.at),
+      );
+      if (waiver) {
+        this.waivedFound.push({ ...failure, reason: waiver.reason, reviewBy: waiver.reviewBy });
+      } else {
+        remaining.push(failure);
+      }
+    }
+    return remaining;
   }
 
   /** Endpoints in the document that no response has been validated against. */

@@ -365,8 +365,11 @@ export const test = base.extend<
   },
 
   contracts: async ({ target }, use) => {
-    const { enabled, spec } = target.capabilities.contracts;
-    await use(enabled && spec ? ContractRegistry.fromFile(spec) : null);
+    const { enabled, spec, waived } = target.capabilities.contracts;
+    // Waivers travel with the document: the profile is where an accepted
+    // exception is recorded, and the registry is the only thing that can
+    // subtract one from what throws.
+    await use(enabled && spec ? ContractRegistry.fromFile(spec, waived ?? []) : null);
   },
 
   api: async ({ request, target, run, contracts }, use, testInfo) => {

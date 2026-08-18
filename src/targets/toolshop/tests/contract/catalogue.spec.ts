@@ -86,38 +86,43 @@ test('A search that matches nothing still conforms, which is where an envelope u
   testData,
 }) => {
   /*
-     KNOWN PROVIDER DRIFT, found by this spec on the day it was written
-     (2026-08-18) and confirmed against both sides rather than inferred:
+     This spec found real drift the day it was written: the document types the
+     envelope's `from` and `to` as integers and the service answers null when
+     nothing matches. It is the vendor's demo and the vendor's document, so it
+     is accepted as a **contract waiver in the profile**, with a reason and a
+     review date `target:doctor` enforces — not deleted, and not left failing.
 
-       document  components.schemas.PaginatedProductResponse
-                 from: { type: 'integer' }, to: { type: 'integer' }
-       service   GET /products/search?q=<no matches>
-                 {"current_page":1,"data":[],"from":null,"to":null,"total":0}
-
-     So the published document does not describe the service's own empty-result
-     answer. Every populated search validates and only this one does not, which
-     is exactly why the empty case earns its own spec — and is the finding this
-     capability was turned on to produce.
-
-     Marked expected-to-fail rather than deleted or left red. Deleting it is the
-     thing the conventions forbid — an exception nobody can see — and leaving it
-     red spends the whole suite's signal on a third-party demo this repository
-     cannot fix. `test.fail()` keeps the claim in the report *and* inverts it:
-     the day the vendor fixes either side, this spec fails for passing and
-     somebody has to come back here.
-
-     Review by 2026-11-18, with the profile's accessibility waivers. Routes to
-     the provider, one ticket per endpoint (§20) — it is provider drift, not an
-     application defect.
+     The spec therefore passes, and the next one asserts that the exception is
+     still exactly two properties wide.
   */
-  test.fail();
-
   const page = await shopApi.search(testData.termThatMatchesNothing);
 
   // Asserting the emptiness is what proves the empty branch was the branch
   // taken, rather than a search that quietly matched something.
   expect(page.data).toHaveLength(0);
   expect(page.total).toBe(0);
+});
+
+test('The accepted drift is still exactly the two properties the profile waived', async ({
+  shopApi,
+  contracts,
+  testData,
+}) => {
+  /*
+     The counterweight to the waiver, and the reason a waiver beats deleting
+     the spec. `waived()` records what it suppressed, so an exception granted
+     for two properties cannot quietly become nine: if the service starts
+     answering null somewhere else on this endpoint, that failure is not
+     covered and still throws — and if it stops answering null here at all,
+     this assertion fails and the waiver should go.
+  */
+  await shopApi.search(testData.termThatMatchesNothing);
+
+  const waived = contracts!.waived();
+  expect(waived.map((drift) => drift.at).sort()).toEqual(['/from', '/to']);
+  expect(new Set(waived.map((drift) => drift.endpoint))).toEqual(
+    new Set(['GET /products/search']),
+  );
 });
 
 test('The categories listing conforms, and carries categories', async ({ shopApi }) => {

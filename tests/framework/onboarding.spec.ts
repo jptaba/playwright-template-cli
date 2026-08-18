@@ -324,6 +324,38 @@ test.describe('the onboarding preflight', () => {
     expect(codes(found)).toContain('a11y-waiver-expired');
   });
 
+  test('a contract waiver past its review date is surfaced the same way', () => {
+    /*
+       Accepted provider drift gets the same treatment as an accepted
+       accessibility finding, and for the same reason: the value of a waiver
+       over a deleted spec is that somebody has to come back to it. A review
+       date nothing reads is a comment, which is what this replaced.
+    */
+    const found = diagnose(
+      profile({
+        capabilities: {
+          ...profile().capabilities,
+          contracts: {
+            enabled: true,
+            spec: 'src/targets/demo/contracts/openapi.yaml',
+            waived: [
+              {
+                endpoint: 'GET /products/search',
+                at: '/from',
+                reason: 'vendor demo returns null on an empty page',
+                reviewBy: '2020-01-01',
+              },
+            ],
+          },
+        },
+      }),
+      facts({ contractSpecExists: true, packFiles: [...HEALTHY_PACK, 'tests/contract/api.spec.ts'] }),
+    );
+
+    expect(codes(found)).toContain('contract-waiver-expired');
+    expect(isRunnable(found), 'a stale waiver is a smell, not a blocker').toBe(true);
+  });
+
   test('an accessibility standard the framework does not know is a warning, not a block', () => {
     // Standards outlive frameworks. A target needing one newer than this
     // repository has heard of must not wait on a change here — the check

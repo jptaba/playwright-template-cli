@@ -58,6 +58,48 @@ export interface ContractsCapability {
   enabled: boolean;
   /** Repo-relative path to the vendored, pinned OpenAPI/JSON Schema document. */
   spec: string | null;
+  /**
+   * Drift the team has accepted, so a known provider defect is a recorded
+   * decision rather than a deleted spec.
+   */
+  waived?: ContractWaiver[];
+}
+
+/**
+ * An accepted difference between the published document and the running
+ * service.
+ *
+ * The same instrument accessibility already has, for the same reason, and it
+ * exists because the first real contract suite immediately needed one:
+ * toolshop's `/products/search` answers `from: null, to: null` on an empty
+ * result set where its own document types both as `integer`. It is a vendor
+ * demo and a vendor document, so neither side is this repository's to fix —
+ * and the three options without a waiver are all bad. Deleting the spec is the
+ * exception nobody can see. Leaving it failing spends the suite's whole signal
+ * on something that will never be fixed. `test.fail()` works, but buries the
+ * reason and the review date in a comment where no tool can read them.
+ *
+ * `at` is what keeps a waiver from being a blindfold, exactly as `selector`
+ * does for an accessibility waiver: accept a null `from` and the endpoint's
+ * every other property is still checked. Omitting it waives the whole
+ * endpoint, which is occasionally the right call and should be a decision
+ * rather than a default.
+ *
+ * Waived drift is still **counted and reported**, never silently dropped: an
+ * exception accepted for one property must be visible when it is suddenly
+ * firing on nine.
+ */
+export interface ContractWaiver {
+  /** `METHOD /path`, written exactly as the document names it — `GET /products/search`. */
+  endpoint: string;
+  reason: string;
+  /** ISO date. `target:doctor` reports a waiver whose review date has passed. */
+  reviewBy: string;
+  /**
+   * JSON Pointer to the property whose failure is accepted — `/from`. Omit to
+   * accept every failure on the endpoint.
+   */
+  at?: string;
 }
 
 /**

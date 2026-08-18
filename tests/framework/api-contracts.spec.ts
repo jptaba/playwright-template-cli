@@ -215,6 +215,70 @@ test.describe('the contract registry', () => {
   });
 });
 
+test.describe('drift the profile has accepted', () => {
+  /*
+     The same instrument accessibility already had, built because the first
+     real contract suite needed one on its first run: toolshop's
+     `/products/search` answers `from: null` where its own document says
+     integer. Without a waiver the only moves are deleting the spec — the
+     exception nobody can see — or leaving a vendor demo failing forever.
+  */
+  const waived = (at?: string) =>
+    ContractRegistry.fromDocument(CONTRACT_DOCUMENT, [
+      {
+        endpoint: 'POST /orders',
+        reason: 'vendor drift, ticket ABC-1',
+        reviewBy: '2026-11-18',
+        ...(at ? { at } : {}),
+      },
+    ]);
+
+  test('a waived failure stops throwing and starts being counted', () => {
+    const registry = waived('/total');
+    // `total` is a number in the document; the service answers a string.
+    const failures = registry.validate('POST', '/orders', 201, { ...conforming, total: 'free' });
+
+    expect(failures, 'the waived failure no longer reaches the client').toEqual([]);
+    expect(registry.waived()).toHaveLength(1);
+    expect(registry.waived()[0]).toMatchObject({
+      endpoint: 'POST /orders',
+      at: '/total',
+      reason: 'vendor drift, ticket ABC-1',
+      reviewBy: '2026-11-18',
+    });
+  });
+
+  test('a waiver scoped to one property leaves every other failure on that endpoint live', () => {
+    // The whole point of `at`, and the reason an accessibility waiver has
+    // `selector`: accepting one known defect must not blind the endpoint.
+    const failures = waived('/total').validate('POST', '/orders', 201, { id: 'o-1' });
+
+    expect(failures.length, 'the missing required fields still fail').toBeGreaterThan(0);
+    expect(failures.every((failure) => failure.at !== '/total')).toBe(true);
+  });
+
+  test('a waiver for another endpoint does not apply here', () => {
+    const registry = ContractRegistry.fromDocument(CONTRACT_DOCUMENT, [
+      { endpoint: 'GET /orders/{id}', reason: 'elsewhere', reviewBy: '2026-11-18' },
+    ]);
+
+    expect(registry.validate('POST', '/orders', 201, { id: 'o-1' }).length).toBeGreaterThan(0);
+    expect(registry.waived()).toHaveLength(0);
+  });
+
+  test('an unscoped waiver covers the whole endpoint, because sometimes that is the decision', () => {
+    const registry = waived();
+    expect(registry.validate('POST', '/orders', 201, { id: 'o-1' })).toEqual([]);
+    expect(registry.waived().length, 'still counted, never hidden').toBeGreaterThan(0);
+  });
+
+  test('a target with no waivers behaves exactly as before', () => {
+    // The default path, which every other target is on.
+    expect(registry().validate('POST', '/orders', 201, { id: 'o-1' }).length).toBeGreaterThan(0);
+    expect(registry().waived()).toEqual([]);
+  });
+});
+
 test.describe('database access', () => {
   test('a write statement is rejected where the query is defined', () => {
     expect(() =>

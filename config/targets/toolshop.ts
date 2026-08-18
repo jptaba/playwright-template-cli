@@ -78,7 +78,47 @@ export const toolshop: TargetProfile = {
        warns about, which is why the base URL above is the origin and this is
        the document.
     */
-    contracts: { enabled: true, spec: 'src/targets/toolshop/contracts/openapi.json' },
+    contracts: {
+      enabled: true,
+      spec: 'src/targets/toolshop/contracts/openapi.json',
+      /*
+         Measured on 2026-08-18, both sides read rather than inferred:
+
+           document  components.schemas.PaginatedProductResponse types `from`
+                     and `to` as { type: 'integer' }, not nullable.
+           service   GET /products/search?q=<no matches> answers
+                     {"current_page":1,"data":[],"from":null,"to":null,"total":0}
+
+         So the published document does not describe the service's own
+         empty-result answer. Every populated search validates; only the empty
+         one does not, which is why the contract suite gives that case its own
+         spec.
+
+         This is the vendor's demo and the vendor's document — neither side is
+         ours to fix — so it is recorded here with a reason and a review date
+         rather than by deleting the spec. Scoped to the two properties on the
+         one endpoint: everything else about a search response is still
+         checked, and the scan still counts what it waives.
+      */
+      waived: [
+        {
+          endpoint: 'GET /products/search',
+          at: '/from',
+          reason:
+            "Vendor demo: the paginated envelope's `from` is null on an empty result set, " +
+            'where the published document types it as a plain integer.',
+          reviewBy: '2026-11-18',
+        },
+        {
+          endpoint: 'GET /products/search',
+          at: '/to',
+          reason:
+            "Vendor demo: the paginated envelope's `to` is null on an empty result set, " +
+            'where the published document types it as a plain integer.',
+          reviewBy: '2026-11-18',
+        },
+      ],
+    },
     a11y: {
       enabled: true,
       standard: process.env.A11Y_STANDARD ?? 'wcag22aa',
