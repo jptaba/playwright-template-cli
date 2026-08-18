@@ -337,7 +337,7 @@ async function withProbePage<T>(work: (page: ProbePage) => Promise<T>): Promise<
   }
 }
 
-const probe = (input: { baseURL: string; apiBaseURL?: string }) =>
+const probe = (input: { baseURL: string; apiBaseURL?: string; signInPathHint?: string }) =>
   withProbePage((page) =>
     probeTarget(
       page,

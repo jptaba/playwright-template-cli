@@ -14,6 +14,7 @@ import {
   ScaffoldError,
 } from '../../src/support/onboarding/scaffold';
 import { resolveExploreUrl } from '../../src/support/onboarding/explore-url';
+import { SIGN_IN_PATHS, signInPathsToTry } from '../../src/support/onboarding/probe';
 import { KNOWN_A11Y_STANDARDS, type TargetProfile } from '../../config/targets/types';
 
 /**
@@ -758,5 +759,38 @@ test.describe('stored sessions with no application', () => {
         diagnose(profile(), facts({ storageStateFiles: ['notes.txt', '.DS_Store'], knownTargets: ['demo'] })),
       ),
     ).not.toContain('session-orphaned');
+  });
+});
+
+test.describe('the sign-in path the operator typed', () => {
+  /*
+     A hint that is thrown away is worse than not offering the field. Typing
+     `/admin` and pressing "Read the application" probed eight guessed paths —
+     none of them `/admin` — then reported "No sign-in form found on any of /,
+     /auth/login, …" and advised exploring the application by hand. The
+     operator had already supplied the answer. Measured on
+     automationintesting.online, whose `/admin` carries an ordinary
+     username/password form the probe never loaded.
+  */
+  test('is tried first, ahead of the guesses', () => {
+    expect(signInPathsToTry('/admin')[0]).toBe('/admin');
+    expect(signInPathsToTry('/admin')).toEqual(expect.arrayContaining(SIGN_IN_PATHS));
+  });
+
+  test('a bare path is normalised, because people type both', () => {
+    expect(signInPathsToTry('admin')[0]).toBe('/admin');
+  });
+
+  test('is not tried twice when it is already one of the defaults', () => {
+    const paths = signInPathsToTry('/login');
+    expect(paths[0]).toBe('/login');
+    expect(paths.filter((path) => path === '/login')).toHaveLength(1);
+  });
+
+  test('nothing typed, or the default, leaves the list exactly as it was', () => {
+    // The common case must not pay for the hint.
+    expect(signInPathsToTry(undefined)).toEqual(SIGN_IN_PATHS);
+    expect(signInPathsToTry('   ')).toEqual(SIGN_IN_PATHS);
+    expect(signInPathsToTry('/'), 'the field default is not a hint').toEqual(SIGN_IN_PATHS);
   });
 });

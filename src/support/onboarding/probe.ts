@@ -79,6 +79,34 @@ export function detectTestIdAttribute(
   return { attribute: best[0], confident };
 }
 
+/**
+ * The paths to try, with anything the operator told us first.
+ *
+ * **A hint that is thrown away is worse than no hint field at all.** Typing
+ * `/admin` into "Sign-in path" and pressing "Read the application" used to
+ * probe eight guessed paths — none of them `/admin` — then report "No sign-in
+ * form found on any of /, /auth/login, …" and advise exploring the
+ * application by hand. The operator had already supplied the answer, the tool
+ * discarded it, and then asked them to go and find it.
+ *
+ * Measured on `automationintesting.online`, where `/admin` carries a perfectly
+ * ordinary username/password form that the probe never loaded.
+ *
+ * The defaults still follow, because a wrong guess costs one page load and
+ * being right about the common cases is what the list is for.
+ */
+export function signInPathsToTry(
+  hint: string | undefined,
+  defaults: readonly string[] = SIGN_IN_PATHS,
+): string[] {
+  const cleaned = hint?.trim();
+  if (!cleaned || cleaned === '/') return [...defaults];
+  // Leading slash normalised so `admin` and `/admin` mean the same thing —
+  // the field says "path" and people type both.
+  const path = cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+  return [path, ...defaults.filter((candidate) => candidate !== path)];
+}
+
 /** Paths a sign-in form lives on, in the order worth trying. */
 export const SIGN_IN_PATHS = [
   /*
@@ -544,6 +572,12 @@ export interface ProbeOptions {
   /** Where the service API lives, when it is not the same host. */
   apiBaseURL?: string;
   signInPaths?: readonly string[];
+  /**
+   * The path the operator typed into "Sign-in path", tried before the
+   * guesses. See `signInPathsToTry` — a hint the tool discards is worse than
+   * not offering the field.
+   */
+  signInPathHint?: string;
   /** How long to give each candidate route to render a password field. */
   signInTimeoutMs?: number;
 }
@@ -585,7 +619,8 @@ export async function probeTarget(
   let signIn: ProbedSignIn | null = null;
   /** Where a password field was seen but the fields could not be named. */
   let unnamedFormAt: string | null = null;
-  for (const path of options.signInPaths ?? SIGN_IN_PATHS) {
+  const candidates = options.signInPaths ?? signInPathsToTry(options.signInPathHint);
+  for (const path of candidates) {
     try {
       await page.goto(`${base}${path}`);
       /*
@@ -634,7 +669,7 @@ export async function probeTarget(
     );
   } else if (!signIn) {
     notes.push(
-      `No sign-in form found on any of ${(options.signInPaths ?? SIGN_IN_PATHS).join(', ')}. ` +
+      `No sign-in form found on any of ${candidates.join(', ')}. ` +
         'The scaffolded locators stay as placeholders — explore the application and replace them.',
     );
   }

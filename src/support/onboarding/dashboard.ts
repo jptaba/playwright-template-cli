@@ -166,7 +166,12 @@ export interface DashboardService {
   /** Take the session, and everything learned on the way to it. */
   assistFinish(input: { target: string; role: string }): Promise<AssistedSignIn>;
   assistCancel(): Promise<void>;
-  probe(input: { baseURL: string; apiBaseURL?: string }): Promise<ProbeResult>;
+  probe(input: {
+    baseURL: string;
+    apiBaseURL?: string;
+    /** The path the operator typed, tried ahead of the guessed candidates. */
+    signInPathHint?: string;
+  }): Promise<ProbeResult>;
   /**
    * Sign in once with the credentials the operator supplied, to prove the
    * probed locators work and to derive the one locator that cannot be read
@@ -468,7 +473,22 @@ async function onboardingApi(
               'the host, signs nothing in, but does load pages.',
           );
         }
-        return json(200, await service.probe({ baseURL, ...(apiBaseURL ? { apiBaseURL } : {}) }));
+        /*
+           The sign-in path the operator typed, forwarded rather than dropped.
+           This route rebuilt the payload field by field, so the hint reached
+           the server and stopped here — and the probe went on trying eight
+           guessed paths and reporting "no sign-in form found" for an
+           application whose form was on the path it had been given.
+        */
+        const signInPathHint = String(body.signInPathHint ?? '').trim();
+        return json(
+          200,
+          await service.probe({
+            baseURL,
+            ...(apiBaseURL ? { apiBaseURL } : {}),
+            ...(signInPathHint ? { signInPathHint } : {}),
+          }),
+        );
       }
 
       case '/api/verify': {

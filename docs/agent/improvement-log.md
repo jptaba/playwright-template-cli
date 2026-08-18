@@ -3715,3 +3715,60 @@ the dashboard and onboarding and raise what is found — or the **coverage
 phase**, which is now much the largest body of work: four of seven applications
 are not onboarded and 32 of 35 coverage cells are empty. Item 11 remains a
 standing objective.
+
+## 2026-08-18 · run 51 · The hint the tool threw away
+
+**Picked:** a scan run, at the owner's direction, before onboarding the next
+application. Driven against the running dashboard rather than read.
+
+**The finding, and it was found by using the thing.** Onboarding
+`automationintesting.online` — the coverage phase's application 4 — I typed
+`/admin` into "Sign-in path" and pressed "Read the application". It reported
+*"Sign-in form: not found"*, listed the eight paths it had tried, and advised
+exploring the application by hand. **`/admin` was not among the eight**, the
+field had been reset to `/`, and `/admin` carries an ordinary
+username/password form. The operator had already supplied the answer.
+
+**Three layers dropped it**, and this is the part worth carrying: the page
+never sent the field, the `/api/probe` route rebuilt the payload naming only
+`baseURL` and `apiBaseURL`, and `probe.ts` had no parameter to accept a hint at
+all. I fixed the first and the third, re-ran it, and got the identical failure —
+because the middle one silently discarded it. A route that reconstructs a
+payload field by field drops anything added upstream, and does it without an
+error anywhere.
+
+`signInPathsToTry(hint)` puts the operator's path first, normalises a bare
+`admin`, and leaves the default list untouched when nothing was typed.
+
+**Proven end to end through the real journey**: same application, same form,
+the probe now reads `Username` / `Password` / `Login` and keeps `/admin`.
+
+**Verify:** `npm run verify` passes, exit 0 — **997 tests**, up from 993.
+
+**Checked and healthy**, recorded so the next scan does not repeat it: the
+onboarding picker still defaults to "— New application —"; steps 2–5 are
+collapsed to zero height rather than rendered-and-locked; a half-typed form
+survives the reload that a top-bar application switch causes; the probe refuses
+until the test-environment box is ticked, and that flag is not persisted as
+true; no horizontal overflow at 1280px.
+
+**Learned:**
+
+- **I nearly filed a regression that did not exist.** `section.hidden === false`
+  on steps 2–5 looked like item 18's progressive disclosure having reverted to
+  render-and-lock. Measuring the heights showed all four at **zero** and the
+  page at 1734px against a 3888px pre-item-18 baseline. `hidden` is not the
+  mechanism — the same trap item 24 hit from the other direction, where an
+  element carrying `hidden` stayed on screen because a class set `display`.
+  **Measure the pixels, not the property.**
+- **Fixing two of three layers is indistinguishable from fixing none.** The
+  page looked correct, the probe looked correct, and the behaviour was
+  unchanged. Only re-running the real journey and reading *which paths it
+  listed* showed the hint had not arrived — the tried-paths list in the failure
+  message was the diagnostic that located the missing layer.
+- **A scan run pays for itself when it is a real journey rather than an
+  inspection.** This defect is invisible from the source: every layer reads
+  sensibly on its own.
+
+**Next:** onboarding restful-booker-platform as application 4 of the coverage
+phase, which is now unblocked — the probe reads its sign-in form.

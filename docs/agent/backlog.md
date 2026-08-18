@@ -8,7 +8,7 @@
 > - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
 >   end-to-end coverage programme, with its own per-application state.
 > - **This file** — the working agreement below, which is still binding, plus an
->   archive of the 45 items already shipped. Read it for *why* a thing was done.
+>   archive of the 46 items already shipped. Read it for *why* a thing was done.
 >
 > Split on 2026-08-18: this file had passed 1,900 lines, and the four items that
 > were actually open were scattered through it. A run that has to read an
@@ -2651,3 +2651,52 @@ auth-flow pattern in one place.
 **Proven against live deployments, both directions:** ParaBank reports
 `sign-in-ok` and exits 0; a target pointed at a dead loopback port reports
 `environment-unreachable` and exits 1, spending no lockout budget to do it.
+
+### 43. The probe discarded the sign-in path the operator typed — `done`
+
+Found in run 51's scan, by driving the onboarding journey against a real
+application rather than reading the page, and fixed framework-side.
+
+**What happened.** Onboarding `automationintesting.online`, I typed `/admin`
+into "Sign-in path" and pressed "Read the application". The probe reported:
+
+> Sign-in form: **not found** … No sign-in form found on any of `/`,
+> `/auth/login`, `/login`, `/signin`, `/sign-in`, `/account/login`,
+> `/users/sign_in`, `/session/new`. The scaffolded locators stay as
+> placeholders — explore the application and replace them.
+
+`/admin` is not in that list. The field was reset to `/`, and `/admin` carries
+a perfectly ordinary username/password form — confirmed by loading it directly:
+`input#username` and `input#password`. **The operator supplied the answer, the
+tool threw it away, and then asked them to go and find it.**
+
+**Three layers dropped it, and only fixing all three worked** — worth recording
+because fixing two of them looked identical from the page:
+
+1. `dashboard-page.ts` never sent `signInPath` with the probe request.
+2. `dashboard.ts`'s `/api/probe` route rebuilt the payload field by field, so
+   anything it did not name was discarded.
+3. `probe.ts` had no way to accept a hint: `SIGN_IN_PATHS` was a fixed list.
+
+`signInPathsToTry(hint)` now puts the operator's path first and the defaults
+after it, normalising a bare `admin` to `/admin` because the field says "path"
+and people type both. A hint equal to the field's own default is not a hint, so
+the common case pays nothing.
+
+**Proven end to end through the real journey**, which is the only reason this
+was found at all: same application, same form, the probe now reads
+`Username` / `Password` / `Login` and keeps `/admin`.
+
+**Also checked in the same scan and found healthy** — recorded so the next scan
+does not re-investigate:
+
+- The onboarding picker defaults to "— New application —" (item 6 holds).
+- Steps 2–5 are collapsed to **zero height**, not rendered-and-locked. A first
+  read of `section.hidden === false` suggested item 18 had regressed; measuring
+  showed 1734px against a 3888px pre-item-18 baseline. `hidden` is not the
+  mechanism, which is the same trap item 24 recorded from the other direction.
+- Switching the top-bar application reloads the page, and a half-typed form
+  **survives** it — the draft restores name and base URL. Item 9 holds.
+- The probe refuses until "this is a test environment" is ticked, and that flag
+  is not persisted in the draft as true.
+- No horizontal overflow at 1280px.

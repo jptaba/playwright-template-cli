@@ -1087,6 +1087,9 @@ $('probe').onclick = async () => {
     const result = await post('/api/probe', {
       baseURL: $('baseURL').value.trim(),
       apiBaseURL: primaryServiceURL(),
+      // The operator's own answer, tried before the guesses. A hint the tool
+      // discards is worse than not offering the field.
+      signInPathHint: $('signInPath').value.trim(),
       confirmedTestEnvironment: $('confirmTest').checked,
     });
     // Cleared before the new reading is applied, so a second read that finds
