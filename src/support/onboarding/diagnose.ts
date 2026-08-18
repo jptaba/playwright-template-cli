@@ -68,11 +68,52 @@ const ALWAYS_ALLOWED = ['localhost', '127.0.0.1', '::1'];
 /** Hosts that mean "nobody has filled this in yet". */
 const PLACEHOLDER_HOST = /\.(invalid|example|test|localdomain)$|^example\./i;
 
+/**
+ * What is actually in the pack, asked the way each question means.
+ *
+ * `specsUnder` exists because `hasUnder` answered the wrong question and three
+ * checks were silently dead for it. The scaffolder writes `tests/api/.gitkeep`
+ * and `tests/contract/.gitkeep` to keep those directories in git, and a
+ * `.gitkeep` satisfies "some file starts with this prefix" — so
+ * `api-no-specs` and `contracts-no-specs` could never fire on a scaffolded
+ * pack, and `a11y-no-specs` stopped firing the moment somebody removed the
+ * scaffolded spec and left a placeholder behind. Measured, not reasoned about:
+ * `target:doctor` reported "profile, pack and credentials agree — nothing to
+ * fix" for a target declaring a contracts capability whose only contract file
+ * was a `.gitkeep`.
+ *
+ * The vocabulary directories (`locators`, `actions`, `api`, `db`) still use
+ * `hasUnder` on purpose: the scaffolder writes real modules into every one of
+ * them and never a placeholder, so the question "does this vocabulary exist"
+ * is answered correctly by any file being there.
+ */
+interface PackView {
+  has(file: string): boolean;
+  hasUnder(dir: string): boolean;
+  specsUnder(dir: string): boolean;
+  /**
+   * True once any spec exists anywhere in the pack.
+   *
+   * A pack with no specs at all has not been written yet, and that state is
+   * already named once by `no-e2e-specs`. Repeating it per capability would
+   * put three more warning blocks on the dashboard's success panel — which
+   * renders every diagnostic in full, directly above a "Next" list that
+   * already says to write the specs. The capability warnings are for the
+   * other case, which is the one that actually hides: a target that has been
+   * written, is passing, and left one declared capability validating nothing.
+   */
+  startedWriting: boolean;
+}
+
 export function diagnose(profile: TargetProfile, facts: TargetFacts): Diagnostic[] {
   const found: Diagnostic[] = [];
-  const has = (file: string): boolean => facts.packFiles.includes(file);
-  const hasUnder = (dir: string): boolean =>
-    facts.packFiles.some((file) => file.startsWith(`${dir}/`));
+  const pack: PackView = {
+    has: (file) => facts.packFiles.includes(file),
+    hasUnder: (dir) => facts.packFiles.some((file) => file.startsWith(`${dir}/`)),
+    specsUnder: (dir) =>
+      facts.packFiles.some((file) => file.startsWith(`${dir}/`) && file.endsWith('.spec.ts')),
+    startedWriting: facts.packFiles.some((file) => file.endsWith('.spec.ts')),
+  };
   const error = (code: string, message: string, fix: string): void => {
     found.push({ level: 'error', code, message, fix });
   };
@@ -81,9 +122,9 @@ export function diagnose(profile: TargetProfile, facts: TargetFacts): Diagnostic
   };
 
   checkHost(profile, facts, error, warn);
-  checkPack(profile, facts, has, hasUnder, error, warn);
-  checkRoles(profile, facts, has, error, warn);
-  checkCapabilities(profile, facts, hasUnder, error, warn);
+  checkPack(profile, facts, pack, error, warn);
+  checkRoles(profile, facts, pack, error, warn);
+  checkCapabilities(profile, facts, pack, error, warn);
   checkAuthentication(profile, facts, error, warn);
   checkRotation(profile, warn);
   checkOrphanedSessions(facts, warn);
@@ -143,8 +184,7 @@ function checkHost(profile: TargetProfile, facts: TargetFacts, error: Report, wa
 function checkPack(
   profile: TargetProfile,
   facts: TargetFacts,
-  has: (file: string) => boolean,
-  hasUnder: (dir: string) => boolean,
+  { has, hasUnder, specsUnder }: PackView,
   error: Report,
   warn: Report,
 ): void {
@@ -182,10 +222,10 @@ function checkPack(
     );
   }
 
-  if (!hasUnder('tests/e2e')) {
+  if (!specsUnder('tests/e2e')) {
     warn(
       'no-e2e-specs',
-      'The pack has no tests/e2e/ directory, so the e2e project will run nothing.',
+      'The pack has no specs in tests/e2e/, so the e2e project will run nothing.',
       'Add specs there. Signed-out flows go in *login|mfa|password.spec.ts so the auth-flows ' +
         'project picks them up (§13).',
     );
@@ -195,7 +235,7 @@ function checkPack(
 function checkRoles(
   profile: TargetProfile,
   facts: TargetFacts,
-  has: (file: string) => boolean,
+  { has }: PackView,
   error: Report,
   warn: Report,
 ): void {
@@ -257,7 +297,7 @@ function checkRoles(
 function checkCapabilities(
   profile: TargetProfile,
   facts: TargetFacts,
-  hasUnder: (dir: string) => boolean,
+  { hasUnder, specsUnder, startedWriting }: PackView,
   error: Report,
   warn: Report,
 ): void {
@@ -299,10 +339,11 @@ function checkCapabilities(
     }
   }
 
-  if (api.enabled && !hasUnder('tests/api')) {
+  if (api.enabled && startedWriting && !specsUnder('tests/api')) {
     warn(
       'api-no-specs',
-      'capabilities.api is enabled but the pack has no tests/api/ directory.',
+      'capabilities.api is enabled but there are no specs in tests/api/, so the api project ' +
+        'runs nothing and the run is green anyway.',
       'Add API specs there, or disable the capability so the report says "not applicable" ' +
         'rather than showing an empty project.',
     );
@@ -370,10 +411,11 @@ function checkCapabilities(
         'schema-checked on the way through, including the setup calls inside UI tests (§05).',
     );
   }
-  if (contracts.enabled && !hasUnder('tests/contract')) {
+  if (contracts.enabled && startedWriting && !specsUnder('tests/contract')) {
     warn(
       'contracts-no-specs',
-      'capabilities.contracts is enabled but the pack has no tests/contract/ directory.',
+      'capabilities.contracts is enabled but there are no specs in tests/contract/, so the ' +
+        'vendored document is validated against nothing and the run is green anyway.',
       'Add conformance specs there. Note that they are exempt from the case-id rule by design.',
     );
   }
@@ -400,15 +442,15 @@ function checkCapabilities(
         'the warning.',
     );
   }
-  if (a11y.enabled && !hasUnder('tests/a11y')) {
+  if (a11y.enabled && startedWriting && !specsUnder('tests/a11y')) {
     warn(
       'a11y-no-specs',
-      'capabilities.a11y is enabled but the pack has no tests/a11y/ directory.',
+      'capabilities.a11y is enabled but there are no specs in tests/a11y/.',
       'Add accessibility specs there, or disable the capability. An empty accessibility ' +
         'project reports as a silent zero, which reads like a pass.',
     );
   }
-  if (!a11y.enabled && hasUnder('tests/a11y')) {
+  if (!a11y.enabled && specsUnder('tests/a11y')) {
     warn(
       'a11y-specs-not-enabled',
       'The pack has tests/a11y/ specs but capabilities.a11y is disabled, so none of them run.',

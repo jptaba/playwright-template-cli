@@ -226,6 +226,86 @@ test.describe('the onboarding preflight', () => {
     expect(codes(found)).toContain('a11y-no-specs');
   });
 
+  test('a .gitkeep is not a spec, and used to silence three checks entirely', () => {
+    /*
+       The scaffolder writes `tests/api/.gitkeep` and `tests/contract/.gitkeep`
+       to keep those directories in git, and the checks asked whether any file
+       started with the directory name — which a `.gitkeep` satisfies. So
+       `api-no-specs` and `contracts-no-specs` could never fire on a scaffolded
+       pack, and `a11y-no-specs` went quiet the moment somebody removed the
+       scaffolded spec and left a placeholder. Found by running the live suites
+       and reading what they listed: `target:doctor` said "profile, pack and
+       credentials agree — nothing to fix" for a target whose contracts
+       capability was validated by nothing at all.
+    */
+    const found = diagnose(
+      profile({
+        capabilities: {
+          ...profile().capabilities,
+          api: { enabled: true, baseURL: 'https://api.internal.corp' },
+          contracts: { enabled: true, spec: 'src/targets/demo/contracts/openapi.yaml' },
+          a11y: { enabled: true, standard: 'wcag22aa' },
+        },
+      }),
+      facts({
+        contractSpecExists: true,
+        packFiles: [
+          ...HEALTHY_PACK,
+          'tests/api/.gitkeep',
+          'tests/contract/.gitkeep',
+          'tests/a11y/.gitkeep',
+        ],
+      }),
+    );
+
+    expect(codes(found)).toContain('api-no-specs');
+    expect(codes(found)).toContain('contracts-no-specs');
+    expect(codes(found)).toContain('a11y-no-specs');
+  });
+
+  test('a real spec in the directory settles it, whatever else is in there', () => {
+    // The counterweight: the placeholder alongside a genuine spec must not
+    // keep the warning alive, or the fix trades one wrong answer for another.
+    const found = diagnose(
+      profile({
+        capabilities: {
+          ...profile().capabilities,
+          api: { enabled: true, baseURL: 'https://api.internal.corp' },
+        },
+      }),
+      facts({ packFiles: [...HEALTHY_PACK, 'tests/api/.gitkeep', 'tests/api/orders.spec.ts'] }),
+    );
+
+    expect(codes(found)).not.toContain('api-no-specs');
+  });
+
+  test('a pack nobody has written specs for yet is told once, not per capability', () => {
+    /*
+       Every freshly scaffolded pack is in this state, and the dashboard's
+       success panel renders each diagnostic in full directly above a "Next"
+       list that already says to write the specs. Three more warning blocks
+       there would be noise at the moment somebody succeeded — and the case
+       these checks exist for is the opposite one: a target that has been
+       written, is passing, and left a declared capability validating nothing.
+    */
+    const found = diagnose(
+      profile({
+        capabilities: {
+          ...profile().capabilities,
+          api: { enabled: true, baseURL: 'https://api.internal.corp' },
+          a11y: { enabled: true, standard: 'wcag22aa' },
+        },
+      }),
+      facts({
+        packFiles: ['fixtures.ts', 'locators/sign-in.ts', 'actions/sign-in.ts', 'tests/auth.setup.ts', 'tests/e2e/.gitkeep', 'tests/api/.gitkeep'],
+      }),
+    );
+
+    expect(codes(found)).toContain('no-e2e-specs');
+    expect(codes(found)).not.toContain('api-no-specs');
+    expect(codes(found)).not.toContain('a11y-no-specs');
+  });
+
   test('an accessibility waiver past its review date is surfaced, not forgotten', () => {
     // A waiver nobody revisits is a defect with better paperwork.
     const found = diagnose(

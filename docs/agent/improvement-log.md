@@ -2984,3 +2984,105 @@ natural home, and whether it warns or errors is the call to make), then item 28
 discarding what an incomplete check was). Item 11 remains a standing objective.
 **Every run from here also runs `npm run suites:live` and records the table** —
 that is now step 5, not an optional extra.
+
+## 2026-08-18 · run 42 · The placeholder that switched off three checks
+
+**Picked:** item 32 — declared capabilities with no specs. Re-read
+`open-items.md` and compared `main` to `origin/main` before starting: both at
+`1487910`, nothing had landed since run 41.
+
+**Correcting run 41, which raised this item with the wrong diagnosis.** Run 41
+wrote that `target:doctor` had no check for "declared capability, no specs",
+that it was the natural home for one, and that the open decision was whether it
+should warn or error. Opening `diagnose.ts` before writing anything into it
+showed all three checks already there — `api-no-specs`, `contracts-no-specs`,
+`a11y-no-specs` — as warnings, worded almost exactly as the item proposed. They
+had simply never fired.
+
+**The real defect, and it is better than the one I reported.** `hasUnder(dir)`
+asks whether any pack file starts with `dir/`. The scaffolder writes
+`tests/api/.gitkeep` and `tests/contract/.gitkeep` to keep those directories in
+git, and a `.gitkeep` satisfies that. So `api-no-specs` and
+`contracts-no-specs` could **never fire on a scaffolded pack** — the scaffolder
+disarmed them at birth — and `a11y-no-specs` went quiet the moment somebody
+removed the scaffolded spec and left a placeholder, which is precisely what
+parabank did. `no-e2e-specs` had the same hole.
+
+**Did:** added `specsUnder(dir)`, which asks for a `*.spec.ts`, and pointed the
+four spec-directory checks at it. Grouped the pack predicates into a small
+`PackView` rather than adding a sixth positional parameter to three functions.
+The vocabulary directories (`locators`, `actions`, `api`, `db`) keep `hasUnder`
+on purpose — the scaffolder writes real modules into all of them and never a
+placeholder, so that question is already answered correctly, and widening the
+diff to "fix" it would have been change for its own sake.
+
+One judgement taken: a capability warning stays quiet while the pack holds no
+specs *at all*. Evidence for it rather than taste — the dashboard's success
+panel renders every diagnostic in full, code and message and fix, directly
+above a "Next" list that already says to write the specs, so three more warning
+blocks would be noise at the moment somebody succeeded. That state is already
+named once by `no-e2e-specs`.
+
+**Verify:** `npm run verify` passes, exit 0 — **927 tests**, up from 924 (3 new
+cases in `tests/framework/onboarding.spec.ts`). Diff: 232 lines across 4 files.
+
+**Live suites (step 5):**
+
+| application | result |
+|---|---|
+| parabank | **2/2 passed** |
+| saucedemo | **2/2 passed** |
+| toolshop | **13/13 passed** |
+
+**17/17, exit 0** — unchanged from run 41, as expected: nothing here touches a
+target pack.
+
+**Measured on the real repository, before and after.** `npm run target:doctor`
+reported *"OK — profile, pack and credentials agree. Nothing to fix."* for all
+three applications before; it now reports `contracts-no-specs` on toolshop and
+`api-no-specs` + `a11y-no-specs` on parabank, with **saucedemo still clean** —
+the counterweight that says this is a fix rather than a new noise source.
+
+**Proven against the real scaffolder, not a fixture:** a scratch target
+scaffolded with `--with=api,contracts` reports `no-e2e-specs` once and no
+capability warnings. Removed afterwards with `tools/offboard.ts`, and
+`config/secrets.local.json` confirmed byte-identical (md5 unchanged).
+
+**Seen red then green**, deterministically and without load: stashing the fix
+fails the two new tests, while the third — the counterweight asserting that a
+real spec beside a `.gitkeep` still settles the question — passes either way.
+
+**PR:** branch `agent/2026-08-18-gitkeep-blindspot`; `main` fast-forwarded and
+pushed, `main` and `origin/main` confirmed matching.
+
+**Learned:**
+
+- **I raised an item from a symptom and named a cause I had not checked, and
+  the log has now recorded that mistake five times.** Runs 10, 12, 17, 39c and
+  this one. The pattern is identical every time: something observable is real,
+  the explanation attached to it is a guess, and the guess is what the next run
+  would have built. Run 41 had the evidence — the live suite listing zero
+  contract specs — and then wrote a cause into the item without opening the
+  file it named. **The observation belongs in the item; the diagnosis belongs
+  in the run that opens the code.**
+- **A check that cannot fire is worse than a missing one.** A missing check is
+  a known gap. Three checks sat in `diagnose.ts` reading exactly right, with
+  tests covering them — the `a11y-no-specs` test passes on a fixture with no
+  `.gitkeep` in it — while the tool they run in said "nothing to fix" about the
+  thing they were written for. The tests were green and the feature was dead.
+- **The scaffolder disarmed the checker, and neither file is wrong on its
+  own.** `.gitkeep` is the correct way to keep an empty directory in git, and
+  `hasUnder` is the correct question for a vocabulary directory. The defect
+  only exists where the two meet, which is why nothing in either file's own
+  tests could catch it — and is an argument for the live command from run 41,
+  since that is what surfaced it.
+- **A fixture that is too clean hides the bug it is meant to guard.**
+  `HEALTHY_PACK` contains no `.gitkeep`, so every existing diagnose test
+  described a pack that the scaffolder does not actually produce. The new tests
+  use the pack shape that really lands on disk.
+
+**Next:** item 33 — toolshop's contracts capability still validates nothing,
+which the checker now reports and nobody has acted on; it is coverage-phase
+work rather than a framework defect. Then item 28 (the substring trap in
+`cartLocators.line`), then item 31 (the a11y scan discarding what an incomplete
+check was). Item 11 remains a standing objective.

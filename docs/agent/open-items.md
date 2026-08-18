@@ -15,50 +15,55 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 32 | Three declared capabilities have no specs, and report as a pass | `ready` |
+| 33 | toolshop declares a contracts capability nothing validates | `ready` |
 | 28 | `cartLocators.line` has the same substring trap | `ready` |
 | 31 | The a11y scan counts incomplete checks and discards what they were | `ready` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Items 30 and 29 shipped in runs 40 and 41.** `npm run suites:live` now runs
-every onboarded application's specs against the real deployment, and **step 5
-of the working agreement in `backlog.md` says every run does this and records
-the result.** Read that before starting — it is a new obligation on every run,
-not an optional extra, and it is what item 29 was actually for.
+**Items 30, 29 and 32 shipped in runs 40, 41 and 42.** `npm run suites:live`
+now runs every onboarded application's specs against the real deployment, and
+**step 5 of the working agreement in `backlog.md` says every run does this and
+records the result.** Read that before starting — it is a new obligation on
+every run, not an optional extra.
 
-Item 32 below was found by running that command for the first time.
+**Item 32 was raised wrong and is worth reading in `backlog.md` for that
+reason.** It said `target:doctor` needed a new check. The checks already
+existed and were silently defeated by the scaffolder's own `.gitkeep` files —
+a reminder that "the tool does not do X" is a claim to verify, not to build on.
 
 ---
 
-### 32. Three declared capabilities have no specs, and report as a pass — `ready`
+### 33. toolshop declares a contracts capability nothing validates — `ready`
 
-Found by running `npm run suites:live` (run 41), by reading what it listed
-rather than by looking for it.
+What is left of item 32 once the checker was fixed: the checker now reports it,
+and nobody has acted on it.
 
-`src/targets/toolshop/tests/contract/` contains nothing but a `.gitkeep`, while
 `config/targets/toolshop.ts` declares `contracts: { enabled: true, spec:
-'src/targets/toolshop/contracts/openapi.json' }` — a vendored document, pinned,
-and nothing validates against it. `src/targets/parabank/tests/a11y/` and
-`tests/api/` are empty the same way, with both capabilities declared on.
+'src/targets/toolshop/contracts/openapi.json' }` — a real vendored OpenAPI
+document, pinned — and `src/targets/toolshop/tests/contract/` holds nothing but
+a `.gitkeep`. So the `contract` project is built, collects zero specs, and
+toolshop's 13/13 live pass contains no contract assertion at all.
+`npm run target:doctor` now says so: `contracts-no-specs`.
 
-**Why this is worse than an empty directory.** `playwright.config.ts` builds a
-project per enabled capability, so the `contract` and `api` projects are
-created, collect zero specs, and the run is green. The conventions are explicit
-that a capability declared off should report "not applicable for `<target>`"
-rather than a silent zero — but a capability declared *on* with no specs is a
-silent zero wearing the opposite label, and it is the more misleading of the
-two. toolshop's 13/13 does not include a single contract assertion.
+Parabank has the same shape on `api` (`api-no-specs`), and on `a11y` — though
+the a11y one is **already explained and must not be double-counted**: the
+coverage phase parked that spec deliberately, pending item 31.
 
-Note parabank's a11y emptiness is **already explained** and should not be
-double-counted: the coverage phase parked that spec deliberately, pending item
-31. The unexplained ones are toolshop's contract and parabank's api.
+**Two honest ways to close it, and they are different decisions:**
 
-**Shape, and it wants a decision rather than a patch.** `target:doctor` is the
-natural home — it already checks a profile's claims against what is on disk,
-and "declared capability, no specs" is exactly that shape. Whether it is an
-error or a warning is the call: an error blocks a run, and a target mid-build
-legitimately has empty directories for a while. A warning that names the file
-is probably right, with the same wording as the other doctor findings.
+- **Write the specs.** For toolshop this is the real answer — a vendored
+  document that nothing checks is the whole reason `contract` is a project.
+  This is coverage-phase work and overlaps the brief in `coverage-phase.md`.
+- **Turn the capability off** until specs exist, so the report says "not
+  applicable for toolshop" rather than showing an empty project. Honest, and
+  reversible in one line.
+
+Prefer the first for toolshop's contracts. Parabank's `api` is genuinely
+unwritten — the scaffold's `endpoints/orders.ts` and `api/orders.ts` are
+invented paths for an application that has no orders, recorded in
+`coverage-phase.md` — so that one wants rewriting from
+`/parabank/services/bank/*` before any spec, and is squarely coverage-phase
+work rather than a framework item.
 
 ### 28. `cartLocators.line` has the same substring trap — `ready`
 

@@ -8,7 +8,7 @@
 > - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
 >   end-to-end coverage programme, with its own per-application state.
 > - **This file** — the working agreement below, which is still binding, plus an
->   archive of the 31 items already shipped. Read it for *why* a thing was done.
+>   archive of the 32 items already shipped. Read it for *why* a thing was done.
 >
 > Split on 2026-08-18: this file had passed 1,900 lines, and the four items that
 > were actually open were scattered through it. A run that has to read an
@@ -2107,3 +2107,66 @@ explicitly is the decision this item is waiting on.
 **Do not fix this by raising the pool.** Three real customer accounts on a
 shared public demo is what the vendor publishes; inventing a fourth is not
 available.
+
+### 32. A `.gitkeep` silenced three of the doctor's checks — `done`
+
+Shipped on `agent/2026-08-18-gitkeep-blindspot` (run 42). **Raised in run 41
+with the wrong diagnosis, and the correction is the useful part of this
+entry.**
+
+**What run 41 claimed.** That `target:doctor` had no check for "declared
+capability, no specs", that it was the natural home for one, and that the
+decision waiting was whether such a check should warn or error.
+
+**What was actually true**, found by opening `diagnose.ts` before writing
+anything into it: all three checks already existed —`api-no-specs`,
+`contracts-no-specs` and `a11y-no-specs` — as warnings, worded almost exactly
+as the item proposed. They had never fired.
+
+`hasUnder(dir)` asked whether *any* pack file starts with `dir/`. The
+scaffolder writes `tests/api/.gitkeep` and `tests/contract/.gitkeep` to keep
+those directories in git, and a `.gitkeep` satisfies that test. So:
+
+- `api-no-specs` and `contracts-no-specs` **could not fire on any scaffolded
+  pack**, ever — the scaffolder disarmed them at birth.
+- `a11y-no-specs` went quiet the moment somebody removed the scaffolded
+  `landing.spec.ts` and left a placeholder, which is exactly what parabank did.
+- `no-e2e-specs` had the same hole, for the same reason.
+
+Measured before and after rather than argued: `npm run target:doctor` reported
+**"OK — profile, pack and credentials agree. Nothing to fix."** for all three
+onboarded applications. It now reports `contracts-no-specs` on toolshop and
+`api-no-specs` + `a11y-no-specs` on parabank, with saucedemo still clean —
+which is the counterweight that says this is a fix and not a new noise source.
+
+**The fix** is a `specsUnder(dir)` that asks for a `*.spec.ts`, used by the four
+spec-directory checks. The vocabulary directories (`locators`, `actions`, `api`,
+`db`) deliberately keep `hasUnder`: the scaffolder writes real modules into
+every one of them and never a placeholder, so "does this vocabulary exist" is
+answered correctly by any file being there. Fixing what is not broken would
+have widened the diff for nothing.
+
+**One judgement taken, with evidence for it.** A capability warning now stays
+quiet while the pack holds no specs *at all*. That state is every freshly
+scaffolded target, it is already named once by `no-e2e-specs`, and the
+dashboard's success panel renders every diagnostic in full — code, message and
+fix — directly above a "Next" list that already says to write the specs. Three
+more warning blocks there would be noise at the moment somebody succeeded.
+Confirmed against the real scaffolder rather than a fixture: a scratch target
+scaffolded with `--with=api,contracts` reports `no-e2e-specs` once and no
+capability warnings, and the scratch target was removed afterwards with
+`config/secrets.local.json` byte-identical (md5 unchanged).
+
+The case these checks exist for is the opposite one, and it is toolshop: a
+target that has been written, is passing 13/13 live, and left a declared
+capability validating nothing.
+
+**Seen red then green**, deterministically and without load: stashing the fix
+fails the two new tests — `.gitkeep` silencing all three checks, and the
+fresh-scaffold pack being told once rather than per capability — while the
+third, the counterweight asserting a real spec beside a `.gitkeep` still
+settles it, passes either way.
+
+**What is left is not a framework defect**, so it is raised separately as item
+33: toolshop's contracts capability still validates nothing. The checker
+reporting it is this item; acting on it is that one.
