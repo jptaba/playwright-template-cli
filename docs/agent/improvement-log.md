@@ -2105,3 +2105,71 @@ rules; run 13's figures stand.
 **Next:** item 20's hover states — evidenced in run 29, three rules, and the
 `color-mix` toward `--ink` that gets the direction right in both themes. Then
 item 17, then `/stories` into the harness.
+
+## 2026-08-17 · run 32 · A palette that passes, and the fourth budget
+
+**Picked:** the owner's ask — *"let us try to use a palette colors that also
+passes WCAG checkpoint on dark and light modes"* — folded into item 20 rather
+than raised separately, because it is what that item is about: the theme
+control made both themes real, and this is the polish that became checkable
+once they were.
+
+**Measured before changing anything, and the palette was mostly already right.**
+Text cleared 4.5:1 everywhere in both themes; the worst pair in either was
+4.61. What failed:
+
+| what | was | now |
+|---|---|---|
+| white on the dark theme's `--fail` — the destructive button | **2.94** | 5.87 |
+| every input and select border, light | **1.92** | 3.31 |
+| every input and select border, dark | **1.70** | 3.33 |
+| `--muted` on `--fail-soft` | **4.18** | 4.63 |
+| the pressed theme segment against its group | **1.07** | 3.31 |
+
+**Did:** `--rule-strong` moved in both themes; `--muted` darkened a step in
+light; the destructive label follows `--surface` rather than being white; the
+pressed theme segment carries a ring drawn as a shadow so nothing shifts; the
+four `.sep`/`.arrow` glyphs stopped using a border token as a text colour. Then
+`tests/dashboard/contrast.spec.ts` (five pages × two themes) and
+`onboarding-contrast.spec.ts`, sharing one measurement in `measure.ts`.
+
+**Verify:** `npm run verify` passes, exit 0 — **879 tests, up from 867.**
+
+**Seen red** against the old palette: every input, select and secondary button
+in the tool at 1.7–1.92:1 in both themes, plus the destructive button's label
+at 2.94:1. Roughly a hundred findings across twelve tests.
+
+**Learned:**
+
+- **Compute from the rendered page, not from a table of tokens.** A table is a
+  second copy of the palette and the copy is what goes stale — and it would
+  have missed both of the findings that mattered most: `--muted` on
+  `--fail-soft` is a pair nobody would think to write down, and the pressed
+  theme segment's 1.07:1 is a *state*, not a colour pair at all.
+- **A colour read straight after a theme switch is the old one.** `.theme
+  button` has `transition: color .15s`, so the first version of this reported
+  the theme control at 2.98:1 in dark and it looked exactly like a real defect
+  — the ancestor chain showed `--muted` already holding the right value. The
+  test now loads *in* the theme with `emulateMedia`, which is both correct and
+  closer to what most people are in: auto, no attribute, the system deciding.
+- **Two bugs in the check before any bug in the palette.** It scored a filled
+  button's border against its own fill (1:1 for every solid button), and it
+  scored the backdrop *including* the element's own background. A contrast
+  check is easy to write and easy to write wrongly, and every early failure it
+  reported was its own.
+- **A ring drawn as `box-shadow` is a boundary, and a check that cannot see one
+  pushes people towards worse CSS.** It now parses shadows and counts the ones
+  with no blur and a positive spread, which is what a ring is; the soft drop
+  shadow in the same declaration is correctly ignored.
+- **Say what the standard does *not* ask for, in the place somebody will argue
+  about it.** Card and section borders stay at 1.25:1 deliberately: 1.4.11 is
+  about identifying a component or its state, and the edge of a card is neither.
+  Both `tokens.ts` and the test say so, because the next person to run a
+  contrast tool over this will see those numbers and reach for a repaint.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches triage
+rules; run 13's figures stand.
+
+**Next:** item 20's hover states, which is now the last of that item — three
+rules, and the `color-mix` toward `--ink` that gets the direction right in both
+themes. Then item 17, then `/stories` into the harness.

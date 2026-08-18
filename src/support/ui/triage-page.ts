@@ -18,7 +18,7 @@ import type { DashboardPageContent } from './shell';
 const STYLES = `
   .counts-line { font-size: .92rem; color: var(--ink-2); margin: .9rem 0 0; }
   .counts-line b { color: var(--ink); font-weight: 640; }
-  .counts-line .sep { color: var(--rule-strong); margin: 0 .5rem; }
+  .counts-line .sep { color: var(--muted); margin: 0 .5rem; }
 
   .rate { display: flex; align-items: baseline; gap: .8rem; flex-wrap: wrap; margin-top: .4rem; }
   .rate .big {

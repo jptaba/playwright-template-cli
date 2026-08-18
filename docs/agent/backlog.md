@@ -1209,7 +1209,7 @@ reusable is the **overview panel** (`.preflight`, `.pf-title`) and the copy
 budget that now counts it, so the first slice here is moving those two into
 `shell.ts` and giving one page an overview — not lifting `enable`.
 
-### 20. A theme control, and the polish it makes visible — slice 1 `done`, the rest `ready`
+### 20. A theme control, and the polish it makes visible — theme and palette `done`, hover `ready`
 
 **The theme control shipped** on `agent/2026-08-17-theme-control` (run 24), and
 the finding below was right: the palette was already complete and nothing ever
@@ -1239,10 +1239,49 @@ What is worth keeping from doing it:
 - **Three things in one bar stops fitting at about phone width.** It wraps
   below 60rem now, and what a jumped-to section has to clear grows with it.
 
-**Still `ready` here** — the polish items below, minus motion, which landed
-inside item 18, and minus the measure, which shipped in run 29. What is left is
-the uneven use of the status tokens, the spacing scale, and **hover states on
-the buttons**, which run 29 evidenced while it was in there.
+**The palette now holds to WCAG 2.2 AA in both themes, and is held there by a
+test** — asked for by the owner, 2026-08-17:
+
+> let us try to use a palette colors that also passes WCAG checkpoint on dark
+> and light modes
+
+Kept here rather than raised as its own item, because it is exactly what this
+item is about: the theme control made both themes real, and this is the polish
+that became checkable once they were.
+
+**Measured first, and the palette was mostly already right.** Text cleared
+4.5:1 everywhere in both themes — the worst pair in either was 4.61. Three
+things did not, and all three were the kind an eye does not catch:
+
+| what | was | now |
+|---|---|---|
+| white on the dark theme's `--fail` — the destructive button | **2.94** | 5.87 |
+| every input and select border, light | **1.92** | 3.31 |
+| every input and select border, dark | **1.70** | 3.33 |
+| `--muted` on `--fail-soft` (a disclosure inside a note) | **4.18** | 4.63 |
+| the pressed theme segment, against the group around it | **1.07** | 3.31 |
+
+The destructive button's label follows `--surface` now instead of being white,
+which is the trick the primary button always used: the token is dark where
+`--fail` is light and light where it is dark, so one declaration is right in
+both. `--rule-strong` moved for the borders, `--muted` darkened a step in
+light, and the pressed segment of the theme control carries a ring drawn as a
+shadow so nothing shifts.
+
+**Section and card borders were deliberately left soft** — 1.25:1 in light and
+1.34 in dark. 1.4.11 covers what is *required to identify a component or its
+state*, and the edge of a card is not that; darkening every rule in the
+stylesheet to satisfy a rule that does not apply would be a repaint wearing a
+standard's name. The contrast test says which borders it holds to 3:1, and why.
+
+**`tests/dashboard/contrast.spec.ts` and `onboarding-contrast.spec.ts` are the
+fourth budget**, and they compute from the rendered page rather than from a
+table of tokens — a table would be a second copy of the palette, and the copy
+is what goes stale.
+
+**Still `ready` here:** the uneven use of the status tokens, the spacing scale,
+and **hover states on the buttons**, which run 29 evidenced while it was in
+there.
 
 **Run 29 measured the two that were stated as one item, and they are not.**
 Driven at 1280×720 against the real repository, reading the computed style of

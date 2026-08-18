@@ -81,7 +81,7 @@ const STYLES = `
 
   .counts-line { font-size: .92rem; color: var(--ink-2); margin: .9rem 0 0; }
   .counts-line b { color: var(--ink); font-weight: 640; }
-  .counts-line .sep { color: var(--rule-strong); margin: 0 .5rem; }
+  .counts-line .sep { color: var(--muted); margin: 0 .5rem; }
   .empty { color: var(--muted); font-size: .9rem; padding: .4rem 0 .1rem; }
 `;
 

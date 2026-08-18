@@ -11,15 +11,38 @@
  * page's own block, so this file never grows a rule that only one screen uses.
  */
 export const DASHBOARD_STYLES = `
+  /*
+     The palette holds to WCAG 2.2 AA in both themes, and that is a constraint
+     on the tokens rather than a claim about them: every pair is measured on a
+     rendered page by tests/dashboard/contrast.spec.ts, in light and in dark,
+     and a token moved to look better in one theme fails there rather than in
+     somebody's eyes six months later.
+
+     Text carries 4.5:1 and was already comfortable everywhere — the worst pair
+     in either theme was 4.61. Two things were not, and both were the kind that
+     a reviewer's eye does not catch:
+
+     - **White on the dark theme's --fail was 2.94:1.** Below AA, on the one
+       control in the tool that removes anything.
+     - **The border of every input and select was 1.9:1 in light and 1.7:1 in
+       dark**, against the 3:1 that 1.4.11 asks of a control's own boundary —
+       the line that says where a field is.
+
+     Section and card borders are deliberately left soft. 1.4.11 covers what is
+     *required to identify a component or its state*, and the edge of a card is
+     not that; darkening every rule to satisfy a rule that does not apply would
+     be a repaint wearing a standard's name. The contrast test says which
+     borders it holds to 3:1 and why.
+  */
   :root {
     --bg: #EAEDF1;
     --surface: #FBFCFD;
     --surface-2: #F1F4F7;
     --ink: #151A21;
     --ink-2: #39424F;
-    --muted: #5F6B7C;
+    --muted: #596474;
     --rule: #CFD6DF;
-    --rule-strong: #AFBAC7;
+    --rule-strong: #7C8794;
     --accent: #8A5E12;
     --accent-ink: #6E4A0C;
     --accent-soft: #EFE4CC;
@@ -44,7 +67,7 @@ export const DASHBOARD_STYLES = `
     :root:not([data-theme="light"]) {
       --bg: #10131A; --surface: #171B23; --surface-2: #1C212A;
       --ink: #E6E9EE; --ink-2: #C2C9D4; --muted: #929CAB;
-      --rule: #272D38; --rule-strong: #3A4250;
+      --rule: #272D38; --rule-strong: #6B727E;
       --accent: #D9AC57; --accent-ink: #E8C382; --accent-soft: #2B2417;
       --pass: #4FB88C; --pass-soft: #16281F;
       --fail: #E4757F; --fail-soft: #2C1A1D;
@@ -57,7 +80,7 @@ export const DASHBOARD_STYLES = `
   :root[data-theme="dark"] {
     --bg: #10131A; --surface: #171B23; --surface-2: #1C212A;
     --ink: #E6E9EE; --ink-2: #C2C9D4; --muted: #929CAB;
-    --rule: #272D38; --rule-strong: #3A4250;
+    --rule: #272D38; --rule-strong: #6B727E;
     --accent: #D9AC57; --accent-ink: #E8C382; --accent-soft: #2B2417;
     --pass: #4FB88C; --pass-soft: #16281F;
     --fail: #E4757F; --fail-soft: #2C1A1D;
@@ -279,10 +302,10 @@ export const DASHBOARD_STYLES = `
   .ctx-pick {
     width: auto; padding: .15rem 1.4rem .15rem .45rem;
     font-size: .82rem; font-weight: 640; color: var(--ink);
-    background-color: var(--surface-2); border-color: var(--rule);
+    background-color: var(--surface-2); border-color: var(--rule-strong);
     border-radius: 5px; cursor: pointer;
   }
-  .ctx-pick:hover { border-color: var(--rule-strong); }
+  .ctx-pick:hover { border-color: var(--ink-2); }
   .ctx-why {
     font-size: .72rem; color: var(--muted);
     padding: .05rem .4rem; border-radius: 999px; border: 1px dashed var(--rule-strong);
@@ -312,7 +335,7 @@ export const DASHBOARD_STYLES = `
   */
   .theme {
     display: flex; gap: 2px; padding: 2px;
-    border: 1px solid var(--rule); border-radius: .35rem; background: var(--surface-2);
+    border: 1px solid var(--rule-strong); border-radius: .35rem; background: var(--surface-2);
   }
   .theme button {
     font: inherit; font-size: .72rem; letter-spacing: .03em;
@@ -321,8 +344,18 @@ export const DASHBOARD_STYLES = `
     transition: background .15s, color .15s;
   }
   .theme button:hover { color: var(--ink-2); background: none; }
+  /*
+     The pressed segment carries a ring, not only a lighter fill.
+
+     Which one is chosen is a *state*, and 1.4.11 asks 3:1 of the visual
+     information that identifies one. The fill alone is --surface on
+     --surface-2, which is 1.07:1 — a difference that exists in the palette and
+     not really on the screen. The ring is drawn as a shadow so nothing moves,
+     and the soft shadow still sits under it.
+  */
   .theme button[aria-pressed="true"] {
-    background: var(--surface); color: var(--accent-ink); box-shadow: var(--shadow);
+    background: var(--surface); color: var(--accent-ink);
+    box-shadow: 0 0 0 1px var(--rule-strong), var(--shadow);
   }
 
   /* ---------- notes that stay out of the way ---------- */
@@ -510,7 +543,16 @@ export const DASHBOARD_STYLES = `
     font: inherit; font-size: .89rem; font-weight: 620; cursor: pointer;
   }
   button.secondary { background: transparent; color: var(--ink-2); border-color: var(--rule-strong); }
-  button.destructive { background: var(--fail); border-color: var(--fail); color: #fff; }
+  /*
+     The label follows the surface rather than being white.
+
+     White on the dark theme's --fail is 2.94:1, which is a plain failure of
+     1.4.3 on the one control in the tool that removes anything. The surface
+     token is dark where --fail is light and light where it is dark, so one
+     declaration reads 7.1:1 in light and 5.9:1 in dark — the same trick the
+     primary button has always used.
+  */
+  button.destructive { background: var(--fail); border-color: var(--fail); color: var(--surface); }
   button[disabled] { opacity: .45; cursor: not-allowed; }
 
   pre {

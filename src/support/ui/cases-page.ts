@@ -21,7 +21,7 @@ const STYLES = `
     margin: .9rem 0 0;
   }
   .counts-line b { color: var(--ink); font-weight: 640; }
-  .counts-line .sep { color: var(--rule-strong); margin: 0 .5rem; }
+  .counts-line .sep { color: var(--muted); margin: 0 .5rem; }
 
   .case { border-top: 1px solid var(--rule); padding: .7rem 0 .75rem; }
   .case:first-child { border-top: 0; padding-top: .2rem; }
@@ -35,7 +35,7 @@ const STYLES = `
     font-family: ui-monospace, Consolas, monospace; font-size: .75rem;
     color: var(--muted); margin-top: .2rem; overflow-wrap: anywhere;
   }
-  .case .paths .arrow { color: var(--rule-strong); padding: 0 .35rem; }
+  .case .paths .arrow { color: var(--muted); padding: 0 .35rem; }
   .case .paths .how { font-style: italic; }
   .case .why {
     border-left: 2px solid var(--warn); background: var(--warn-soft);
