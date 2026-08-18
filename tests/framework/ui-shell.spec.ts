@@ -1,6 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { createRouter, failure, html, json, type Route } from '../../src/support/ui/router';
-import { dashboardPage } from '../../src/support/onboarding/dashboard-page';
+import { dashboardPage, onboardingPageContent } from '../../src/support/onboarding/dashboard-page';
+import { DASHBOARD_STYLES } from '../../src/support/ui/tokens';
+import { usersPageContent } from '../../src/support/ui/users-page';
+import { storiesPageContent } from '../../src/support/ui/stories-page';
+import { casesPageContent } from '../../src/support/ui/cases-page';
+import { runsPageContent } from '../../src/support/ui/runs-page';
+import { triagePageContent } from '../../src/support/ui/triage-page';
+import { publishPageContent } from '../../src/support/ui/publish-page';
 import {
   DASHBOARD_PAGES,
   escapeHtml,
@@ -314,6 +321,53 @@ test.describe('the destinations', () => {
 // ---------------------------------------------------------------------------
 // What is waiting
 // ---------------------------------------------------------------------------
+
+test.describe('the state badge, wherever it is used', () => {
+  /*
+     There were twelve of these across five files, each restating the same
+     three declarations, and the one that mixes the border had drifted to four
+     different values for the same role: 25%, 30%, 40%, and a pair that set the
+     border to a flat token instead. None of that was visible. The cost is that
+     the thirteenth badge gets written by copying whichever one was nearest,
+     and there is no way to be right by default.
+
+     So the recipe lives in `tokens.ts` and a page sets the two colours. This
+     is what stops the next one going back to writing it out.
+  */
+  const PAGE_STYLES: Record<string, string> = {
+    onboard: onboardingPageContent().styles ?? '',
+    users: usersPageContent().styles ?? '',
+    stories: storiesPageContent().styles ?? '',
+    cases: casesPageContent().styles ?? '',
+    runs: runsPageContent().styles ?? '',
+    triage: triagePageContent().styles ?? '',
+    publish: publishPageContent().styles ?? '',
+  };
+
+  test('a page names its state, and does not redraw the badge', () => {
+    for (const [name, styles] of Object.entries(PAGE_STYLES)) {
+      for (const rule of styles.matchAll(/\.badge\.[a-z-]+\s*\{([^}]*)\}/g)) {
+        const declarations = rule[1]!
+          .split(';')
+          .map((one) => one.trim())
+          .filter(Boolean)
+          .map((one) => one.split(':')[0]!.trim());
+
+        for (const property of declarations) {
+          expect(
+            property,
+            `${name}: a badge sets --status and --status-soft, not '${property}'`,
+          ).toMatch(/^--status(-soft|-ink)?$/);
+        }
+      }
+    }
+  });
+
+  test('the shared recipe is the only place the border is mixed', () => {
+    const mixes = [...DASHBOARD_STYLES.matchAll(/\.badge[^{]*\{[^}]*color-mix[^}]*\}/g)];
+    expect(mixes.length, 'one recipe, mixed once').toBe(1);
+  });
+});
 
 test.describe('the badges', () => {
   test('put what is waiting against the page it is waiting on', () => {

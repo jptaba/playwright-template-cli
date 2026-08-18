@@ -55,9 +55,9 @@ const STYLES = `
   .defect details summary { font-size: .82rem; color: var(--muted); cursor: pointer; margin-top: .4rem; }
   .defect pre { max-height: 20rem; overflow: auto; white-space: pre-wrap; }
 
-  .badge.create { color: var(--pass); background: var(--pass-soft); border-color: color-mix(in srgb, var(--pass) 25%, transparent); }
-  .badge.comment { color: var(--accent-ink); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
-  .badge.reopen { color: var(--fail); background: var(--fail-soft); border-color: color-mix(in srgb, var(--fail) 25%, transparent); }
+  .badge.create { --status: var(--pass); --status-soft: var(--pass-soft); }
+  .badge.comment { --status: var(--accent); --status-soft: var(--accent-soft); --status-ink: var(--accent-ink); }
+  .badge.reopen { --status: var(--fail); --status-soft: var(--fail-soft); }
 
   .confirm {
     border: 1px solid var(--rule-strong); border-radius: 6px; padding: .9rem 1rem;

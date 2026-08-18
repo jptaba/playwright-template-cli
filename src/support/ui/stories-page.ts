@@ -70,9 +70,9 @@ const STYLES = `
   }
   .draft .finding .fix { display: block; color: var(--muted); }
 
-  .badge.written { color: var(--pass); background: var(--pass-soft); border-color: color-mix(in srgb, var(--pass) 25%, transparent); }
-  .badge.quarantined { color: var(--accent-ink); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
-  .badge.rejected { color: var(--fail); background: var(--fail-soft); border-color: color-mix(in srgb, var(--fail) 25%, transparent); }
+  .badge.written { --status: var(--pass); --status-soft: var(--pass-soft); }
+  .badge.quarantined { --status: var(--accent); --status-soft: var(--accent-soft); --status-ink: var(--accent-ink); }
+  .badge.rejected { --status: var(--fail); --status-soft: var(--fail-soft); }
 
   details.yaml summary { font-size: .82rem; color: var(--muted); cursor: pointer; margin-top: .45rem; }
   details.yaml pre { max-height: 22rem; overflow: auto; }

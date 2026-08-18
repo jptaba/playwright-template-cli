@@ -2373,3 +2373,53 @@ rules; run 13's figures stand.
 **Next:** the backlog's `ready` list is down to item 20's status tokens and the
 spacing scale, both of which still want a stated defect measured before they
 are worth doing. That is a scan run.
+
+## 2026-08-17 · run 37 · Four values for one role, none of them visible
+
+**Picked:** item 20's "uneven use of the status tokens" — the last polish item
+with a claim attached. Scanned it first, because the claim was that this is a
+*legibility* fix.
+
+**The claim was wrong and the defect is real, differently.** Legibility is
+fine: every status colour passes the contrast budget in both themes and no page
+hardcodes one. What is actually there is **twelve `.badge.*` rules across five
+files**, each restating the same three declarations, with the border mix
+drifted to **four different values for the same role** — 25%, 30%, 40%, and a
+pair setting a flat token instead.
+
+None of that is visible, and that is the point rather than a reason to leave
+it: the thirteenth badge gets written by copying whichever one was nearest, and
+there was no way to be right by default.
+
+**Did:** `.badge` in `tokens.ts` carries the recipe; a page sets `--status` and
+`--status-soft`, plus `--status-ink` where the ink differs from the line it is
+mixed from, which is the accent and was being re-derived by hand each time.
+Twelve restatements became twelve one-liners. `ui-shell.spec.ts` refuses a
+badge rule that sets anything else.
+
+**Verify:** `npm run verify` passes, exit 0 — **901 tests, up from 899.**
+
+**Seen red** by stashing one page module: `publish: a badge sets --status and
+--status-soft, not 'color'` — it names the page and the property.
+
+**Learned:**
+
+- **Scan before believing the item, even when the item is in this file.** Three
+  of item 20's four polish claims have now turned out mis-shaped: focus was
+  already done, the measure was on two elements rather than uneven, and this
+  one was maintenance rather than legibility. The items were written from
+  reading, and the loop's own rule about that applies to its backlog.
+- **"Not visible" is not the same as "not a defect".** The drift here changes
+  nothing on screen. What it changes is whether the next person can be right
+  without checking, which is the same argument the four budgets rest on.
+- **A backtick in a comment inside a template literal, for the fourth time** —
+  `tokens.ts` again, and the file's own comment warns about it two hundred
+  lines above. Warning somebody in one place in a 700-line literal does not
+  reach the person editing the other end of it.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches triage
+rules; run 13's figures stand.
+
+**Next:** the spacing scale is the last thing in the file with a `ready` label,
+and it still has no measured defect. Given three of four polish claims here
+were mis-shaped, it should be measured before it is believed — a scan run.

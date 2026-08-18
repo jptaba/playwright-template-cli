@@ -42,10 +42,7 @@ const STYLES = `
     padding: .35rem .7rem; margin: .45rem 0 0; font-size: .85rem; border-radius: 0 4px 4px 0;
   }
 
-  .badge.stale {
-    color: var(--fail); background: var(--fail-soft);
-    border-color: color-mix(in srgb, var(--fail) 25%, transparent);
-  }
+  .badge.stale { --status: var(--fail); --status-soft: var(--fail-soft); }
 
   details.gate { margin-top: .4rem; }
   details.gate summary { font-size: .82rem; color: var(--muted); cursor: pointer; }

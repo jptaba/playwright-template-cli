@@ -1353,8 +1353,27 @@ parsed by the browser now, through a 1×1 canvas, which understands every space
 it understands and hands back the sRGB the arithmetic is defined in. Re-run
 after the fix, nothing new failed — but it was measuring less than it claimed.
 
-**Still `ready` here:** the uneven use of the status tokens, and the spacing
-scale — which still needs a stated defect before it is worth doing.
+**The status tokens were done in run 37, and the item's framing was wrong about
+why.** It called this "a legibility fix with a stated benefit". Measured, the
+legibility was already fine — every status colour passes the contrast budget in
+both themes, and no page hardcodes one. What was actually there:
+
+**Twelve `.badge.*` rules across five files**, each restating the same three
+declarations, and the one that mixes the border had drifted to **four different
+values for the same role** — 25%, 30%, 40%, and a pair that set a flat token
+instead. None of it visible. The cost is that the thirteenth badge gets written
+by copying whichever one was nearest, and there is no way to be right by
+default.
+
+So `.badge` in `tokens.ts` carries the recipe and a page sets `--status` and
+`--status-soft` (and `--status-ink`, for the accent, whose ink is darker than
+the line it is mixed from). Twelve restatements became twelve one-liners.
+`tests/framework/ui-shell.spec.ts` refuses a badge rule that sets anything
+else, naming the page and the property.
+
+**Still `ready` here:** the spacing scale, which still wants a stated defect —
+and, given that both other polish items turned out to be differently-shaped
+than this file claimed, it should be measured before it is believed.
 
 **Run 29 measured the two that were stated as one item, and they are not.**
 Driven at 1280×720 against the real repository, reading the computed style of

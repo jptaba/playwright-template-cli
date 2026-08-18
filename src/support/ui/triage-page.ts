@@ -67,8 +67,8 @@ const STYLES = `
   .settled.disagreed { border-color: var(--fail); background: var(--fail-soft); }
   .settled .who { color: var(--muted); font-size: .8rem; display: block; }
 
-  .badge.cat { color: var(--ink-2); background: var(--surface-2); border-color: var(--rule-strong); }
-  .badge.declined { color: var(--warn); background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+  .badge.cat { --status: var(--rule-strong); --status-soft: var(--surface-2); --status-ink: var(--ink-2); }
+  .badge.declined { --status: var(--warn); --status-soft: var(--warn-soft); }
 
   .flake { display: grid; grid-template-columns: minmax(0,1fr) 5rem 5rem; gap: .5rem;
     font-size: .86rem; padding: .3rem 0; border-top: 1px solid var(--rule); }

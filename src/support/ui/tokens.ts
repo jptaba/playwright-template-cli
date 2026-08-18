@@ -479,15 +479,44 @@ export const DASHBOARD_STYLES = `
     font-size: .66rem; letter-spacing: .08em; text-transform: uppercase;
     padding: .15rem .5rem; border-radius: 999px; border: 1px solid transparent; font-weight: 600;
   }
-  .badge.auto {
-    color: var(--pass); background: var(--pass-soft);
-    border-color: color-mix(in srgb, var(--pass) 25%, transparent);
+  /*
+     A badge says what state something is in, and there is one way to draw one.
+
+     There were twelve of these across five files, each restating the same
+     three declarations, and the one that mixes the border had drifted to four
+     different values for the same role — 25%, 30%, 40%, and a hand-written
+     pair with none. Nothing about that was visible; the cost is that the
+     thirteenth badge is written by copying whichever one was nearest, and
+     there is no way to be right by default.
+
+     So a page sets the two colours and gets the recipe. The status-ink
+     property is separate from status because the accent needs a darker ink
+     than the line it is mixed from — exactly the sort of exception that used
+     to be re-derived by hand each time. (No backticks in here: the stylesheet
+     is one template literal and one would close it.)
+  */
+  .badge {
+    --status: var(--muted);
+    --status-soft: var(--surface-2);
+    --status-ink: var(--status);
+    color: var(--status-ink);
+    background: var(--status-soft);
+    border-color: color-mix(in srgb, var(--status) 28%, transparent);
   }
+  .badge.pass { --status: var(--pass); --status-soft: var(--pass-soft); }
+  .badge.fail { --status: var(--fail); --status-soft: var(--fail-soft); }
+  .badge.warn { --status: var(--warn); --status-soft: var(--warn-soft); }
+  .badge.note {
+    --status: var(--accent); --status-soft: var(--accent-soft); --status-ink: var(--accent-ink);
+  }
+  .badge.quiet { --status: var(--rule); --status-soft: var(--surface-2); --status-ink: var(--muted); }
+
+  /* The two the shell itself uses, named for what they mean here. */
+  .badge.auto { --status: var(--pass); --status-soft: var(--pass-soft); }
   .badge.manual {
-    color: var(--accent-ink); background: var(--accent-soft);
-    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+    --status: var(--accent); --status-soft: var(--accent-soft); --status-ink: var(--accent-ink);
   }
-  .badge.locked { color: var(--muted); background: var(--surface-2); border-color: var(--rule); }
+  .badge.locked { --status: var(--rule); --status-soft: var(--surface-2); --status-ink: var(--muted); }
 
   /* ---------- what a page needs, before any of it is on screen ---------- */
   /*
