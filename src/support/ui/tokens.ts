@@ -555,6 +555,44 @@ export const DASHBOARD_STYLES = `
   button.destructive { background: var(--fail); border-color: var(--fail); color: var(--surface); }
   button[disabled] { opacity: .45; cursor: not-allowed; }
 
+  /*
+     A button that answers the pointer.
+
+     The served stylesheet had five hover rules and not one of them was on a
+     button: the rail link responded, the application switcher responded, the
+     theme control responded, and the thing that actually writes the target sat
+     there like a picture of a button. A control that does not react reads as
+     disabled, which is the wrong thing to say next to controls that do.
+
+     The mix moves each variant **toward the ink**, which is the whole trick:
+     --ink is dark in light and light in dark, so one declaration darkens on a
+     light page and lightens on a dark one, and hover goes the direction it is
+     expected to in both without a second block to keep in step.
+
+     Not on a disabled button. The change would be a promise the button will
+     not keep, and the reason it is refused belongs to the page rather than to
+     the pointer.
+
+     Contrast holds either way: mixing a fill toward the ink moves it away from
+     the surface the label is painted in, so the label gets easier to read
+     rather than harder. Asserted in controls.spec.ts rather than reasoned
+     about, in both themes.
+  */
+  button:hover:not([disabled]) {
+    background: color-mix(in srgb, var(--accent) 85%, var(--ink));
+    border-color: color-mix(in srgb, var(--accent) 85%, var(--ink));
+  }
+  button.secondary:hover:not([disabled]) {
+    background: var(--surface-2); color: var(--ink); border-color: var(--ink-2);
+  }
+  button.destructive:hover:not([disabled]) {
+    background: color-mix(in srgb, var(--fail) 85%, var(--ink));
+    border-color: color-mix(in srgb, var(--fail) 85%, var(--ink));
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    button { transition: background .12s, border-color .12s, color .12s; }
+  }
+
   pre {
     background: var(--code-bg); border: 1px solid var(--rule); border-radius: 5px;
     padding: .8rem; overflow-x: auto; margin: .6rem 0 0; font-size: .82rem;

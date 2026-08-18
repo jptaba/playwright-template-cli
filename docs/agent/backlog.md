@@ -1209,7 +1209,7 @@ reusable is the **overview panel** (`.preflight`, `.pf-title`) and the copy
 budget that now counts it, so the first slice here is moving those two into
 `shell.ts` and giving one page an overview — not lifting `enable`.
 
-### 20. A theme control, and the polish it makes visible — theme and palette `done`, hover `ready`
+### 20. A theme control, and the polish it makes visible — `done` bar the status tokens
 
 **The theme control shipped** on `agent/2026-08-17-theme-control` (run 24), and
 the finding below was right: the palette was already complete and nothing ever
@@ -1279,9 +1279,29 @@ fourth budget**, and they compute from the rendered page rather than from a
 table of tokens — a table would be a second copy of the palette, and the copy
 is what goes stale.
 
-**Still `ready` here:** the uneven use of the status tokens, the spacing scale,
-and **hover states on the buttons**, which run 29 evidenced while it was in
-there.
+**Hover shipped in run 33**, which is the last of the three things this item
+named. `button`, `button.secondary` and `button.destructive` each answer the
+pointer now, and the mix moves **toward `--ink`** — dark in light, light in
+dark — so one declaration goes the expected direction in both themes with no
+second block to keep in step. Not on a disabled button: that would be a promise
+the control does not keep.
+
+`tests/dashboard/controls.spec.ts` holds it, in both themes, and asserts the
+half a hover state usually gets wrong — that the **label is still readable on
+the hovered fill**. The contrast budget cannot see that, because it measures a
+page nobody is pointing at.
+
+**And it found a real gap in the contrast budget itself.** `color-mix()`
+computes to `oklab(...)` in Chrome, and the budget parsed colours with a regex
+expecting `rgb(...)` — so any element with a mixed background was skipped in
+the backdrop walk and scored against whatever was further up the page. The
+context bar has used a `color-mix` background since it was written. Colours are
+parsed by the browser now, through a 1×1 canvas, which understands every space
+it understands and hands back the sRGB the arithmetic is defined in. Re-run
+after the fix, nothing new failed — but it was measuring less than it claimed.
+
+**Still `ready` here:** the uneven use of the status tokens, and the spacing
+scale — which still needs a stated defect before it is worth doing.
 
 **Run 29 measured the two that were stated as one item, and they are not.**
 Driven at 1280×720 against the real repository, reading the computed style of

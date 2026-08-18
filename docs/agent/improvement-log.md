@@ -2173,3 +2173,56 @@ rules; run 13's figures stand.
 **Next:** item 20's hover states, which is now the last of that item — three
 rules, and the `color-mix` toward `--ink` that gets the direction right in both
 themes. Then item 17, then `/stories` into the harness.
+
+## 2026-08-17 · run 33 · The buttons answer the pointer, and the budget was measuring less than it claimed
+
+**Picked:** item 20's hover states — the last of the three things that item
+named, evidenced in run 29.
+
+**Did:** `button`, `button.secondary` and `button.destructive` each answer the
+pointer. The mix moves **toward `--ink`**, which is the whole trick: `--ink` is
+dark in light and light in dark, so one declaration darkens on a light page and
+lightens on a dark one, and hover goes the expected direction in both with no
+second block to keep in step. Not on a disabled button — a hover response on a
+control that will refuse is a promise the page does not keep.
+
+`tests/dashboard/controls.spec.ts`, both themes, and it asserts the half a
+hover state usually gets wrong: that the **label is still readable on the
+hovered fill**. The contrast budget cannot see that, because it measures a page
+nobody is pointing at.
+
+**Verify:** `npm run verify` passes, exit 0 — **884 tests, up from 879.**
+
+**Seen red** by stashing `tokens.ts`: both "answers the pointer" tests failed,
+naming the primary button and the theme.
+
+**Learned:**
+
+- **The contrast budget shipped last run was measuring less than it claimed.**
+  `color-mix()` computes to `oklab(...)` in Chrome, and the budget parsed
+  colours with a regex expecting `rgb(...)`. Anything with a mixed background
+  returned null, was skipped in the backdrop walk, and got scored against
+  whatever was further up the page — the context bar has had a `color-mix`
+  background since it was written. Colours are parsed by the browser now,
+  through a 1×1 canvas, which understands every space the browser does and
+  hands back the sRGB this arithmetic is defined in. Nothing new failed after
+  the fix, which is the good outcome and not the point: it was not looking.
+- **It surfaced through a number that made no sense.** A hovered button
+  measured 1.07:1 — the ratio of `--surface` to `--surface-2`, which is the
+  page behind the button rather than the button. A wrong answer that is
+  *recognisably* some other pair is worth chasing; the same bug on a plausible
+  number would still be there.
+- **Check which variant a button actually is.** The first version of this spec
+  took `#rSend` on Publish — "Post results" — for the primary button. It is
+  styled `.destructive`, and Publish has no plain primary button at all; the
+  pair live on Test users. Two of the three variants would have gone untested
+  behind a passing test.
+- **A transition makes a straight read return the old value**, which run 32
+  learned about theme switching and this hit again on hover. `expect.poll` is
+  the answer both times, and it is the one the conventions already give.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches triage
+rules; run 13's figures stand.
+
+**Next:** item 17 — after Create, the page warns about a credential it just
+used. Then `/stories` into the harness, then item 19b.

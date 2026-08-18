@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 /**
  * How wide the prose on a page is actually read at.
@@ -127,12 +127,34 @@ const CONTROL = 3;
 export async function contrastFindings(page: Page): Promise<ContrastFinding[]> {
   return page.evaluate(
     ({ text, largeText, largePx, largeBoldPx, control }) => {
+      /*
+         Parsed by the browser rather than by a regular expression.
+
+         A computed background is not always `rgb(...)`: `color-mix()` computes
+         to `oklab(...)` in Chrome, and the context bar and every hover state
+         here use one. A regex that only knows rgb returns null for those, the
+         backdrop walk skips the element, and the ratio comes out against
+         whatever was further up the page — which is how a hovered button
+         measured 1.07:1 against a background it was nowhere near.
+
+         A canvas parses whatever the browser parses and hands back sRGB bytes,
+         which is the only colour space this arithmetic is defined in anyway.
+      */
+      const swatch = document.createElement('canvas');
+      swatch.width = 1;
+      swatch.height = 1;
+      const brush = swatch.getContext('2d', { willReadFrequently: true })!;
       const parse = (value: string): [number, number, number, number] | null => {
-        const match = value.match(/rgba?\(([^)]+)\)/);
-        if (!match) return null;
-        const parts = match[1]!.split(/[,/]/).map((piece) => parseFloat(piece.trim()));
-        if (parts.length < 3 || parts.some((piece) => Number.isNaN(piece))) return null;
-        return [parts[0]!, parts[1]!, parts[2]!, parts[3] ?? 1];
+        if (!value || value === 'transparent' || value === 'none') return null;
+        brush.clearRect(0, 0, 1, 1);
+        brush.fillStyle = '#000';
+        brush.fillStyle = value;
+        // An unparseable value leaves fillStyle at the previous one, which is
+        // the browser telling us it did not understand this.
+        if (brush.fillStyle === '#000000' && !/^#0{3,8}$|rgba?\(0, 0, 0/.test(value)) return null;
+        brush.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = brush.getImageData(0, 0, 1, 1).data;
+        return [r!, g!, b!, a! / 255];
       };
 
       const over = (top: number[], bottom: number[]): number[] => {
@@ -311,6 +333,61 @@ export async function contrastFindings(page: Page): Promise<ContrastFinding[]> {
   );
 }
 
+
+/**
+ * The contrast of one element's own label, in whatever state it is in now.
+ *
+ * `contrastFindings` walks a page nobody is pointing at, so it cannot see a
+ * hover colour — and a hover state that darkens a fill and leaves the label
+ * behind is exactly the thing that goes unnoticed. This asks the same question
+ * of one element, after a test has put it in the state it cares about.
+ */
+export async function contrastOf(locator: Locator): Promise<number> {
+  return locator.evaluate((node) => {
+    // The browser parses it, for the reason contrastFindings gives: a hover
+    // colour built with color-mix computes to oklab, and a regex expecting rgb
+    // reads it as nothing at all.
+    const swatch = document.createElement('canvas');
+    swatch.width = 1;
+    swatch.height = 1;
+    const brush = swatch.getContext('2d', { willReadFrequently: true })!;
+    const parse = (value: string): number[] | null => {
+      if (!value || value === 'transparent' || value === 'none') return null;
+      brush.clearRect(0, 0, 1, 1);
+      brush.fillStyle = '#000';
+      brush.fillStyle = value;
+      if (brush.fillStyle === '#000000' && !/^#0{3,8}$|rgba?\(0, 0, 0/.test(value)) return null;
+      brush.fillRect(0, 0, 1, 1);
+      const [r, g, b, a] = brush.getImageData(0, 0, 1, 1).data;
+      return [r!, g!, b!, a! / 255];
+    };
+    const over = (top: number[], bottom: number[]): number[] => {
+      const alpha = top[3]!;
+      return [0, 1, 2].map((i) => top[i]! * alpha + bottom[i]! * (1 - alpha)).concat(1);
+    };
+    const channel = (value: number): number => {
+      const v = value / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    const luminance = (c: number[]): number =>
+      0.2126 * channel(c[0]!) + 0.7152 * channel(c[1]!) + 0.0722 * channel(c[2]!);
+
+    const layers: number[][] = [];
+    for (let at: Element | null = node; at; at = at.parentElement) {
+      const colour = parse(getComputedStyle(at).backgroundColor);
+      if (!colour || colour[3] === 0) continue;
+      layers.push(colour);
+      if (colour[3] === 1) break;
+    }
+    let behind = [255, 255, 255, 1];
+    for (const layer of layers.reverse()) behind = over(layer, behind);
+
+    const text = over(parse(getComputedStyle(node).color) ?? [0, 0, 0, 1], behind);
+    const [hi, lo] =
+      luminance(text) > luminance(behind) ? [luminance(text), luminance(behind)] : [luminance(behind), luminance(text)];
+    return Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100;
+  });
+}
 
 /** Open every disclosure, so what is behind one is measured too. */
 export async function openEveryDisclosure(page: Page): Promise<void> {
