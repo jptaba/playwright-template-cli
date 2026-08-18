@@ -1912,3 +1912,57 @@ result rather than just reporting a number.
 
 Ranked below the dashboard work as usual, but this is the item that decides
 whether "until it is bulletproof" is measured or asserted.
+
+### 30. More workers than accounts, on a target that keeps state on the server — `ready`
+
+**Measured in run 39c, and it corrects run 39b's claim** that the toolshop live
+suite passes 13/13. It does — at three workers. At the local default it passes
+about one run in four.
+
+| workers | live toolshop runs |
+|---|---|
+| 7 (local default, 16 CPUs) | **1 passed / 3 failed** |
+| 3 (= the customer pool) | **3 passed / 0 failed** |
+
+**The framework already predicts this in its own words.** `accountForWorker`
+(`src/support/paths.ts`) is commented *"two workers only collide when there are
+more workers than accounts"*, and toolshop declares `poolSize: { customer: 3 }`
+with `serverState: true`. Playwright's local default is CPU/2 — seven here — so
+workers 0, 3 and 6 sign in as the same customer at the same time.
+
+**The failures were never the same twice**, which is what makes this expensive
+to diagnose from a log and easy from a number:
+
+- `setup:auth` — *"Sign-in for role 'customer' (account 1) did not establish a
+  session. The form reported no error"*
+- `TOOL-2-03` — signed in, and `isSignedIn` never became true
+- `TOOL-3-01` — the cart row for "Pliers" would not detach after a remove
+
+Three different specs, three different stories, one cause. This is exactly the
+shape the conventions describe: *"the failures do not look like contention —
+they look like a 409 from an endpoint, or a cart with one item too many,
+landing on whichever spec lost the race."*
+
+**Why this is not a one-line patch, and wants a decision.** The obvious fix is
+to cap workers at the pool size, and the obvious implementation is wrong:
+
+- **Which role's pool binds?** The minimum across all roles caps toolshop at
+  **1**, because it has a single admin — and the profile says plainly that
+  nothing writes as the admin. The right answer is probably the pool of
+  `roles[0]`, the identity `authedPage` uses, but that is a claim about how
+  specs share identities rather than a fact the profile states.
+- **saucedemo would be capped to 1.** It declares `serverState: true` and no
+  pool, so the rule serialises it. Correct by the rule and free today (it has
+  one spec), but it shows the rule is blunt.
+- **CI is capped at 4 and is also above 3.** So this is not a local-only
+  artefact, and the change would slow every target's CI run whether or not it
+  needed it.
+
+A capability-shaped `workerCeiling(roles, poolSize, serverState)` beside
+`accountForWorker` is the shape to try, pure and testable without a browser.
+Whether it binds on `roles[0]` or on something the profile should state
+explicitly is the decision this item is waiting on.
+
+**Do not fix this by raising the pool.** Three real customer accounts on a
+shared public demo is what the vendor publishes; inventing a fourth is not
+available.

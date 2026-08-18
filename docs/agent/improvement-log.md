@@ -2733,3 +2733,54 @@ rules or clustering.
 `toolshop` triage-fixture is still open but now ranks below both: a fixture of
 deliberate failures is worth less than running the suite that is meant to pass,
 and this run is the evidence for that ordering.
+
+## 2026-08-18 · run 39c · Correcting run 39b: 13/13 was true at three workers
+
+**Picked:** verifying my own claim, which is how this one started and where it
+should have started.
+
+**Correcting run 39b.** That entry says *"the number that matters here is the
+live one: 13/13 toolshop and 2/2 saucedemo pass, where 2 of 13 failed before."*
+The fixes it describes are real and the cart specs are genuinely fixed — but
+**13/13 is not what the live suite reliably does.** Run 39b measured it four
+times across the session and got 13/13 each time it looked; run 39c ran it four
+more times at the default worker count and got **1 passed / 3 failed**.
+
+**The cause is not run 39b's change**, checked by varying the one thing that
+matters rather than by reasoning: at `--workers=3` the suite passed **3 of 3**;
+at the local default of 7 it passed **1 of 4**. toolshop declares
+`poolSize: { customer: 3 }` and `serverState: true`, and `accountForWorker`'s
+own comment says *"two workers only collide when there are more workers than
+accounts."* Seven workers, three accounts.
+
+**Three runs, three different failures, one cause** — a `setup:auth` that
+reported no error and established no session, an `isSignedIn` that never became
+true after a successful sign-in, and a cart row that would not detach. Raised as
+item 30, `ready`, with the reason it is not a one-line patch: the obvious
+implementation caps toolshop at 1 worker because it has a single admin account.
+
+**Verify:** unchanged, `npm run verify` passes at 906 — and that is the point of
+item 29. Nothing in `verify` has an opinion about any of this.
+
+**Learned:**
+
+- **I reported a number I had seen rather than a number I had measured.** Four
+  observations, all green, all taken while I was iterating on a fix and
+  therefore all in the same conditions — and I wrote it up as the suite's
+  behaviour. The honest form was available and cheap: run it several times on
+  the committed state, which is what this entry is. Run 19 wrote the rule this
+  breaks — *"a measured zero is a result"* — and the corollary is that four
+  green runs taken during development are not a measurement.
+- **Fixing a real defect made the remaining instability easier to misread, not
+  harder.** With the out-of-stock bug gone the suite looked fixed, and the
+  contention underneath it had been there the whole time, wearing the same
+  clothes: intermittent failures on cart specs. Two causes, one symptom, and
+  clearing the first is what let the second be seen.
+- **Vary one thing.** `--workers=3` versus the default settled in six runs what
+  no amount of reading the three stack traces would have — they genuinely look
+  like three unrelated bugs.
+
+**Next:** item 30 (the worker ceiling) and item 29 (put the live suites in the
+loop) are the pair, and they belong together: 29 is what would have caught this
+on day one, and 30 is what makes 29 report something stable. Item 28 after
+those.
