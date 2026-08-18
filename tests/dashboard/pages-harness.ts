@@ -10,6 +10,8 @@ import { triageRoutes, type TriageService } from '../../src/support/triage/dashb
 import { triagePageContent } from '../../src/support/ui/triage-page';
 import { usersPageContent } from '../../src/support/ui/users-page';
 import { runsPageContent } from '../../src/support/ui/runs-page';
+import { storiesPageContent } from '../../src/support/ui/stories-page';
+import { authoringRoutes, type AuthoringService } from '../../src/support/cases/authoring';
 import { testUsersRoutes, type TestUsersService } from '../../src/support/secrets/dashboard';
 import type { LiveRun } from '../../src/support/runs/manager';
 import { buildReview, type QuarantineView } from '../../src/support/triage/review';
@@ -270,6 +272,46 @@ function liveRuns(count: number, failuresEach: number): LiveRun[] {
   }));
 }
 
+/**
+ * Stories pulled and sitting in `stories/`, each with criteria and drafts.
+ *
+ * How many is a property of how long the team has been using this, and the
+ * page renders all of them — so it is the same axis as everything else these
+ * budgets are for. `model()` throws: nothing here drafts a case, and a fake
+ * that pretended to would be answering a question no test is asking.
+ */
+function authoringService(stories: number, criteriaEach: number, draftsEach: number): AuthoringService {
+  return {
+    storedStories: () =>
+      Array.from({ length: stories }, (_, index) => ({
+        key: `SHOP-${1000 + index}`,
+        summary: `a story about something a user needs to be able to do, number ${index}`,
+        description:
+          'As a customer I want to complete a purchase so that I receive the thing I paid for. ' +
+          'The current flow loses the basket when the session is refreshed.',
+        acceptanceCriteria: Array.from(
+          { length: criteriaEach },
+          (_, c) => `Given a basket with items, when the page is refreshed, criterion ${c} holds`,
+        ),
+        contentHash: `hash-${index}`,
+      })),
+    jira: () => ({ configured: true }),
+    targets: () => ['demo'],
+    modelStatus: () => ({ configured: true }),
+    usage: () => null,
+    casesFor: (key) =>
+      Array.from({ length: draftsEach }, (_, index) => ({
+        file: `cases/demo/${key.toLowerCase()}-${index}.yaml`,
+        title: `a case drafted from ${key}, number ${index}`,
+        speculative: index % 3 === 0,
+      })),
+    fetchIssue: () => Promise.reject(new Error('nothing here pulls from Jira')),
+    saveStory: () => 'stories/unused.yaml',
+    model: () => Promise.reject(new Error('nothing here drafts a case')),
+    writeCase: () => ({ file: 'cases/demo/unused.yaml', replaced: false, yaml: '' }),
+  };
+}
+
 /** How much each page is given. Every test may set it before opening. */
 export interface PageData {
   /** Specs in the run with no case id — Publish's unpostable list. */
@@ -281,13 +323,15 @@ export interface PageData {
   users: { roles: number; poolSize: number };
   /** Runs the manager is still holding, and failures inside each. */
   runs: { count: number; failuresEach: number };
+  /** Stories on disk, and how much hangs off each one. */
+  stories: { count: number; criteriaEach: number; draftsEach: number };
 }
 
 export interface PagesHarness {
   page: Page;
   data: PageData;
   /** Open one of the pages this harness serves. */
-  open(path: '/publish' | '/cases' | '/triage' | '/users' | '/runs'): Promise<void>;
+  open(path: '/publish' | '/cases' | '/triage' | '/users' | '/runs' | '/stories'): Promise<void>;
   /** Total document height in screens at the current viewport. */
   screens(): Promise<number>;
   /**
@@ -310,6 +354,7 @@ export const test = base.extend<{ pages: PagesHarness }>({
       cases: { noSpec: 0, orphans: 0, automated: 0 },
       users: { roles: 1, poolSize: 1 },
       runs: { count: 0, failuresEach: 0 },
+      stories: { count: 0, criteriaEach: 0, draftsEach: 0 },
     };
 
     const shell = (current: string) => ({
@@ -339,6 +384,10 @@ export const test = base.extend<{ pages: PagesHarness }>({
         { method: 'GET', path: '/users', public: true, handle: () => serve(usersPageContent(), '/users') },
         ...testUsersRoutes(usersService(data.users.roles, data.users.poolSize)),
         { method: 'GET', path: '/runs', public: true, handle: () => serve(runsPageContent(), '/runs') },
+        { method: 'GET', path: '/stories', public: true, handle: () => serve(storiesPageContent(), '/stories') },
+        ...authoringRoutes(
+          authoringService(data.stories.count, data.stories.criteriaEach, data.stories.draftsEach),
+        ),
       ];
     };
 

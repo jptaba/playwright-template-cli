@@ -31,6 +31,7 @@ const A_LOT = {
   cases: { noSpec: 120, orphans: 90, automated: 60 },
   users: { roles: 8, poolSize: 20 },
   runs: { count: 20, failuresEach: 25 },
+  stories: { count: 40, criteriaEach: 6, draftsEach: 4 },
 };
 
 test.beforeEach(async ({ page }) => {
@@ -43,6 +44,7 @@ for (const [path, data] of [
   ['/cases', { cases: A_LOT.cases }],
   ['/users', { users: A_LOT.users }],
   ['/runs', { runs: A_LOT.runs }],
+  ['/stories', { stories: A_LOT.stories }],
 ] as const) {
   test(`${path} reads at a measure`, async ({ pages }) => {
     Object.assign(pages.data, data);

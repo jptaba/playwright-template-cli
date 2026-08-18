@@ -57,6 +57,12 @@ const A_LOT = {
      morning — it is the bound, measured at the bound.
   */
   runs: { count: RETENTION.runs, failuresEach: 25 },
+  /*
+     A team that has been using this for a year. Stories accumulate and nothing
+     removes them, so the number here is time rather than a design decision —
+     and 120 is where the list was 4870px and the page 8.8 screens.
+  */
+  stories: { count: 120, criteriaEach: 6, draftsEach: 4 },
 };
 
 test.beforeEach(async ({ page }) => {
@@ -120,6 +126,30 @@ test.describe('with a repository that has grown', () => {
     const screens = await pages.screens();
     expect(screens, `Test users is ${screens.toFixed(1)} screens on 160 accounts`)
       .toBeLessThan(SCREENS);
+
+    const worst = await pages.tallestBlock();
+    expect(
+      worst.height / 720,
+      `${worst.label} is ${(worst.height / 720).toFixed(1)} screens tall on its own`,
+    ).toBeLessThan(TALLEST_BLOCK_SCREENS);
+  });
+
+  test('Stories stays inside its budget', async ({ pages }) => {
+    pages.data.stories = A_LOT.stories;
+    await pages.open('/stories');
+
+    /*
+       With one open, which is the difference between covering this page and
+       covering its list. The story detail — the criteria, the cases already
+       drafted from it — is hidden until something is picked, so a measurement
+       that never picks one silently measures half the page.
+    */
+    await pages.page.locator('#sList button').first().click();
+    await expect(pages.page.locator('#sStory')).toBeVisible();
+    await expect(pages.page.locator('#sCriteria li')).toHaveCount(A_LOT.stories.criteriaEach);
+
+    const screens = await pages.screens();
+    expect(screens, `Stories is ${screens.toFixed(1)} screens on 120 stories`).toBeLessThan(SCREENS);
 
     const worst = await pages.tallestBlock();
     expect(
@@ -226,6 +256,24 @@ test.describe('the accounts on Test users', () => {
     pages.data.users = { roles: 2, poolSize: 1 };
     await pages.open('/users');
     await expect(pages.page.locator('#slots')).not.toHaveClass(/longlist/);
+  });
+});
+
+test.describe('the story list', () => {
+  test('scrolls rather than pushing the story you opened off the page', async ({ pages }) => {
+    pages.data.stories = { count: 120, criteriaEach: 6, draftsEach: 4 };
+    await pages.open('/stories');
+
+    const list = pages.page.locator('#sList');
+    await expect(list.locator('button'), 'nothing is dropped').toHaveCount(120);
+    const capped = await list.evaluate((node) => node.scrollHeight > node.clientHeight);
+    expect(capped, '#sList holds 120 stories and does not scroll').toBe(true);
+  });
+
+  test('a team with two stories is not given a box built for a hundred', async ({ pages }) => {
+    pages.data.stories = { count: 2, criteriaEach: 2, draftsEach: 0 };
+    await pages.open('/stories');
+    await expect(pages.page.locator('#sList')).not.toHaveClass(/longlist/);
   });
 });
 

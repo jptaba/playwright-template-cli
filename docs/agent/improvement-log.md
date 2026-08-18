@@ -2281,3 +2281,48 @@ rules; run 13's figures stand.
 — the overview panel into `shell.ts`. After that the backlog's `ready` list is
 the status tokens and the spacing scale, both of which still want a stated
 defect.
+
+## 2026-08-17 · run 35 · The page that was supposed to be fine
+
+**Picked:** item 22's last page — `/stories` into the pages harness. The
+backlog said it had "neither a measured defect nor an unbounded list" and could
+keep waiting for a reason.
+
+**It has one.** `#sList` renders every story ever pulled, and how many that is
+is how long a team has been using this. Parameterised: **4870px of buttons at
+120 stories, and the page 8.8 screens**, with the story you opened — its
+criteria, the cases already drafted from it — below all of them.
+
+**Did:** `/stories` into the harness with an `AuthoringService` fake, into all
+three budgets, and `#sList` capped and scrolled above six rows. Capped like the
+Cases lists rather than shown ten at a time: this list is how you *find* a
+story, not a queue you work through.
+
+**Verify:** `npm run verify` passes, exit 0 — **897 tests, up from 891.**
+
+**Seen red** by stashing the page module: 8.8 screens, and `#sList holds 120
+stories and does not scroll`.
+
+**Learned:**
+
+- **Three for three: a page looks bounded on the repository somebody looks at
+  it on.** Publish was fine until 192 unpostable specs, Cases until 270 rows,
+  Test users until a profile with eight roles, and now Stories until a year of
+  pulling them. The claim being corrected here was made twice in this file, and
+  both times the evidence was a real repository that happened to be small.
+- **A green budget on the first run is the moment to check it is measuring
+  anything.** `/stories` passed all three the instant it joined. It was
+  rendering 40 stories, which was real — but the *story detail* is hidden until
+  one is picked, so criteria and drafted cases went unmeasured. The test opens
+  one now, and the number moved from 3.3 screens to 4.3 before any data grew.
+- **The heavy-looking fake was cheap.** This page was deferred twice partly
+  because `AuthoringService` needs a case-author model. `model()` throws: a
+  budget never drafts a case, and a fake that pretended to would be answering a
+  question nothing asks.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches triage
+rules; run 13's figures stand.
+
+**Next:** item 19b — the overview panel into `shell.ts`, and one non-wizard
+page given one. That is the last shaped item; after it the `ready` list is the
+status tokens and the spacing scale, both still wanting a stated defect.

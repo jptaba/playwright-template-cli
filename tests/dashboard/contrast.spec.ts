@@ -16,6 +16,7 @@ const PAGES = [
   ['/cases', { cases: { noSpec: 8, orphans: 4, automated: 4 } }],
   ['/users', { users: { roles: 2, poolSize: 2 } }],
   ['/runs', { runs: { count: 3, failuresEach: 2 } }],
+  ['/stories', { stories: { count: 3, criteriaEach: 3, draftsEach: 2 } }],
 ] as const;
 
 test.beforeEach(async ({ page }) => {

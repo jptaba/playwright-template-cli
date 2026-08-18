@@ -1442,7 +1442,7 @@ Written from source, disproved by use. Recorded so nobody re-adds them.
   and settled; do not relitigate it.
 - Anything requiring a live credential the run does not have.
 
-### 22. Four pages have no browser test at all — first slice `done`
+### 22. Four pages have no browser test at all — `done`
 
 Found by run 26, and it is why item 19's defects survived this long.
 
@@ -1504,10 +1504,20 @@ outside the router the way it does in `tools/dashboard.ts`, and the fixture must
 call `server.closeAllConnections()` before `close` or teardown waits sixty
 seconds on a socket that is behaving correctly.
 
-**Still `ready`: `/stories`.** It is the only one of the seven with neither a
-measured defect nor an unbounded list — 76 characters and 1.9 screens on a real
-repository — and its `AuthoringService` is the heaviest of the three fakes,
-needing a case-author model. It can keep waiting for a reason.
+**`/stories` joined in run 35, and the claim this item made about it was
+wrong.** It said `/stories` had "neither a measured defect nor an unbounded
+list", on the evidence of a real repository holding a handful. Parameterised,
+`#sList` renders every story ever pulled: **4870px of buttons at 120, and the
+page 8.8 screens**, with the story you opened and everything about it below all
+of them. Capped and scrolled above six, like the Cases lists — you scan this
+list to *find* a story, so it is not a queue to show ten of.
+
+That is now three times this has happened. **A page looks bounded on the
+repository it is looked at on**, and the number that matters is the one nobody
+has met yet. The `AuthoringService` fake turned out to be cheap after all —
+`model()` throws, because nothing in a budget drafts a case.
+
+All seven pages are now behind the height, measure and contrast budgets.
 
 ### 24. The Runs page grows for as long as the dashboard is open — `done`
 

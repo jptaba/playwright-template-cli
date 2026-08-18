@@ -221,6 +221,18 @@ async function refreshStories(keepSelection) {
   if (stories.length === 0) {
     list.append(el('div', 'empty', 'No stories pulled yet.'));
   }
+  /*
+     How many stories there are is how long the team has been using this, and
+     every one of them was rendered. Measured: 4870px of buttons at a hundred
+     and twenty, and the page 8.8 screens — with the story you opened, and
+     everything about it, below all of them.
+
+     Capped and scrolled rather than shown ten at a time, because this list is
+     how you *find* a story rather than a queue you work through: you scan it,
+     pick one, and the answer is the section underneath. Only above six, so a
+     team that has pulled two does not get a box built for a hundred.
+  */
+  list.className = 'stories' + (stories.length > 6 ? ' longlist' : '');
   for (const story of stories) {
     const button = el('button');
     button.append(el('span', 'key', story.key), text(story.summary));
