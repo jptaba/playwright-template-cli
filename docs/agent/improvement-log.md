@@ -3572,3 +3572,72 @@ item 41's remaining mechanism (a `target:doctor` credential preflight) because
 without it every framework template fix, including that one, lands only on
 applications nobody has onboarded yet. The coverage phase remains the largest
 body of work.
+
+## 2026-08-18 · run 49 · The tool that talked me out of its own first design
+
+**Picked:** item 42 — a framework improvement never reaches an existing pack.
+It outranked item 41's remaining mechanism because without it *every* template
+fix, including that one, lands only on applications nobody has onboarded yet.
+
+**Did:** `npm run target:upgrade [-- --name=<app>] [--apply]`. It rebuilds a
+pack in memory from its profile and classifies every file the scaffolder claims:
+`current`, `diverged`, `superseded`, `missing`. It reports; `--apply` adds files
+the templates write into *empty* directories and nothing else.
+
+**The design changed because I ran it, and that is the entry.** The first cut
+had three states and treated every absent file as "missing, safe to add".
+Against the real packs it offered to add toolshop's `endpoints/orders.ts` and
+`api/orders.ts` — scaffolder guesses that pack deliberately replaced with a
+real `catalogue.ts` — and a placeholder `tests/a11y/landing.spec.ts` beside a
+working accessibility spec. `--apply` would have injected endpoints for orders
+into an application that has none.
+
+**An absent file usually means somebody did the job under a better name.** That
+is the `superseded` state: a starter is offered only when its directory is
+genuinely empty, and a `.gitkeep` does not count as work — or the scaffolder's
+own placeholder would suppress the file it was holding a place for. toolshop
+then reports **0 addable**, which is the honest answer for a pack people have
+worked on.
+
+**What it deliberately cannot do.** The sign-in accessible names, the path and
+the signed-in marker were probed from the running application and live only in
+the generated locators; the profile records none of them. A regenerated
+`locators/sign-in.ts` would carry placeholders, so those files come back
+`diverged` and are never written. Replacing working locators with guesses is
+the worst thing this tool could do.
+
+**Verify:** `npm run verify` passes, exit 0 — **983 tests**, up from 974.
+
+**Validated end to end**: scaffolded a scratch target, deleted `fixtures.ts`,
+saw it reported addable, `--apply`d it, confirmed the pack returned to "6
+match, 0 differ, 0 would be added" and typechecked, then offboarded with
+`config/secrets.local.json` byte-identical.
+
+**Live suites (step 5):** parabank 3/3, saucedemo 2/2, **toolshop 19/20** —
+`TOOL-3-02` failed on the cart row not detaching. That spec has failed
+intermittently across several runs and passes in isolation; it is the shared
+public demo, where strangers hold the same published accounts. Recorded, not
+chased, and not tailored around.
+
+**Learned:**
+
+- **The tool's first output was an argument against its own design, and it
+  took one run to get it.** Everything about "regenerate a pack from its
+  templates" sounds safe until it offers to overwrite the work that made the
+  pack useful. Reading the four files it wanted to add was the whole review.
+- **Rule zero has a cost, and this measured it rather than removing it.** The
+  answer to "how does run 48's fix reach toolshop" is: it does not, and
+  `actions/sign-in.ts` is `diverged` there, so the path is a person reading a
+  diff rather than a tool applying one. Naming that honestly is more useful
+  than a tool that claimed to solve it.
+- **A report is a product decision, not a formatting one.** On any pack anybody
+  has worked on, `diverged` is the healthy majority. Framing it as drift to be
+  corrected would have made the tool an argument for undoing work, and it would
+  have been ignored for good reason — so the wording says so, and a test pins
+  the wording.
+
+**Next:** item 41's remaining mechanism — a `target:doctor` preflight that
+attempts one real authentication per role rather than only asking the store
+whether a credential exists. It is the "preflight these type of issues" half of
+the owner's ask, and the lockout that cost three runs would have been caught by
+it before a suite ran. The coverage phase remains the largest body of work.

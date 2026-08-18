@@ -15,7 +15,6 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 42 | A framework improvement never reaches an existing pack | `ready` |
 | 41 | The framework cannot see what an application said at sign-in | `ready` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
@@ -51,7 +50,7 @@ many failed attempts"* on screen. It cost three runs of this loop once.
 | triage has no rule for a lockout | **done** — `account-locked`, run 46 |
 | the scaffolder guesses the error locator | **done** — `readVisibleError`, run 48 |
 | nothing preflights whether a credential can actually sign in | open |
-| a framework improvement never reaches an existing pack | open — **item 42** |
+| a framework improvement never reaches an existing pack | **done** — `target:upgrade`, run 49 |
 
 **Run 48 fixed the second**, framework-side: `src/support/sign-in-error.ts`
 tries the pack's own named locator first and reads the page itself when it
@@ -80,47 +79,6 @@ the "preflight … these type of issues" the owner asked for. It needs a decisio
 about cost (one sign-in per role per doctor run) and about which surface it
 uses on a target with no API.
 
-
-### 42. A framework improvement never reaches an existing pack — `ready`
-
-**Found by fixing item 41 properly**, and it is the structural consequence of
-rule zero rather than a defect in any one file.
-
-Run 48 improved the scaffolder so every pack reads the page when its guessed
-error locator finds nothing. Every pack scaffolded *from now on*. toolshop,
-saucedemo and ParaBank were written before it and still carry the old
-`readError`, so the applications that actually exposed the defect are the three
-that do not benefit from the fix.
-
-**And rule zero is exactly why this cannot be waved through.** Hand-editing the
-three packs is forbidden, correctly — but that leaves the framework unable to
-deliver its own improvements, which is not a tenable end state. Every future
-template fix has this same problem.
-
-`target:new` **never overwrites**, deliberately: that guarantee is what makes
-onboarding safe to re-run, and it should not be weakened.
-
-**Shape:** a `npm run target:upgrade -- --name=<app>` that regenerates the
-scaffold-owned parts of a pack from current templates and *reports a diff*
-rather than applying one. The hard part is not the writing, it is knowing what
-is safe to touch: a pack is half generated shape and half hand-written work,
-and the hand-written half is the whole point of the pack.
-
-Two candidate ways to tell them apart, and they want deciding before building:
-
-- **Compare against a fresh scaffold of the same options.** Anything identical
-  to what the template would have written is untouched and safe to replace;
-  anything that differs is somebody's work and is only ever *reported*. Needs
-  no bookkeeping and degrades honestly.
-- **Record a provenance marker** when a file is generated, and treat its
-  absence as hand-written. Precise, and it means every existing pack — the
-  ones that need this most — has no marker at all.
-
-The first is the one to try. It needs the original scaffold options, which the
-profile mostly carries already.
-
-Until this exists, a framework template fix reaches new applications only, and
-the log entry for it should say so plainly rather than implying otherwise.
 
 ### 11. A repeatable learn-fix-optimise loop over a full run — `hypothesis`
 

@@ -20,6 +20,7 @@
     "onboard": "tsx tools/onboard.ts",
     "target:remove": "tsx tools/offboard.ts",
     "target:doctor": "tsx tools/check-target.ts",
+    "target:upgrade": "tsx tools/upgrade-target.ts",
     "explore": "tsx tools/explore.ts",
     "catalog:build": "tsx tools/build-catalog.ts",
     "catalog:check": "tsx tools/build-catalog.ts --check",

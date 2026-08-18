@@ -8,7 +8,7 @@
 > - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
 >   end-to-end coverage programme, with its own per-application state.
 > - **This file** — the working agreement below, which is still binding, plus an
->   archive of the 42 items already shipped. Read it for *why* a thing was done.
+>   archive of the 44 items already shipped. Read it for *why* a thing was done.
 >
 > Split on 2026-08-18: this file had passed 1,900 lines, and the four items that
 > were actually open were scattered through it. A run that has to read an
@@ -2545,3 +2545,57 @@ equivalent:
 Until then toolshop reports **13/20 with 6 skipped**, and that number is
 correct — the six e2e specs cannot run without a session, and saying so is
 better than pretending.
+
+### 42. A framework improvement never reached an existing pack — `done`
+
+Shipped on `agent/2026-08-18-target-upgrade` (run 49).
+`npm run target:upgrade [-- --name=<app>] [--apply]` regenerates a pack in
+memory from its profile and reports, file by file, how far it has drifted from
+the templates that would write it today.
+
+**It reports; it does not rewrite.** `--apply` adds files the templates write
+into *empty* directories and nothing else — a file that exists and differs is
+left exactly alone. That asymmetry is the design: adding a genuinely missing
+file cannot destroy work, and replacing a diverged one usually would, because
+a diverged file is normally somebody's locators read off a real page rather
+than an outdated template. `target:new` still never overwrites, and this does
+not weaken that.
+
+**The `superseded` state exists because running the first version showed the
+flaw, and it is the finding worth keeping.** The initial cut classified every
+absent file as "missing, safe to add". Run against the real packs it offered to
+add toolshop's `endpoints/orders.ts` and `api/orders.ts` — scaffolder guesses
+that pack deliberately replaced with a real `catalogue.ts` — plus a placeholder
+`tests/a11y/landing.spec.ts` beside a working accessibility spec. `--apply`
+would have injected endpoints for orders into an application that has no
+orders.
+
+**An absent file usually means somebody did the job under a better name.** So a
+starter is only offered when its directory is genuinely empty, and a `.gitkeep`
+does not count as work — otherwise the scaffolder's own placeholder would
+suppress the file it was holding a place for. With that in, toolshop reports
+**0 addable**, which is the honest answer for a pack people have worked on.
+
+**What it cannot do, and why that is correct.** The sign-in accessible names,
+the path and the signed-in marker were *probed* from the running application at
+onboarding and live only in the generated locators; nothing in the profile
+records them. A regenerated `locators/sign-in.ts` would therefore carry
+placeholders. Those files come back `diverged` and are never written —
+replacing working locators with guesses is the worst thing this tool could do.
+
+**Validated end to end**: scaffolded a scratch target, deleted `fixtures.ts`,
+watched it reported as addable, `--apply`d it, confirmed the pack came back to
+"6 match, 0 differ, 0 would be added" and typechecked, then offboarded with
+`config/secrets.local.json` byte-identical.
+
+**The first real reading, on the three packs on disk:**
+
+| pack | current | differ | superseded | addable |
+|---|---|---|---|---|
+| saucedemo | 2 | 3 | 1 | 0 |
+| toolshop | 3 | 5 | 4 | 0 |
+
+Which answers the question item 42 was raised about: run 48's sign-in fix
+reaches none of them, and `actions/sign-in.ts` is `diverged` on both — so the
+upgrade path for that specific improvement is a person reading the diff, not a
+tool applying it. That is the honest state rather than a solved one.
