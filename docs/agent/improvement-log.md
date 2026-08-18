@@ -3507,3 +3507,68 @@ still locked (item 38), so the numbers would be run 46's unchanged.
 sign-in, and it is now the highest-ranked `ready` item. Item 38 is `blocked` on
 an administrator unlocking a vendor account. The coverage phase remains the
 largest body of work.
+
+## 2026-08-18 · run 48 · The floor beneath a guessed locator
+
+**Picked:** item 41, the highest-ranked `ready` item — and the first run under
+rule zero, which is what shaped it.
+
+**Did:** `src/support/sign-in-error.ts`. The pack's own named error locator is
+tried **first** and trusted when it resolves; beneath it is a framework floor
+that reads the page — roles and ARIA first, then the class and attribute
+conventions every CSS framework settled on. The scaffolder wires it into every
+new pack's `readError`.
+
+The pure half — *which* matched string is the message — is separated and unit
+tested, like the accessibility scanner. Three decisions in it: the **shortest**
+candidate wins (error markup nests, so the outer match is the inner message
+plus its surroundings); a wall of text past 300 characters is **not** a message
+(`[class*="error"]` matches whole form wrappers); and the answer is never an
+empty string, because *The application said: ""* reads as the application
+saying something blank rather than nothing.
+
+**Validated end to end from the framework**, which is what rule zero asks for
+and a unit test alone would not be: scaffolded a scratch target, confirmed the
+generated action imports the helper and still tries its own locator first,
+`tsc --noEmit` clean, `eslint` clean on the generated pack, `target:doctor`
+runnable — then offboarded it, `config/secrets.local.json` byte-identical.
+
+**No target pack was touched.** That is the whole difference from run 46, which
+fixed the same symptom in `src/targets/toolshop/locators/sign-in.ts` and had to
+be reverted.
+
+**Verify:** `npm run verify` passes, exit 0 — **974 tests**, up from 966.
+
+**Live suites (step 5):** parabank 3/3, saucedemo 2/2, **toolshop 20/20** —
+**25/25, exit 0**.
+
+**Item 38 resolved itself, and how it resolved is the point.** toolshop's
+`customer` account was locked; `POST /users/login` now answers **HTTP 200**.
+Nothing in this repository unlocked it. The failure was left red and legible
+for two runs rather than tailored around — no account dropped from the pool, no
+assertion loosened — and it cleared on its own. Moved to the archive.
+
+**Learned:**
+
+- **Rule zero changed what the fix *was*, not just where it went.** The
+  reverted version was one better locator for one application. Forced to the
+  mechanism, the answer became a fallback every application gets, a scaffolder
+  that stops shipping a bare guess, and a testable decision about what counts
+  as an error message. The constraint produced a better design, which is the
+  argument for it rather than the obedience.
+- **It also surfaced the structural cost, immediately, and that is item 42.**
+  This fix reaches applications scaffolded *from now on*. toolshop, saucedemo
+  and ParaBank — the three that exposed the defect — still carry the old
+  `readError`, and rule zero correctly forbids hand-editing them. A framework
+  that cannot deliver its own improvements to existing packs is not a tenable
+  end state, and every future template fix has this same problem.
+- **Saying what a fix does *not* do belongs in the entry.** The tempting
+  write-up was "sign-in errors are now read properly". That would have been
+  read next month as covering the three applications on disk, and it does not.
+
+**Next:** item 42 — a `target:upgrade` that regenerates the scaffold-owned
+parts of a pack and reports a diff rather than applying one. It is ranked above
+item 41's remaining mechanism (a `target:doctor` credential preflight) because
+without it every framework template fix, including that one, lands only on
+applications nobody has onboarded yet. The coverage phase remains the largest
+body of work.

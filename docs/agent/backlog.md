@@ -8,7 +8,7 @@
 > - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
 >   end-to-end coverage programme, with its own per-application state.
 > - **This file** — the working agreement below, which is still binding, plus an
->   archive of the 41 items already shipped. Read it for *why* a thing was done.
+>   archive of the 42 items already shipped. Read it for *why* a thing was done.
 >
 > Split on 2026-08-18: this file had passed 1,900 lines, and the four items that
 > were actually open were scattered through it. A run that has to read an
@@ -2460,3 +2460,88 @@ nothing: the scaffolder would still emit `getByRole('alert')` for the next
 application, `target:doctor` would still not preflight it, and triage would
 still have had no rule for a lockout. The triage rule shipped in this run;
 the scaffold and the preflight are item 41.
+
+### 41 (part). The scaffolder handed every application one guessed error locator — `done`
+
+Shipped on `agent/2026-08-18-sign-in-error` (run 48), framework-side, per rule
+zero — the pack that exposed this was **not** touched.
+
+`src/support/sign-in-error.ts` reads what the application actually said when a
+sign-in failed. The pack's own named locator is tried **first** and trusted
+when it resolves, so a target that named its banner precisely keeps the precise
+answer and pays nothing. Beneath it is a floor: roles and ARIA first, then the
+class and attribute conventions every CSS framework has settled on
+(`alert-danger`, `data-test*=error`, `invalid-feedback`).
+
+The pure half — *which* of the matched strings is the message — is separated
+from the browser half and unit-tested, like the accessibility scanner. Three
+decisions in it are worth keeping:
+
+- **The shortest candidate wins.** Error markup nests
+  (`div.alert > div.help-block`), so the outer match is the inner message plus
+  its surroundings and the shortest is closest to the sentence the application
+  wrote.
+- **A wall of text is not a message.** `[class*="error"]` matches whole form
+  wrappers; anything past 300 characters is dropped, and if that leaves
+  nothing the answer is honestly `null`.
+- **Never an empty string.** `The application said: ""` reads as the
+  application saying something blank rather than nothing.
+
+**Validated end to end from the framework**, which is what rule zero asks for
+rather than a unit test alone: scaffolded a scratch target, confirmed the
+generated action imports the helper and still tries its own locator first,
+`tsc --noEmit` clean, `eslint` clean on the generated pack, `target:doctor`
+runnable — then offboarded it and confirmed `config/secrets.local.json`
+byte-identical.
+
+**What it does not do, stated plainly:** it reaches applications scaffolded
+from now on. toolshop, saucedemo and ParaBank still carry the old `readError`,
+and rule zero forbids hand-editing them. That gap is item 42, and it is the
+larger finding.
+
+### 38. toolshop's first customer account was locked — `done`, and it cleared itself
+
+**Confirmed in run 46 by asking the application directly** rather than
+inferring it from a spec:
+
+```
+POST /users/login  ->  HTTP 423
+{"error":"Account locked, too many failed attempts. Please contact the administrator."}
+```
+
+Four attempts, four 423s. This is not flakiness and never was. The earlier
+readings — "1 sign-in failure in 4", failures moving between specs — were this
+account entering and then sitting in lockout.
+
+**toolshop's own profile predicted it exactly**: *"this application locks an
+account after three consecutive failures (HTTP 423) and only an administrator
+can unlock it"*, which is why `sharedEnvironment: true` is set and why the
+negative-auth spec uses a disposable address. The suite did not spend the
+lockout budget — `TOOL-2-02` signs in as `nobody-<runid>@…invalid` precisely so
+it cannot. On a demo whose credentials the vendor publishes in a README,
+anybody on the internet can lock it, and did.
+
+**The owner's standing instruction applies and decides what happens next:**
+
+> If there are failures because it is a defect on the app should stay and not
+> force us to fix or tailor our code to it.
+
+So the spec stays red. What was actually broken here is the framework's
+*reporting*, not its behaviour — and it is still broken: `setup:auth` cannot
+see the message the application is showing. That is item 41, above, and it is
+framework work rather than a locator edit in this target.
+
+**Blocked on something only a person can do**, and the options are not
+equivalent:
+
+- **Ask the vendor to unlock it.** The only thing that restores account 1.
+  Nothing in this repository can do it.
+- **Wait.** Unknown, and possibly never — the lockout is permanent until an
+  administrator clears it.
+- **Drop account 1 from the pool.** Tempting and *rejected under the standing
+  instruction*: it is tailoring the suite around the application's state, and
+  it would turn a legible red into a green that hides a locked account.
+
+Until then toolshop reports **13/20 with 6 skipped**, and that number is
+correct — the six e2e specs cannot run without a session, and saying so is
+better than pretending.

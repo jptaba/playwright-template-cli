@@ -647,6 +647,7 @@ export interface GauntletContext {
     : '';
 
   return `import { test, type Page } from '@playwright/test';
+import { readVisibleError } from '../../../support/sign-in-error';
 import { signInLocators${gauntlet.length ? ', gauntletLocators' : ''} } from '../locators/sign-in';
 
 export interface Credentials {
@@ -694,11 +695,19 @@ export const signIn = {
     return (await marker.textContent())?.trim() ?? null;
   },
 
-  /** The error the form reported, or null when it reported none. */
+  /**
+   * What the application said when the sign-in failed.
+   *
+   * The named locator above is tried first and trusted when it resolves. The
+   * framework reads the page itself when it does not — because
+   * \`signInLocators.error\` is a *guess* until somebody checks it against the
+   * running application, and a guess that matches nothing used to report
+   * "the form reported no error" while the screen said "Account locked, too
+   * many failed attempts". A diagnostic emptier than the page is worse than
+   * none: it sends the reader somewhere else.
+   */
   async readError(page: Page): Promise<string | null> {
-    const banner = signInLocators.error(page);
-    if (!(await banner.isVisible())) return null;
-    return (await banner.textContent())?.trim() ?? null;
+    return readVisibleError(page, signInLocators.error(page));
   },
 ${gauntlet.length ? renderGauntletAction(gauntlet) : ''}};
 `;
