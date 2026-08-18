@@ -22,13 +22,38 @@ export const cartLocators = {
   /** Every line in the cart. Scoped, so a specifications row can never be one. */
   lines: (page: Page): Locator => cartTable(page).getByRole('row').filter({ has: page.getByRole('spinbutton') }),
 
-  /** One line, by the product name in it. */
+  /**
+   * One line, found by the quantity box that names its product.
+   *
+   * **Not `filter({ hasText: product })`**, which was a substring match on a
+   * catalogue full of nesting names: "Pliers" is inside "Combination Pliers",
+   * "Long Nose Pliers" and "Slip Joint Pliers". Asking for the Pliers line
+   * would have matched three, and `empty()` removes line by line *by name*
+   * against a shared account — so the first spec to hold two nesting products
+   * would remove the wrong row and hand every later spec on that worker a
+   * dirty cart.
+   *
+   * `exactly()` from `catalogue.ts` is the wrong instrument here and that is
+   * worth saying, because it is the obvious one: a row's text is the name
+   * *and* the quantity, price and line total, so anchoring the row text with
+   * `^…$` matches nothing at all. The anchor that works is already in this
+   * file — `Quantity for <product>` is a whole accessible name, and one
+   * product's name is never a prefix-aligned substring of another's inside it.
+   */
   line: (page: Page, product: string): Locator =>
-    cartLocators.lines(page).filter({ hasText: product }),
+    cartLocators.lines(page).filter({ has: cartLocators.quantity(page, product) }),
 
-  /** The quantity box on a line. Its accessible name carries the product. */
+  /**
+   * The quantity box on a line. Its accessible name carries the product.
+   *
+   * `exact` because `getByRole`'s name option is a substring match by default,
+   * and this is now what `line` depends on to tell two nesting products apart.
+   * It was safe before only because "Quantity for Pliers" happens not to be a
+   * substring of "Quantity for Combination Pliers" — true, and luck rather
+   * than construction, which is the thing this item was raised about.
+   */
   quantity: (page: Page, product: string): Locator =>
-    page.getByRole('spinbutton', { name: `Quantity for ${product}` }),
+    page.getByRole('spinbutton', { name: `Quantity for ${product}`, exact: true }),
 
   /**
    * The per-line remove control.
