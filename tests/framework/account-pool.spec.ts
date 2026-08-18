@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { accountForWorker, poolSizeFor, storageStatePath } from '../../src/support/paths';
+import {
+  accountForWorker,
+  poolSizeFor,
+  resolveWorkers,
+  storageStatePath,
+  workerCeiling,
+} from '../../src/support/paths';
 
 /**
  * A static pool of accounts, partitioned across workers — §19.
@@ -126,4 +132,55 @@ test('a worker reads the credential for the account it was given', () => {
 
   // And the administrator, on the same run, stays on its only account.
   expect(accountForWorker(1, poolSizeFor({ customer: 3, admin: 1 }, 'admin'))).toBe(1);
+});
+
+test.describe('capping workers at the pool that would collide', () => {
+  test('no server state means nothing to cap', () => {
+    // Client-only state: two workers reusing the same account share nothing
+    // an assertion can see, so the ceiling does not apply.
+    expect(workerCeiling(['customer'], { customer: 3 }, false)).toBeNull();
+  });
+
+  test('no role means nothing to cap', () => {
+    expect(workerCeiling([], undefined, true)).toBeNull();
+  });
+
+  test('binds on the first role, not the smallest pool across every role', () => {
+    /*
+       Toolshop's own shape: three customer accounts, one administrator
+       nothing writes as. Binding on the minimum would cap the whole suite at
+       1 for a collision `admin` can never cause, because `roles[0]` is the
+       identity `authedPage` actually carries.
+    */
+    expect(workerCeiling(['customer', 'admin'], { customer: 3, admin: 1 }, true)).toBe(3);
+    expect(workerCeiling(['admin', 'customer'], { customer: 3, admin: 1 }, true)).toBe(1);
+  });
+
+  test('an undeclared pool caps at one, same as accountForWorker', () => {
+    // saucedemo's shape: serverState true, no poolSize declared.
+    expect(workerCeiling(['standard'], undefined, true)).toBe(1);
+  });
+});
+
+test.describe('turning a ceiling into a worker count', () => {
+  test('no ceiling leaves both defaults untouched', () => {
+    expect(resolveWorkers(null, false), 'local, unset — Playwright decides').toBeUndefined();
+    expect(resolveWorkers(null, true), 'CI, unset — the repository default').toBe(4);
+  });
+
+  test('a ceiling below the CI default lowers it', () => {
+    expect(resolveWorkers(3, true)).toBe(3);
+    expect(resolveWorkers(1, true)).toBe(1);
+  });
+
+  test('a ceiling above the CI default does not raise it', () => {
+    // A generous pool must not turn into a request for more workers than CI
+    // grants everyone else.
+    expect(resolveWorkers(10, true)).toBe(4);
+  });
+
+  test('locally, the ceiling is the worker count outright', () => {
+    expect(resolveWorkers(3, false)).toBe(3);
+    expect(resolveWorkers(1, false)).toBe(1);
+  });
 });

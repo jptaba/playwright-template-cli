@@ -1,6 +1,7 @@
 import { defineConfig, devices, type Project } from '@playwright/test';
 import { resolveTarget, TargetSelectionError } from './config/target';
 import { DEFAULT_AUTH_FLOW_PATTERN } from './src/support/auth-flows';
+import { resolveWorkers, workerCeiling } from './src/support/paths';
 import type { FrameworkOptions } from './src/fixtures/base';
 
 const isCI = Boolean(process.env.CI);
@@ -30,6 +31,17 @@ const selection = ((): { target: ReturnType<typeof resolveTarget> | null; reason
 })();
 
 const target = selection.target;
+
+/**
+ * Cap workers at the account pool the selected target's own tests share, so
+ * two workers never sign in as the same customer on an application whose
+ * state lives on the server. Measured live rather than assumed: toolshop's
+ * suite passed 3 of 3 runs at 3 workers (its customer pool) and 1 of 4 at the
+ * local default of 7, a different spec failing each time (backlog item 30).
+ */
+const ceiling = target
+  ? workerCeiling(target.roles, target.credentials.poolSize, target.capabilities.serverState)
+  : null;
 
 const projects: Project<FrameworkOptions>[] = [
   {
@@ -230,7 +242,7 @@ export default defineConfig<FrameworkOptions>({
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
-  workers: isCI ? 4 : undefined,
+  workers: resolveWorkers(ceiling, isCI),
 
   reporter: [
     ['list'],

@@ -2,11 +2,12 @@
 
 > **Looking for what to do next? It is not in this file any more.**
 >
-> - **[`open-items.md`](open-items.md)** — the live worklist. Four items, ranked.
+> - **[`open-items.md`](open-items.md)** — the live worklist. Three items ready,
+>   one standing objective.
 > - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
 >   end-to-end coverage programme, with its own per-application state.
 > - **This file** — the working agreement below, which is still binding, plus an
->   archive of the 30 items already shipped. Read it for *why* a thing was done.
+>   archive of the 31 items already shipped. Read it for *why* a thing was done.
 >
 > Split on 2026-08-18: this file had passed 1,900 lines, and the four items that
 > were actually open were scattered through it. A run that has to read an
@@ -1925,7 +1926,58 @@ result rather than just reporting a number.
 Ranked below the dashboard work as usual, but this is the item that decides
 whether "until it is bulletproof" is measured or asserted.
 
-### 30. More workers than accounts, on a target that keeps state on the server — `ready`
+### 30. More workers than accounts, on a target that keeps state on the server — `done`
+
+Shipped on `agent/2026-08-18-worker-ceiling` (run 40). `workerCeiling(roles,
+poolSize, serverState)` sits beside `accountForWorker` in `src/support/paths.ts`
+— pure, and tested the same way. `playwright.config.ts` computes it once for
+the selected target and feeds it to a second pure function, `resolveWorkers`,
+which turns a ceiling (or none) into an actual worker count: no ceiling leaves
+both existing defaults exactly as they were (`undefined` locally, 4 in CI); a
+ceiling narrower than 4 lowers CI too, which is deliberate — the item's own
+measurement said CI was above the pool as well.
+
+**The decision the item left open, taken:** the ceiling binds on `roles[0]`,
+the identity `playwright.config.ts` already gives `authedPage` for the `e2e`
+project, not on the minimum pool across every role. Toolshop has three customer
+accounts and one administrator nothing writes as; binding on the minimum would
+have capped the whole suite at 1 for a collision `admin` can never cause.
+Pinned by a test with the roles in both orders, so the day something reorders
+`toolshop.roles` this fails loudly instead of silently re-capping at 1.
+
+**Measured against the live application, not only asserted.** Resolved workers
+by target, via `npx tsx` importing the config directly with `TARGET` set:
+
+| target | local | CI |
+|---|---|---|
+| toolshop (`poolSize: { customer: 3, admin: 1 }`) | **3** | **3** |
+| saucedemo (no `poolSize` declared) | **1** | **1** |
+| parabank (no `poolSize` declared) | **1** | **1** |
+| none selected | `undefined` (Playwright decides) | 4 |
+
+Then ran the live toolshop suite repeatedly at the resolved default (no
+`--workers` override): the three specific collision symptoms run 39c
+reproduced — `setup:auth` reporting no session, `isSignedIn` never becoming
+true, a cart row not detaching — did not recur in any of six runs. **Not a
+clean sweep, and said so rather than rounded up:** two of six runs failed on
+something else — a cart badge that never incremented once, a mismatch between
+the API's product list and the storefront's once — neither matching the
+account-collision shape and both plausible as ordinary flakiness on a public
+demo whose stock and catalogue change under other people's traffic (the same
+class of thing parabank's profile already documents about its own host). Left
+as read rather than chased: diagnosing a live external site's own flakiness is
+a different investigation than this item's, and item 29 — putting the live
+suites in the loop — is what turns "two singletons" into a rate instead of
+another anecdote.
+
+**Not done, on purpose:** capping CI below 4 for a target that needs it is a
+real behaviour change nobody asked to review, so it is called out here rather
+than folded silently into "verify passes." No target here is currently capped
+above what CI already ran at, so nothing regresses; a future target with a
+larger declared pool would raise CI's number for itself only, never for
+another target, because the cap is computed per selection.
+
+The original item follows.
 
 **Measured in run 39c, and it corrects run 39b's claim** that the toolshop live
 suite passes 13/13. It does — at three workers. At the local default it passes

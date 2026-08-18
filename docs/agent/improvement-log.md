@@ -2784,3 +2784,96 @@ item 29. Nothing in `verify` has an opinion about any of this.
 loop) are the pair, and they belong together: 29 is what would have caught this
 on day one, and 30 is what makes 29 report something stable. Item 28 after
 those.
+
+## 2026-08-18 · run 40 · A ceiling for the pool the suite actually shares
+
+**Picked:** item 30 — more workers than accounts, on a target that keeps state
+on the server. Re-read `open-items.md` and compared `main` to `origin/main`
+immediately before starting: both at `f5e0efa`, and the worklist had moved
+since run 39c — the owner split `backlog.md` into `open-items.md` and
+`coverage-phase.md` and onboarded ParaBank (item 31 came out of that) in a
+session between run 39c and this one, with no numbered log entry for either
+change. Item 30 was still top of the ranking either way, so this run proceeded
+on it rather than treating the gap as something to backfill.
+
+**Did:** `workerCeiling(roles, poolSize, serverState)` in `src/support/paths.ts`,
+beside `accountForWorker` and built the same way — pure, no target named, unit
+tested from plain values. It binds on `roles[0]`, the identity
+`playwright.config.ts` already gives `authedPage` for the `e2e` project, not on
+the minimum pool across every role — the decision the item left open. A second
+pure function, `resolveWorkers(ceiling, isCI)`, turns a ceiling (or `null`) into
+an actual worker count, keeping both existing defaults (`undefined` locally, 4
+in CI) untouched when there is nothing to cap. `playwright.config.ts` computes
+the ceiling once from the selected target right after `resolveTarget()` and
+passes it through `resolveWorkers` into the top-level `workers` field — the
+only place Playwright reads it; there is no per-project `workers` option, which
+is why this could not live inside one project's config.
+
+**Verify:** `npm run verify` passes, exit 0 — 914 tests, up from 906 (8 new
+cases in `tests/framework/account-pool.spec.ts`). Diff: 143 lines across 3
+files (`src/support/paths.ts`, `playwright.config.ts`,
+`tests/framework/account-pool.spec.ts`), well under the ~400-line guideline.
+
+**Measured live, not only asserted.** Resolved `workers` per target by
+importing `playwright.config.ts` directly with `TARGET` set (`npx tsx`):
+toolshop → **3** both locally and in CI (its `{ customer: 3, admin: 1 }` pool,
+bound on `roles[0]` = `customer`); saucedemo and parabank → **1** both
+(`serverState: true`, no `poolSize` declared, same default `accountForWorker`
+already uses); no target selected → unchanged, `undefined` locally and 4 in CI.
+
+Then ran the live toolshop suite six times at the resolved default, no
+`--workers` override on the command line — confirmed the config was actually
+picking up 3 (`Running 6 tests using 3 workers` in the output, not the old 7).
+**The three specific collision symptoms run 39c reproduced did not recur in any
+of the six**: no `setup:auth` reporting no session, no `isSignedIn` staying
+false, no cart row refusing to detach. **Not a clean sweep, and this entry says
+so rather than rounding up** — two of six runs failed on something else
+entirely: a cart badge that never incremented once, a mismatch between the
+API's product list and the storefront's once. Neither matches the
+account-collision shape this item targets, and both are plausible as ordinary
+variability on a public demo whose stock and catalogue move under other
+people's traffic — parabank's own profile already documents the same class of
+thing about its host. Recorded rather than chased: diagnosing a live external
+site's own flakiness is a different investigation than this one, and it is
+exactly what item 29 exists to turn into a rate instead of another anecdote.
+
+**PR:** branch `agent/2026-08-18-worker-ceiling`; `main` fast-forwarded and
+pushed per the standing instruction, confirmed matching `origin/main`
+afterwards.
+
+**Learned:**
+
+- **`workers` has no per-project override in Playwright's config shape** —
+  checked against the `Project` type before assuming a smaller, project-scoped
+  fix was possible. That is why the ceiling has to be computed once, globally,
+  from whichever target `TARGET` selected, rather than living inside the `e2e`
+  project block next to the role it actually concerns.
+- **The item's own open question was worth taking seriously rather than
+  guessing past.** Binding on the minimum pool across roles is the shape that
+  looks obviously "safer" and is the one that silently caps every target with
+  an incidental single-account role — toolshop would have dropped to 1 worker
+  for an admin nothing writes as. `roles[0]` is a real claim (it assumes specs
+  share the default role's identity, which is what `authedPage` already does),
+  so it is pinned by a test with the roles reversed, not just asserted in prose.
+- **A live measurement can both confirm a fix and correct the claim it was
+  chasing.** This run set out to reproduce run 39c's "3 of 3" and instead found
+  2 failures in 6 — not because the fix didn't work (the specific symptoms it
+  targets are gone), but because run 39c's own number was a small sample that
+  happened to land clean, the same lesson run 39c itself drew about run 39b's
+  "13/13". Worth generalising again: a handful of green runs during development
+  is not a measurement, whatever the sample size claims.
+- **Capping CI below 4 for one target and not others is a real behaviour
+  change**, not a side effect to gloss over. It is called out explicitly in
+  `backlog.md` rather than folded into "verify passes" — nothing currently on
+  disk raises CI's number, only lowers it for targets whose pool is smaller
+  than 4, so nothing regresses today, but the next target with a larger pool
+  would raise CI's worker count for itself and no other target, because the
+  cap is computed per selection rather than globally.
+
+**Next:** item 29 — put the live suites in the loop — is now stronger-cased
+than before this run: this run's own six-run measurement is exactly the kind of
+number item 29 would have produced automatically, and the two non-collision
+failures are the evidence that a single-item rate is not enough on a live
+public demo. Item 28 (the same substring trap in `cartLocators.line`) after
+that, then item 31 (the a11y scan discarding what an incomplete check was).
+Item 11 remains a standing objective rather than a task.

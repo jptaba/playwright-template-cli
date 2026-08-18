@@ -15,33 +15,19 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 30 | More workers than accounts, on a server-state target | `ready` |
 | 29 | The live suites are not part of any loop | `ready` |
 | 28 | `cartLocators.line` has the same substring trap | `ready` |
 | 31 | The a11y scan counts incomplete checks and discards what they were | `ready` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Take them in that order.** 30 before 29, because 29 makes a run report the
-live suite's result and 30 is what makes that result stable — wiring in a
-measurement that fails three runs in four teaches people to ignore it.
+**Item 30 shipped in run 40** — `backlog.md` has the full writeup, including a
+measurement worth carrying forward: even at the corrected worker count, two of
+six live toolshop runs still failed, on symptoms that do not match the
+account-collision shape the fix targets. That is exactly what item 29 exists to
+turn into a rate instead of another anecdote, so it now ranks first with one
+more reason behind it.
 
 ---
-
-### 30. More workers than accounts, on a target that keeps state on the server — `ready`
-
-Full text and the measurements: `backlog.md`, item 30.
-
-**One line:** toolshop declares a 3-account customer pool with
-`serverState: true`, Playwright's local default is 7 workers here, and
-`accountForWorker` already says two workers collide once there are more workers
-than accounts. Live suite: **1 pass in 4** at the default, **3 in 3** at
-`--workers=3`.
-
-**The decision it is waiting on:** which role's pool binds. The minimum across
-all roles caps toolshop at 1, because it has a single admin nothing writes as.
-`roles[0]` — the identity `authedPage` uses — is probably right but is a claim
-about how specs share identities rather than a fact any profile states. CI is
-capped at 4, also above 3, so this is not a local-only artefact.
 
 ### 29. The live suites are not part of any loop — `ready`
 
@@ -105,7 +91,7 @@ suites are, not when a list is empty.
 
 **What is left:**
 
-- A `toolshop` triage-fixture. **Now ranks below 29 and 30**, and run 39b is the
+- A `toolshop` triage-fixture. **Now ranks below 29**, and run 39b is the
   evidence: a fixture of deliberate failures is worth less than running the
   suite that is meant to pass.
 - **Only 1 of the 7 rules in `rules.ts` has ever been settled against ground

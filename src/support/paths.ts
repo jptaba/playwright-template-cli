@@ -54,6 +54,47 @@ export const poolSizeFor = (
 };
 
 /**
+ * The most workers that may run in parallel without two of them colliding on
+ * the same account — `null` when nothing needs capping.
+ *
+ * Binds on `roles[0]`, not on the smallest pool across every role. Toolshop
+ * has three customer accounts and one administrator nothing writes as; the
+ * minimum across roles would cap it at 1 for a collision that can never
+ * happen, where `roles[0]` — the identity `playwright.config.ts` gives
+ * `authedPage` for the `e2e` project — caps it at the pool the specs that
+ * actually run share.
+ *
+ * `null` when there is no server-side state to collide on: two workers
+ * reusing the same account then share nothing an assertion can see. Measured
+ * live rather than assumed (backlog item 30) — toolshop's live suite passed
+ * 3 of 3 runs at 3 workers (its customer pool) and 1 of 4 at the local
+ * default of 7, with a different spec failing each time.
+ */
+export const workerCeiling = (
+  roles: string[],
+  poolSize: number | Record<string, number> | undefined,
+  serverState: boolean,
+): number | null => {
+  const role = roles[0];
+  if (!serverState || !role) return null;
+  return poolSizeFor(poolSize, role);
+};
+
+/**
+ * How many workers a run may use, given the target's ceiling and whether this
+ * is CI.
+ *
+ * No ceiling leaves both defaults exactly as they were before this existed —
+ * `undefined` locally (Playwright decides) and 4 in CI. A ceiling narrower
+ * than CI's own 4 lowers it; a target that needs no ceiling never slows down
+ * CI for every target the way a blanket cap would have.
+ */
+export const resolveWorkers = (ceiling: number | null, isCI: boolean): number | undefined => {
+  if (ceiling === null) return isCI ? 4 : undefined;
+  return isCI ? Math.min(4, ceiling) : ceiling;
+};
+
+/**
  * Where the canonical, versioned run model is written (§18).
  *
  * Overridable, because two runs at once otherwise write the same file and the
