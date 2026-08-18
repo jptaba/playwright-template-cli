@@ -15,12 +15,41 @@ import type { FailureCluster } from './types';
  * the evidence for an infrastructure cause, and a per-test view cannot see it.
  */
 
+/** How many lines of the error the signature is built from. */
+const SIGNATURE_LINES = 3;
+
+/** The same claim, whether or not it arrived wearing Playwright's prefix. */
+const sameClaim = (a: string, b: string): boolean =>
+  a.replace(/^Error:\s*/, '') === b.replace(/^Error:\s*/, '');
+
+/**
+ * The lines worth signing, taken in order until there are `limit` of them.
+ *
+ * Blanks and an immediately repeated line are dropped *before* the count,
+ * because Playwright spends both of them on the primitive these conventions
+ * mandate for eventual consistency. `expect.poll(fn, { message })` renders as
+ * `Error: message`, a blank, `message`, a blank, and only then the matcher —
+ * so counting raw lines gave the same sentence twice and never reached what
+ * was actually asserted. (`expect(value, message)` prints it once; the
+ * duplication is the poll form's, which is the one a queue or a batch has to
+ * use.)
+ */
+function claimLines(message: string, limit: number): string[] {
+  const lines: string[] = [];
+  for (const raw of message.split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const previous = lines[lines.length - 1];
+    if (previous !== undefined && sameClaim(previous, line)) continue;
+    lines.push(line);
+    if (lines.length === limit) break;
+  }
+  return lines;
+}
+
 /** Everything that differs run to run but does not change what broke. */
 export function normaliseError(message: string): string {
-  return message
-    .replace(/\r/g, '')
-    .split('\n')
-    .slice(0, 3)
+  return claimLines(message.replace(/\r/g, ''), SIGNATURE_LINES)
     .join(' ')
     .replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z?/g, '<timestamp>')
     .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '<uuid>')

@@ -82,6 +82,61 @@ test.describe('clustering', () => {
     expect(first).toContain('waiting for order');
   });
 
+  /**
+   * Taken verbatim from `expect.poll(fn, { message })`, which prints the
+   * message as the `Error:` prefix *and* again in the body. That is the
+   * primitive these conventions mandate for eventual consistency, so counting
+   * raw lines spent the whole window on the message and its own echo — the
+   * required style produced the least informative signature in the suite.
+   * `expect(value, message)` prints it once and was never affected.
+   */
+  test('a polled assertion does not spend the window saying itself twice', () => {
+    const signature = normaliseError(
+      [
+        'Error: the listing never changed after the search',
+        '',
+        'the listing never changed after the search',
+        '',
+        'expect(received).toBe(expected) // Object.is equality',
+      ].join('\n'),
+    );
+
+    expect(signature).toContain('Object.is equality');
+    expect(signature.match(/the listing never changed/g)).toHaveLength(1);
+  });
+
+  test('a blank line does not cost the signature a line of evidence', () => {
+    const signature = normaliseError(
+      [
+        'Error: expect(locator).toBeVisible() failed',
+        '',
+        "Locator: getByRole('button', { name: 'Open Menu' })",
+        'Expected: visible',
+      ].join('\n'),
+    );
+
+    expect(signature).toContain('Expected: visible');
+  });
+
+  /**
+   * The counterweight to the two above: dropping a repeat must mean the line
+   * before it, not any line that happens to look alike. A stack of near
+   * identical rows is what a strict-mode violation *is*, and collapsing it
+   * would merge two locators into one signature.
+   */
+  test('repeated evidence is kept when it is the evidence', () => {
+    const signature = normaliseError(
+      [
+        "Error: strict mode violation: getByRole('link', { name: 'Backpack' }) resolved to 2 elements:",
+        '    1) <a id="item_4_img_link"></a>',
+        '    2) <a id="item_4_title_link"></a>',
+      ].join('\n'),
+    );
+
+    expect(signature).toContain('item_4_img_link');
+    expect(signature).toContain('item_4_title_link');
+  });
+
   test('clusters are ordered by breadth, because breadth is itself evidence', () => {
     const clusters = clusterFailures(
       runWith([

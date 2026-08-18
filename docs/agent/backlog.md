@@ -1753,3 +1753,59 @@ rather than reopened as an item, since nothing here reproduces it and chasing
 a two-day-old single sample would be exactly the "three singletons" mistake
 item 13 already corrected once. If it recurs on a fresh run, that is the
 moment to act on it, not this one.
+
+### 26. The clustering signature spent its window on a blank line and an echo — `done`
+
+Found and shipped in run 39, a scan run, by opening `/triage` and reading a
+cluster rather than reading the clustering code. The toolshop run from
+2026-08-16 rendered its signature as the same sentence twice:
+
+> `Error: the listing never changed after the search. A term that returns
+> exactly as many products as were already on screen would look like this. the
+> listing never changed after the search. A term that returns exactly as many
+> products as were already on screen would look like this. :: Search the
+> catalogue for "pliers" :: w0`
+
+**The cause is `expect.poll`, and that is what makes it worth fixing.**
+`normaliseError` (`src/support/triage/cluster.ts`) took
+`.split('\n').slice(0, 3)` — blank lines counted toward the three. Playwright
+renders `expect.poll(fn, { message })` as `Error: message`, a blank, `message`,
+a blank, then the matcher, so all three slots went to the message and its own
+echo and the signature never reached what was asserted. **`expect.poll` is the
+primitive the conventions mandate for eventual consistency** ("the only
+acceptable answer"), so the required style produced the least informative
+signature in the suite. `expect(value, message)` prints the message once and
+was never affected — checked both forms against real runs rather than assumed.
+
+Fixed by dropping blanks and an immediately-repeated line *before* taking
+three, so the three are three lines of content. The count stayed at 3
+deliberately: the number of lines feeding run-to-run variance is unchanged, and
+only their informativeness moves.
+
+**Measured on the real runs on disk, before and after:**
+
+| cluster | before | after |
+|---|---|---|
+| toolshop search (`expect.poll`) | **323 chars, the message twice, no matcher** | 255, once, plus `expect(received).toBe(expected) … Expected: true` |
+| toolshop a11y | 134 | 151 — gains `+ Received + <n>` |
+| teardown timeout | 90 | **90, byte-identical** |
+| fixture TF-5901, TF-5904 | — | **byte-identical** |
+
+A single-line message is untouched, which is what says this is not churn.
+
+**Agreement was re-measured, not assumed:** `npm run triage:measure` reports
+**1 agreed · 0 contradicted · 3 declined**, unchanged from run 13. The rules
+read the whole `message + stack` via `errorText`, never the signature, so a
+richer signature cannot move them — now checked rather than reasoned about.
+
+**The cheapest possible moment to change this**, and worth stating because it
+will not be true again: cluster ids are a sha256 of the signature, so changing
+it re-keys every cluster. `config/triage-verdicts.jsonl` does not exist yet —
+no human verdict has ever been recorded — so nothing was orphaned.
+`HumanVerdict.signature` exists for exactly this day and its comment says so;
+once verdicts accumulate, a change here costs a migration.
+
+**Watch:** the third new test is the counterweight and is the one to keep. A
+strict-mode violation *is* a stack of near-identical rows, so the dedup
+compares a line only against the one before it. Collapsing any lookalike would
+merge two locators into one signature.

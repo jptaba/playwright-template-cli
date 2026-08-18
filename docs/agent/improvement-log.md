@@ -2538,3 +2538,99 @@ either. The next run is another scan — drive the dashboard and the onboarding
 journey — and should check a real phone width (375px) as part of that, not
 only the 560px the existing "narrow windows" tests cover, since that is what
 this run's finding was hiding behind.
+
+## 2026-08-18 · run 39 · The signature that said the same thing twice
+
+**Picked:** scan run. Checked before starting, per the file's own warning:
+`git rev-parse --short HEAD origin/main` both gave `0bfeba9`, matching run 38's
+final commit — nothing had landed since, and nothing in `backlog.md` carried a
+`ready` label.
+
+**Did:** drove the running dashboard rather than reading source. Started at run
+38's own parting advice — a real phone width — and it is clean: 375×812 on
+`/onboard` and `/triage` gives `scrollWidth` 375 against `clientWidth` 375, no
+overflowing element anywhere. Run 38's fix is holding. Onboarding opens at 1734px
+(2.41 screens) with all four gated steps at zero height, so item 18 is holding
+too.
+
+**The finding came from reading a page, not measuring it.** `/triage` renders a
+cluster from the toolshop run of 2026-08-16 whose signature is the same sentence
+printed twice, back to back, followed by the step and the window.
+
+**Traced to `normaliseError` (`src/support/triage/cluster.ts`), which took
+`.split('\n').slice(0, 3)` — blank lines included.** Playwright renders
+`expect.poll(fn, { message })` as `Error: message`, a blank, `message`, a blank,
+and only then the matcher. So all three slots went to the message and its own
+echo, and the signature never reached what was asserted.
+
+**The precise claim matters, and my first draft over-claimed it.** I wrote the
+comment and the test as "a custom assertion message", then checked both forms
+against real runs: `expect(value, message)` prints the message **once** and was
+never affected (fixture TF-5903), while `expect.poll(fn, { message })` prints it
+**twice** (toolshop `actions/catalogue.ts:81`). Corrected both before commit.
+The narrower claim is the more damning one: **`expect.poll` is the primitive
+these conventions mandate** for eventual consistency — "the only acceptable
+answer" — so the required style produced the least informative signature in the
+suite.
+
+Fixed by dropping blanks and an immediately-repeated line *before* taking three.
+The count stays at 3 on purpose: the number of lines feeding run-to-run variance
+is unchanged, only their informativeness moves.
+
+**Verify:** `npm run verify` passes, exit 0 — **906 tests, up from 903.**
+
+**Measured on the real runs on disk, before and after:**
+
+| cluster | before | after |
+|---|---|---|
+| toolshop search (`expect.poll`) | **323 chars, message twice, no matcher** | 255, once, plus `expect(received).toBe(expected) … Expected: true` |
+| toolshop a11y | 134 | 151 — gains `+ Received + <n>` |
+| teardown timeout | 90 | **90, byte-identical** |
+| fixture TF-5901, TF-5904 | — | **byte-identical** |
+
+**Measured this run**, because it touched clustering: `TARGET=saucedemo npm run
+triage:measure` → **1 agreed · 0 contradicted · 3 declined**, exit 0. Unchanged
+from run 13, which is the expected result and is now checked rather than
+assumed: `errorText` hands the rules the whole `message + stack`, never the
+signature, so a richer signature cannot move a verdict.
+
+**Seen red first**, per run 19's rule: stashed `cluster.ts` and ran the three new
+tests against the old function. The two improvement tests failed for the right
+reasons — one reporting the sentence twice, the other missing `Expected:
+visible`. The third passed, correctly: it is the counterweight, guarding a
+regression the change must not introduce.
+
+**PR:** branch `agent/2026-08-18-signature-window`; `main` fast-forwarded and
+pushed, `main` and `origin/main` confirmed matching.
+
+**Learned:**
+
+- **A signature is data somebody reads, and nobody had read one.** Four budgets
+  hold these seven pages — copy, height, measure, contrast — and all four are
+  about the shape of the page. None has an opinion about whether the text
+  *inside* a block says anything. The duplication had been rendering on `/triage`
+  since the run that produced it, in full view, past two scan runs.
+- **The framework's own mandated style produced its worst input.** Worth
+  generalising past this fix: when a convention requires a construct, the
+  machinery downstream should be checked against that construct specifically.
+  `expect(value, message)` was fine and is the form nobody is told to prefer.
+- **Check both forms before writing the comment.** I nearly shipped a comment
+  and a test name claiming every custom message duplicates. Two minutes against
+  two real runs made the claim narrower, true, and more useful — the log has now
+  recorded the "verify the claim, not just the fix" lesson at run 10, run 12,
+  run 17 and here.
+- **This was the last free moment to re-key the clusters.** Cluster ids hash the
+  signature, and `config/triage-verdicts.jsonl` does not exist — no human verdict
+  has ever been recorded, so nothing was orphaned. `HumanVerdict.signature`
+  carries a comment saying it is redundant "until the day clustering changes";
+  that day was today, and it cost nothing only because the file was empty.
+- **The single-line signatures are byte-identical**, which is the check that
+  separates a fix from a repaint. Three of the six real clusters did not move.
+
+**Next:** nothing in `backlog.md` carries a `ready` label after this run either,
+so the next run is another scan. Two threads worth picking up, both noted rather
+than taken here: `/triage` still lists run 38's two-day-old teardown cluster,
+which is now two runs of `verify` further from reproducing and is still not worth
+chasing; and the four budgets all measure page *shape*, so a run looking for the
+next class of defect should read what the pages actually say rather than measure
+how tall they are — that is where this run's finding was hiding.
