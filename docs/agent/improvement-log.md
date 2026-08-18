@@ -3641,3 +3641,77 @@ attempts one real authentication per role rather than only asking the store
 whether a credential exists. It is the "preflight these type of issues" half of
 the owner's ask, and the lockout that cost three runs would have been caught by
 it before a suite ran. The coverage phase remains the largest body of work.
+
+## 2026-08-18 · run 50 · Existence is not usability
+
+**Picked:** item 41's last mechanism — nothing preflighted whether a credential
+could actually *sign in*. It is the "preflight these type of issues" half of
+the owner's instruction.
+
+**Did:** `npm run target:doctor -- --sign-in`. It runs `setup:auth` for the
+target and interprets the result into one of five verdicts.
+
+**Why it runs `setup:auth` rather than signing in itself**, which was the whole
+design question: framework code may not import a target pack, and driving a
+sign-in needs that pack's locators and its business verb. `setup:auth` already
+owns exactly that — one real authentication per role through the application's
+own vocabulary — so the honest preflight reads its result rather than building
+a second sign-in path that could disagree with the one the suite uses.
+
+Opt-in, because it drives a real browser and costs ~20s a target. Without the
+flag the doctor now says plainly that credentials are checked **for existence,
+not for use** — the distinction it was silently wrong about, and the reason it
+could report a target entirely healthy minutes before every spec failed at
+sign-in.
+
+**`environment-unreachable` exists because I ran it and it was wrong.** Pointed
+at a dead port, the first version said *"check the signed-in marker in the
+pack"* — advice as wrong as the message this entire thread began with, and
+wrong for the same reason: the most specific evidence has to be read first.
+That is the second run in a row where running the new tool immediately
+disproved its own first design.
+
+**One definition, not two:** `ACCOUNT_LOCKED` and `TRANSPORT_ERROR` moved to
+`src/support/failure-signals.ts`, imported by triage *and* the doctor, held in
+step by a test.
+
+**Verify:** `npm run verify` passes, exit 0 — **993 tests**, up from 983.
+
+**Proven live, both directions:** ParaBank reports `sign-in-ok`, exit 0; a
+target pointed at a dead loopback port reports `environment-unreachable`, exit
+1 — and spends no lockout budget to do it, which matters on shared deployments.
+
+**Live suites (step 5), two consecutive runs:**
+
+| run | parabank | saucedemo | toolshop |
+|---|---|---|---|
+| first | 3/3 | 2/2 | **19/20** (`TOOL-3-02`) |
+| second | **2/3** | 2/2 | 20/20 |
+
+The failures moved between applications between two runs minutes apart, with no
+change in between. That is the shared-public-demo signature, not a suite
+defect, and under the standing instruction they stay red rather than being
+tailored around.
+
+**Learned:**
+
+- **Running a new diagnostic is the only way to find out it misdiagnoses.**
+  Twice now — run 49's upgrade tool offering to overwrite working endpoints,
+  and this run's preflight blaming a locator for an unreachable host. Both were
+  caught in the first live execution and neither would have been caught by the
+  unit tests I had already written, because both were about *ordering* rather
+  than logic.
+- **Item 41 took four mechanisms and one reverted patch.** A misleading
+  sentence in a failure message was, underneath, a missing triage rule, a
+  scaffolder shipping a bare guess, no way to deliver a template fix to an
+  existing pack, and a preflight that checked the wrong thing. The one-line
+  locator edit that started it would have hidden all four.
+- **A verdict list is an ordering decision.** Five outcomes, most specific
+  first, exactly as the triage rules are ordered — and the two runs where that
+  ordering was wrong are the two failures above.
+
+**Next:** nothing carries a `ready` label. The next run is a **scan** — drive
+the dashboard and onboarding and raise what is found — or the **coverage
+phase**, which is now much the largest body of work: four of seven applications
+are not onboarded and 32 of 35 coverage cells are empty. Item 11 remains a
+standing objective.

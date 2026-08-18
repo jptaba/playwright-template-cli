@@ -1,11 +1,16 @@
 #!/usr/bin/env tsx
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { AUTH_DIR, REPO_ROOT } from '../src/support/paths';
 import { ContractRegistry } from '../src/support/contracts/validator';
 import { resolveTarget, targetNames } from '../config/target';
 import { createSecretStore } from '../src/integrations/secrets';
 import { diagnose, isRunnable, type TargetFacts } from '../src/support/onboarding/diagnose';
+import {
+  interpretSignInCheck,
+  type SignInVerdict,
+} from '../src/support/onboarding/sign-in-check';
 import type { TargetProfile } from '../config/targets/types';
 
 /**
@@ -141,11 +146,48 @@ function heading(text: string): void {
   console.log('─'.repeat(text.length));
 }
 
+/**
+ * Prove a credential can sign in, by running the project that already does it.
+ *
+ * Opt-in, because it drives a real browser at a real deployment and costs
+ * ~20 seconds per target — a preflight that slow by default is one people stop
+ * running. It is `setup:auth` rather than a second sign-in path of its own:
+ * framework code may not import a target pack, and a separate implementation
+ * could disagree with the one the suite actually uses.
+ */
+function checkSignIn(targetName: string): SignInVerdict {
+  const run = spawnSync('npx', ['playwright', 'test', '--project=setup:auth'], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    env: { ...process.env, TARGET: targetName },
+  });
+
+  if (run.error) {
+    return interpretSignInCheck({ status: 2, output: run.error.message });
+  }
+  return interpretSignInCheck({
+    status: run.status ?? 1,
+    output: `${run.stdout ?? ''}\n${run.stderr ?? ''}`,
+  });
+}
+
 async function main(): Promise<number> {
   const names = process.env.TARGET ? [process.env.TARGET] : targetNames();
+  const provingSignIn = process.argv.includes('--sign-in');
   let worstExit = 0;
 
   console.log(`Checking ${names.length} target(s): ${names.join(', ')}`);
+  if (!provingSignIn) {
+    /*
+       Said every time, because the distinction is the one this checker was
+       silently wrong about: a credential that resolves is not a credential
+       that works. A locked account describes perfectly and fails every run.
+    */
+    console.log(
+      'Credentials are checked for existence, not for use. `--sign-in` proves one real\n' +
+        'authentication per role, which is the only thing that catches a locked or expired account.',
+    );
+  }
 
   for (const name of names) {
     let profile: TargetProfile;
@@ -202,8 +244,24 @@ async function main(): Promise<number> {
     console.log(`  pack         ${pack.exists ? `${pack.files.length} file(s)` : 'MISSING'}`);
     if (credentials.note) console.log(`  secret store ${credentials.note}`);
 
+    if (provingSignIn) {
+      console.log('\n  Proving sign-in (running setup:auth)…');
+      const verdict = checkSignIn(name);
+      console.log(`  ${verdict.ok ? 'OK     ' : 'ERROR  '} [${verdict.code}] ${verdict.message}`);
+      if (!verdict.ok) {
+        console.log(`           → ${verdict.fix}`);
+        // A credential that cannot sign in stops a run, so it is an error
+        // rather than a smell — the whole point of proving it.
+        worstExit = 1;
+      }
+    }
+
     if (diagnostics.length === 0) {
-      console.log('\n  OK — profile, pack and credentials agree. Nothing to fix.');
+      console.log(
+        provingSignIn
+          ? '\n  Profile, pack and credentials agree.'
+          : '\n  OK — profile, pack and credentials agree. Nothing to fix.',
+      );
       continue;
     }
 

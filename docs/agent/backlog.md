@@ -8,7 +8,7 @@
 > - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
 >   end-to-end coverage programme, with its own per-application state.
 > - **This file** — the working agreement below, which is still binding, plus an
->   archive of the 44 items already shipped. Read it for *why* a thing was done.
+>   archive of the 45 items already shipped. Read it for *why* a thing was done.
 >
 > Split on 2026-08-18: this file had passed 1,900 lines, and the four items that
 > were actually open were scattered through it. A run that has to read an
@@ -2599,3 +2599,55 @@ Which answers the question item 42 was raised about: run 48's sign-in fix
 reaches none of them, and `actions/sign-in.ts` is `diverged` on both — so the
 upgrade path for that specific improvement is a person reading the diff, not a
 tool applying it. That is the honest state rather than a solved one.
+
+### 41. The framework could not see what an application said at sign-in — `done`
+
+Closed across runs 46, 48 and 50. Four mechanisms produced one misleading
+message; all four are now addressed, and none of them by touching a pack.
+
+| mechanism | fix |
+|---|---|
+| triage had no rule for a lockout | `account-locked`, run 46 |
+| the scaffolder shipped one guessed error locator | `readVisibleError`, run 48 |
+| a framework fix never reached an existing pack | `target:upgrade`, run 49 |
+| nothing preflighted whether a credential could *sign in* | `target:doctor --sign-in`, run 50 |
+
+**The last one, and why it runs `setup:auth` rather than signing in itself.**
+The doctor asked the secret store whether a credential existed and stopped.
+Existence is not usability: a locked, expired or rotated account *describes*
+perfectly — right path, right field names — and fails every run. So the doctor
+could report a target entirely healthy minutes before every spec in it failed
+at sign-in, which is exactly what happened.
+
+Framework code may not import a target pack, and driving a sign-in needs that
+pack's locators and its business verb. `setup:auth` already owns precisely
+that — one real authentication per role, through the application's own
+vocabulary — so the preflight runs it and reads the result rather than building
+a second sign-in path that could disagree with the one the suite uses.
+
+Opt-in, because it drives a real browser and costs ~20s per target; a preflight
+that slow by default is one people stop running. Without the flag the doctor
+now says plainly that credentials are checked *for existence, not for use*,
+which is the distinction it was silently wrong about.
+
+**Five verdicts, and the ordering is the design.** `sign-in-not-run` (nothing
+was proven, so a broken command is not read as a broken credential),
+`environment-unreachable`, `account-locked`, `sign-in-failed`, `sign-in-ok`.
+Most specific first, exactly as the triage rules are ordered.
+
+**`environment-unreachable` exists because running it produced the wrong
+answer.** Pointed at a dead port, the first version said *"check the signed-in
+marker in the pack"* — advice as wrong as the message this whole thread began
+with, and wrong for the same reason: the most specific evidence has to be read
+first. A transport failure never reaches the form, so it never produces a
+quoted sentence, and it has to be matched against the whole output.
+
+**One definition of a lockout, not two.** `ACCOUNT_LOCKED` and
+`TRANSPORT_ERROR` moved into `src/support/failure-signals.ts`, imported by both
+triage and the doctor, with a test holding them in step — two copies of a
+pattern is how the two came to disagree, the same argument that put the
+auth-flow pattern in one place.
+
+**Proven against live deployments, both directions:** ParaBank reports
+`sign-in-ok` and exits 0; a target pointed at a dead loopback port reports
+`environment-unreachable` and exits 1, spending no lockout budget to do it.

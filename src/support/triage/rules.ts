@@ -1,3 +1,4 @@
+import { ACCOUNT_LOCKED, TRANSPORT_ERROR } from '../failure-signals';
 import type { RunResult, TestRecord } from '../reporters/run-result';
 import type { FailureCluster, TriageVerdict } from './types';
 
@@ -45,12 +46,6 @@ function verdict(
   };
 }
 
-/**
- * Transport failures in both vocabularies: Node's error codes, and Chromium's
- * `net::ERR_*` codes as Playwright surfaces them from the browser.
- */
-const TRANSPORT_ERROR =
-  /(ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|SELF_SIGNED_CERT[A-Z_]*|CERT_[A-Z_]+|net::ERR_[A-Z_]+)/i;
 
 /**
  * Authentication-shaped failures. `\bauth\b` rather than a bare substring:
@@ -61,17 +56,6 @@ const TRANSPORT_ERROR =
 const AUTH_ERROR =
   /(\bauth\b|authentication|unauthori[sz]ed|sign ?in|log ?in|\b401\b|\b403\b|storage ?state)/i;
 
-/**
- * An account the application will not let anybody into, however correct the
- * credential is.
- *
- * Both vocabularies again: the words applications print ("account locked",
- * "too many failed attempts", "account disabled", "suspended") and the status
- * code that carries it, `423 Locked`. `\b423\b` alone would match a duration
- * or an id, so it is anchored to the word applications put beside it.
- */
-const ACCOUNT_LOCKED =
-  /(account (is )?(locked|disabled|suspended|blocked)|too many failed attempts|locked out|\b423 Locked\b|HTTP 423\b)/i;
 
 const errorText = (tests: TestRecord[]): string =>
   tests.map((test) => `${test.error?.message ?? ''} ${test.error?.stack ?? ''}`).join('\n');
