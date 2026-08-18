@@ -38,7 +38,7 @@ const STYLES = `
     gap: .25rem .8rem; font-size: .84rem;
   }
   .option dt { color: var(--muted); }
-  .option dd { margin: 0; }
+  .option dd { margin: 0; max-width: 68ch; }
   .tag { font-size: .7rem; padding: .05rem .45rem; border-radius: 999px; margin-left: .5rem; }
   .tag.safe { background: var(--pass-soft); color: var(--pass); }
   .tag.risky { background: var(--fail-soft); color: var(--fail); }

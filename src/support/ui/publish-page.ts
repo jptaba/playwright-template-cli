@@ -50,6 +50,7 @@ const STYLES = `
   .defect .why {
     border-left: 2px solid var(--warn); background: var(--warn-soft);
     padding: .35rem .7rem; margin: .4rem 0 0; font-size: .85rem; border-radius: 0 4px 4px 0;
+    max-width: 68ch;
   }
   .defect details summary { font-size: .82rem; color: var(--muted); cursor: pointer; margin-top: .4rem; }
   .defect pre { max-height: 20rem; overflow: auto; white-space: pre-wrap; }

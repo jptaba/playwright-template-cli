@@ -447,6 +447,33 @@ export const DASHBOARD_STYLES = `
   p.explain { color: var(--ink-2); font-size: .9rem; margin: .8rem 0 1.1rem; max-width: 68ch; }
   p.explain b { color: var(--ink); font-weight: 620; }
 
+  /*
+     A measure, for every kind of prose rather than two of them.
+
+     The lede and the explanatory paragraph have been set for reading since
+     they were written; nothing else was. Measured at 1280 x 720, Triage's
+     disclosure paragraphs ran at 125 characters a line and Publish's note at
+     125, directly under an explain paragraph running at 76 — the same prose,
+     one set to be read and one not. Somewhere around 75 is where a line stops
+     being scanned and starts being tracked back to, and 68ch lands there for
+     this font.
+
+     Enumerated rather than inferred, because CSS cannot select "an element
+     holding a long run of text". What keeps the list honest is the budget in
+     tests/dashboard/page-measure.spec.ts, which measures the rendered page and
+     names any block that reads wider than it should — the same arrangement as
+     the height budget beside it.
+  */
+  .note, .diag, .error, .status, .empty, details.more .body { max-width: 68ch; }
+  /*
+     A file list and a block of commands are not prose. Both are appended into
+     a status container — the offboarding plan lists every file it would remove
+     in two columns, and the write result ends in a pre of next steps — and a
+     measure narrow enough to read a sentence at wraps a path and puts a
+     command line behind a horizontal scrollbar.
+  */
+  .status:has(ul.files), .status:has(pre) { max-width: none; }
+
   label { display: block; font-weight: 620; margin: 1rem 0 .3rem; font-size: .87rem; }
   label small { font-weight: 400; color: var(--muted); }
   input[type=text], input[type=password], select {
@@ -462,7 +489,8 @@ export const DASHBOARD_STYLES = `
     margin: .55rem 0; font-size: .9rem; font-weight: 400;
   }
   .check input { margin-top: .35rem; }
-  .check span small { display: block; color: var(--muted); }
+  /* The hint under a checkbox is a sentence, and on Runs it is two. */
+  .check span small { display: block; color: var(--muted); max-width: 68ch; }
 
   button {
     margin-top: 1.1rem; padding: .5rem 1rem; border-radius: 5px;

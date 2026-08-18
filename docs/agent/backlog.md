@@ -180,6 +180,15 @@ was — 21 has already deleted the four duplicate pickers it would have had to
 arrange — and the note under it about what 18 actually settled still stands.
 After that, item 20's remaining polish, then item 12 slice 3 and item 17.
 
+**Runs 26 to 29 worked down that list and turned it into three budgets**, which
+is the shape worth noticing rather than any one of the fixes. Height (run 27),
+then two more unbounded queues the height budget found (28), then the measure
+(29). Each was a property of the page that no test had an opinion about, each
+was invisible to a green suite, and each is now a number with a message. **The
+next one is `/runs`, `/users` and `/stories` joining the harness** — see item
+22, which run 29 gave a concrete reason. Then item 20's hover states, then item
+12 slice 3 and item 17.
+
 **Correcting the standing note on Vault, 2026-08-17 (run 21).** It said the
 owner has no Vault to test against. There is no *hosted* one and none is
 needed: `docker run --rm -p 8200:8200 -e VAULT_DEV_ROOT_TOKEN_ID=<token>
@@ -1219,9 +1228,31 @@ What is worth keeping from doing it:
   below 60rem now, and what a jumped-to section has to clear grows with it.
 
 **Still `ready` here** — the polish items below, minus motion, which landed
-inside item 18. Focus and hover states, vertical rhythm and measure, and the
-uneven use of the status tokens are each still worth doing and each still need
-to name what they fix.
+inside item 18, and minus the measure, which shipped in run 29. What is left is
+the uneven use of the status tokens, the spacing scale, and **hover states on
+the buttons**, which run 29 evidenced while it was in there.
+
+**Run 29 measured the two that were stated as one item, and they are not.**
+Driven at 1280×720 against the real repository, reading the computed style of
+every focusable element and every `:hover` rule in the served sheet:
+
+- **Focus is already covered, and this half of the item is a dead end.** Every
+  focusable element on the page carries `outline: 2px solid var(--accent)` from
+  one rule in `tokens.ts`, and the seven that did not match `:focus-visible`
+  turned out to be `display: none` inside a closed disclosure — not focusable
+  at all. The ring is drawn one pixel outside the element, so on the primary
+  button, whose background *is* the accent, it still reads against the surface
+  behind it in both themes. Nothing to fix; recorded so nobody re-checks it.
+- **Hover is a real gap, and it is `ready`.** The whole served stylesheet has
+  five `:hover` rules — `.wordmark`, `nav.rail a`, `.ctx-pick`, `.theme button`
+  and `details.more > summary`. **`button` has none**, in any variant, on any
+  page. So the rail link answers the pointer and the button that actually
+  writes the target does not, which reads as disabled. The fix is three rules
+  and the mix is the interesting part: `color-mix(in srgb, var(--accent) 85%,
+  var(--ink))` moves *toward the ink*, so it darkens in light and lightens in
+  dark without a second block — the direction hover is expected to go in each.
+  Left out of run 29 deliberately: it is a different assertion needing a
+  different home, and one item per run is the rule.
 
 **Half of this is already built, which is the useful finding.**
 `src/support/ui/tokens.ts` ships the full three-state palette — a light `:root`,
@@ -1243,11 +1274,13 @@ That is a small first slice with a visible payoff. The rest of "pretty" needs
 to stay concrete, because the guardrails refuse taste-only refactors — so the
 polish items each name what they fix:
 
-- **Focus and hover states.** A keyboard operator currently cannot always see
-  where they are.
-- **Vertical rhythm and width.** Long explanatory paragraphs run the full
-  column; a measure and consistent spacing scale are what make a dense page
-  feel calm without deleting anything.
+- **Focus and hover states.** Focus is `done` and was already done before this
+  was written; hover is `ready` and is the button. See the run 29 note above.
+- **Vertical rhythm and width.** The measure half is `done` (run 29): six of
+  the seven pages had prose running at 108 to 142 characters a line and now run
+  at 76, and `page-measure.spec.ts` holds that. **The spacing scale is still
+  `ready`** and still needs a stated defect before it is worth doing — nobody
+  has measured it, and "feels calm" is not one.
 - **The reveal wants motion** — `done`, inside item 18. A revealed section
   fades in over .3s, and the stylesheet's blanket
   `prefers-reduced-motion: reduce` rule already neuters it. What is left here
@@ -1355,9 +1388,19 @@ tripwire for a block with no bound, not a design rule, and a tight number is one
 everybody raises.
 
 **`/triage` joined in run 28, and the budget immediately earned its keep** —
-see the item below. **Still `ready` here:** `/users` and `/stories` have no
-harness entry. Both are small (2.6 and 1.9 screens on a real repository) and
-neither has an unbounded list, so they can wait for a reason.
+see the item below. **Still `ready` here:** `/runs`, `/users` and `/stories`
+have no harness entry.
+
+**And run 29 is the reason they should get one.** The measure budget it added
+covers only the three pages the harness serves, so the two worst offenders it
+found had to be found by hand and are still unguarded: `/runs` was reading at
+**142 characters a line** and `/users` at **108**, both worse than anything on
+the three budgeted pages. Both are fixed; neither is held. A page outside the
+harness is a page where every budget on it is a person remembering to look.
+
+`/runs` is the awkward one and worth knowing before starting: its service is
+the `RunManager`, which spawns processes, where `/users` and `/stories` take a
+plain service interface like the three already there.
 
 ### 23. Two more unbounded queues, found by the budget — `done`
 

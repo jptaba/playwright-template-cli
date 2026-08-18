@@ -1872,3 +1872,83 @@ rules; run 13's figures stand.
 and measure, the unevenly-used status tokens. `/users` and `/stories` do not
 need a harness entry yet: 2.6 and 1.9 screens on a real repository and no
 unbounded list in either.
+
+## 2026-08-17 · run 29 · Two elements had a measure and the rest ran the column
+
+**Picked:** item 20's remaining polish — and measured the parts before choosing
+one, because the item names three and states a defect for each without a number
+behind any of them.
+
+**Did:** Gave prose a measure, and put a budget behind it.
+
+- `tokens.ts`: `.note`, `.diag`, `.error`, `.status`, `.empty` and
+  `details.more .body` get `max-width: 68ch`, joining `.lede` and `p.explain`,
+  which were the only two things in the whole stylesheet that had one. Plus
+  `.check span small` — the hint under a checkbox, which on Runs is two
+  sentences.
+- `.status:has(ul.files)` and `.status:has(pre)` opt back out. A status
+  container is where the offboarding plan puts its two-column list of files and
+  where the write result puts its block of next steps, and neither is prose.
+- `.defect .why` on Publish and `.option dd` on Test users are page-local
+  classes and got it in their own page blocks.
+- `tests/dashboard/page-measure.spec.ts` — the budget, at 90 characters — and
+  `tests/dashboard/measure.ts`, which is the measurement, kept separate because
+  the onboarding harness will want it too.
+
+**Measured at 1280×720 against the real repository, widest prose block per
+page:**
+
+| page | before | after |
+|---|---|---|
+| `/runs` | **142** | 76 |
+| `/triage` | **135** | 76 |
+| `/publish` | **128** | 73 |
+| `/cases` | **127** | 73 |
+| `/users` | **108** | 76 |
+| `/onboard` | 85 | 82 |
+| `/stories` | 76 | 76 |
+
+**Verify:** `npm run verify` passes, exit 0 — **848 tests, up from 844.**
+
+**Seen red** by stashing the two page modules and the stylesheet: three of the
+four new tests failed, naming `div.why` at 128, and paragraphs at 127 and 127.
+
+**Learned:**
+
+- **The item bundled a real defect with one that had already been fixed.**
+  "Focus and hover states — a keyboard operator cannot always see where they
+  are" is two claims. Focus is fine and has been all along: one rule in
+  `tokens.ts` puts a 2px accent outline on every focusable element, and the
+  seven that did not match `:focus-visible` when driven were `display: none`
+  inside closed disclosures. Hover is the real one — the served sheet has five
+  `:hover` rules and **not one of them is on `button`**. Recorded as `ready`
+  under item 20 rather than bundled in here.
+- **Define the thing being measured by what it is, not by what is wrong
+  today.** The budget looks for *an element that directly holds a long run of
+  text in a proportional font*, so it catches a paragraph nobody has written
+  yet. A budget listing the classes that were wrong on the day it was written
+  would have been green forever.
+- **Monospace has to be excluded, and it is not a convenience.** Triage renders
+  failure signatures at 135 characters a line and that is correct — a stack, a
+  path and a command want the width they need. A measure is a rule about
+  reading sentences, and the exclusion is what makes it a rule rather than a
+  preference.
+- **`ch` is not a character.** It is the width of a zero, and every other glyph
+  in a proportional face is narrower, so `max-width: 68ch` reads as about 76.
+  Asserting on the CSS value would have been asserting on the wrong number;
+  the test measures the rendered font instead.
+- **The first version of the narrow-window test asserted something false.** It
+  used a 900px viewport to check the cap does not bind on a small screen — but
+  the column is still 780px there, so it correctly did bind. A test that fails
+  because its premise is wrong is the cheap version of that lesson; 420px is
+  the window the assertion was about.
+- **The budget's blind spot is the page list, not the rule.** The two worst
+  numbers on the table above are on pages the harness does not serve, so they
+  were found by hand and are still unheld. Item 22 now says so.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches triage
+rules; run 13's figures stand.
+
+**Next:** `/runs`, `/users` and `/stories` into `pages-harness.ts`, so the two
+budgets cover the pages where the worst of both were found. Then item 20's
+hover states, then item 12 slice 3 and item 17.
