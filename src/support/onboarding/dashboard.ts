@@ -106,6 +106,15 @@ export interface VaultCheckResult {
   /** One sentence for the page. Names the fix when there is one. */
   detail: string;
   /**
+   * That the connection has been kept on this machine, when it has.
+   *
+   * Only a connection proven all the way to the credential is stored: one that
+   * reached Vault but missed the path has not proved its mount, and the check's
+   * own message is already telling somebody to change the mount and try again.
+   * Storing that would be keeping the setting the message says is wrong.
+   */
+  saved?: string;
+  /**
    * The environment the *suite* will read, as exports to paste. The check uses
    * what was typed; a later `npx playwright test` does not see this page, and
    * saying so here is cheaper than a failed run finding out.
@@ -186,6 +195,8 @@ export interface DashboardService {
     /** The credential root, so a local store serves only this target's paths. */
     root: string;
   }): Promise<VaultCheckResult>;
+  /** The Vault this machine last proved a credential against, or null. */
+  storedVaultConnection(): VaultConnection | null;
   /** Which of a plan's files are already on disk. Nothing is ever overwritten. */
   existing(paths: string[]): string[];
   /**
@@ -356,6 +367,14 @@ async function onboardingApi(
         return json(200, {
           applications: service.onboarded(),
           draft: service.readDraft(),
+          /*
+             Which Vault this machine is connected to. Not in the draft: a
+             draft is the half-typed form and is cleared when one is written,
+             and the connection outlives every application onboarded through
+             it. An address is configuration and carries no credential, which
+             is why it may be sent to a page at all.
+          */
+          vault: service.storedVaultConnection(),
         });
 
       case '/api/onboard/draft': {

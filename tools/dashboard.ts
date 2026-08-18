@@ -38,6 +38,10 @@ import type { CredentialLocation } from '../src/support/secrets/locations';
 import { createSecretStore, LocalSecretStore } from '../src/integrations/secrets';
 import { VaultSecretStore, type VaultConnection } from '../src/integrations/vault/vault-store';
 import { findMount } from '../src/support/onboarding/vault-connection';
+import {
+  readStoredVaultConnection,
+  writeStoredVaultConnection,
+} from '../src/support/secrets/vault-config';
 import { casesPageContent } from '../src/support/ui/cases-page';
 import { storiesPageContent } from '../src/support/ui/stories-page';
 import { collectCoverage } from '../src/support/cases/collect';
@@ -212,9 +216,29 @@ async function checkVault(input: {
 
     // The two the `secrets` fixture reads. Present-but-differently-named is the
     // failure this check exists to catch, and it is invisible from "it exists".
+    /*
+       Keep it, now that it has been proved all the way to the credential.
+
+       Everything about this connection is now known to be right — the address
+       reached Vault, the namespace and mount resolved, and the path holds
+       something. That is the moment it is worth writing down, and until it was
+       written down the check printed exports for somebody to paste and the
+       suite still had to be told separately what the tool already knew.
+    */
+    const kept = input.source === 'vault' && input.connection ? input.connection : null;
+    if (kept) writeStoredVaultConnection(kept);
+
     const missing = ['username', 'password'].filter((field) => !described.fields.includes(field));
     return {
       ok: missing.length === 0,
+      ...(kept
+        ? {
+            saved:
+              'Kept on this machine, so a run resolves this Vault without VAULT_ADDR being ' +
+              'exported. The environment still wins where it is set, which is how CI keeps ' +
+              'deciding for itself.',
+          }
+        : {}),
       path: input.path,
       exists: true,
       fields: described.fields,
@@ -844,6 +868,7 @@ const service: DashboardService = {
   probe,
   verify,
   checkVault,
+  storedVaultConnection: readStoredVaultConnection,
   existing,
 
   updateProfile: (target, edits) => {

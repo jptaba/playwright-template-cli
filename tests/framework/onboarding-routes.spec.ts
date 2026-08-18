@@ -50,6 +50,7 @@ function service(overrides: Partial<DashboardService> = {}): DashboardService {
     }),
     verify: async () => ({ ok: true, marker: null, detail: 'Signed in.' }),
     existing: () => [],
+    storedVaultConnection: () => null,
     checkVault: async ({ path }) => ({
       ok: true,
       path,

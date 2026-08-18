@@ -603,6 +603,7 @@ function service(overrides: Partial<DashboardService> = {}): DashboardService {
       detail: 'Signed in.',
     }),
     existing: () => [],
+    storedVaultConnection: () => null,
     checkVault: async ({ path }) => ({
       ok: true,
       path,

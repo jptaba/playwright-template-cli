@@ -53,6 +53,8 @@ export interface Recorder {
   probeResult: Awaited<ReturnType<DashboardService['probe']>>;
   verifyResult: Awaited<ReturnType<DashboardService['verify']>>;
   vaultCheckResult: Awaited<ReturnType<DashboardService['checkVault']>>;
+  /** The Vault this machine is "connected to" — what a reload restores. */
+  storedVault: ReturnType<DashboardService['storedVaultConnection']>;
   assistFinishResult: Awaited<ReturnType<DashboardService['assistFinish']>>;
   removalPlan: ReturnType<DashboardService['planRemoval']>;
   /** Set to make the next call of that path fail, as a real one would. */
@@ -118,6 +120,7 @@ function fakeService(recorder: Recorder, page: () => string): DashboardService {
     probe: async () => recorder.probeResult,
     verify: async () => recorder.verifyResult,
     checkVault: async ({ path }) => ({ ...recorder.vaultCheckResult, path }),
+    storedVaultConnection: () => recorder.storedVault,
     existing: (paths) => paths.filter((path) => recorder.conflicts.includes(path)),
     updateProfile: () => ({
       source: '',
@@ -184,6 +187,8 @@ export const test = base.extend<{ dashboard: Harness }>({
         detail: 'The credential is there and carries username and password.',
         environment: ['VAULT_ADDR=https://vault.shop.test'],
       },
+      /* Nothing connected, which is what a machine that has never checked has. */
+      storedVault: null,
       assistFinishResult: {
         ok: true,
         detail: 'Session captured.',

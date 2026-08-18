@@ -1,6 +1,7 @@
 import { HttpError, JsonClient } from '../http/json-client';
 import { credentialFromEnv } from '../../support/env-credentials';
 import { registerSecret } from '../../support/redact';
+import { readStoredVaultConnection, resolveVaultConnection } from '../../support/secrets/vault-config';
 import {
   SecretNotFoundError,
   SecretStoreUnavailableError,
@@ -83,20 +84,35 @@ export class VaultSecretStore implements SecretStore {
    * cannot read staging credentials even holding a valid token (§16).
    */
   static fromEnvironment(): VaultSecretStore {
-    const address = process.env.VAULT_ADDR ?? process.env.VAULT_SERVER_URL;
-    if (!address) {
+    /*
+       The environment first, then the Vault connected on this machine.
+
+       The precedence is the interesting half and it is not negotiable: CI
+       exports `VAULT_ADDR`, and a file somebody's laptop wrote must never
+       override it. Below that, a connection the dashboard proved is a better
+       answer than a refusal telling somebody to export what they have already
+       told the tool — which is what this used to do, on the one path where the
+       tool already knew.
+    */
+    const resolved = resolveVaultConnection({
+      fromEnvironment: {
+        address: process.env.VAULT_ADDR ?? process.env.VAULT_SERVER_URL,
+        namespace: process.env.VAULT_NAMESPACE,
+        kvMount: process.env.VAULT_KV_MOUNT,
+      },
+      stored: readStoredVaultConnection(),
+    });
+
+    if (!resolved.connection) {
       throw new SecretStoreUnavailableError(
-        'VAULT_ADDR is not set. In CI it comes from the .vault-auth job template; ' +
-          'locally, point it at the Vault your team operates, or set SECRET_SOURCE=local ' +
-          'to run against a target whose credentials are public.',
+        'No Vault is configured. In CI the address comes from the .vault-auth job template; ' +
+          'locally, connect one on the dashboard (npm run onboard, step 3) or export VAULT_ADDR ' +
+          'yourself, or set SECRET_SOURCE=local to run against a target whose credentials are ' +
+          'public.',
       );
     }
 
-    return VaultSecretStore.fromConnection({
-      address,
-      namespace: process.env.VAULT_NAMESPACE,
-      kvMount: process.env.VAULT_KV_MOUNT,
-    });
+    return VaultSecretStore.fromConnection(resolved.connection);
   }
 
   /**

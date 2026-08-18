@@ -2020,3 +2020,88 @@ rules; run 13's figures stand.
 
 **Next:** item 24 — the Runs page, and which of the two treatments it should
 get. Then item 20's hover states, then item 12 slice 3 and item 17.
+
+## 2026-08-17 · run 31 · The cause, and the Vault the tool already knew about
+
+**Picked:** two, at the owner's direction and in their words — item 24 "leaning
+towards the manager", and item 12 slice 3. One run, two commits.
+
+### Item 24 — the Runs page
+
+**Did:** `runsToForget` in `registry.ts`, pure and beside the other run
+decisions, called when a run starts. The map now holds `RETENTION.runs` and
+never forgets a run that is still going, however old it is.
+
+**Why the manager was the right lean**, and it is a better reason than height:
+`pruneRuns` deletes a run's *directory* past the same retention, and the page
+reads its progress out of that directory. A run the map kept past the prune
+renders as a card with no numbers in it, about a run whose every artefact has
+been deleted. The map should not outlive the disk.
+
+Twenty cards is still eight screens, so the layout half followed — the newest
+ten and a button naming the rest, item 23's pattern against a bound rather than
+against nothing. This page redraws off its stream twice a second, so the choice
+lives beside the `expanded` flag and `showFirst` takes a callback.
+
+**Then the budget kept failing at 8.0 screens with the fix in.** The rows were
+hidden and all twenty were still on screen: an author rule setting `display`
+beats the browser's own `[hidden] { display: none }`, and a Runs card is a flex
+column. `tokens.ts` now says what `hidden` means. Triage and Publish escaped it
+only because neither `.cluster` nor `.defect` sets `display` — which is luck,
+not design, and is why the rule is shared rather than local.
+
+### Item 12 slice 3 — keeping the Vault
+
+**Did:** `.vault-connection.json` beside the draft, gitignored, and
+`src/support/secrets/vault-config.ts` holding the decision. `fromEnvironment()`
+now resolves the environment first and the stored connection second, so a run
+resolves a Vault the dashboard proved with nothing exported.
+
+**Written only once the connection has been proved all the way to the
+credential.** One that reached Vault but missed the path has not proved its
+mount, and the check is at that moment telling somebody to change the mount —
+storing it would be keeping the setting the message says is wrong.
+
+**The environment wins whole, not field by field.** A job exporting an address
+for one Vault while a laptop file names a mount in another would compose a
+third connection that is neither, and a mount belonging to the wrong address is
+the exact silent miss run 21 found.
+
+**Proven against a real Vault**, `hashicorp/vault` dev mode, run 21's recipe:
+
+```
+STORED   {"address":"http://127.0.0.1:8200","kvMount":"secret"}
+DESCRIBE {"exists":true,"fields":["password","username"],"version":1}
+READ     username=standard_user password.length=12
+ENV WON  Vault: GET kv/data/... did not complete   (VAULT_ADDR at a dead port)
+```
+
+The first three with `VAULT_ADDR` and `VAULT_KV_MOUNT` unset — the hand-edit
+this slice existed to remove. The fourth is the precedence seen rather than
+reasoned about: pointed at a port nothing is on, it failed against *that*
+rather than falling back to the file that was right. Container, file and both
+scripts removed afterwards.
+
+**Verify:** `npm run verify` passes, exit 0 — **867 tests, up from 854.**
+
+**Learned:**
+
+- **The cause fix and the symptom fix were both needed, and saying which is
+  which mattered.** The layout alone would have left cards describing deleted
+  runs; the manager alone would have left eight screens. The backlog framed
+  them as alternatives and they were not.
+- **A test that optional-chains a function it is not sure exists passes without
+  testing anything.** The guard against a reload overwriting a half-typed
+  address called `window.loadState?.()`. It now asserts the function was there
+  and ran, which is one line and the difference between a test and a shape.
+- **Refuse a credential on the way in from the file, not only from the page.**
+  The route has refused `token`, `secretId`, `password` and `jwt` since slice 1.
+  A file is the other door, and a hand-edited one is exactly where a token ends
+  up if it is tolerated anywhere.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches triage
+rules; run 13's figures stand.
+
+**Next:** item 20's hover states — evidenced in run 29, three rules, and the
+`color-mix` toward `--ink` that gets the direction right in both themes. Then
+item 17, then `/stories` into the harness.

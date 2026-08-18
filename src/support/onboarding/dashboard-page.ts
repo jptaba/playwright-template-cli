@@ -852,6 +852,20 @@ async function loadState(keepSelection) {
   applications = state.applications || [];
   draft = state.draft || draft;
 
+  /*
+     Which Vault this machine is connected to, back in the fields it was typed
+     into. It is not part of the draft, and the difference matters: a draft is
+     the half-typed form and is cleared once an application is written, while
+     the connection is a property of the machine and outlives every application
+     onboarded through it. Only ever filled in, never blanked — a reload must
+     not wipe an address somebody is halfway through typing.
+  */
+  if (state.vault && state.vault.address && !$('vaultAddr').value) {
+    $('vaultAddr').value = state.vault.address;
+    $('vaultNamespace').value = state.vault.namespace || '';
+    $('vaultMount').value = state.vault.kvMount || '';
+  }
+
   const select = $('pick');
   const wanted = keepSelection ? select.value : null;
   select.replaceChildren();
@@ -1648,13 +1662,20 @@ $('vaultCheck').onclick = async () => {
         (result.origin ? ' — from ' + result.origin : '')));
     }
     /*
-       The suite does not read this page. It resolves Vault from the
-       environment, so a connection proven here is worth nothing to
-       setup:auth unless the same values are exported — and finding that
-       out from a failed run is the expensive way.
+       Kept, and then what is still worth saying.
+
+       The suite used to read nothing from this page: it resolved Vault from
+       the environment, so a connection proven here was worth nothing to
+       setup:auth unless the same values were exported by hand. A proven
+       connection is now written down and the suite reads it, so what is left
+       to say is the case the file cannot cover — CI, and anybody else's
+       machine, where the environment is still the answer and still wins.
     */
+    if (result.saved) status.append(el('div', 'found', result.saved));
     if (result.environment.length) {
-      status.append(el('div', 'fix', 'The suite reads these from the environment:'));
+      status.append(el('div', 'fix', result.saved
+        ? 'Somewhere with no such file — CI, or a colleague — the same connection is:'
+        : 'The suite reads these from the environment:'));
       const exports = el('pre');
       exports.textContent = result.environment.join('\\n');
       status.append(exports);

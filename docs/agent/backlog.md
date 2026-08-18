@@ -189,9 +189,17 @@ was invisible to a green suite, and each is now a number with a message.
 **Run 30 put `/runs` and `/users` behind both budgets**, and the height budget
 found a fifth unbounded list the minute Test users joined it — 14.1 screens of
 accounts above the form somebody came to use. Five of the seven pages are now
-held by a number. **Next is item 24**, the Runs page growing for as long as the
-dashboard is open, which run 30 measured and left for a decision rather than a
-reflex. Then item 20's hover states, then item 12 slice 3 and item 17.
+held by a number.
+
+**Run 31 shipped item 24 and item 12 slice 3**, at the owner's direction and
+together. Item 24 went the way the owner leant — the manager, which was the
+cause — and the layout followed because twenty cards is still eight screens.
+Item 12 is now `done` in full: a Vault connected on the dashboard is kept, and
+a run resolves it with nothing exported.
+
+**What is `ready` now:** item 20's hover states (evidenced, three rules), item
+17 (small), item 22's last page (`/stories`), and item 19b. Nothing in the file
+is blocked.
 
 **Correcting the standing note on Vault, 2026-08-17 (run 21).** It said the
 owner has no Vault to test against. There is no *hosted* one and none is
@@ -1413,7 +1421,34 @@ measured defect nor an unbounded list — 76 characters and 1.9 screens on a rea
 repository — and its `AuthoringService` is the heaviest of the three fakes,
 needing a case-author model. It can keep waiting for a reason.
 
-### 24. The Runs page grows for as long as the dashboard is open — `ready`
+### 24. The Runs page grows for as long as the dashboard is open — `done`
+
+**Shipped in run 31**, both halves, and the owner picked the lean: the manager.
+
+`runsToForget` in `registry.ts` — pure, beside the rest of the run decisions —
+forgets the oldest runs past `RETENTION.runs` when a new one starts, and never
+forgets one that is still going however old it is. **The reason it is the
+manager and not only the layout:** `pruneRuns` deletes a run's *directory* past
+the same retention and the page reads progress out of that directory, so a run
+held past the prune renders as a card with no numbers, about a run whose every
+artefact has been deleted. The map should not outlive the disk.
+
+Twenty cards is still eight screens, so the layout half followed: the newest
+ten, and a button naming the rest. Item 23's pattern, now against a bound. This
+page redraws off its stream twice a second, so the choice lives beside the
+`expanded` flag and `showFirst` takes a callback to set it.
+
+**Found on the way, and it is the thing worth carrying:** an element with the
+`hidden` attribute stayed on screen. Any author rule setting `display` beats
+the browser's own `[hidden] { display: none }`, and a Runs card is a flex
+column — so ten rows were hidden and all twenty were still visible, and the
+budget still read eight screens with the fix supposedly in. `tokens.ts` now
+says what `hidden` means. Triage and Publish were unaffected only because
+neither `.cluster` nor `.defect` sets `display`.
+
+The original item follows.
+
+### 24b. The original item — `done`
 
 Measured in run 30, in the harness, at 1280x720:
 

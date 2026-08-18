@@ -403,18 +403,73 @@ test.describe('your Vault', () => {
     expect(dashboard.lastCall('/api/vault/check')!.path).toBe('qa/shop/pools/workforce/standard/1');
   });
 
-  test('reports the fields it found, and what the suite still needs exported', async ({
+  test('reports the fields it found, and that the connection has been kept', async ({
     dashboard,
   }) => {
-    // The suite does not read this page — it resolves Vault from the
-    // environment — so a connection proven here is worth nothing to setup:auth
-    // unless the same values are exported.
+    /*
+       This used to end at "and here are the exports the suite needs", which was
+       honest and was not the same as being configured. A proven connection is
+       now written down and the suite reads it, so the exports are what is left
+       for the place a file cannot reach — CI, and anybody else's machine.
+    */
     const { page } = dashboard;
+    dashboard.recorder.vaultCheckResult = {
+      ...dashboard.recorder.vaultCheckResult,
+      saved: 'Kept on this machine, so a run resolves this Vault without VAULT_ADDR being exported.',
+    };
     await atStep3(dashboard);
     await page.click('#vaultCheck');
 
     await expect(page.locator('#vaultStatus')).toContainText('username, password');
+    await expect(page.locator('#vaultStatus')).toContainText('Kept on this machine');
+    await expect(page.locator('#vaultStatus')).toContainText('CI, or a colleague');
     await expect(page.locator('#vaultStatus pre')).toContainText('VAULT_ADDR=');
+  });
+
+  test('a connection this machine already made is in the fields on arrival', async ({
+    dashboard,
+  }) => {
+    /*
+       The reload that used to lose it. The connection is not part of the
+       draft — a draft is the half-typed form and is cleared once something is
+       written, while which Vault this machine talks to outlives every
+       application onboarded through it.
+    */
+    const { page } = dashboard;
+    dashboard.recorder.storedVault = {
+      address: 'https://vault.shop.test',
+      namespace: 'team-qa',
+      kvMount: 'secret',
+    };
+    await dashboard.reopen();
+
+    await expect(page.locator('#vaultAddr')).toHaveValue('https://vault.shop.test');
+    await expect(page.locator('#vaultNamespace')).toHaveValue('team-qa');
+    await expect(page.locator('#vaultMount')).toHaveValue('secret');
+  });
+
+  test('and it never overwrites an address somebody is halfway through typing', async ({
+    dashboard,
+  }) => {
+    const { page } = dashboard;
+    dashboard.recorder.storedVault = { address: 'https://vault.shop.test' };
+    await atStep3(dashboard);
+    await page.fill('#vaultAddr', 'https://other.vault.test');
+
+    /*
+       The page reloads its own state after several actions, and that reload is
+       what has to leave the field alone. Asserted rather than assumed: a test
+       that optional-chains a function that is not there passes without ever
+       exercising the guard it was written for.
+    */
+    const reloaded = await page.evaluate(async () => {
+      const load = (window as unknown as { loadState?: (keep: boolean) => Promise<void> }).loadState;
+      if (!load) return false;
+      await load(true);
+      return true;
+    });
+    expect(reloaded, 'the page never reloaded its state').toBe(true);
+    await expect(page.locator('#vaultAddr')).toHaveValue('https://other.vault.test');
   });
 
   test('a credential that is there but wrongly named says so', async ({ dashboard }) => {

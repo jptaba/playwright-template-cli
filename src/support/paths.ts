@@ -77,3 +77,13 @@ export const CASES_DIR = repoPath('cases');
 export const STORIES_DIR = repoPath('stories');
 export const REPORT_OUT_DIR = repoPath('report-out');
 export const RESULTS_DIR = repoPath('results');
+
+/**
+ * Which Vault this machine is connected to, written by the dashboard.
+ *
+ * Beside the draft and the stored selection, and gitignored for the same
+ * reason: an address is configuration, and *whose* Vault is a property of the
+ * machine rather than of the application under test. `config/targets/` stays
+ * free of anything machine-specific, which is the rule that decided this.
+ */
+export const VAULT_CONNECTION_PATH = repoPath('.vault-connection.json');

@@ -56,3 +56,9 @@ Thumbs.db
 # config/secrets.local.json is tracked and is only for logins a vendor already
 # publishes; anything real goes here and takes precedence over it.
 config/secrets.private.json
+
+# Which Vault this machine is connected to, written by the dashboard once a
+# connection has been proved. An address, a namespace and a mount — never a
+# credential, which is why it can be written down at all. Whose Vault it is
+# describes the machine, not the application, so it is not in config/targets/.
+.vault-connection.json
