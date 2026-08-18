@@ -58,7 +58,15 @@ const RUN: RunResult = {
     trigger: null,
     status: 'failed',
   },
-  totals: { total: 3, passed: 1, failed: 2, flaky: 0, skipped: 0, byKind: {} as RunResult['totals']['byKind'] },
+  totals: {
+    total: 3,
+    passed: 1,
+    failed: 2,
+    flaky: 0,
+    skipped: 0,
+    expectedFailures: 0,
+    byKind: {} as RunResult['totals']['byKind'],
+  },
   capabilities: [],
   tests: [
     failing('t1', '5101', 'Request failed with HTTP 500 on POST /orders'),

@@ -37,7 +37,15 @@ export interface LiveFailure {
 export interface LiveTargetResult {
   target: string;
   status: 'passed' | 'failed' | 'not-run';
-  totals: { total: number; passed: number; failed: number; flaky: number; skipped: number };
+  totals: {
+    total: number;
+    passed: number;
+    failed: number;
+    flaky: number;
+    skipped: number;
+    /** Known failures a spec declared with `test.fail()`. Reported, never hidden. */
+    expectedFailures: number;
+  };
   failures: LiveFailure[];
   /** Why nothing ran, when status is `not-run`. */
   reason: string | null;
@@ -85,6 +93,7 @@ export function summariseLiveRun(target: string, run: RunResult): LiveTargetResu
       failed: run.totals.failed,
       flaky: run.totals.flaky,
       skipped: run.totals.skipped,
+      expectedFailures: run.totals.expectedFailures ?? 0,
     },
     failures,
     reason: null,
@@ -96,7 +105,7 @@ export function liveRunNotRun(target: string, reason: string): LiveTargetResult 
   return {
     target,
     status: 'not-run',
-    totals: { total: 0, passed: 0, failed: 0, flaky: 0, skipped: 0 },
+    totals: { total: 0, passed: 0, failed: 0, flaky: 0, skipped: 0, expectedFailures: 0 },
     failures: [],
     reason,
   };
@@ -142,6 +151,11 @@ export function formatLiveReport(results: LiveTargetResult[]): string[] {
         : `${totals.passed}/${totals.total} passed` +
           (totals.failed > 0 ? ` · ${totals.failed} failed` : '') +
           (totals.flaky > 0 ? ` · ${totals.flaky} flaky` : '') +
+          // Inside `passed`, and said out loud anyway: a suite quietly
+          // accumulating known failures should not read as perfectly green.
+          (totals.expectedFailures > 0
+            ? ` · ${totals.expectedFailures} known failure(s)`
+            : '') +
           (totals.skipped > 0 ? ` · ${totals.skipped} skipped` : '');
     lines.push(`  ${symbol[result.status]} ${result.target} — ${counts}`);
 

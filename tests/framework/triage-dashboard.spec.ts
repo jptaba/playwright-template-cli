@@ -136,6 +136,7 @@ const RUN: RunResult = {
     failed: 6,
     flaky: 1,
     skipped: 0,
+    expectedFailures: 0,
     byKind: {} as RunResult['totals']['byKind'],
   },
   capabilities: [],

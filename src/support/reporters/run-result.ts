@@ -78,6 +78,19 @@ export interface KindTotals {
   failed: number;
   flaky: number;
   skipped: number;
+  /**
+   * Tests that failed and were *supposed* to — a `test.fail()` marking a known
+   * provider or application defect.
+   *
+   * Counted inside `passed` as well, because an expected failure is not an
+   * unexpected one and the run's verdict should not turn red for it. Counted
+   * separately because otherwise it is invisible: a suite could accumulate a
+   * dozen `test.fail()` markers and read as perfectly green, which is the
+   * same silent zero this model refuses everywhere else. `flaky` exists for
+   * exactly this reason — "green only after retries is not green" — and this
+   * is the same claim about a different kind of not-quite-green.
+   */
+  expectedFailures: number;
 }
 
 export interface CapabilityNote {
@@ -109,7 +122,7 @@ export interface RunResult {
 }
 
 export function emptyTotals(): KindTotals {
-  return { total: 0, passed: 0, failed: 0, flaky: 0, skipped: 0 };
+  return { total: 0, passed: 0, failed: 0, flaky: 0, skipped: 0, expectedFailures: 0 };
 }
 
 export function tally(records: TestRecord[]): KindTotals & { byKind: Record<TestKind, KindTotals> } {
@@ -126,8 +139,14 @@ export function tally(records: TestRecord[]): KindTotals & { byKind: Record<Test
   for (const record of records) {
     for (const bucket of [overall, byKind[record.kind]]) {
       bucket.total++;
-      if (record.outcome === 'expected') bucket.passed++;
-      else if (record.outcome === 'unexpected') bucket.failed++;
+      if (record.outcome === 'expected') {
+        bucket.passed++;
+        // A `test.fail()` that duly failed. Counted as passed, because an
+        // expected failure is not an unexpected one — and counted *again*
+        // here, because six passed and six did not is the silent zero this
+        // model objects to everywhere else.
+        if (record.status === 'failed' || record.status === 'timedOut') bucket.expectedFailures++;
+      } else if (record.outcome === 'unexpected') bucket.failed++;
       else if (record.outcome === 'flaky') bucket.flaky++;
       else bucket.skipped++;
     }

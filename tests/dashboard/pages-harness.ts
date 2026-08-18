@@ -122,6 +122,7 @@ function aRun(unannotated: number, failures = 0): RunResult {
       failed: failures,
       flaky: 0,
       skipped: 0,
+      expectedFailures: 0,
       byKind: {} as RunResult['totals']['byKind'],
     },
     capabilities: [],

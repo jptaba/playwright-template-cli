@@ -54,6 +54,36 @@ test.describe('the run model', () => {
     expect(run.totals).toMatchObject({ total: 5, passed: 2, failed: 1, flaky: 1, skipped: 1 });
   });
 
+  test('a test that failed on purpose is counted as passed and said out loud', () => {
+    /*
+       `test.fail()` marks a known provider or application defect. Playwright
+       reports it as outcome `expected` with status `failed`, and counting it
+       inside `passed` is right — an expected failure is not an unexpected one
+       and the run's verdict should not turn red for it.
+
+       Counting it *only* there is the problem. A suite could accumulate a
+       dozen of these and read as perfectly green, which is the silent zero
+       this model refuses everywhere else — the same argument `flaky` already
+       exists for. Found when toolshop's contract suite reported
+       `{ total: 6, passed: 6, failed: 0 }` for a run in which one spec
+       genuinely did not conform.
+    */
+    const base = fixtureRun().tests[0]!;
+    const totals = tally([
+      { ...base, id: 'ok', outcome: 'expected', status: 'passed' },
+      { ...base, id: 'known', outcome: 'expected', status: 'failed' },
+    ]);
+
+    expect(totals.passed, 'the verdict does not turn red for a declared failure').toBe(2);
+    expect(totals.failed).toBe(0);
+    expect(totals.expectedFailures, 'and it is still visible').toBe(1);
+  });
+
+  test('a run with nothing declared failing reports zero of them', () => {
+    // The counterweight: this must not start counting ordinary passes.
+    expect(tally(fixtureRun().tests).expectedFailures).toBe(0);
+  });
+
   test('reports pass rate and flake rate as rates over executed tests', () => {
     const totals = tally(fixtureRun().tests);
     // 4 executed (1 skipped): 2 passed + 1 flaky = 3/4.
