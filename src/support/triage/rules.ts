@@ -61,6 +61,18 @@ const TRANSPORT_ERROR =
 const AUTH_ERROR =
   /(\bauth\b|authentication|unauthori[sz]ed|sign ?in|log ?in|\b401\b|\b403\b|storage ?state)/i;
 
+/**
+ * An account the application will not let anybody into, however correct the
+ * credential is.
+ *
+ * Both vocabularies again: the words applications print ("account locked",
+ * "too many failed attempts", "account disabled", "suspended") and the status
+ * code that carries it, `423 Locked`. `\b423\b` alone would match a duration
+ * or an id, so it is anchored to the word applications put beside it.
+ */
+const ACCOUNT_LOCKED =
+  /(account (is )?(locked|disabled|suspended|blocked)|too many failed attempts|locked out|\b423 Locked\b|HTTP 423\b)/i;
+
 const errorText = (tests: TestRecord[]): string =>
   tests.map((test) => `${test.error?.message ?? ''} ${test.error?.stack ?? ''}`).join('\n');
 
@@ -71,6 +83,44 @@ const errorText = (tests: TestRecord[]): string =>
  * inference, and inference must never pre-empt evidence.
  */
 export const RULES: TriageRule[] = [
+  /**
+   * A locked or disabled account → the environment, and a person.
+   *
+   * **First, because it is the most specific and the most misdiagnosed.** A
+   * lockout looks like every other auth failure from a stack trace, and it is
+   * the one with a completely different remedy: no credential is wrong, no
+   * locator has drifted, and no amount of re-running will clear it. Only an
+   * administrator can.
+   *
+   * It cost three runs of the improvement loop to find once. The suite
+   * reported "sign-in did not establish a session" while the application was
+   * answering HTTP 423 and saying *"Account locked, too many failed attempts.
+   * Please contact the administrator."* on screen — so the investigation went
+   * to worker partitioning and locators instead of to the one line that
+   * mattered.
+   *
+   * Deliberately matches the *message*, not a status code: a UI suite sees the
+   * banner text and never the response, and an API suite sees both.
+   */
+  rule('account-locked', (cluster, { tests }) => {
+    const text = errorText(tests);
+    if (!ACCOUNT_LOCKED.test(text)) return null;
+    return verdict(cluster, 'account-locked', {
+      category: 'environment-config',
+      confidence: 'high',
+      summary: 'A test account is locked or disabled — re-running will not clear it',
+      evidence: [
+        matched(text, ACCOUNT_LOCKED),
+        `${cluster.size} test(s) share this signature`,
+        'Only an administrator of the application can restore the account.',
+      ],
+      recommendedAction: 'escalate',
+      suggestedOwner: 'platform',
+      // A person has to unlock it, and no rule should imply otherwise.
+      needsHumanReview: true,
+    });
+  }),
+
   /**
    * DNS, connection and TLS failures → network or environment, never one
    * ticket per test.

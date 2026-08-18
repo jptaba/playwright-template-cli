@@ -16,6 +16,7 @@ import { VaultAccountPool, type AccountLease } from '../integrations/vault/accou
 import { VaultSecretStore } from '../integrations/vault/vault-store';
 import { registerSecretPayload } from '../support/redact';
 import { accountForWorker, poolSizeFor, storageStatePath } from '../support/paths';
+import { acquireAccount, candidatesFor, type HeldAccount } from '../support/account-lock';
 import { attachLiveView, liveViewFromEnv } from '../integrations/live-view/screencast';
 
 /**
@@ -180,6 +181,15 @@ export interface FrameworkTestFixtures {
    * findings; the spec decides what counts as a failure.
    */
   a11y: A11yScanner;
+  /**
+   * Which account in the role's pool this test holds.
+   *
+   * Leased with a wait where the target keeps server-side state, so two
+   * concurrent consumers are never handed one identity. Exposed because a spec
+   * that creates data occasionally needs to say which account it created it
+   * under.
+   */
+  accountSlot: number;
 }
 
 const RUN_ID = process.env.RUN_ID ?? `local-${Date.now().toString(36)}`;
@@ -267,6 +277,7 @@ export const test = base.extend<
   accounts: [
     async ({ secretStore, secrets, target, run }, use) => {
       const held = new Map<string, LeasedAccount>();
+      const locks: HeldAccount[] = [];
       const { root, accountType } = target.credentials;
 
       // Leasing needs compare-and-swap, which only the Vault store provides.
@@ -300,20 +311,27 @@ export const test = base.extend<
             };
           } else {
             /*
-               A static pool, partitioned. Leasing needs Vault's
-               compare-and-swap; this needs nothing at all, because the worker
-               slot already partitions the run — which is why it is the answer
-               for a target whose credentials live in a local store.
+               A static pool, leased with a file lock rather than partitioned
+               by arithmetic. Vault's compare-and-swap is not available here,
+               and modulo is not a substitute: it hands the same identity to
+               two consumers that cannot see each other and tells neither.
 
-               `parallelIndex`, never `workerIndex`: only the former is bounded
-               by the worker count, and the difference is a real collision
-               rather than a tidiness point. See `RunContext.parallelIndex`.
+               Worker-scoped, like the Vault path above and for the same
+               stated reason — one login and one identity for the whole worker.
+               `accountSlot` is the test-scoped equivalent that `storageState`
+               uses; this fixture cannot depend on it, being worker-scoped.
             */
-            const index = accountForWorker(
-              run.parallelIndex,
-              poolSizeFor(target.credentials.poolSize, role),
-              target.credentials.authFlowAccount,
-            );
+            const lock = await acquireAccount({
+              target: target.name,
+              role,
+              candidates: candidatesFor(
+                poolSizeFor(target.credentials.poolSize, role),
+                target.credentials.authFlowAccount,
+              ),
+              holder: `${run.runId}/w${run.workerIndex}`,
+            });
+            locks.push(lock);
+            const index = lock.index;
             const payload = await secrets.account(role, index);
             account = {
               role,
@@ -336,6 +354,10 @@ export const test = base.extend<
           // A failed release must not fail a run. The TTL reclaims it.
         }
       }
+      // File locks release last and unconditionally: one left behind blocks
+      // the account for the whole stale window, which is the pool getting
+      // smaller for reasons nobody can see.
+      for (const lock of locks) lock.release();
     },
     { scope: 'worker' },
   ],
@@ -399,20 +421,52 @@ export const test = base.extend<
    * lets a spec select a role with `test.use({ role: 'approver' })` while the
    * built-in context, tracing and video capture keep working unchanged.
    */
-  storageState: async ({ role, target, run }, use) => {
+  /**
+   * The account this test holds, and the whole reason it is *this* one.
+   *
+   * Leased with a cross-process lock and a wait, rather than derived from the
+   * worker slot: `e2e`, `a11y` and `auth-flows` run concurrently and each has
+   * its own slot 0, so modulo arithmetic hands the same identity to consumers
+   * that cannot see each other. A test now waits for a free account instead of
+   * silently sharing a busy one.
+   *
+   * Test-scoped on purpose. Holding for a whole worker would make one project
+   * wait out another project's entire test list; holding for a test means the
+   * wait is seconds.
+   *
+   * Only leased where identity actually matters — a role is set and the target
+   * keeps state on the server. A client-side-state application has nothing for
+   * two sessions to corrupt, and locking it would serialise a suite for no
+   * benefit.
+   */
+  accountSlot: async ({ role, target, run }, use) => {
+    const poolSize = poolSizeFor(target.credentials.poolSize, role);
+    if (!role || !target.capabilities.serverState) {
+      await use(accountForWorker(run.parallelIndex, poolSize, target.credentials.authFlowAccount));
+      return;
+    }
+
+    const held = await acquireAccount({
+      target: target.name,
+      role,
+      candidates: candidatesFor(poolSize, target.credentials.authFlowAccount),
+      holder: `${run.runId}/w${run.workerIndex}`,
+    });
+    try {
+      await use(held.index);
+    } finally {
+      held.release();
+    }
+  },
+
+  storageState: async ({ role, target, accountSlot }, use) => {
     /*
-       The session for *this worker's* account, not "the session for the role".
-       With a pool of several accounts per role, one file per role would hand
-       every worker the first account's cookies whatever account it was
-       allocated — and the suite would look partitioned while sharing one
-       identity, which is the failure mode partitioning exists to remove.
+       The session for the account *this test leased*, not "the session for the
+       role". With a pool of several accounts per role, one file per role would
+       hand every consumer the first account's cookies whatever account it was
+       given — partitioned in name, sharing an identity in fact.
     */
-    const index = accountForWorker(
-      run.parallelIndex,
-      poolSizeFor(target.credentials.poolSize, role),
-      target.credentials.authFlowAccount,
-    );
-    await use(role ? storageStatePath(role, target.name, index) : undefined);
+    await use(role ? storageStatePath(role, target.name, accountSlot) : undefined);
   },
 
   contracts: async ({ target }, use) => {

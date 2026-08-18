@@ -8,7 +8,7 @@
 > - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
 >   end-to-end coverage programme, with its own per-application state.
 > - **This file** — the working agreement below, which is still binding, plus an
->   archive of the 39 items already shipped. Read it for *why* a thing was done.
+>   archive of the 41 items already shipped. Read it for *why* a thing was done.
 >
 > Split on 2026-08-18: this file had passed 1,900 lines, and the four items that
 > were actually open were scattered through it. A run that has to read an
@@ -2365,3 +2365,73 @@ reading the code and pinned by unit tests, and a fix whose benefit cannot be
 demonstrated against a noisy baseline is still a fix. But it cost a worker and
 bought no visible stability, and any future run reading "item 37 shipped"
 should not conclude the live flakiness was addressed.
+
+### 39. A test waits for a free account instead of quietly sharing one — `done`
+
+Shipped on `agent/2026-08-18-account-leases` (run 46), at the owner's
+instruction: *"if the test needs that pool user and turns out it only has one
+and currently used, it should wait until its freed up, same for the subsequent
+tests."*
+
+**This is what `accountForWorker` could never do.** Modulo arithmetic maps a
+slot onto an account and returns instantly, so the moment there are more
+consumers than accounts two of them are handed one identity and neither is
+told. Consumers are not only workers — `e2e`, `a11y` and `auth-flows` run
+concurrently and each has its own slot 0 — which is why items 30, 36 and 37 all
+found real defects and none of them made the collision impossible.
+
+`src/support/account-lock.ts` takes a lock per account with `open(…, 'wx')`,
+which is atomic and is therefore the whole of the mutual exclusion. Playwright
+workers are separate processes, so nothing in memory could have coordinated
+them. A consumer that finds every account busy **waits** and retries, and fails
+with the pool's own numbers rather than hanging forever.
+
+**Test-scoped, deliberately.** Holding for a whole worker would make one
+project wait out another project's entire test list; holding for a test makes
+the wait seconds. `accountSlot` is the new fixture, and `storageState` reads it
+so a test's session is the account it actually holds. The worker-scoped
+`accounts.lease` path takes its own lock, matching the Vault pool's own
+worker-scoped semantics.
+
+Leasing applies only where identity matters — a role is set and
+`serverState: true`. A client-side-state application has nothing for two
+sessions to corrupt, and locking it would serialise a suite for no benefit.
+`setup:auth` runs with `role: ''` and therefore never leases, which is
+essential: it needs *every* account, not one.
+
+**Stale locks are reclaimed**, because Ctrl-C and CI timeouts leave files
+nobody will delete. A live process on this machine keeps its lock however old
+it is — a long test is not an abandoned one — so age alone is trusted only for
+a holder this machine cannot ask about. Corrupt lock files are reclaimed too,
+rather than blocking a pool forever.
+
+### 40. The sign-in error banner had no accessible role, and the message lied — reverted, see item 41
+
+**Not shipped, and the reason is the more valuable half.** The fix was made in
+the toolshop pack and the owner corrected it mid-run: troubleshooting fixes go
+in the application-agnostic framework, never in a target artifact. Reverted.
+The diagnosis below stands and is now item 41, framed at the mechanism.
+
+`signInLocators.error` was `getByRole('alert')` and matched **nothing**. So
+`readError` returned null and `auth.setup.ts` reported:
+
+> The form reported no error, so the credential was accepted but no session
+> marker appeared — check the signed-in locator rather than the credential.
+
+Every clause of that was wrong, and it sent **three runs of this loop** (items
+30, 36, 37) investigating worker partitioning and locators while the
+application was saying, on screen, *"Account locked, too many failed attempts.
+Please contact the administrator."*
+
+Read off the running page rather than guessed: the banner is
+`div.alert.alert-danger[data-test="login-error"]` and carries **no `role`
+attribute at all**, so there was no accessible role for `getByRole` to find.
+That is a real defect in the application — an error a screen reader is never
+told about — but it is the vendor's, and the test id is the honest locator
+until they fix it.
+
+Fixing that one locator would have taken a minute and taught the framework
+nothing: the scaffolder would still emit `getByRole('alert')` for the next
+application, `target:doctor` would still not preflight it, and triage would
+still have had no rule for a lockout. The triage rule shipped in this run;
+the scaffold and the preflight are item 41.

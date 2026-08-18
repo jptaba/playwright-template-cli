@@ -3347,3 +3347,107 @@ standing up an owned toolshop deployment actually makes the suite green, and it
 has a real cost. Until that is decided, `suites:live` will keep reporting red
 for reasons no change in this repository can fix — which is precisely how a
 measurement gets ignored. Item 11 remains a standing objective.
+
+## 2026-08-18 · run 46 · The application was saying it plainly and nobody could hear it
+
+**Picked:** the owner's two instructions, taken in order.
+
+**One — a defect in the application stays failing.** Written into
+`docs/CONVENTIONS.md` as its own section and regenerated into the three
+instruction files. It draws the line the last three runs kept walking past: a
+defect in the application is *reported and left red*, and contention this suite
+creates is ours and must be fixed here. The cheap way to tell them apart is
+also written down — run the failing thing with nothing else running, and if it
+still fails no change in this repository will honestly fix it. Provider drift
+stays the one recorded exception, because a `ContractWaiver` is a decision with
+a review date rather than a deleted assertion.
+
+**Two — a test waits for a free account.** `src/support/account-lock.ts`
+leases per account with `open(…, 'wx')`, which is atomic and is therefore the
+whole of the mutual exclusion; Playwright workers are separate processes so
+nothing in memory could have coordinated them. Test-scoped, because holding for
+a worker would make one project wait out another project's whole test list.
+`setup:auth` runs with `role: ''` and never leases, which is essential — it
+needs every account, not one. Stale locks are reclaimed on a dead holder;
+a live process keeps its lock however old, because a long test is not an
+abandoned one.
+
+**And then the finding that matters, which neither instruction predicted.**
+Three live runs failed identically at `setup:auth`, and I had already written
+in run 45 that the deployment was "unstable". Asking the application directly
+rather than inferring from a spec:
+
+```
+POST /users/login  ->  HTTP 423   ×4
+{"error":"Account locked, too many failed attempts. Please contact the administrator."}
+```
+
+`customer@practicesoftwaretesting.com` is **locked**. Not flaky. The "1 failure
+in 4" I measured in run 45 was this account entering lockout.
+
+**The framework had been actively lying about it.** `signInLocators.error` is
+`getByRole('alert')` and matches nothing, so `readError` returns null and
+`auth.setup.ts` reports *"the form reported no error, so the credential was
+accepted but no session marker appeared — check the signed-in locator rather
+than the credential"*. Every clause false. Driving the live page: the banner is
+`div.alert.alert-danger[data-test="login-error"]` with **no `role` attribute at
+all**, so there is no accessible role to find.
+
+**I fixed that in the toolshop pack, and the owner corrected it mid-run:**
+
+> Do not ever make the fixes directly into the test applications scripts, docs
+> or tests. … It should always start from framework, onboarding, etc. This
+> includes the ability to preflight healing and triage these type of issues.
+
+The hand-edit was reverted. It was the wrong fix for exactly the stated reason:
+a target pack is an *output*, and editing it would have fixed one application
+while leaving the scaffolder emitting the same guess for the next one, the
+doctor still not preflighting it, and triage still with no rule for a lockout.
+Written into `docs/CONVENTIONS.md` as its own section, with the table of
+"symptom in a pack → mechanism that produced it", and regenerated into the
+three instruction files.
+
+**What shipped instead is framework-side:** an `account-locked` triage rule,
+first in the list because a lockout is the most misdiagnosed auth failure and
+the one where re-running cannot help. It matches both vocabularies — the banner
+text an application prints and the `423` an API answers — is ordered above the
+generic `all-failed-at-auth` rule whose remedy is different, and carries
+`needsHumanReview: true` because only an administrator can clear it.
+
+**And it does not yet fire on toolshop, which is the honest state.** The rule
+reads the failure message, and the message never contains the lockout text —
+because the only path to that text is the per-target locator the scaffolder
+guessed wrong. Raised as item 41: the framework cannot currently see what the
+application said at sign-in, and that is the mechanism to fix.
+
+**Verify:** `npm run verify` passes, exit 0 — **955 tests**, up from 945.
+
+**Live suites (step 5):** parabank 3/3, saucedemo 2/2, **toolshop 13/20 with 6
+skipped** — and that red is correct and stays. The six e2e specs cannot run
+without a session, and per the owner's instruction the suite does not get
+tailored around a locked vendor account.
+
+**Learned:**
+
+- **Three runs chased contention because a locator was lying.** Items 30, 36
+  and 37 each found a real defect in the account pool and each was landed
+  honestly — and none of them was the cause, because the cause was on screen in
+  plain English the whole time and our error message said the opposite. A
+  misleading diagnostic is worse than none: it does not merely fail to help, it
+  actively directs the investigation somewhere else, and it did so three times.
+- **The decisive test took two minutes and I ran it on the fourth attempt.**
+  `POST /users/login` and read the status. Everything before it — which spec,
+  which worker, which locator — was detail about a symptom. Run 45 wrote "check
+  whether the thing works at all when nothing is contending" as a lesson and
+  then this run still spent a while on leasing before asking the application.
+- **The owner's instruction resolved an item I had framed as a spend
+  decision.** Run 45 offered "stand up a deployment we own" as the only option
+  that makes the suite green. Under "a defect in the application stays
+  failing", that framing was wrong: the right answer is that the red is correct
+  and the reporting was the defect.
+
+**Next:** item 38 is `blocked` on a person — only an administrator can unlock a
+vendor's account. Dropping account 1 from the pool would make the suite green
+and is rejected under the standing instruction. Item 11 remains a standing
+objective, and the coverage phase in `coverage-phase.md` is the largest body of
+work left.

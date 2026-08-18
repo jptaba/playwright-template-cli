@@ -15,13 +15,19 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 38 | toolshop's deployment is unstable enough to drown the suite's signal | `ready` |
+| 41 | The framework cannot see what an application said at sign-in | `ready` |
+| 38 | toolshop's first customer account is locked (HTTP 423) | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Item 37 shipped in run 45** and **did not stabilise the live suite** — read
-its entry in `backlog.md` before assuming the flakiness was addressed. The
-collision it removed was real and deterministic; the flakiness has a different,
-larger cause, which is item 38.
+**Item 38 needs a person, not a change.** Nothing in this repository can unlock
+a vendor's account, and the standing instruction forbids tailoring the suite
+around it.
+
+**Run 46 confirmed what item 38 could only measure**, and it is not
+instability: `customer@practicesoftwaretesting.com` is **locked**. The login
+API answers **HTTP 423** — *"Account locked, too many failed attempts. Please
+contact the administrator."* — on every attempt, and only an administrator can
+clear it.
 
 `npm run suites:live` runs every onboarded application's specs against the real
 deployment, and **step 5 of the working agreement in `backlog.md` says every
@@ -29,55 +35,97 @@ run does this and records the result.**
 
 ---
 
-### 38. toolshop's deployment is unstable enough to drown the suite's own signal — `ready`
+### 41. The framework cannot see what an application said at sign-in — `ready`
 
-**Measured in run 45, with the suite taken out of the picture entirely.**
+**The item that replaces run 46's reverted target fix**, framed at the
+mechanism instead of the symptom, per the standing instruction that
+troubleshooting fixes go in the framework and never in a target pack.
 
-| what was run | result |
+When `setup:auth` cannot establish a session it asks the target's
+`signIn.readError`, which reads a locator the **scaffolder guessed**:
+`error: (page) => page.getByRole('alert')`. On an application whose banner
+carries no `role` attribute that matches nothing, `readError` returns null, and
+the run reports *"the form reported no error … check the signed-in locator
+rather than the credential"* — while the application says *"Account locked, too
+many failed attempts"* on screen. It cost three runs of this loop once.
+
+**Three mechanisms produced that, and only one is fixed.**
+
+| mechanism | state |
 |---|---|
-| full toolshop live suite, ×3 | 3 failed |
-| **`setup:auth` alone, ×4** | **1 failed** |
-| full live suite, after item 37 | 19/20 |
+| triage has no rule for a lockout | **done** — `account-locked`, run 46 |
+| the scaffolder guesses the error locator | open |
+| nothing preflights whether a credential can actually sign in | open |
 
-The second row is the one that settles it. `setup:auth` alone is one project,
-one worker per account, nothing else running — there is no contention this
-repository is capable of creating, and it still failed one run in four with
-*"Sign-in for role 'customer' (account 1) did not establish a session. The form
-reported no error"*. It failed **through** the two retries that project already
-allows.
+**Shape for the second**, and it has a real constraint worth stating up front:
+the obvious answer is to derive the banner during onboarding by submitting a
+wrong password, and **that must not be done** — the conventions are explicit
+that negative authentication spends a lockout budget, and on a shared
+deployment it would lock the very account it was onboarding. So either derive
+it from a *failed* sign-in the operator opts into on a disposable identity, or
+stop relying on a single guessed locator: have the framework, when the target's
+error locator finds nothing, report the page's own visible error text so the
+message is never emptier than the screen.
 
-The failing specs move run to run — `TOOL-1-02` (a search whose listing never
-changed), `TOOL-3-01`/`TOOL-3-02` (a cart row that would not detach),
-`setup:auth` — and every one of them passes in isolation sooner or later. That
-is the signature of an unreliable dependency, not of a defect in any of them.
+The second half of that is the smaller and safer one, and it fixes every
+existing pack without regenerating any of them — which matters, because
+`target:new` never overwrites.
 
-**The cause is not a mystery and is already written down:** toolshop is a
-public demo, `sharedEnvironment: true`, and its credentials are the ones the
-vendor publishes in a README. Anybody on the internet can be signed in as
-`customer@practicesoftwaretesting.com`, emptying the cart a spec just filled.
-ParaBank's profile records the same class of thing about its own host — 502s
-for forty seconds in a sixty-second window.
+**Shape for the third:** `target:doctor` currently asks the secret store
+whether a credential *exists* and stops there. Existence is not usability: a
+locked, expired or disabled account describes perfectly and fails every run.
+A preflight that attempts one real authentication per role and reports what the
+application said would have caught this before the suite ran at all — and is
+the "preflight … these type of issues" the owner asked for. It needs a decision
+about cost (one sign-in per role per doctor run) and about which surface it
+uses on a target with no API.
 
-**Why this matters more than any single flake:** the loop now runs
-`npm run suites:live` every run and records the result (item 29). A measurement
-that is red for reasons the repository cannot influence is one people learn to
-scroll past, and it takes the real failures with it. This is the item that
-decides whether "until it is bulletproof" is reachable against these targets at
-all.
+### 38. toolshop's first customer account is locked — `blocked`, and the failure stays
 
-**Options, and this needs a decision rather than an implementation:**
+**Confirmed in run 46 by asking the application directly** rather than
+inferring it from a spec:
 
-- **Accept it and measure it.** Trend a pass *rate* across runs instead of
-  demanding green, and treat a single red run as noise. Honest, and it weakens
-  the "any failure exits 1" policy `suites:live` deliberately chose.
-- **Stand up a deployment we own.** toolshop publishes a Docker Compose stack;
-  a local instance would have stable data and unshared accounts, and would cost
-  a container to run and a decision about where CI gets one.
-- **Split the claim.** Keep the public demos for coverage breadth, and hold the
-  *bulletproof* claim to an owned deployment only.
+```
+POST /users/login  ->  HTTP 423
+{"error":"Account locked, too many failed attempts. Please contact the administrator."}
+```
 
-The second is the only one that actually makes the suite green, and it is the
-one with a real cost. Worth the owner's view before anybody builds it.
+Four attempts, four 423s. This is not flakiness and never was. The earlier
+readings — "1 sign-in failure in 4", failures moving between specs — were this
+account entering and then sitting in lockout.
+
+**toolshop's own profile predicted it exactly**: *"this application locks an
+account after three consecutive failures (HTTP 423) and only an administrator
+can unlock it"*, which is why `sharedEnvironment: true` is set and why the
+negative-auth spec uses a disposable address. The suite did not spend the
+lockout budget — `TOOL-2-02` signs in as `nobody-<runid>@…invalid` precisely so
+it cannot. On a demo whose credentials the vendor publishes in a README,
+anybody on the internet can lock it, and did.
+
+**The owner's standing instruction applies and decides what happens next:**
+
+> If there are failures because it is a defect on the app should stay and not
+> force us to fix or tailor our code to it.
+
+So the spec stays red. What was actually broken here is the framework's
+*reporting*, not its behaviour — and it is still broken: `setup:auth` cannot
+see the message the application is showing. That is item 41, above, and it is
+framework work rather than a locator edit in this target.
+
+**Blocked on something only a person can do**, and the options are not
+equivalent:
+
+- **Ask the vendor to unlock it.** The only thing that restores account 1.
+  Nothing in this repository can do it.
+- **Wait.** Unknown, and possibly never — the lockout is permanent until an
+  administrator clears it.
+- **Drop account 1 from the pool.** Tempting and *rejected under the standing
+  instruction*: it is tailoring the suite around the application's state, and
+  it would turn a legible red into a green that hides a locked account.
+
+Until then toolshop reports **13/20 with 6 skipped**, and that number is
+correct — the six e2e specs cannot run without a session, and saying so is
+better than pretending.
 
 ### 11. A repeatable learn-fix-optimise loop over a full run — `hypothesis`
 

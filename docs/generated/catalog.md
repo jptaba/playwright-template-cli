@@ -30,6 +30,7 @@ _Target-agnostic. Available in every spec, whichever application is under test._
 | `db` | `DbReader` | Read-only database access. |
 | `contracts` | `ContractRegistry \| null` | The vendored contract document, when the target publishes one. |
 | `a11y` | `A11yScanner` | Accessibility scanning against the standard the target declares. |
+| `accountSlot` | `number` | Which account in the role's pool this test holds. |
 
 ## Fixtures — parabank
 

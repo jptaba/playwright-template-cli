@@ -53,6 +53,59 @@ function runWith(tests: TestRecord[]): RunResult {
   return run;
 }
 
+test.describe('an account the application will not let anybody into', () => {
+  /*
+     The rule exists because this cost three runs of the improvement loop. A
+     lockout looks like any other auth failure in a stack trace and is the one
+     with a completely different remedy — no credential is wrong, nothing has
+     drifted, and only an administrator can clear it.
+  */
+  const cluster = (message: string) => {
+    const tests = [failing('t1', message)];
+    return { tests, run: runWith(tests) };
+  };
+
+  test('is settled from the banner a UI suite sees', () => {
+    const { tests, run } = cluster(
+      'Sign-in for role \'customer\' did not establish a session.\nThe application said: ' +
+        '"Account locked, too many failed attempts. Please contact the administrator."',
+    );
+    const verdict = classifyByRule(clusterFailures(run)[0]!, { run, tests });
+
+    expect(verdict?.category).toBe('environment-config');
+    expect(verdict?.rule).toBe('account-locked');
+    // A person has to unlock it, and the verdict must not imply otherwise.
+    expect(verdict?.needsHumanReview).toBe(true);
+    expect(verdict?.recommendedAction).toBe('escalate');
+  });
+
+  test('is settled from the status code an API suite sees', () => {
+    const { tests, run } = cluster('POST /users/login returned HTTP 423, expected 200.');
+    expect(classifyByRule(clusterFailures(run)[0]!, { run, tests })?.rule).toBe('account-locked');
+  });
+
+  test('beats the generic auth rule, because the remedy is different', () => {
+    /*
+       `all-failed-at-auth` would also match this text and would send it to
+       "check the environment or the credentials" — true, useless, and the
+       reason ordering matters: the most specific evidence wins.
+    */
+    const tests = [failing('t1', 'login failed: account is locked')];
+    const run = runWith(tests);
+    expect(classifyByRule(clusterFailures(run)[0]!, { run, tests })?.rule).toBe('account-locked');
+  });
+
+  test('an ordinary wrong-credential failure is not called a lockout', () => {
+    // The counterweight. Over-matching here would send a real credential
+    // problem to an administrator who has nothing to unlock.
+    const tests = [failing('t1', 'login failed: 401 Unauthorized, invalid password')];
+    const run = runWith(tests);
+    expect(classifyByRule(clusterFailures(run)[0]!, { run, tests })?.rule).not.toBe(
+      'account-locked',
+    );
+  });
+});
+
 test.describe('clustering', () => {
   test('forty tests failing on one incident are one problem, not forty', () => {
     const tests = Array.from({ length: 40 }, (_, index) =>

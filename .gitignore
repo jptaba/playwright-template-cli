@@ -62,3 +62,8 @@ config/secrets.private.json
 # credential, which is why it can be written down at all. Whose Vault it is
 # describes the machine, not the application, so it is not in config/targets/.
 .vault-connection.json
+
+# Account leases. One file per held account, so separate Playwright worker
+# processes can wait for a free identity instead of silently sharing one.
+# Machine-local and safe to delete: a stale lock is reclaimed by TTL anyway.
+.locks/

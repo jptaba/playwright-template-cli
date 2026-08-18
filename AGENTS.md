@@ -1,5 +1,5 @@
 <!-- GENERATED FILE — DO NOT EDIT.
-     Source: docs/CONVENTIONS.md (sha256 b3e7b8b5b52e6973)
+     Source: docs/CONVENTIONS.md (sha256 aff027ff25f015b0)
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 
@@ -136,6 +136,79 @@ generated tests. Exploration is the only real fix.
 - Wait for the fact, not for the network. `networkidle` returned while a
   removed cart row was still in the table; `row.waitFor({ state: 'detached' })`
   waits for the thing the step was actually about.
+
+## Fix the framework, never the target pack
+
+**When troubleshooting, the fix goes in the application-agnostic framework and
+is validated end to end from there — through onboarding, the doctor, a run.
+Application-specific artifacts are not touched.** That means no hand-edit to
+`config/targets/<app>.ts`, `src/targets/<app>/**` or an application's specs and
+docs as a way of making a problem go away.
+
+The rule exists because a target pack is an **output**. `npm run onboard`
+writes it, `target:doctor` checks it, healing and triage act on it. Editing the
+output fixes one application and leaves the generator, the preflight and the
+triage rules exactly as wrong as they were — so the next application onboarded
+meets the identical problem, and nobody finds out until it does.
+
+Worked example, and it is the reason this is written down. A sign-in error
+banner was read with `getByRole('alert')`, which matched nothing on an
+application whose banner carries no `role` attribute. `readError` returned
+null, so a failed run reported *"the form reported no error … check the
+signed-in locator rather than the credential"* while the application was
+saying *"Account locked, too many failed attempts"* on screen. Editing that
+one target's locator would have taken a minute and taught the framework
+nothing: the scaffolder would still emit the same guess for the next
+application, the doctor would still not preflight it, and triage would still
+have no rule for a lockout.
+
+So the question to ask about any fix is **"which mechanism produced this
+artifact, and is that mechanism right?"**:
+
+| Symptom in a pack | Where the fix belongs |
+|---|---|
+| A scaffolded locator that cannot match | The probe that derives it, or the scaffold template |
+| A profile value that is wrong or missing | The onboarding step that reads it, and `target:doctor` |
+| A failure nobody can diagnose from the message | The action or reporter that produces the message |
+| A condition a run should have caught earlier | `target:doctor` preflight, healing, or a triage rule |
+| A verb a spec needs and cannot find | A new action, added deliberately (§ *When the vocabulary is missing*) |
+
+Then regenerate or re-onboard the pack with the tool, and validate the whole
+journey rather than the one file — the framework's own tests, `target:doctor`,
+`setup:auth`, the live suites.
+
+**The narrow exception is writing *new* application coverage**: specs, and the
+locators and actions they need, are authored in the pack by design — that is
+what a target pack is for. The rule is about *troubleshooting*. If you are
+changing a pack to make an existing failure stop, stop and find the mechanism.
+
+## A defect in the application is a failure, and it stays one
+
+**Never change this framework to make an application's defect pass.** If the
+application under test is broken, the honest output is a red spec naming what
+broke — that is what the suite is *for*. Tailoring a locator, loosening an
+assertion, adding a retry or teaching a verb to tolerate wrong behaviour all
+convert a finding into silence, and the team stops hearing about a real defect.
+
+The distinction that matters, because two things look alike from a stack trace:
+
+- **A defect in the application** — it does the wrong thing, or does it
+  unreliably. Report it. Leave it failing. File it. A spec that fails every run
+  for a known, filed defect is doing its job, and `@known-failure` handling
+  belongs in triage and the report, never in the code under the assertion.
+- **Contention this suite creates** — two of our own workers or projects on one
+  identity, a spec asserting on data another spec is mutating, a fixed wait
+  racing a render. That is ours, and it must be fixed here.
+
+Ask which one it is *before* touching anything, and say which in the commit.
+The evidence is usually cheap: run the failing thing with nothing else running.
+If it still fails, no change in this repository will honestly fix it.
+
+**Provider drift is the one recorded exception, and it is not a code change.**
+An accepted difference between a published document and a running service goes
+in the profile as a `ContractWaiver`, with a reason and a review date the
+doctor enforces — a decision somebody has to revisit, not an assertion somebody
+deleted. Accessibility waivers work the same way and for the same reason.
 
 ## State the suite does not own
 
