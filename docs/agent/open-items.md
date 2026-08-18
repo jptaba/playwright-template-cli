@@ -15,55 +15,88 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 33 | toolshop declares a contracts capability nothing validates | `ready` |
+| 34 | Accepted provider drift has no recorded home | `ready` |
 | 28 | `cartLocators.line` has the same substring trap | `ready` |
 | 31 | The a11y scan counts incomplete checks and discards what they were | `ready` |
+| 35 | An expected failure is counted as a pass in the run totals | `ready` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Items 30, 29 and 32 shipped in runs 40, 41 and 42.** `npm run suites:live`
-now runs every onboarded application's specs against the real deployment, and
+**Items 30, 29, 32 and 33 shipped in runs 40 to 43.** `npm run suites:live`
+runs every onboarded application's specs against the real deployment, and
 **step 5 of the working agreement in `backlog.md` says every run does this and
-records the result.** Read that before starting — it is a new obligation on
-every run, not an optional extra.
+records the result.** Read that before starting — it is an obligation on every
+run, not an optional extra.
 
 **Item 32 was raised wrong and is worth reading in `backlog.md` for that
 reason.** It said `target:doctor` needed a new check. The checks already
 existed and were silently defeated by the scaffolder's own `.gitkeep` files —
 a reminder that "the tool does not do X" is a claim to verify, not to build on.
 
+Items 34 and 35 both came out of run 43 writing toolshop's contract suite, and
+34 ranks first because there is a `test.fail()` on disk standing in for the
+mechanism it describes.
+
 ---
 
-### 33. toolshop declares a contracts capability nothing validates — `ready`
+### 34. Accepted provider drift has no recorded home — `ready`
 
-What is left of item 32 once the checker was fixed: the checker now reports it,
-and nobody has acted on it.
+Accessibility has waivers: `A11yWaiver` in `config/targets/types.ts`, carrying
+a rule, a **reason**, a **review date** and an optional scope, with
+`target:doctor` reporting one whose date has passed. The conventions are
+emphatic about why — *"a permanent exception is a waiver in the profile, with a
+reason and a review date — never a deleted assertion"*.
 
-`config/targets/toolshop.ts` declares `contracts: { enabled: true, spec:
-'src/targets/toolshop/contracts/openapi.json' }` — a real vendored OpenAPI
-document, pinned — and `src/targets/toolshop/tests/contract/` holds nothing but
-a `.gitkeep`. So the `contract` project is built, collects zero specs, and
-toolshop's 13/13 live pass contains no contract assertion at all.
-`npm run target:doctor` now says so: `contracts-no-specs`.
+**Contract drift has no equivalent, and run 43 needed one.** toolshop's
+`/products/search` answers `from: null, to: null` on an empty result set where
+the pinned document types both as `integer`. It is the vendor's demo and the
+vendor's document; this repository can fix neither.
 
-Parabank has the same shape on `api` (`api-no-specs`), and on `a11y` — though
-the a11y one is **already explained and must not be double-counted**: the
-coverage phase parked that spec deliberately, pending item 31.
+The three options available were delete the spec (forbidden), leave it red
+(spends the suite's signal permanently, and makes `suites:live` report a
+failure with no path to green), or `test.fail()` — which is what shipped, with
+the reason and a 2026-11-18 review date in a comment.
 
-**Two honest ways to close it, and they are different decisions:**
+**Why that is not the end state.** `test.fail()` is a fine primitive and it
+inverts correctly, but the reason and the review date live in a **comment**,
+where nothing can read them. The a11y waiver's whole advantage is that the date
+is data: `target:doctor` reports an expired one. A contract exception expiring
+in November will expire silently.
 
-- **Write the specs.** For toolshop this is the real answer — a vendored
-  document that nothing checks is the whole reason `contract` is a project.
-  This is coverage-phase work and overlaps the brief in `coverage-phase.md`.
-- **Turn the capability off** until specs exist, so the report says "not
-  applicable for toolshop" rather than showing an empty project. Honest, and
-  reversible in one line.
+**Shape:** a `ContractWaiver` beside `A11yWaiver` — endpoint, reason,
+`reviewBy`, and probably the JSON-pointer path of the failing property so the
+waiver does not blind the whole endpoint, exactly as `selector` keeps an a11y
+waiver from blinding a whole rule. `ContractRegistry.validate` already returns
+failures carrying `at` (the instance path), so the narrowing is available.
 
-Prefer the first for toolshop's contracts. Parabank's `api` is genuinely
-unwritten — the scaffold's `endpoints/orders.ts` and `api/orders.ts` are
-invented paths for an application that has no orders, recorded in
-`coverage-phase.md` — so that one wants rewriting from
-`/parabank/services/bank/*` before any spec, and is squarely coverage-phase
-work rather than a framework item.
+Note the deliberate asymmetry to argue with: an a11y waiver suppresses a
+finding, whereas a contract waiver would suppress a *drift throw*. Suppressing
+it and still counting it — the way `scan.waived` counts waived nodes — is
+probably right.
+
+### 35. An expected failure is counted as a pass in the run totals — `ready`
+
+Found in run 43, by checking what the run model recorded rather than assuming.
+
+The per-test record is honest: `outcome: 'expected'`, `status: 'failed'`. But
+`tally()` counts by outcome, so `byKind.contract` came back
+`{total: 6, passed: 6, failed: 0}` for a suite in which one spec genuinely did
+not conform. `suites:live` reports **19/19 passed** for toolshop on the same
+basis.
+
+That is Playwright's own semantic and it is defensible — an expected failure is
+not an unexpected one. But it is the "silent zero" shape the conventions object
+to everywhere else: the report says six passed, and six did not pass. Nothing
+downstream can count expected failures because `KindTotals` has no field for
+them, so a target could accumulate a dozen `test.fail()` markers and read as
+perfectly green.
+
+**Shape:** an `expectedFailures` count in `KindTotals`, populated from
+`outcome === 'expected' && status === 'failed'`, surfaced in the run report and
+in `formatLiveReport` beside `flaky` — which already exists for exactly this
+reason, because "green only after retries is not green".
+
+Small and pure. `tally()` takes records and returns totals, and the framework
+tests already build both by hand.
 
 ### 28. `cartLocators.line` has the same substring trap — `ready`
 

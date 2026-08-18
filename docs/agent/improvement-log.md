@@ -3086,3 +3086,98 @@ which the checker now reports and nobody has acted on; it is coverage-phase
 work rather than a framework defect. Then item 28 (the substring trap in
 `cartLocators.line`), then item 31 (the a11y scan discarding what an incomplete
 check was). Item 11 remains a standing objective.
+
+## 2026-08-18 · run 43 · The contract suite found drift on its first run
+
+**Picked:** item 33 — toolshop declared a contracts capability that validated
+nothing. Re-read `open-items.md` and compared `main` to `origin/main` before
+starting: both at `70ca702`, nothing had landed since run 42.
+
+**Did:** six specs in `src/targets/toolshop/tests/contract/catalogue.spec.ts`.
+The live toolshop suite goes **13/13 → 19/19**, and `target:doctor` stops
+saying `contracts-no-specs` — the warning run 42 had just taught it to say,
+closed by the run after.
+
+**The design rule the file is built on**, and the thing worth carrying to the
+next contract suite: in the `contract` project the shared client is built with
+`throwOnDrift: true`, so a spec proves conformance *by making the call at all*.
+Its assertions therefore exist to prove the call was **worth making** — an
+empty collection validates against almost any array schema, so a suite that hit
+an empty catalogue would report a green contract run having exercised none of
+the item shape. Every spec asserts the response actually carried the thing
+under test.
+
+**It found real provider drift, and it found it because a spec was written to
+look for it.** The empty-result case got its own spec with a comment predicting
+that `from` and `to` are where a page envelope breaks — written *before* it was
+run. Then both sides were read rather than inferred:
+
+- document: `components.schemas.PaginatedProductResponse` types `from` and `to`
+  as `{ type: 'integer' }`, not nullable.
+- service: `GET /products/search?q=<no matches>` answers
+  `{"current_page":1,"data":[],"from":null,"to":null,"total":0}`.
+
+Every populated search validates. Only the empty one does not. The published
+document does not describe the service's own empty answer.
+
+**Disposition, which was the real decision.** Recorded as `test.fail()` with a
+reason and a review date of 2026-11-18. Deleting the spec is what the
+conventions forbid — an exception nobody can see. Leaving it red spends the
+entire suite's signal on a third-party demo this repository cannot fix, and
+would have made `suites:live` report a permanent failure with no path to green,
+which is exactly how a measurement gets ignored. `test.fail()` keeps the claim
+in the report *and* inverts it: the day either side is fixed, the spec fails
+for passing and somebody has to come back.
+
+The last spec reports coverage — **5 of 87 documented operations** — as an
+attachment rather than an assertion, because a threshold there would only ever
+be met by lowering it. It does assert that every path it claims to validate is
+really in the document, so a typo cannot quietly reduce coverage while looking
+like an endpoint.
+
+**Verify:** `npm run verify` passes, exit 0 — **927 tests**, unchanged, because
+the new specs are a target's and `verify` covers `framework` and `dashboard`.
+That is item 29 working as designed, and the reason step 5 exists.
+
+**Live suites (step 5):**
+
+| application | result |
+|---|---|
+| parabank | **2/2 passed** |
+| saucedemo | **2/2 passed** |
+| toolshop | **19/19 passed** (13 + 6 contract) |
+
+**23/23, exit 0.**
+
+**PR:** branch `agent/2026-08-18-toolshop-contracts`; `main` fast-forwarded and
+pushed, `main` and `origin/main` confirmed matching.
+
+**Learned:**
+
+- **Writing the assertion before the run is what made the finding legible.**
+  The comment predicting `from`/`to` was speculation when written; the run
+  turned it into evidence in one step, and the diagnosis needed no
+  investigation because the hypothesis was already on the page. Compare run 41,
+  which recorded an observation and attached a guessed cause — the difference
+  is whether the guess is written where the run can immediately confirm or kill
+  it.
+- **A capability that had been "on" for days validated nothing, and everything
+  reported green throughout.** Run 41 built the command that made the gap
+  visible, run 42 fixed the checker that should have reported it, run 43 closed
+  it. Three runs to go from a green 13/13 that proved nothing about the
+  contract to a 19/19 that does — and the first two were both about *being able
+  to see the gap*, which is where the time actually went.
+- **Two gaps found by needing them, both raised rather than smuggled.**
+  Accessibility has waivers with a reason and an enforced review date;
+  contracts have nothing, so run 43's review date sits in a comment where
+  `target:doctor` cannot read it (item 34). And `tally()` counts by outcome, so
+  the expected failure reads as `{total: 6, passed: 6, failed: 0}` — the report
+  says six passed and six did not (item 35). Both were found by checking what
+  the run model actually recorded rather than trusting the console's "6
+  passed".
+
+**Next:** item 34 — give accepted provider drift the same recorded home
+accessibility exceptions already have, since there is a `test.fail()` on disk
+standing in for it. Then item 28 (the substring trap in `cartLocators.line`),
+item 31 (the a11y scan discarding what an incomplete check was), and item 35
+(expected failures counted as passes). Item 11 remains a standing objective.

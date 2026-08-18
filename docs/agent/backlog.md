@@ -8,7 +8,7 @@
 > - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
 >   end-to-end coverage programme, with its own per-application state.
 > - **This file** — the working agreement below, which is still binding, plus an
->   archive of the 32 items already shipped. Read it for *why* a thing was done.
+>   archive of the 33 items already shipped. Read it for *why* a thing was done.
 >
 > Split on 2026-08-18: this file had passed 1,900 lines, and the four items that
 > were actually open were scattered through it. A run that has to read an
@@ -2170,3 +2170,55 @@ settles it, passes either way.
 **What is left is not a framework defect**, so it is raised separately as item
 33: toolshop's contracts capability still validates nothing. The checker
 reporting it is this item; acting on it is that one.
+
+### 33. toolshop declared a contracts capability nothing validated — `done`
+
+Shipped on `agent/2026-08-18-toolshop-contracts` (run 43). Six specs in
+`src/targets/toolshop/tests/contract/catalogue.spec.ts`. The live toolshop
+suite goes from **13/13 to 19/19**, and `target:doctor` stops reporting
+`contracts-no-specs` — which run 42 had just taught it to say.
+
+**It found real provider drift on its first run, which is the point of the
+capability and not a lucky accident.** The spec that found it was written to
+find it: the empty-result case got its own spec with a comment predicting that
+`from` and `to` are where a page envelope breaks, *before* it was run. Both
+sides were then read rather than inferred:
+
+| | |
+|---|---|
+| document | `components.schemas.PaginatedProductResponse` — `from: { type: 'integer' }`, `to: { type: 'integer' }` |
+| service | `GET /products/search?q=<no matches>` → `{"current_page":1,"data":[],"from":null,"to":null,"total":0}` |
+
+Every populated search validates; only the empty one does not. The published
+document does not describe the service's own empty answer.
+
+**Recorded as `test.fail()` with a reason and a review date (2026-11-18),
+rather than deleted or left red.** Deleting it is the thing the conventions
+forbid — an exception nobody can see. Leaving it red spends the whole suite's
+signal on a third-party demo this repository cannot fix, and would have made
+`suites:live` report a permanent failure with no path to green, which is how a
+measurement gets ignored. `test.fail()` keeps the claim in the report *and*
+inverts it: the day either side is fixed, the spec fails for passing and
+somebody comes back to it.
+
+**The design rule the file is built on**, worth carrying to the next contract
+suite: in the `contract` project the shared client is built with
+`throwOnDrift: true`, so a spec proves conformance *by making the call at all*.
+Its assertions therefore exist to prove the call was worth making — an empty
+collection validates against almost any array schema, so a suite that hit an
+empty catalogue would report green having exercised none of the item shape.
+Every spec asserts that the response actually carried the thing under test.
+
+The last spec reports coverage — **5 of 87 documented operations** — as an
+attachment rather than an assertion, because a threshold here would only ever
+be met by lowering it. It does assert that every path it claims to validate is
+really in the document, so a typo cannot quietly reduce coverage while looking
+like an endpoint.
+
+**Two things it surfaced, both raised rather than folded in:** item 34 (no
+recorded home for accepted provider drift, where accessibility has waivers) and
+item 35 (an expected failure is counted as a pass in the run totals).
+
+Parabank's `api` is untouched and stays open in `coverage-phase.md`: its
+`endpoints/orders.ts` is invented paths for an application with no orders, and
+wants rewriting from `/parabank/services/bank/*` before any spec.

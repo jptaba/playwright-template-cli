@@ -79,7 +79,7 @@ applicable to this application
 
 | # | Application | Onboarded | Happy | Negative | Idempotency | Audit | Boundary | Live |
 |---|---|---|---|---|---|---|---|---|
-| 1 | toolshop | ✓ | ✓ | — | — | — | — | 13/13 at `--workers=3` |
+| 1 | toolshop | ✓ | ✓ | — | — | — | — | 19/19 (incl. 6 contract) |
 | 2 | saucedemo | ✓ | ✓ | — | — | — | — | 2/2 |
 | 3 | ParaBank | ✓ | ✓ | — | — | — | — | 2/2 (`setup:auth`, `@smoke`) |
 | 4 | restful-booker-platform | — | — | — | — | — | — | — |
@@ -92,6 +92,14 @@ are the journey and nothing else, so they need the other four kinds like the new
 five do — the brief says "the live apps that we already have plus the additional
 5", and this table is the honest starting position rather than a claim that two
 are already done.
+
+**toolshop also has contract coverage as of run 43**, which is not one of the
+five kinds and is tracked here only because it changed the live number: six
+specs in `tests/contract/`, validating 5 of the document's 87 operations. The
+suite found real provider drift on its first run — `/products/search` answers
+`from: null, to: null` on an empty result set where the published document
+types both as `integer` — recorded as an expected failure with a review date
+rather than deleted. See `backlog.md` item 33.
 
 ## Per-application log
 
