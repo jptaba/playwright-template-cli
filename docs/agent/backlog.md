@@ -8,7 +8,7 @@
 > - **[`coverage-phase.md`](coverage-phase.md)** — the seven-application
 >   end-to-end coverage programme, with its own per-application state.
 > - **This file** — the working agreement below, which is still binding, plus an
->   archive of the 33 items already shipped. Read it for *why* a thing was done.
+>   archive of the 38 items already shipped. Read it for *why* a thing was done.
 >
 > Split on 2026-08-18: this file had passed 1,900 lines, and the four items that
 > were actually open were scattered through it. A run that has to read an
@@ -2222,3 +2222,106 @@ item 35 (an expected failure is counted as a pass in the run totals).
 Parabank's `api` is untouched and stays open in `coverage-phase.md`: its
 `endpoints/orders.ts` is invented paths for an application with no orders, and
 wants rewriting from `/parabank/services/bank/*` before any spec.
+
+### 34. Accepted provider drift has no recorded home — `done`
+
+Shipped on `agent/2026-08-18-contract-waivers` (run 44). `ContractWaiver` sits
+beside `A11yWaiver` in `config/targets/types.ts` and carries the same four
+things: the endpoint, a **reason**, a **`reviewBy`** `target:doctor` enforces
+(`contract-waiver-expired`), and an optional **`at`** JSON pointer that keeps
+the waiver from being a blindfold — accept a null `from` and every other
+property on that endpoint is still checked, exactly as `selector` does for
+accessibility.
+
+Waived drift is subtracted **inside the registry** rather than at the throw
+site, so the client that throws, the report that counts and a spec asking what
+is tolerated all get one answer. It is recorded on the way past and readable
+through `waived()`, because an exception granted for two properties has to be
+visible when it starts firing on nine.
+
+toolshop's `test.fail()` from run 43 is replaced by the waiver, and a new
+contract spec pins the exception at exactly two properties on one endpoint: if
+the service starts answering null elsewhere that still throws, and if it stops
+answering null here the spec fails and the waiver should go.
+
+### 28. `cartLocators.line` has the same substring trap — `done`
+
+Shipped on `agent/2026-08-18-substring-trap` (run 44).
+
+**`exactly()` was the obvious instrument and the wrong one**, which is the part
+worth keeping: a cart row's text is the product name *plus* its quantity, price
+and line total, so anchoring the row with `^…$` matches nothing at all. The
+anchor that works was already in the file — `Quantity for <product>` is a whole
+accessible name, and one product's name is never a prefix-aligned substring of
+another's inside it. `quantity()` gained `exact: true`, because `getByRole`'s
+name option is a substring match by default and `line()` now depends on it.
+
+saucedemo's `inventoryLocators.item` had the same shape and is anchored too,
+on the name element rather than the card, since a card's text carries the
+description and price. `exactly()` is a local copy there rather than shared:
+one target may not import another's code, and a framework home for three lines
+two packs want is the premature abstraction the conventions warn about.
+
+### 31. The a11y scan counts incomplete checks and discards what they were — `done`
+
+Shipped on `agent/2026-08-18-a11y-undecided` (run 44). The count stays; the
+findings arrive beside it as `scan.undecided`, in the same shape as a
+violation, with `describeUndecided()` naming them.
+
+**Waivers deliberately do not apply to an undecided check**, and the asymmetry
+is the design decision: a waiver accepts a *known* failure, and a check axe
+could not decide is not known to be anything yet, so waiving one would accept
+an answer nobody has.
+
+**It unblocked the spec it was raised for.** ParaBank's accessibility spec had
+been written and parked because, after its five waivers applied, the scan still
+reported `incomplete: 1` with nothing to act on. That check is
+**`color-contrast` across 30 nodes** in the left menu — substantial, and
+entirely invisible behind the number. `PB-5-01` now ships and passes live.
+
+The `RawAxeResult` fixture held `incomplete: [1]`, a placeholder describing
+something axe never produces — which is why nobody noticed the data was being
+thrown away. Same too-clean-fixture lesson as run 42's `.gitkeep`.
+
+### 35. An expected failure is counted as a pass in the run totals — `done`
+
+Shipped on `agent/2026-08-18-known-failures` (run 44). `KindTotals` gains
+`expectedFailures`, and `formatLiveReport` says "N known failure(s)" beside the
+flaky count.
+
+Counting a `test.fail()` inside `passed` is right — an expected failure is not
+an unexpected one, and the verdict should not turn red for it. Counting it
+*only* there was the defect: toolshop's contract suite reported
+`{ total: 6, passed: 6, failed: 0 }` for a run in which one spec genuinely did
+not conform. `flaky` exists for exactly this reason — "green only after retries
+is not green" — and this is the same claim about a different kind of
+not-quite-green.
+
+### 36. The account pool was partitioned on the index that counts restarts — `done`
+
+Shipped on `agent/2026-08-18-parallel-index` (run 44). Found while verifying
+item 31, by reading a live failure's `workerIndex` and noticing it was **6 on a
+suite capped at 3 workers**.
+
+`accountForWorker` was called with `run.workerIndex`. Playwright documents that
+as unique per worker *process* and incremented on restart — it is not bounded
+by the worker count. Only `parallelIndex` is, and it is the one that names a
+slot. The collision is concrete: three accounts, workers 0/1/2 hold 1/2/3,
+worker 1 dies and returns as worker 3, live workers are 0/2/3 → accounts
+**1, 3, 1**.
+
+**Item 30 does not prevent this**, and that is worth stating plainly: capping
+the worker count bounds how many run at once, not what they are numbered.
+
+`workerIndex` is kept for identity — `unique()` ids, the lease holder, the
+plus-addressed mailbox — where two processes must never collide. A restarted
+worker reuses the slot but must not reuse the ids of the process it replaced.
+
+**Corrected on the way, rather than left as first read:** most of that climb to
+`workerIndex` 10 is *projects*, not crashes — a toolshop run spans six projects
+and each gets its own workers. The mapping is unsafe either way, and a
+framework test pins it with the live set `[0, 2, 3]`.
+
+**Not claimed:** that this fixes the intermittent live failures. It does not —
+see item 37, where the collision is between two *projects* holding the same
+slot number, which neither this nor item 30 addresses.

@@ -79,9 +79,9 @@ applicable to this application
 
 | # | Application | Onboarded | Happy | Negative | Idempotency | Audit | Boundary | Live |
 |---|---|---|---|---|---|---|---|---|
-| 1 | toolshop | ✓ | ✓ | — | — | — | — | 19/19 (incl. 6 contract) |
+| 1 | toolshop | ✓ | ✓ | — | — | — | — | 20/20 (incl. 7 contract) |
 | 2 | saucedemo | ✓ | ✓ | — | — | — | — | 2/2 |
-| 3 | ParaBank | ✓ | ✓ | — | — | — | — | 2/2 (`setup:auth`, `@smoke`) |
+| 3 | ParaBank | ✓ | ✓ | — | — | — | — | 3/3 (`setup:auth`, `@smoke`, `@a11y`) |
 | 4 | restful-booker-platform | — | — | — | — | — | — | — |
 | 5 | DemoBlaze | — | — | — | — | — | — | — |
 | 6 | AutomationExercise | — | — | — | — | — | — | — |
@@ -139,6 +139,16 @@ reading:
   property. Tripped it thirteen times — and the rule declining a misplaced
   justification is what sent me back to `getByRole('row')`/`getByRole('link')`
   for the overview table, which is the better locator anyway.
+
+**Accessibility: shipped in run 44**, once the framework gap below was closed.
+`PB-5-01` passes live and asserts two things: no unwaived critical or serious
+violation, and that the five accepted exceptions are still exactly five. The
+undecided check that blocked it turned out to be **`color-contrast` across 30
+nodes** in the left menu — substantial, and completely invisible behind the
+number `1` that `summarise()` used to report. The spec records it by name via
+`describeUndecided`.
+
+The original note follows, because the reason it waited is the useful part.
 
 **Accessibility: measured, waived, and the spec deferred.** The sign-in page
 fails with **one critical** (`image-alt`) and **four serious**

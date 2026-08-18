@@ -3181,3 +3181,94 @@ accessibility exceptions already have, since there is a `test.fail()` on disk
 standing in for it. Then item 28 (the substring trap in `cartLocators.line`),
 item 31 (the a11y scan discarding what an incomplete check was), and item 35
 (expected failures counted as passes). Item 11 remains a standing objective.
+
+## 2026-08-18 · run 44 · Five items, and the one the fifth uncovered
+
+**Picked:** items 34, 28, 31 and 35 — at the owner's explicit instruction to
+*"continue working on the next 5 items without stopping"*, rather than the
+usual one per run. The fifth is item 36, which this run found while verifying
+its own work. Each landed as its own commit; `npm run verify` ran between them.
+
+Re-read `open-items.md` and compared `main` to `origin/main` before starting:
+both at `dcac615`.
+
+**34 — accepted provider drift has a recorded home.** `ContractWaiver` beside
+`A11yWaiver`, carrying an endpoint, a reason, a `reviewBy` the doctor enforces,
+and an optional `at` JSON pointer so accepting one property does not blind an
+endpoint. Waived drift is subtracted inside the registry and recorded, never
+dropped. Run 43's `test.fail()` became a real waiver, plus a spec pinning the
+exception at exactly two properties.
+
+**28 — the cart line is anchored.** The interesting part is that `exactly()`,
+the obvious tool, is the wrong one: a row's text is the name *plus* quantity,
+price and total, so `^…$` matches nothing. `Quantity for <product>` was already
+in the file and is a whole accessible name. saucedemo's equivalent anchored
+too, with a local `exactly()` rather than a shared one.
+
+**31 — an undecided a11y check says which check it was.** `scan.undecided`
+beside the count, `describeUndecided()` to name it, and waivers deliberately
+not applied — a waiver accepts a *known* failure, and an undecided check is not
+known to be anything. **It unblocked ParaBank's parked accessibility spec**:
+the check was `color-contrast` across **30 nodes**, invisible behind the number
+`1`. `PB-5-01` ships and passes live.
+
+**35 — a declared failure is counted.** `KindTotals.expectedFailures`, and
+`formatLiveReport` says "N known failure(s)". Counting a `test.fail()` inside
+`passed` is right; counting it *only* there let toolshop's contract suite
+report `{ total: 6, passed: 6, failed: 0 }` for a run where one spec did not
+conform.
+
+**36 — the pool is partitioned on `parallelIndex`.** Found by reading a live
+failure's `workerIndex` and noticing it was 6 on a suite capped at 3.
+`workerIndex` is unique per process and increments on restart; only
+`parallelIndex` is bounded by the worker count. Workers 0/2/3 map to accounts
+1/3/**1**.
+
+**Verify:** `npm run verify` passes, exit 0 at every step — **938 tests**, up
+from 933 at the start of the batch.
+
+**Live suites (step 5):**
+
+| application | result |
+|---|---|
+| parabank | **3/3 passed** (gained `PB-5-01`) |
+| saucedemo | **2/2 passed** |
+| toolshop | **20/20 passed** |
+
+**25/25, exit 0.**
+
+**PRs:** five branches, each fast-forwarded onto `main` and pushed —
+`contract-waivers`, `substring-trap`, `a11y-undecided`, `parallel-index`,
+`known-failures`.
+
+**Learned:**
+
+- **The most valuable thing in this run is item 37, and it came from
+  disbelieving my own green.** Two live runs mid-batch failed on different
+  specs and both passed in isolation. The tempting reading was flakiness on a
+  public demo. Reading the failure instead — a cart row resolving 33 times and
+  never detaching — said *something else is emptying this cart*, and the cause
+  turned out to be written in the conventions already: worker indices repeat
+  across projects, and `auth-flows` runs concurrently with `e2e` signing in as
+  the same customer. Three runs (30, 36, 37) have now circled the same account
+  pool from different angles; only 37 is the one the live failures were about.
+- **Two of these five were "the obvious fix is the wrong one".** `exactly()`
+  cannot anchor a cart row, and a waiver must not silence an undecided
+  accessibility check. In both cases the correct answer was narrower than the
+  item proposed, and in both the item's own proposal would have shipped
+  something plausible and wrong.
+- **A fix can be right and still not fix the thing you noticed.** Item 36 is a
+  genuine collision with a test pinning it, and it does not explain the live
+  failures. Saying so in the commit message mattered more than the fix — the
+  next run would otherwise have read "pool collision fixed" and stopped looking.
+- **Batching five items cost the per-item discipline the loop normally has.**
+  Each got its own commit and its own verify, but the backlog and log entries
+  were written at the end, in one pass, rather than beside each change. That is
+  a worse audit trail and it is visible here: this entry reconstructs five
+  decisions from memory instead of recording each while it was fresh. Worth the
+  owner knowing before asking for a batch again.
+
+**Next:** item 37 — two projects signing in as the same customer — is the only
+`ready` item and is what stands between the live suites and a stable green. It
+wants a decision between three shapes, and the smallest honest one is probably
+giving `auth-flows` its own identity. Item 11 remains a standing objective.
