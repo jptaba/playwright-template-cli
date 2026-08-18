@@ -2226,3 +2226,58 @@ rules; run 13's figures stand.
 
 **Next:** item 17 — after Create, the page warns about a credential it just
 used. Then `/stories` into the harness, then item 19b.
+
+## 2026-08-17 · run 34 · The panel stopped assuming and started asking
+
+**Picked:** item 17 — after Create, the page warned about a credential it had
+just read from twice.
+
+**Did:** `src/support/secrets/resolvable.ts`, and `diagnoseWritten` uses it
+instead of hardcoding `credentialsChecked: false`.
+
+**The fix is neither of the two the item proposed.** Not a flag passed from the
+page, and not trusting what the page claims — it **asks the store**, with the
+same `describe` call the connection check makes. The rule the old comment was
+defending is untouched: `describe` returns existence and field names, nothing
+here can return a value, and there is no argument that changes that. So the
+panel is now right about a target nobody checked on the page as well as one
+somebody did, which a flag would not have managed.
+
+**Verify:** `npm run verify` passes, exit 0 — **891 tests, up from 884.**
+
+**Proven on real data**, against the real `saucedemo` profile and the real
+local store:
+
+```
+RESOLVED               {"resolvableRoles":["standard"],"credentialsChecked":true}
+CREDENTIAL DIAGNOSTICS []
+WRONG-ROOT             {"resolvableRoles":[],"credentialsChecked":true}
+WRONG DIAGNOSTICS      ["credentials-missing: No credentials for role 'standard' at qa/not-onboarded/..."]
+```
+
+The panel got quieter about the thing that was fine without going quiet about
+the thing that is not.
+
+**Learned:**
+
+- **A comment defending a rule is not the same as the code obeying it.** The
+  hardcoded flag carried a note saying credentials are never read back, which
+  is true and correct — and the conclusion drawn from it, that the panel must
+  therefore assume the worst, did not follow. `describe` was already the answer
+  and was already in use one screen earlier.
+- **Two failures that look alike want different sentences.** "The store did not
+  answer" and "the path is empty" both produce no resolvable roles; reporting
+  the first as the second sends somebody to write a credential into a Vault
+  they cannot reach. The function distinguishes them and the doctor's two
+  existing messages line up with the distinction exactly.
+- **Put the decision in `src/support/` and the store in `tools/`.** The first
+  version had the whole thing in `tools/dashboard.ts`, where a fake store
+  cannot reach it. Moving it cost nothing and bought seven tests.
+
+**Not measured this run:** `npm run triage:measure`. Nothing here touches triage
+rules; run 13's figures stand.
+
+**Next:** `/stories` into the pages harness (item 22's last page), then item 19b
+— the overview panel into `shell.ts`. After that the backlog's `ready` list is
+the status tokens and the spacing scale, both of which still want a stated
+defect.

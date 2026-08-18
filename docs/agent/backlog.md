@@ -932,7 +932,7 @@ credentials in one, which the conventions permit "only where they are genuinely
 public". If item 12 resolves toward server-side Vault verification, the default
 should stay as it is.
 
-### 17. After Create, the page warns about a credential it just used — `ready`
+### 17. After Create, the page warns about a credential it just used — `done`
 
 Observed live in run 22, at the end of the journey that had just worked. The
 connection check found the credential, **Sign in once** signed in with it and
@@ -946,6 +946,35 @@ derived the marker, Create wrote the pack — and the result panel said:
 And then, under "Next": *"Write username and password to
 `qa/<name>/pools/workforce/standard/1` in Vault"* — the exact path that had
 just been read from, twice, on that page.
+
+**Shipped in run 34.** The fix turned out to be neither of the two the item
+proposed — not passing a flag from the page, and not trusting what the page
+claims. `src/support/secrets/resolvable.ts` **asks the store**, with the same
+`describe` call the connection check makes: existence and field names, never a
+value, no argument that changes that. So the panel stops assuming the worst and
+finds out instead, and it is right about a target nobody checked on the page as
+well as one somebody did.
+
+It holds two distinctions the old flag could not:
+
+- **Present is not enough.** A credential carrying `user` where the fixture
+  reads `username` resolves as existing and fails at sign-in. That is the
+  failure the connection check exists to catch, so losing it one screen later
+  would have been strange.
+- **A store that answers nothing is unchecked, not empty.** A Vault that cannot
+  be reached wants "check your Vault"; a path with nothing at it wants "write
+  this path". Reporting the first as the second sends somebody to write a
+  credential into a Vault they cannot reach — and "could not check" is now the
+  *only* thing that produces that warning, which is what it was written for.
+
+**Proven on the real `saucedemo` profile against the real local store**: the
+role resolves, and the credential diagnostics come back empty where they used
+to always carry `credentials-unchecked`. With the credential root pointed at
+something nothing is written under, the same code reports
+`credentials-missing` naming the path — so the panel got quieter about the
+thing that was fine without going quiet about the thing that is not.
+
+The original diagnosis follows.
 
 `diagnoseWritten` (`tools/dashboard.ts:477`) hardcodes `credentialsChecked:
 false`, with a comment saying credentials are not read back. **The comment is

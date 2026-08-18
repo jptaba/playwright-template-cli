@@ -35,7 +35,8 @@ import { usersPageContent } from '../src/support/ui/users-page';
 import { testUsersRoutes, type TestUsersService } from '../src/support/secrets/dashboard';
 import { fileFor, forgetCredential, writeCredential } from '../src/support/secrets/file-store';
 import type { CredentialLocation } from '../src/support/secrets/locations';
-import { createSecretStore, LocalSecretStore } from '../src/integrations/secrets';
+import { createSecretStore, LocalSecretStore, type SecretStore } from '../src/integrations/secrets';
+import { resolvableRoles } from '../src/support/secrets/resolvable';
 import { VaultSecretStore, type VaultConnection } from '../src/integrations/vault/vault-store';
 import { findMount } from '../src/support/onboarding/vault-connection';
 import {
@@ -461,6 +462,30 @@ function readLocalStoreFile(file: string): Record<string, unknown> {
 }
 
 /**
+ * Which of the profile's roles the configured store can resolve, if any.
+ *
+ * The decision is in `src/support/secrets/resolvable.ts`, tested against a
+ * fake; what is here is the part that needs a real store — including the case
+ * where there is no reachable one, which is what the doctor's "could not
+ * check" warning was written for and is now the only thing that produces it.
+ */
+async function describeCredentials(
+  profile: TargetProfile,
+): Promise<Pick<TargetFacts, 'resolvableRoles' | 'credentialsChecked'>> {
+  let store: SecretStore;
+  try {
+    store = createSecretStore(profile);
+  } catch {
+    return { resolvableRoles: [], credentialsChecked: false };
+  }
+  try {
+    return await resolvableRoles(profile, store);
+  } finally {
+    await store.close?.().catch(() => undefined);
+  }
+}
+
+/**
  * Load the profile that was just written and run the doctor over it.
  *
  * Reported immediately rather than left for a later `npm run target:doctor`,
@@ -492,14 +517,11 @@ async function diagnoseWritten(name: string): Promise<CreateResult['diagnostics'
   if (fs.existsSync(root)) walk(root, '');
 
   const specPath = profile.capabilities.contracts.spec;
+  const resolved = await describeCredentials(profile);
   const facts: TargetFacts = {
     packExists: fs.existsSync(root),
     packFiles,
-    // Credentials are not read back. The doctor's own note for "could not
-    // check" is the honest answer here, and it keeps this path incapable of
-    // touching a value it just wrote.
-    resolvableRoles: [],
-    credentialsChecked: false,
+    ...resolved,
     contractSpecExists: Boolean(specPath && fs.existsSync(path.join(REPO_ROOT, specPath))),
     env: {
       ...(process.env.MAIL_API_URL ? { MAIL_API_URL: process.env.MAIL_API_URL } : {}),
