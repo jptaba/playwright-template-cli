@@ -52,12 +52,21 @@ function profile(overrides: Partial<TargetProfile> = {}): TargetProfile {
 }
 
 /** A pack that has everything a healthy UI-only target needs. */
+/**
+ * A pack with nothing to fix — which now includes ground truth for triage.
+ *
+ * `tests/triage-fixture/` joined this list when `no-triage-fixture` was added:
+ * a written, passing pack that has never exercised triage is exactly the state
+ * the check exists to name, and leaving it out of "healthy" would have meant
+ * asserting the warning was absent from a pack that earns it.
+ */
 const HEALTHY_PACK = [
   'fixtures.ts',
   'locators/sign-in.ts',
   'actions/sign-in.ts',
   'tests/auth.setup.ts',
   'tests/e2e/orders.spec.ts',
+  'tests/triage-fixture/known-failures.spec.ts',
 ];
 
 function facts(overrides: Partial<TargetFacts> = {}): TargetFacts {
@@ -306,6 +315,35 @@ test.describe('the onboarding preflight', () => {
     expect(codes(found)).toContain('no-e2e-specs');
     expect(codes(found)).not.toContain('api-no-specs');
     expect(codes(found)).not.toContain('a11y-no-specs');
+  });
+
+  test('a written pack with no triage ground truth is told so', () => {
+    /*
+       `npm run app:journey` reports stage 5 as failed for a pack with no
+       `tests/triage-fixture/`, and until this check nothing else mentioned
+       it — so the only way to find out was to run the whole journey. A suite
+       that is green and has never classified a failure is two claims where
+       one was checked (§21).
+    */
+    const found = diagnose(
+      profile(),
+      facts({ packFiles: ['fixtures.ts', 'locators/sign-in.ts', 'actions/sign-in.ts', 'tests/auth.setup.ts', 'tests/e2e/orders.spec.ts'] }),
+    );
+
+    expect(codes(found)).toContain('no-triage-fixture');
+  });
+
+  test('a pack nobody has written yet is not also told it has no triage fixture', () => {
+    // Same reasoning as the capability warnings: `no-e2e-specs` already says
+    // the pack is unwritten, and a second block saying it again on the panel
+    // somebody meets at the moment they succeed is how a checker gets skimmed.
+    const found = diagnose(
+      profile(),
+      facts({ packFiles: ['fixtures.ts', 'locators/sign-in.ts', 'actions/sign-in.ts', 'tests/auth.setup.ts', 'tests/e2e/.gitkeep'] }),
+    );
+
+    expect(codes(found)).toContain('no-e2e-specs');
+    expect(codes(found)).not.toContain('no-triage-fixture');
   });
 
   test('an accessibility waiver past its review date is surfaced, not forgotten', () => {

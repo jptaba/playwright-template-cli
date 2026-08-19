@@ -197,7 +197,7 @@ function checkHost(profile: TargetProfile, facts: TargetFacts, error: Report, wa
 function checkPack(
   profile: TargetProfile,
   facts: TargetFacts,
-  { has, hasUnder, specsUnder }: PackView,
+  { has, hasUnder, specsUnder, startedWriting }: PackView,
   error: Report,
   warn: Report,
 ): void {
@@ -241,6 +241,27 @@ function checkPack(
       'The pack has no specs in tests/e2e/, so the e2e project will run nothing.',
       'Add specs there. Signed-out flows go in *login|mfa|password.spec.ts so the auth-flows ' +
         'project picks them up (§13).',
+    );
+  }
+
+  /*
+     A written, passing pack with no ground truth for triage.
+
+     Guarded on `startedWriting` for the reason the capability warnings are:
+     a freshly scaffolded pack has no specs of any kind, `no-e2e-specs`
+     already says so, and repeating it would put a second block on the
+     success panel of a target nobody has touched. The case worth naming is
+     the other one — a suite that runs, passes, and has never exercised the
+     triage it claims to have, which `npm run app:journey` reports as a
+     failed stage and nothing else ever mentions.
+  */
+  if (startedWriting && !specsUnder('tests/triage-fixture')) {
+    warn(
+      'no-triage-fixture',
+      'The pack has no specs in tests/triage-fixture/, so triage is never exercised for it.',
+      'Add specs written to fail a stated way, each carrying a `triage-ground-truth` ' +
+        'annotation naming the category it should produce, then measure them with ' +
+        '`npm run triage:measure`. A green suite says nothing about triage (§21).',
     );
   }
 }

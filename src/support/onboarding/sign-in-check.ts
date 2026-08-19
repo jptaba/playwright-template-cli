@@ -46,6 +46,23 @@ export interface SignInVerdict {
 }
 
 /**
+ * The sentence the application itself said, or null when it said nothing.
+ *
+ * Separate from `reportedByApplication` because the two answer different
+ * questions, and the verdict needs to tell them apart: this is the
+ * application's own words, where that one falls back to the framework's own
+ * summary line when there are none.
+ */
+export function quotedByApplication(output: string): string | null {
+  const said = output
+    .split('\n')
+    .filter((line) => !/^\s*[>|]?\s*\d+\s*\|/.test(line))
+    .map((line) => /The application said: "([^"]+)"/.exec(line)?.[1])
+    .find((quoted): quoted is string => Boolean(quoted));
+  return said?.trim() ?? null;
+}
+
+/**
  * The line the application itself contributed, out of a Playwright run's
  * output.
  *
@@ -54,8 +71,29 @@ export interface SignInVerdict {
  * output and it is buried in a stack trace, so it is lifted out.
  */
 export function reportedByApplication(output: string): string | null {
-  const said = /The application said: "([^"]+)"/.exec(output);
-  if (said?.[1]) return said[1].trim();
+  /*
+     Read it off the run's own lines, and never out of a code frame.
+
+     Playwright echoes the failing source, and `auth.setup.ts` line 73 *is*
+     the sentence this looks for — `The application said: "${reported}"` —
+     with the placeholder still in it. So a plain match over the whole output
+     found the framework quoting its own source back, and the preflight
+     printed the placeholder verbatim, in quotes, for a locked
+     toolshop account. Observed on a real run, not reasoned about.
+
+     Two things followed from that one wrong capture, and the second is worse
+     than the cosmetic first: having "found" a message, the verdict took the
+     branch that says *read what the application said above* — where nothing
+     was said — instead of the one that names the marker and the credential.
+     And `looksLikeLockout` was asked about a placeholder rather than about
+     "Account locked, too many failed attempts", so the lockout branch could
+     never be reached from a run whose form error the pack failed to read.
+
+     A code-frame line carries a line number and a pipe; the sentence we want
+     is part of a thrown error's message and never does.
+  */
+  const said = quotedByApplication(output);
+  if (said) return said;
 
   /*
      Nothing quoted. Fall back to the framework's own summary line, which is
@@ -138,13 +176,22 @@ export function interpretSignInCheck(result: SignInCheckResult): SignInVerdict {
     };
   }
 
+  /*
+     Only the *quoted* sentence is the application's. The fallback above is
+     the framework's own summary line, and attributing that to the
+     application is the same lie the placeholder was — it reads as though the
+     form said something when the pack could not read the form at all, which
+     is precisely the case that wants the marker looked at.
+  */
+  const said = quotedByApplication(result.output);
+
   return {
     ok: false,
     code: 'sign-in-failed',
-    message: reported
-      ? `Sign-in did not establish a session. The application said: "${reported}"`
+    message: said
+      ? `Sign-in did not establish a session. The application said: "${said}"`
       : 'Sign-in did not establish a session, and the application reported nothing.',
-    fix: reported
+    fix: said
       ? 'Read what the application said above — it is usually the credential or the account.'
       : 'Check the signed-in marker in the pack, then the credential. A form that reports ' +
         'nothing at all usually means the marker locator is wrong rather than the password.',

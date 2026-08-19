@@ -36,6 +36,35 @@ test.describe('reading what the application contributed', () => {
     expect(reportedByApplication(output)).toContain("role 'admin' (account 2)");
   });
 
+  test('the echoed source of the sentence it looks for is not the sentence', () => {
+    /*
+       Observed on a real toolshop run, and it is the reason this function
+       reads lines rather than the whole output. Playwright prints the failing
+       source, and the line it printed *is* the template that produces this
+       message — placeholder and all. The preflight duly reported the
+       placeholder as the application's own words.
+
+       Two costs, and the second is the one that matters. Having "found" a
+       message, the verdict takes the branch that says read what the
+       application said — where nothing was said — instead of naming the
+       marker and the credential. And the lockout check is then asked about a
+       placeholder, so an account that really was locked could never be
+       recognised from a run whose pack failed to read the form.
+    */
+    const output = [
+      "    Error: Sign-in for role 'customer' (account 1) did not establish a session.",
+      '    The form reported no error, so the credential was accepted but no session marker appeared.',
+      '      71 |           const detail = reported',
+      '    > 73 |                 ? `The application said: "${reported}"`',
+      '         |                                           ^',
+    ].join('\n');
+
+    expect(reportedByApplication(output)).toContain("role 'customer' (account 1)");
+
+    const verdict = interpretSignInCheck({ status: 1, output });
+    expect(verdict.fix).toContain('signed-in marker');
+  });
+
   test('a run that said nothing useful yields null, not a file path', () => {
     // "First line containing the word error" is almost always a path on a
     // Playwright run, and handing that back as the application's words is

@@ -4292,3 +4292,123 @@ all day. Left red.
 adding a system user, and the point at which it stops being read-only. Then
 DemoBlaze and AutomationExercise, both waiting on a person to register an
 account.
+
+## 2026-08-19 · run 63 · A fixture for the comprehensive application, and the message that quoted its own source
+
+**Picked:** item 51 — the three applications that cannot reach the triage
+stage — taking `toolshop`, which is both the comprehensive target and the
+slice item 11 has named for eleven runs. Re-read `open-items.md` and compared
+`main` to `origin/main` before starting: both at `86b6553`, nothing had landed
+since run 62, and the file's own instruction was to take 51 first.
+
+**Did, and it is three things — one mechanism, one piece of coverage, and one
+bug the coverage found.**
+
+**The mechanism.** `target:doctor` now warns `no-triage-fixture` on a pack
+that has been written and carries no ground truth. Before this, the only way
+to discover that an application could not reach stage 5 was to run the whole
+six-stage journey; `npm run app:journey` fails the stage and nothing else ever
+mentioned it. Guarded on `startedWriting`, for the reason the capability
+warnings already are — a freshly scaffolded pack is told once by
+`no-e2e-specs`, and a second block saying the same thing on the panel somebody
+meets at the moment they succeed is how a checker gets skimmed. It names the
+three applications item 51 named and is quiet on the two with fixtures.
+
+`HEALTHY_PACK` in the preflight tests grew `tests/triage-fixture/` with it.
+That is the suite working rather than a test patched around a change: a
+written, passing pack with no ground truth is exactly what the check exists to
+name, so leaving it out of "healthy" would have meant asserting the warning was
+absent from a pack that earns it.
+
+**The coverage.** `src/targets/toolshop/tests/triage-fixture/known-failures.spec.ts`
+— four specs, chosen for the categories rather than for being interesting
+failures, as the item asked:
+
+| spec | category | what it settles |
+|---|---|---|
+| TF-TS-01 | `dependency` | `dependency-failure`, never confirmed against a known cause before |
+| TF-TS-02 | `timing-synchronisation` | the *polled* branch of `short-wait` — the high-confidence half |
+| TF-TS-03 | `locator-drift` | a strict-mode violation, on a second application |
+| TF-TS-04 | `network-infrastructure` | the control that says triage ran at all |
+
+**Measured: `4 agreed · 0 contradicted · 0 declined`** — the first fixture in
+this repository where every spec was settled by a rule. `restful-booker` is
+unchanged at 3 agreed · 1 declined, and `saucedemo` at 1 agreed · 3 declined.
+
+Nothing here signs in. Toolshop is a vendor demo shared with strangers that
+locks an account after three failed attempts, and a fixture that spent that
+budget would take the rest of the suite down with it.
+
+**The bug the coverage found, and it is the entry.** Running
+`target:doctor --sign-in` against toolshop printed, verbatim:
+
+```
+ERROR [sign-in-failed] Sign-in did not establish a session. The application said: "${reported}"
+       → Read what the application said above — it is usually the credential or the account.
+```
+
+`reportedByApplication` matched `/The application said: "([^"]+)"/` over the
+whole of Playwright's output — and Playwright echoes the failing source, where
+line 73 of `auth.setup.ts` *is* that sentence, placeholder and all. So the
+preflight quoted the framework's own source back and called it the
+application's words.
+
+Two costs, and the second is much worse than the cosmetic first. Having
+"found" a message, the verdict took the branch that says *read what the
+application said above* — where nothing was said — instead of the one that
+names the marker and the credential. And `looksLikeLockout` was then asked
+about `${reported}` rather than about a lockout banner, so the branch that
+exists for the most misdiagnosed authentication failure there is could never
+be reached from a run whose pack failed to read the form.
+
+Fixed by reading the output's own lines and skipping code frames — a frame
+carries a line number and a pipe; a thrown error's message never does. And
+`quotedByApplication` was split out from `reportedByApplication`, because the
+two answer different questions and the verdict needs to tell them apart: the
+fallback is the *framework's* summary line, and attributing that to the
+application is the same lie in a quieter voice.
+
+**Verify:** `npm run verify` passes, exit 0 — **1034 tests**, up from 1033.
+Diff 141 lines across 4 files plus the 132-line fixture.
+
+**Live suites (step 5): 2 of 5 passing.** restful-booker 13/13 and saucedemo
+2/2 green; toolshop 19/20, orangehrm 4/5, parabank 0/3. The failures are
+recorded below rather than fixed — none is this run's doing and none is ours.
+
+**Learned:**
+
+- **The account really was locked, and the framework said "fix the test".**
+  Checked directly rather than inferred: toolshop's own login endpoint
+  answered `423 {"error":"Account locked, too many failed attempts."}` for the
+  exact credential in the store. `suites:live` reported that failure as
+  **`timing-synchronisation` (rule: `short-wait`)** — high confidence,
+  `fix-test`, owner qa — for a condition only an administrator can clear.
+  `auth.setup.ts` waits for the marker with `expect.poll`, so every failed
+  sign-in carries "waiting on the predicate" and `short-wait` settles it before
+  `account-locked` is ever consulted. Raised as item 54 and put at the top,
+  because a rule that answers a question it cannot answer is worse than one
+  that declines. Deliberately **not** fixed here: run 57's precedent is that
+  the rule claiming too much is the one that changes, and that needs its own
+  measurement.
+- **The lockout cleared while the run was still going**, which is the other
+  half of the same lesson. The second `--sign-in` reported every role signing
+  in, so the reproduction was gone within the hour. A shared vendor demo's
+  state is not a thing to plan a diagnosis around — check the service directly
+  and write down what it said, because the evidence expires.
+- **Port 9 is not a transport failure and `restful-booker`'s control quietly
+  says it is.** Chromium refuses it before opening a socket, reporting
+  `net::ERR_UNSAFE_PORT`, which matches the rule's pattern and produces the
+  right category while describing something else entirely. Measured here:
+  49152 answers `net::ERR_CONNECTION_REFUSED`, which is what a real
+  unreachable environment produces, and TF-TS-04 uses that.
+- **Two of the ten rules cannot be settled by a fixture at all**, and it is
+  worth writing down so nobody spends a run trying. `kindOf` never returns
+  `api` for the `triage-fixture` project — it keys on the project name — so
+  `api-only-failure` is unreachable, and `known-issue` needs a fingerprint set
+  that only comes from Jira. `contract-drift` is a third: `throwOnDrift` is
+  true only in the `contract` project, deliberately, so a fixture cannot
+  produce drift without a framework change that would weaken a good decision.
+
+**Next:** item 54, with a ground-truth spec that produces a failed sign-in so
+the fix is measured rather than argued. Then the rest of item 51 — `parabank`
+and `orangehrm` — which `target:doctor` now names by itself.
