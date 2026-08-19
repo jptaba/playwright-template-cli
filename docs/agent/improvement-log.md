@@ -3949,3 +3949,66 @@ this file.
 **4 → 6 → 5 → 7**, so AutomationExercise next, cleanest API surface first.
 `restful-booker` is done and is the template for what "all five kinds" looks
 like.
+
+## 2026-08-18 · run 54 · Auditing the claim, rather than repeating it
+
+**Picked:** the owner's question — do we produce and validate functional tests
+on the live applications, and do we truly exercise onboarding, test users,
+stories, cases, runs, triage, publish and offboarding for all of them?
+
+**The first answer is yes and it is evidenced.** 16 spec files across 4
+applications, all driving real deployments, **38/38 green** on the last
+`suites:live` — e2e, api and a11y projects, not the framework's own tests.
+
+**The second answer is no, and the detail is item 46.** Measured from what is
+on disk rather than recalled:
+
+| surface | state |
+|---|---|
+| onboarding | 2 of 4 (parabank, restful-booker; the other two predate the dashboard) |
+| offboarding | ✓, repeatedly, with credential-file checksums unchanged |
+| runs | ✓ 4 of 4 |
+| report | ✓ **for the first time in this run** |
+| triage | clusters and rules yes; **no human verdict has ever been recorded** |
+| cases | **1 of 4** — `cases/` holds only toolshop |
+| stories | **1 of 4** — `stories/` holds only TOOL-1…TOOL-5 |
+| publish | Jira answered correctly on a green run; PractiTest needs a URL |
+| test users | never driven against a live application |
+
+**Proven on the way, not just audited:** `report:render` produced a 20 KB
+self-contained report from restful-booker's live run — the first time
+`report-out/` has ever existed — and correctly refused to attach a triage
+result belonging to a different run, naming the command that fixes it.
+`publish:practitest` read the same run and reported *"13 test(s), 12 carrying a
+PractiTest id"* before stopping at the missing URL, so the annotation chain
+works end to end up to the socket.
+
+**Then I tried to close the blocked half without a PractiTest licence**, using
+the repository's own `FakePractiTestServer`, and it did not work: the fake
+recorded **zero calls** and both tools failed at the connection. Raised as item
+47. `publish:practitest` degraded to a warning and exited 0 while doing so,
+which is the framework behaving correctly — reporting never turns a green suite
+red.
+
+**Verify:** `npm run verify` passes, exit 0 — **1000 tests**.
+
+**Learned:**
+
+- **"Do we exercise X" is two questions and I nearly answered one.** The
+  functional suites are proven four ways over; the operational chain is proven
+  for one application and only as far as its first external dependency.
+  Reporting those together as "yes" would have been true of the half somebody
+  was not asking about.
+- **The gaps split cleanly, and the split is the useful part.** Two are
+  blocked on services nobody here has (PractiTest, Jira). Two — a recorded
+  triage verdict, and the Test users page against a live application — are
+  simply undone and need no permission.
+- **An artefact's absence is the cheapest audit there is.**
+  `config/triage-verdicts.jsonl` not existing says, with no ambiguity, that no
+  human verdict has ever been recorded. Four of the rows above were settled by
+  `ls` rather than by reading code.
+
+**Next:** the owner asked to move to the next live application, and this run
+spent itself on the audit they asked for first. Application 5 is
+**AutomationExercise** per the coverage file's order (4 → 6 → 5 → 7).
+Items 46 and 47 are `ready` and 47 is the one that unblocks the other.
