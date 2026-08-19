@@ -56,6 +56,98 @@ export interface FileDrift {
   contents?: string;
 }
 
+/**
+ * A line the *template* owns inside a file somebody else also works in.
+ *
+ * **Why this exists, and it is the gap `diverged` left behind.** A pack file
+ * is half generated shape and half somebody's work, so `diverged` is never
+ * written — correctly, because replacing locators read off a real application
+ * with scaffold guesses is the worst thing this tool could do. But that also
+ * means a *template* fix reaches no pack that already exists.
+ *
+ * It happened: the scaffolder emitted `getByRole('alert')` as the sign-in
+ * error locator into every pack it ever wrote, and it matched nothing on an
+ * application whose banner carries no role. Fixing the template left four
+ * packs on disk still carrying the guess, and the corrected line had to be
+ * pasted into each by hand — the manual step the scaffolder exists to remove.
+ *
+ * So the template marks the lines it owns, and only those move. A derived
+ * locator carries no marker and is untouchable by construction rather than by
+ * a rule somebody has to remember.
+ */
+export interface ManagedLine {
+  path: string;
+  /** The `@template:` key, stable across renderings. */
+  key: string;
+  /** What the template writes today. */
+  template: string;
+  /** What the pack has. */
+  onDisk: string;
+}
+
+const MARKER = /\/\/ @template:([a-z0-9-]+)\s*$/;
+
+/**
+ * The marked lines in a file, by key.
+ *
+ * Keyed rather than positional: a pack that has grown a locator above the
+ * marked one has moved it down the file, and a line number would then match
+ * the wrong thing — which is precisely the class of silent wrongness this
+ * whole tool refuses to produce.
+ */
+function markedLines(contents: string): Map<string, string> {
+  const found = new Map<string, string>();
+  for (const line of contents.replace(/\r\n/g, '\n').split('\n')) {
+    const key = MARKER.exec(line)?.[1];
+    if (key) found.set(key, line);
+  }
+  return found;
+}
+
+/**
+ * Marked lines the template has moved on from.
+ *
+ * A key the pack does not have is **not** reported. Its marker was deleted,
+ * and that is the documented way to keep a local change: the pack has said out
+ * loud that the line is its own now, which is a better outcome than diverging
+ * silently and a better one than being overwritten.
+ */
+export function staleManagedLines(
+  path: string,
+  template: string,
+  onDisk: string,
+): ManagedLine[] {
+  const fromTemplate = markedLines(template);
+  const fromDisk = markedLines(onDisk);
+
+  const stale: ManagedLine[] = [];
+  for (const [key, line] of fromTemplate) {
+    const existing = fromDisk.get(key);
+    if (existing === undefined || existing.trimEnd() === line.trimEnd()) continue;
+    stale.push({ path, key, template: line, onDisk: existing });
+  }
+  return stale;
+}
+
+/**
+ * The file with its marked lines brought back in line with the template.
+ *
+ * Returns the contents rather than writing them, so the decision to write is
+ * the tool's and the rule is testable without a filesystem — the same split
+ * the rest of this module keeps.
+ */
+export function applyManagedLines(contents: string, lines: readonly ManagedLine[]): string {
+  const replacements = new Map(lines.map((line) => [line.key, line.template]));
+  return contents
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => {
+      const key = MARKER.exec(line)?.[1];
+      return key && replacements.has(key) ? replacements.get(key)! : line;
+    })
+    .join('\n');
+}
+
 export interface UpgradePlan {
   target: string;
   files: FileDrift[];
@@ -64,6 +156,14 @@ export interface UpgradePlan {
   superseded: FileDrift[];
   diverged: FileDrift[];
   current: FileDrift[];
+  /**
+   * Lines inside diverged files that the template owns and has moved on from.
+   *
+   * Separate from `diverged` because they are the opposite claim: that list is
+   * "somebody's work, leave it alone", and this one is "this line was never
+   * theirs".
+   */
+  staleLines: ManagedLine[];
 }
 
 /**
@@ -135,13 +235,15 @@ export function planUpgrade(
     return false;
   };
 
+  const staleLines: ManagedLine[] = [];
   const files: FileDrift[] = planScaffold(optionsFromProfile(profile)).files.map((file) => {
     const existing = onDisk.get(file.path);
     if (existing !== undefined) {
-      return {
-        path: file.path,
-        state: normalise(existing) === normalise(file.contents) ? 'current' : 'diverged',
-      };
+      const state = normalise(existing) === normalise(file.contents) ? 'current' : 'diverged';
+      if (state === 'diverged') {
+        staleLines.push(...staleManagedLines(file.path, file.contents, existing));
+      }
+      return { path: file.path, state };
     }
     /*
        Absent, and the question is *why*. An empty directory means the pack
@@ -161,6 +263,7 @@ export function planUpgrade(
     superseded: files.filter((file) => file.state === 'superseded'),
     diverged: files.filter((file) => file.state === 'diverged'),
     current: files.filter((file) => file.state === 'current'),
+    staleLines,
   };
 }
 
@@ -206,6 +309,25 @@ export function formatUpgrade(plan: UpgradePlan): string[] {
       "  moved on since. This tool cannot tell those apart, so it reports and stops.",
       '  Diff one against a fresh scaffold to decide:',
       `    npx tsx tools/new-target.ts --name=<scratch> --url=<url>`,
+    );
+  }
+
+  if (plan.staleLines.length > 0) {
+    lines.push(
+      '',
+      '  Lines the templates own, inside those files, which have moved on. These it',
+      '  can bring back in line — everything around them is left exactly as it is:',
+    );
+    for (const line of plan.staleLines) {
+      lines.push(`    ! ${line.path}  [${line.key}]`);
+      lines.push(`        now: ${line.template.trim()}`);
+      lines.push(`        was: ${line.onDisk.trim()}`);
+    }
+    lines.push(
+      '',
+      '  `npm run target:upgrade -- --apply` replaces exactly these lines. To keep a',
+      '  local change instead, delete its `// @template:` marker — the pack then owns',
+      '  the line and this stops asking.',
     );
   }
 

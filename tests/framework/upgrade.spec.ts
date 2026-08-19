@@ -1,5 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { formatUpgrade, optionsFromProfile, planUpgrade } from '../../src/support/onboarding/upgrade';
+import {
+  applyManagedLines,
+  formatUpgrade,
+  optionsFromProfile,
+  planUpgrade,
+} from '../../src/support/onboarding/upgrade';
 import { planScaffold } from '../../src/support/onboarding/scaffold';
 import type { TargetProfile } from '../../config/targets/types';
 
@@ -174,4 +179,97 @@ test('the options are rebuilt from the profile, including the optional layers', 
   // profile records them, which is exactly why locators come back diverged
   // and are never rewritten.
   expect(options.signIn).toBeUndefined();
+});
+
+test.describe('lines the template owns inside a file somebody else works in', () => {
+  /*
+     The gap `diverged` left behind, and it is not hypothetical: the scaffolder
+     emitted `getByRole('alert')` as the sign-in error locator into every pack
+     it ever wrote, it matched nothing on an application whose banner carries
+     no role, and fixing the template reached none of the four packs already on
+     disk. The corrected line had to be pasted into each by hand.
+  */
+  const LOCATORS = 'src/targets/demo/locators/sign-in.ts';
+
+  /** The pack's file, with the marked line put back to an older rendering. */
+  const withOldLine = (): Map<string, string> => {
+    const disk = freshPack();
+    const current = disk.get(LOCATORS)!;
+    expect(current, 'the template marks the line this suite is about').toContain(
+      '// @template:sign-in-error',
+    );
+    disk.set(
+      LOCATORS,
+      current.replace(
+        /^.*\/\/ @template:sign-in-error$/m,
+        "  error: (page: Page): Locator => page.getByRole('alert'), // @template:sign-in-error",
+      ),
+    );
+    return disk;
+  };
+
+  test('a marked line the template moved on from is reported, with both renderings', () => {
+    const plan = planUpgrade(profile(), withOldLine());
+
+    expect(plan.staleLines).toHaveLength(1);
+    expect(plan.staleLines[0]!.key).toBe('sign-in-error');
+    expect(plan.staleLines[0]!.path).toBe(LOCATORS);
+    expect(plan.staleLines[0]!.template).toContain('getByTestId');
+    expect(plan.staleLines[0]!.onDisk).not.toContain('getByTestId');
+  });
+
+  test('deleting the marker is how a pack keeps its own line, and it is respected', () => {
+    /*
+       The documented escape hatch, and the reason the tool can be trusted to
+       write at all: a pack that has said out loud "this line is mine" stops
+       being asked about. parabank's error locator is exactly this case — a CSS
+       selector with a written justification, for an application whose banner
+       is neither an alert nor a test id.
+    */
+    const disk = withOldLine();
+    disk.set(LOCATORS, disk.get(LOCATORS)!.replace(' // @template:sign-in-error', ''));
+
+    expect(planUpgrade(profile(), disk).staleLines).toEqual([]);
+  });
+
+  test('a locator read off a real application is never a managed line', () => {
+    // The whole file differs, and none of it is the template's to move. This
+    // is the case that makes `diverged` unwritable, and it must stay that way.
+    const disk = freshPack();
+    disk.set(LOCATORS, '// read off the real application\nexport const signInLocators = {};\n');
+    const plan = planUpgrade(profile(), disk);
+
+    expect(plan.diverged.map((file) => file.path)).toContain(LOCATORS);
+    expect(plan.staleLines).toEqual([]);
+  });
+
+  test('a file that matches the templates has nothing stale in it', () => {
+    expect(planUpgrade(profile(), freshPack()).staleLines).toEqual([]);
+  });
+
+  test('applying moves the marked line and nothing else, to the byte', () => {
+    const disk = withOldLine();
+    const before = disk.get(LOCATORS)!;
+    const plan = planUpgrade(profile(), disk);
+
+    const after = applyManagedLines(before, plan.staleLines);
+
+    expect(after).toBe(freshPack().get(LOCATORS)!);
+    // And the proof that it is a line edit rather than a re-render: exactly
+    // one line of the file changed.
+    const changed = before
+      .split('\n')
+      .filter((line, index) => line !== after.split('\n')[index]);
+    expect(changed).toHaveLength(1);
+  });
+
+  test('the report says what would change and how to refuse it', () => {
+    const report = formatUpgrade(planUpgrade(profile(), withOldLine())).join('\n');
+
+    expect(report).toContain('sign-in-error');
+    expect(report).toContain('--apply');
+    expect(report, 'the escape hatch is stated where it is needed').toContain(
+      'delete its `// @template:` marker',
+    );
+  });
 });

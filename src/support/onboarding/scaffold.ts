@@ -629,6 +629,12 @@ ${provenance}
  *
  * Scope to a container when a test id is reused across pages, or the locator
  * answers the wrong question with a plausible result.
+ *
+ * A line marked \`// @template:<key>\` is the *template's*, not this pack's:
+ * \`npm run target:upgrade\` reports when the template has moved on and
+ * \`--apply\` brings it back in line. Everything else here is yours. To keep a
+ * local change to a marked line, delete its marker — the tool then leaves it
+ * alone, and the pack has said so out loud rather than silently diverging.
  */
 export const signInLocators = {
   username: (page: Page): Locator => page.getByRole('textbox', { name: ${username} }),
@@ -656,7 +662,7 @@ export const signInLocators = {
    * leaving it: a null it cannot distinguish from "no error" is the one
    * failure mode that sends people to the wrong file.
    */
-  error: (page: Page): Locator => page.getByRole('alert').or(page.getByTestId('error')),
+  error: (page: Page): Locator => page.getByRole('alert').or(page.getByTestId('error')), // @template:sign-in-error
   /** Something only a signed-in page shows. Used to verify a session, not to assert. */
   signedInMarker: (page: Page): Locator =>
     page.getByRole('${marker.role}', { name: ${quote(marker.name)} }),

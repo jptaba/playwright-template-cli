@@ -3000,3 +3000,33 @@ leaves the page on `about:blank`, where Chromium refuses `localStorage`
 outright — and the script swallows that by design, so a persistence test
 written against `setContent` would have passed for the wrong reason. They use a
 routed `http://` origin, the way the theme tests use the loopback harness.
+
+### 57. A corrected template reached no pack that already existed — `done`
+
+Shipped on `agent/2026-08-19-template-owned-lines` (run 70), one run after run
+69 raised it by having to paste a corrected line into four packs by hand.
+
+**A template now marks the lines it owns**, and `target:upgrade` reports and
+repairs exactly those:
+
+```ts
+error: (page: Page): Locator => page.getByRole('alert').or(page.getByTestId('error')), // @template:sign-in-error
+```
+
+Marked lines are compared **by key rather than by position**: a pack that has
+grown a locator above the marked one has moved it down the file, and a line
+number would match the wrong thing. `applyManagedLines` returns contents rather
+than writing them, keeping the rule testable without a filesystem.
+
+**The escape hatch is what makes writing safe.** A key the pack does not carry
+is not reported — deleting the marker is how a pack says the line is its own,
+and the tool stops asking. `parabank` proves it: its error locator is a CSS
+selector with a written justification, unmarked and untouched.
+
+**`diverged` is unchanged and still never rewritten.** It was never the wrong
+answer, only the wrong granularity: a differing file stays somebody's work, and
+what was missing was a way to say *this line inside it was never yours*.
+
+Proven with the tool itself: saucedemo's marked line was put back to the old
+`getByRole('alert')`, the report named the file, the key and both renderings,
+`--apply` restored it, and `git diff --stat` showed one line changed.

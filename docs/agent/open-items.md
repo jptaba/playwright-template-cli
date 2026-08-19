@@ -17,7 +17,6 @@ decide what to do.
 |---|---|---|
 | 53 | Onboarding: one step at a time, and a way back | `ready` |
 | 52 | Six coverage cells are missing across three applications | `ready` |
-| 57 | A corrected template reaches no pack that already exists | `ready` |
 | 58 | `sharedEnvironment` is declared, documented, and enforced by nothing | `ready` |
 | 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `ready` |
 | 46 | The journey has been run for one application, not five | `ready` |
@@ -30,7 +29,8 @@ under way** — `toolshop` went from one coverage kind to four in run 68, and
 `target:doctor` now names the missing ones itself rather than leaving it to a
 six-stage journey. **Carry on with 52**, one application at a time: `parabank` needs four and
 `orangehrm` two. Run 69 gave `saucedemo` all five kinds and turned up items 57
-and 58 doing it — 57 is small and makes the next one of these cheaper.
+and 58 doing it; **57 shipped in run 70**, so a corrected template line now
+reaches the packs that already exist.
 
 *(Item 52's section below was restored in run 68. Run 66 removed it by
 accident while archiving item 51 — the two were adjacent, and the row in the
@@ -174,41 +174,6 @@ checks it — that is the framework-shaped half, and it is the interesting one.
 one-account pool and see whether they still interfere. That answers which of
 the two stories is true, and it is one command plus a profile value nobody has
 to keep.
-
----
-
-### 57. A corrected template reaches no pack that already exists — `ready`
-
-**Found in run 69**, fixing the scaffolded sign-in error locator.
-
-The template had emitted `page.getByRole('alert')` into every pack it ever
-wrote, and it matched nothing on an application whose banner carries no role.
-The template is fixed. **`target:upgrade` cannot deliver the fix**: it reports
-`locators/sign-in.ts` as *differing* and stops, because the file legitimately
-differs — its names were read off the real application.
-
-```
-Differ from the templates. Not touched, and mostly should not be:
-  ~ src/targets/<app>/locators/sign-in.ts
-A file differs either because somebody wrote it … or because the template has
-moved on since. This tool cannot tell those apart, so it reports and stops.
-```
-
-Stopping is the right default and should stay. What is missing is a way to say
-*this one line moved on*, so run 69 applied the corrected line to four packs by
-hand — which works once and does not scale, and is exactly the manual step the
-scaffolder exists to remove.
-
-**Shape worth trying**, and it is smaller than a merge tool. The template knows
-which parts of a file are *derived* (the accessible names, the marker) and
-which are **template-owned** — the error locator, the doc comments, the
-imports. If the scaffolder marked the template-owned lines, `target:upgrade`
-could offer to replace exactly those and leave the derived ones alone, which is
-the distinction it currently says it cannot make.
-
-**Do not solve it by making `upgrade --apply` overwrite the file.** That would
-throw away locators somebody read off a running application, which is the
-single most expensive thing in a pack to recreate.
 
 ---
 

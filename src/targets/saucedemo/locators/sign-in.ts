@@ -40,7 +40,7 @@ export const signInLocators = {
    * test id second because that is what applications actually ship. The
    * template carries the full reasoning.
    */
-  error: (page: Page): Locator => page.getByRole('alert').or(page.getByTestId('error')),
+  error: (page: Page): Locator => page.getByRole('alert').or(page.getByTestId('error')), // @template:sign-in-error
   /** Something only a signed-in page shows. Used to verify a session, not to assert. */
   signedInMarker: (page: Page): Locator =>
     page.getByRole('button', { name: 'Open Menu' }),

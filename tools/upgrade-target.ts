@@ -3,7 +3,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { resolveTarget, targetNames } from '../config/target';
 import { REPO_ROOT } from '../src/support/paths';
-import { formatUpgrade, planUpgrade, type UpgradePlan } from '../src/support/onboarding/upgrade';
+import {
+  applyManagedLines,
+  formatUpgrade,
+  planUpgrade,
+  type ManagedLine,
+  type UpgradePlan,
+} from '../src/support/onboarding/upgrade';
 
 /**
  * `npm run target:upgrade [-- --name=<app>] [--apply]` — how far a pack has
@@ -55,8 +61,8 @@ function readPack(targetName: string): Map<string, string> {
 }
 
 function apply(plan: UpgradePlan): number {
-  if (plan.addable.length === 0) {
-    console.log('\n  Nothing to add — every file the templates write is already here.');
+  if (plan.addable.length === 0 && plan.staleLines.length === 0) {
+    console.log('\n  Nothing to do — every file the templates write is already here.');
     return 0;
   }
   for (const file of plan.addable) {
@@ -65,8 +71,29 @@ function apply(plan: UpgradePlan): number {
     fs.writeFileSync(full, file.contents ?? '');
     console.log(`  wrote ${file.path}`);
   }
+
+  /*
+     Then the marked lines, in files that already exist.
+
+     This is the one place the tool edits somebody else's file, and the
+     guarantee that makes it safe is narrow on purpose: only lines carrying a
+     `// @template:` marker move, only to what the template writes today, and
+     nothing else in the file is re-rendered. A locator read off a real
+     application carries no marker and cannot be reached from here.
+  */
+  const byFile = new Map<string, ManagedLine[]>();
+  for (const line of plan.staleLines) {
+    byFile.set(line.path, [...(byFile.get(line.path) ?? []), line]);
+  }
+  for (const [filePath, lines] of byFile) {
+    const full = path.join(REPO_ROOT, filePath);
+    fs.writeFileSync(full, applyManagedLines(fs.readFileSync(full, 'utf8'), lines));
+    console.log(`  updated ${lines.length} template line(s) in ${filePath}`);
+  }
+
   console.log(
-    `\n  Added ${plan.addable.length} file(s). Nothing that already existed was touched.\n` +
+    `\n  Added ${plan.addable.length} file(s) and updated ${plan.staleLines.length} ` +
+      'template-owned line(s). Nothing else that already existed was touched.\n' +
       '  Run `npm run verify` and `npm run target:doctor` before committing.',
   );
   return 0;
@@ -112,17 +139,19 @@ function main(): number {
   );
 
   let addable = 0;
+  let stale = 0;
   for (const name of targets) {
     const plan = planUpgrade(resolveTarget(name), readPack(name));
     for (const line of formatUpgrade(plan)) console.log(line);
     addable += plan.addable.length;
+    stale += plan.staleLines.length;
     if (applying) return apply(plan);
   }
 
-  if (addable > 0 && !applying) {
+  if ((addable > 0 || stale > 0) && !applying) {
     console.log(
-      `\n${addable} file(s) could be added. ` +
-        '`--apply` writes those and only those, one application at a time.',
+      `\n${addable} file(s) could be added and ${stale} template-owned line(s) brought ` +
+        'back in line. `--apply` writes those and only those, one application at a time.',
     );
   }
   return 0;

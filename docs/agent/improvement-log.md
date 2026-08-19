@@ -4857,3 +4857,65 @@ action comments describe on a shared demo, not this change.
 **Next:** `parabank` needs four cells and `orangehrm` two — orangehrm's need
 data the spec creates, which is where its pack stops being read-only. Item 57
 (propagating a corrected template) is small and unblocks the next one of these.
+
+## 2026-08-19 · run 70 · The template can reach the packs it already wrote
+
+**Picked:** item 57, raised by run 69 an hour earlier — a corrected template
+reaching no pack that already exists. Run 69 had to paste the fixed sign-in
+error locator into four packs by hand, which is the manual step the scaffolder
+exists to remove.
+
+**Did.** A template can now mark the lines it owns, and `target:upgrade`
+reports and repairs exactly those:
+
+```ts
+error: (page: Page): Locator => page.getByRole('alert').or(page.getByTestId('error')), // @template:sign-in-error
+```
+
+`staleManagedLines` compares marked lines by **key** rather than by position —
+a pack that has grown a locator above the marked one has moved it down the
+file, and a line number would then match the wrong thing, which is the class of
+silent wrongness this whole tool refuses to produce. `applyManagedLines`
+returns the new contents rather than writing them, so the rule is testable
+without a filesystem, which is the split the rest of the module already keeps.
+
+**The escape hatch is the part that makes it safe to write at all.** A key the
+pack does not have is not reported: deleting the marker is how a pack says the
+line is its own now, and the tool stops asking. `parabank` is the case that
+proves it — its error locator is a CSS selector with a written justification,
+for an application whose banner is neither an alert nor a test id, and it is
+untouched and unmarked.
+
+**Proven end to end with the tool itself, not only in tests.** saucedemo's
+marked line was put back to the old `getByRole('alert')`; the report named the
+file, the key, and both renderings; `--apply` restored it and reported
+*"updated 1 template line(s)"*; `git diff --stat` showed **one line changed**.
+
+**Verify:** `npm run verify` passes, exit 0 — **1071 tests**, up from 1065.
+
+**Live suites: 5 of 5, 49/49.** First all-green step 5 since run 66, and the
+highest count this file has recorded.
+
+**Learned:**
+
+- **The mechanism was invisible until it had a marker to look for, and that is
+  a feature.** After run 69's hand-edits the packs were byte-correct, so the
+  new check reported nothing at all — correctly, because an unmarked line is by
+  definition not the template's. Adding the markers is what put those lines
+  under management, and it had to be a deliberate act rather than a guess. A
+  tool that inferred ownership from "this looks like what the template writes"
+  would eventually claim a line somebody meant to change.
+- **`diverged` was never the wrong answer; it was the wrong granularity.** The
+  module's own reasoning — that a pack is half generated shape and half
+  somebody's work, so a differing file is never rewritten — is right and is
+  untouched. What was missing was a way to say *this line inside it was never
+  yours*, and stating it in the file is what let both rules coexist.
+- **Marking one line was the right size.** The temptation was to mark every
+  template-owned line in every file at once, which would have meant deciding
+  ownership for a hundred lines with no failure to guide any of them. One line
+  that actually went wrong, with a mechanism general enough for the next one,
+  is the version that can be reviewed.
+
+**Next:** item 52's remaining cells — `parabank` needs four, `orangehrm` two.
+Item 58 (`sharedEnvironment` enforced by nothing) still wants the product
+decision stated in the item before anything is built.
