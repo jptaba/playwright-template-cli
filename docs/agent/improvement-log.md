@@ -5147,3 +5147,77 @@ restful-booker 13/13, saucedemo 6/6, parabank parked; toolshop 21/22 —
 **Next:** item 52 is finished apart from toolshop's `@audit`, which is blocked
 on item 56 — that application has no second surface to ask, and the profile
 claim underneath it needs a measurement rather than an edit.
+
+## 2026-08-19 · run 74 · A step the page has answered folds to one line
+
+**Picked:** item 53, the last open part of the owner's onboarding-wizard ask
+and the top-ranked `ready` item, which is also the standing priority.
+
+**Re-read the worklist before picking, and it had moved.** Three commits landed
+on `main` during this session (runs 72 and 73), and `backlog.md`'s own rule about
+overlapping runs is why that was checked rather than assumed — item 52's
+remaining cells were gone and item 53 had risen to the top.
+
+**Measured before touching anything**, per this loop's rule. Driving the running
+wizard to its last step at 1280x720:
+
+| | before | after |
+|---|---|---|
+| whole page | 4090px · **5.68 screens** | 2184px · **3.03 screens** |
+| the four settled steps | 2675px — 65% of it | 357px |
+
+Run 23 fixed the *opening* of this page, 3888px down to 1714px, and nobody had
+ever measured the *end* of it. It was worse than the state that started the
+whole exercise.
+
+**Did:** a step the preview has an answer for folds to its heading plus one line
+stating what it holds. Full reasoning is item 53 in `backlog.md`.
+
+**The trigger is the finding.** The obvious hook was the rail's existing `done`
+state, and it is wrong: `done` means *behind the current step*, which after a
+preview is true of **step 4** — the credentials somebody still has to type.
+Folding on position would have folded the field they were about to fill. The
+preview is the single moment the page holds an answer for all three steps above
+it, because it is computed from every one of them.
+
+**Verify:** `npm run verify` passes, exit 0 — **1085 tests**, up from 1060.
+
+**Live suites: 4 of 4 running applications passing, 48/48.** orangehrm 7/7,
+restful-booker 13/13, saucedemo 6/6, toolshop 22/22. parabank **parked** as run
+72 left it, still answering HTTP 500 on its own pages.
+
+**Triage agreement, unchanged, which is the check that mattered for a change
+that touches no rule:** toolshop **4 agreed · 0 contradicted · 0 declined**,
+orangehrm **4 · 0 · 0**, restful-booker **3 · 0 · 1**, saucedemo **1 · 0 · 3**.
+
+**Learned:**
+
+- **The item's own warning was right, and measuring it is what shaped the
+  change.** A first attempt that also folded step 1 on the read broke **38** of
+  248 dashboard tests. Moving to the preview-only trigger took that to 24
+  without giving up any of the height win — the end state is identical, because
+  everything folds by the end either way. The cheaper design was found by
+  running the suite, not by thinking harder.
+- **A setup helper run twice is not a setup helper.** One Vault test called the
+  whole of `readyForCredentials` and then called it again inside
+  `checkedConnection`. Every wait in it asks "is this already unlocked", which a
+  second run satisfies instantly — so everything after it raced a preview still
+  in flight. That was latent long before this change; the fold is only what made
+  it fail. Worth looking for elsewhere: a helper whose waits are all
+  already-true assertions is a race waiting for a reason.
+- **`.all()` on a selector the clicks change goes stale.** My first
+  `reopenSteps` resolved the folded buttons up front and clicked them by index;
+  unfolding one drops it out of the selector, so the third click waited fifteen
+  seconds for a locator that could no longer match. The same lesson
+  `Locator.count()` already carries in the conventions, one step over.
+- **`/onboard` had no height budget at all.** `page-height.spec.ts` covers the
+  other seven pages, and the page whose whole design is progressive disclosure
+  was the one nothing measured — which is exactly how its far end reached 5.68
+  screens with a green suite. A tripwire went in with the fix.
+- **The backtick trap caught me again**, in a doc comment inside the page's
+  script template literal. Run 67 recorded the same thing. It is written down in
+  two places and still cost a cycle.
+
+**Next:** item 59 — a known-failure marker that cannot tell "the defect is still
+there" from "this stopped testing anything". Then 58 and 56, which are the same
+shape twice: a declared capability nothing checks.

@@ -1,4 +1,4 @@
-import { expect, test } from './harness';
+import { expect, reopenSteps, test } from './harness';
 
 /**
  * Step 4 — credentials, and the two ways of proving they work.
@@ -14,6 +14,7 @@ async function readyForCredentials(
   options: { store?: 'vault' | 'local'; roles?: string } = {},
 ) {
   const { page } = dashboard;
+  await reopenSteps(page);
   await page.fill('#name', 'shop');
   await page.fill('#baseURL', 'https://staging.shop.test');
   await page.check('#confirmTest');
@@ -25,6 +26,13 @@ async function readyForCredentials(
   if (options.roles !== undefined) await page.fill('#roles', options.roles);
   await page.click('#preview');
   await expect(page.locator('#s4')).not.toHaveAttribute('inert', '');
+  /*
+     And put the folded steps back, because the tests below drive controls in
+     them — the Vault block, the secret source, the roles list all live in step
+     3, which the preview folds. An operator changing any of those presses
+     "Change this" first; this is that press.
+  */
+  await reopenSteps(page);
 }
 
 test.describe('signing in once', () => {
@@ -241,17 +249,29 @@ test.describe('signing in as a Vault target', () => {
   ) {
     const { page } = dashboard;
     await readyForCredentials(dashboard, { store: 'vault' });
+    await reopenSteps(page);
     await page.fill('#vaultAddr', 'https://vault.shop.test');
     await page.click('#vaultCheck');
     await expect(page.locator('#vaultStatus')).toContainText('Found it.');
   }
 
   test('the connection check is what earns the button', async ({ dashboard }) => {
+    /*
+       One journey rather than two. This used to run the setup, assert, and
+       then run the whole setup again inside `checkedConnection` — and the
+       helper's waits are all "is this already unlocked", which a second run
+       satisfies instantly, so everything after it raced a preview still in
+       flight. Reaching the state once and asserting on the way through is both
+       the honest journey and the one that cannot race.
+    */
     const { page } = dashboard;
     await readyForCredentials(dashboard, { store: 'vault' });
     await expect(page.locator('#verify')).toBeHidden();
 
-    await checkedConnection(dashboard);
+    await page.fill('#vaultAddr', 'https://vault.shop.test');
+    await page.click('#vaultCheck');
+    await expect(page.locator('#vaultStatus')).toContainText('Found it.');
+
     await expect(page.locator('#verify')).toBeVisible();
     // The assisted flow hands a filled form to a person watching, which is the
     // one thing a value nobody typed must not do.
@@ -546,6 +566,8 @@ test.describe('where the credentials are stored', () => {
     await page.selectOption('#secrets', 'local');
     await page.click('#preview');
     await expect(page.locator('#s4')).not.toHaveAttribute('inert', '');
+    // The secret source these tests switch is in step 3, which the preview folds.
+    await reopenSteps(page);
   }
 
   test('defaults to the gitignored file', async ({ dashboard }) => {

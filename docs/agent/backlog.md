@@ -2943,6 +2943,66 @@ truth for `sign-in-setup-failed` and for `server-error`'s word vocabulary lives
 in `tests/framework/triage-dashboard.spec.ts` for the same reason — no spec a
 target can write makes the auth setup fail.
 
+### 53. Onboarding: one step at a time, and a way back — `done`
+
+Shipped in three parts: points 1 and 2 in run 62, point 3 on
+`agent/2026-08-19-fold-the-answered-steps` (run 74). The owner's ask was that
+onboarding stop being the page everybody lands on, and that it read like a
+wizard.
+
+**Point 3's case had to be re-argued before it was built**, because the item
+itself said so: after 1 and 2 the wizard only ran when somebody asked for it,
+and the rail already jumped. So it was measured on the running page rather
+than reasoned about. With all five steps reached, at 1280x720:
+
+| | before | after |
+|---|---|---|
+| whole page | 4090px · **5.68 screens** | 2184px · **3.03 screens** |
+| the four settled steps | 2675px — 65% of it | 357px |
+| the step you are on (s5) | 234px, under 3.5 screens of answered questions | in the first screen |
+
+**Folded, not hidden, and that distinction is the design.** The item warned
+that hiding completed steps "would cost more than it returns"; what it costs is
+the ability to check what you typed two steps ago. So a folded step keeps its
+heading and gains one line stating what it holds — read off the fields
+themselves, never a remembered copy, for the same reason `refreshStepRail`
+derives its state rather than tracking it. Three ways back, all tested: the
+step's own **Change this**, the rail entry, and a plan going stale.
+
+**The trigger is the preview and only the preview**, which is the finding worth
+carrying. The obvious hook was the rail's existing `done` state — and it is
+wrong: `done` means *behind the current step*, which after a preview is true of
+**step 4**, the credentials somebody still has to type. Folding on position
+would have folded the field they were about to fill. The preview is the one
+moment the page holds an answer for all three steps above it, because it is
+computed from every one of them.
+
+**The churn the item predicted was real, and measuring it is what shaped the
+change.** A first attempt that also folded step 1 on the read broke **38** of
+248 dashboard tests; moving to the preview-only trigger took it to 24, and the
+rest were fixed rather than worked around. Five setup helpers plus one shared
+`reopenSteps` in the harness — which does what **Change this** does — covered
+most of them, and the remainder were tests that genuinely go back to an earlier
+step mid-journey.
+
+**Two defects it turned up on the way, both in the tests rather than the page:**
+
+- `reopenSteps` first resolved the folded buttons up front and clicked them by
+  index. Clicking one drops its section out of the selector, so the list went
+  stale and the third click waited fifteen seconds for something that could no
+  longer match. It takes `.first()` in a loop now.
+- **A setup helper run twice is not a setup helper.** One Vault test called the
+  whole of `readyForCredentials` and then called it again inside
+  `checkedConnection`. Every wait in it is "is this already unlocked", which a
+  second run satisfies instantly — so everything after it raced a preview still
+  in flight. Latent long before this change; the fold is what made it fail.
+  Rewritten as one journey asserting on the way through.
+
+**A height tripwire went in with it**, in `progressive-disclosure.spec.ts`:
+the finished wizard must stay under four screens. `/onboard` had no height
+budget at all — `page-height.spec.ts` covers the other seven pages — which is
+exactly how the far end grew to 5.68 screens without a single test noticing.
+
 ### 55. Set-up was two pages a team visits twice, holding a quarter of the rail — `done`
 
 Shipped on `agent/2026-08-19-set-up-out-of-the-way` (run 67), from the owner's

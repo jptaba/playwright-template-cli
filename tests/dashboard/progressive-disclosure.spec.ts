@@ -1,4 +1,4 @@
-import { anApplication, expect, test } from './harness';
+import { anApplication, expect, reopenSteps, test } from './harness';
 
 /**
  * One step at a time, behind a panel that says what the whole thing needs.
@@ -139,5 +139,136 @@ test.describe('an application that is already onboarded', () => {
     await expect(page.locator('#s2'), 'a fresh start looks like a fresh start').toBeHidden();
     await expect(page.locator('#s3')).toBeHidden();
     await expect(page.locator('#s2 .badge')).toHaveText('Locked');
+  });
+});
+
+/**
+ * A step the page has an answer for folds to one line, and comes back.
+ *
+ * Revealing one step at a time fixed the *opening* of this page and left the
+ * far end alone. Measured on the running wizard with all five steps reached:
+ * 4090px at 1280x720, of which 2675px was steps already answered, and the step
+ * somebody was actually on was 234px of it.
+ *
+ * The trigger is the preview and only the preview, which is the one moment the
+ * page holds an answer for all three steps above it. Steps 4 and 5 are never
+ * folded — they arrive together and step 4 is still an input, which is exactly
+ * what the rail's own "done" state gets wrong.
+ */
+test.describe('folding a step the page has answered', () => {
+  async function previewed(dashboard: Parameters<Parameters<typeof test>[2]>[0]['dashboard']) {
+    const { page } = dashboard;
+    await page.fill('#name', 'shop');
+    await page.fill('#baseURL', 'https://staging.shop.test');
+    await page.check('#confirmTest');
+    await page.click('#probe');
+    await expect(page.locator('#s3')).not.toHaveAttribute('inert', '');
+    await page.click('#preview');
+    await expect(page.locator('#s5')).not.toHaveAttribute('inert', '');
+  }
+
+  test('the preview folds the three steps above it, and not the two below', async ({
+    dashboard,
+  }) => {
+    const { page } = dashboard;
+    await previewed(dashboard);
+
+    for (const id of ['s1', 's2', 's3']) {
+      await expect(page.locator(`#${id}`), `${id} is folded once it is answered`).toHaveAttribute(
+        'data-folded',
+        'true',
+      );
+    }
+    for (const id of ['s4', 's5']) {
+      await expect(
+        page.locator(`#${id}`),
+        `${id} arrives with the preview and is still an input`,
+      ).not.toHaveAttribute('data-folded', 'true');
+    }
+  });
+
+  test('a folded step says what it holds, rather than only that it is done', async ({
+    dashboard,
+  }) => {
+    // The line is what makes folding a way of checking rather than a way of
+    // hiding: read off the fields themselves, so it cannot drift from them.
+    const { page } = dashboard;
+    await previewed(dashboard);
+
+    await expect(page.locator('#s1 .fold-what')).toHaveText('shop · https://staging.shop.test');
+    await expect(page.locator('#s2 .fold-what')).toContainText('data-test');
+    await expect(page.locator('#s2 .fold-what'), 'the names the read found').toContainText(
+      'Email address *',
+    );
+    await expect(page.locator('#s3 .fold-what')).toContainText('standard');
+  });
+
+  test('"Change this" puts it back with everything still in it', async ({ dashboard }) => {
+    const { page } = dashboard;
+    await previewed(dashboard);
+    await expect(page.locator('#name')).toBeHidden();
+
+    await page.click('#s1 .fold button');
+
+    await expect(page.locator('#s1')).not.toHaveAttribute('data-folded', 'true');
+    await expect(page.locator('#name'), 'the field is reachable again').toBeVisible();
+    await expect(page.locator('#name'), 'and nothing was lost folding it').toHaveValue('shop');
+  });
+
+  test('the rail is a way back, so it unfolds what it points at', async ({ dashboard }) => {
+    // Scrolling to a folded step lands on its summary line, which reads as a
+    // link that did nothing to the person who asked to go back.
+    const { page } = dashboard;
+    await previewed(dashboard);
+
+    await page.click('#stepRail li[data-for="s2"] a');
+
+    await expect(page.locator('#s2')).not.toHaveAttribute('data-folded', 'true');
+    await expect(page.locator('#testId')).toBeVisible();
+  });
+
+  test('a plan that goes stale unfolds what it was computed from', async ({ dashboard }) => {
+    /*
+       The same defect as the stale plan itself, one section up: a step folded
+       on the strength of a preview that no longer describes the form is a
+       summary claiming to be settled when it is not.
+    */
+    const { page } = dashboard;
+    await previewed(dashboard);
+    await reopenSteps(page);
+
+    await page.check('#lA11y');
+
+    for (const id of ['s1', 's2', 's3']) {
+      await expect(page.locator(`#${id}`)).not.toHaveAttribute('data-folded', 'true');
+    }
+    await expect(page.locator('#plan')).toContainText('no longer what');
+  });
+
+  test('folding is most of the height of a finished wizard', async ({ dashboard }) => {
+    /*
+       The tripwire, in the unit the complaint was in. Unfolded, the end of
+       this journey measured 5.68 screens on the running page with the step
+       somebody was on at the bottom of it. This is not a design rule about
+       what looks nice; it is the guard against the far end growing back.
+    */
+    const { page } = dashboard;
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await previewed(dashboard);
+
+    const folded = await page.evaluate(() => document.documentElement.scrollHeight);
+    await reopenSteps(page);
+    const open = await page.evaluate(() => document.documentElement.scrollHeight);
+
+    /*
+       Four screens, deliberately loose, in the spirit of the budgets in
+       `page-height.spec.ts`: a tripwire for the far end growing back, not a
+       number tight enough to be raised by the first person it inconveniences.
+       Unfolded this journey measured 5.68 screens.
+    */
+    expect(folded, `the finished wizard is ${(folded / 720).toFixed(2)} screens`).toBeLessThan(
+      720 * 4,
+    );
+    expect(open, 'and folding is what buys that, not a smaller page').toBeGreaterThan(folded);
   });
 });

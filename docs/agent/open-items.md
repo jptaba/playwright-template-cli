@@ -15,7 +15,6 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 53 | Onboarding: one step at a time, and a way back | `ready` |
 | 52 | One coverage cell is left, and it is blocked | `blocked` |
 | 59 | A known-failure marker cannot be narrower than its test | `ready` |
 | 58 | `sharedEnvironment` is declared, documented, and enforced by nothing | `ready` |
@@ -25,7 +24,10 @@ decide what to do.
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Items 51 and 55 are `done`** and archived in `backlog.md`. **Item 52 is
+**Items 51, 53 and 55 are `done`** and archived in `backlog.md`. **Item 53
+closed in run 74**: a step the preview has an answer for folds to one line, and
+the finished wizard went from 5.68 screens to 3.03 measured on the running
+page. **Item 52 is
 under way** — `toolshop` went from one coverage kind to four in run 68, and
 `target:doctor` now names the missing ones itself rather than leaving it to a
 six-stage journey. **52 is finished** apart from `toolshop`'s `@audit`, which is blocked on item
@@ -38,62 +40,16 @@ date is 2026-09-19 and `target:doctor` says so on every check. Run 69 gave `sauc
 and 58 doing it; **57 shipped in run 70**, so a corrected template line now
 reaches the packs that already exist.
 
+**Take item 59 next.** It is the highest-ranked `ready` item now that 53 is
+closed, and it is the one that makes a *reported* failure trustworthy: a
+known-failure marker that cannot tell "the defect is still there" from "this
+stopped testing anything" is worse than no marker. 58 and 56 follow it — both
+are a declared capability nothing checks, which is the same shape twice.
+
 *(Item 52's section below was restored in run 68. Run 66 removed it by
 accident while archiving item 51 — the two were adjacent, and the row in the
 table above survived while its body did not. Worth a glance whenever a section
 is cut from this file.)*
-
----
-
-### 53. Onboarding: one step at a time, and a way back — `ready`
-
-**The owner's ask, 2026-08-18:**
-
-> Onboarding an app is not something that will always be done but it is always
-> there as a first page. Figure out how we can make that only called if a new
-> app will be onboarded. Also make it like a wizard like process.
-
-Two asks, and the second is nearly done already — which makes the first the
-real work.
-
-**Onboard is the rail's first destination and the route `/` redirects to.** So
-the page everybody lands on, every day, for the whole life of a repository, is
-the one page they will use once per application and never again. The steady
-state of this tool is *run, triage, publish*; the first screen says *add an
-application*.
-
-**The wizard is most of the way there already** — checked on the running page,
-not recalled. Five sections revealed in turn, locked badges, and a *Where you
-are* rail listing all five numbered steps with the current one marked. Two of
-the three things that make a wizard tolerable are done: how many are left, and
-where I am.
-
-**What is missing is the third: getting back.** The step links scroll, and a
-completed step stays open below the current one, so the page grows downward
-into one long form rather than showing one step at a time. That is the part
-that still reads as a scrolling document rather than a wizard.
-
-**Shape, and the first two landed in run 62:**
-
-1. ✅ **Onboarding is an action, not a destination.** Step 1 starts closed like
-   the four after it, behind an *Add an application* button. It still opens
-   unasked when a draft is in progress or no application exists at all.
-2. ✅ **`/` lands somewhere useful.** `landingPath()` sends it to `/runs` when
-   anything is configured, and serves onboarding when nothing is. `/onboard`
-   stays a real route either way.
-3. ⬜ **Show one step at a time**, with the *Where you are* rail switching
-   between them rather than scrolling to them — and a completed step reopenable
-   without losing what the later ones hold.
-
-**Point 3 is deliberately still open, and is worth a second look before it is
-done.** The case for it is weaker after 1 and 2 than it was when this was
-written: the wizard now only runs when somebody asked for it, the current step
-carries an accent edge (run 61), and the rail already jumps. What is left is
-that completed steps stay open above the current one — which is a scroll, but
-it is also how somebody checks what they typed two steps ago. Collapsing them
-to a summary line is the version worth building; hiding them outright would
-cost more than it returns, and would churn a large number of tests that read
-fields across steps.
 
 ---
 

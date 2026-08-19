@@ -1,4 +1,4 @@
-import { expect, test } from './harness';
+import { expect, reopenSteps, test } from './harness';
 
 /**
  * Step 5 — the one step that writes.
@@ -14,12 +14,19 @@ async function readyToWrite(
   name = 'shop',
 ) {
   const { page } = dashboard;
+  await reopenSteps(page);
   await page.fill('#name', name);
   await page.fill('#baseURL', 'https://staging.shop.test');
   await page.check('#confirmTest');
   await page.click('#probe');
   await page.click('#preview');
   await expect(page.locator('#s5')).not.toHaveAttribute('inert', '');
+  /*
+     The preview folds steps 1 to 3, and the tests below change a name or a
+     layer to make the plan go stale — which is a control up there. Reopening
+     is what an operator does with "Change this" before editing.
+  */
+  await reopenSteps(page);
 }
 
 test.describe('the preview', () => {

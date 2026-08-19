@@ -39,6 +39,32 @@ const STYLES = `
     to { opacity: 1; transform: none; }
   }
 
+  /*
+     A step the page already has the answer to folds to one line.
+
+     Revealing one step at a time fixed the *opening* of this page — 3888px
+     down to 1714px — and left the far end alone: measured on the running
+     wizard with all five steps reached, 4090px at 1280x720, of which 2675px
+     was steps already answered. The step somebody was actually on was 234px
+     of it, below three and a half screens of settled questions.
+
+     Folded rather than hidden, and the difference is the whole design. What
+     was answered stays legible on the line, the value stays in the field, and
+     "Change this" puts it back — so this stays a way of checking what you
+     typed two steps ago, which is the thing a completed step is for.
+  */
+  section[data-folded="true"] > *:not(.head):not(.fold) { display: none; }
+  section:not([data-folded="true"]) > .fold { display: none; }
+  .fold {
+    display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
+    margin-top: .4rem;
+  }
+  .fold-what {
+    color: var(--muted); font-size: .85rem;
+    overflow-wrap: anywhere;
+  }
+  .fold button { margin: 0; padding: .3rem .6rem; font-size: .8rem; }
+
   .service {
     display: grid; grid-template-columns: 11rem 1fr auto;
     gap: .5rem; margin: .45rem 0; align-items: center;
@@ -1059,6 +1085,12 @@ function refreshStepRail() {
     if (open[i]) {
       link.removeAttribute('aria-disabled');
       link.removeAttribute('tabindex');
+      /*
+         The rail is the way back, so it has to arrive at something readable.
+         Scrolling to a folded step lands on its one-line summary, which is a
+         link that appears to do nothing to the person who asked to go back.
+      */
+      link.onclick = () => unfold(ids[i]);
     } else {
       link.setAttribute('aria-disabled', 'true');
       link.tabIndex = -1;
@@ -1087,12 +1119,69 @@ function relock(id) {
   section.classList.add('pending');
   section.classList.remove('revealed');
   section.setAttribute('inert', '');
+  unfold(id);
   const badge = section.querySelector('.badge');
   if (badge && badge.dataset.ready) {
     badge.textContent = 'Locked';
     badge.className = 'badge locked';
   }
   refreshStepRail();
+}
+
+/*
+   What a folded step says it holds.
+
+   Read off the fields themselves rather than remembered, for the reason
+   \`refreshStepRail\` already gives about deriving state: a second copy of the
+   answer is a second thing that can disagree with the form. A summary that
+   drifted from the field under it would be worse than no summary, because the
+   whole point of folding is that somebody can trust the line instead of
+   opening the step.
+*/
+const FOLD_SUMMARY = {
+  s1: () => [$('name').value, $('baseURL').value].filter(Boolean).join(' · '),
+  s2: () => {
+    const names = [$('uName').value, $('pName').value, $('sName').value].filter(Boolean);
+    const read = [$('testId').value, $('signInPath').value].filter(Boolean).join(' · ');
+    return names.length ? read + ' · ' + names.join(', ') : read;
+  },
+  s3: () => {
+    const layers = [
+      ['lApi', 'api'], ['lContracts', 'contracts'], ['lA11y', 'a11y'], ['lDb', 'db'],
+    ].filter(([id]) => $(id).checked).map(([, name]) => name);
+    const roles = $('roles').value || 'no roles';
+    return roles + ' · ' + $('secrets').value + ' · ' + (layers.length ? layers.join(', ') : 'no optional layers');
+  },
+};
+
+/**
+ * Fold a step the page now holds the answer to.
+ *
+ * **Not the rail's "done" state**, and that distinction is the item. "done"
+ * means "behind the current step", which after a preview is true of step 4 —
+ * the credentials somebody still has to type. Folding on position would fold
+ * the field they were about to fill. The trigger here is the answer itself:
+ * the read for steps 1 and 2, the preview for step 3.
+ */
+function fold(id) {
+  const section = $(id);
+  if (section.hasAttribute('inert')) return;
+  const summarise = FOLD_SUMMARY[id];
+  let line = section.querySelector('.fold');
+  if (!line) {
+    line = el('div', 'fold');
+    section.append(line);
+  }
+  const change = el('button', 'secondary', 'Change this');
+  change.type = 'button';
+  change.onclick = () => unfold(id);
+  line.replaceChildren(el('span', 'fold-what', summarise ? summarise() : ''), change);
+  section.dataset.folded = 'true';
+}
+
+/** Put a folded step back, with everything it held still in it. */
+function unfold(id) {
+  delete $(id).dataset.folded;
 }
 
 /*
@@ -1442,6 +1531,12 @@ function setPreviewBadge(label, kind) {
 function markPlanStale() {
   if (plannedShape === null) return;
   plannedShape = null;
+  /*
+     And unfold what has to be answered again. A step folded on the strength of
+     a preview that no longer describes the form is the summary lying about
+     being settled — the same defect as the stale plan itself, one section up.
+  */
+  unfold('s1'); unfold('s2'); unfold('s3');
   $('create').disabled = true;
   const box = $('plan');
   box.replaceChildren(el('div', 'note',
@@ -1935,6 +2030,17 @@ $('preview').onclick = async () => {
     }
     renderCredentials();
     enable('s4'); enable('s5');
+    /*
+       One trigger, and the preview is it. It is the single moment the page
+       holds an answer for all three of the steps above — it is computed from
+       every one of them — so folding on anything earlier would fold a step
+       whose own button is still the next thing to press.
+
+       Steps 4 and 5 are deliberately never folded: they arrive together and
+       step 4 is still an input, which is exactly the case the rail's own
+       "done" state gets wrong.
+    */
+    fold('s1'); fold('s2'); fold('s3');
   } catch (error) {
     box.replaceChildren(el('div', 'error', error.message));
     setPreviewBadge('Needs your input', 'manual');

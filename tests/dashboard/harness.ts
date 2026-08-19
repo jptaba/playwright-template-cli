@@ -276,4 +276,26 @@ export const test = base.extend<{ dashboard: Harness }>({
   },
 });
 
+/**
+ * Put every folded step back, the way the "Change this" button does.
+ *
+ * A step folds once the preview has an answer for it, so anything that goes
+ * back to an earlier one — a second read, another role, a different layer — is
+ * doing what an operator does with that button. The setup helpers call it
+ * first so they work from any point in the journey rather than only from a
+ * page nobody has previewed on yet.
+ */
+export async function reopenSteps(page: Page): Promise<void> {
+  const folded = page.locator('section[data-folded="true"] .fold button');
+  /*
+     Always the first, never an index. Clicking one unfolds its section, which
+     drops it out of the selector — so a list resolved up front goes stale and
+     the third click waits fifteen seconds for a locator that can no longer
+     match anything.
+  */
+  for (let remaining = await folded.count(); remaining > 0; remaining -= 1) {
+    await folded.first().click();
+  }
+}
+
 export { expect } from '@playwright/test';

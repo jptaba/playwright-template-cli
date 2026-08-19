@@ -1,4 +1,4 @@
-import { anApplication, expect, probeFound, test } from './harness';
+import { anApplication, expect, probeFound, reopenSteps, test } from './harness';
 
 /**
  * Whole journeys through onboarding, rather than one control at a time.
@@ -20,6 +20,7 @@ async function readAndPreview(
   name = 'shop',
 ) {
   const { page } = dashboard;
+  await reopenSteps(page);
   await page.fill('#name', name);
   await page.fill('#baseURL', 'https://staging.shop.test');
   await page.check('#confirmTest');
@@ -213,6 +214,7 @@ test.describe('editing an existing application', () => {
     await expect(page.locator('#create')).toBeDisabled();
 
     dashboard.recorder.conflicts = [];
+    await reopenSteps(page);
     await page.fill('#name', 'shop-three');
     await page.click('#preview');
     // The plan has to have landed: `create` reads the same form, but clicking
@@ -237,6 +239,7 @@ test.describe('idempotency', () => {
     await readAndPreview(dashboard, 'acme-shop');
     const first = await page.locator('#plan li').count();
 
+    await reopenSteps(page);
     await page.click('#probe');
     await expect(page.locator('#findings')).toContainText('found at /auth/login');
     await page.click('#preview');
@@ -413,6 +416,7 @@ test.describe('recovering mid-journey', () => {
     await readAndPreview(dashboard, 'acme-shop');
 
     dashboard.recorder.probeResult = { ...probeFound(), signIn: null, contract: null, notes: [] };
+    await reopenSteps(page);
     await page.fill('#baseURL', 'https://other.shop.test');
     await page.click('#probe');
     await expect(page.locator('#findings')).toContainText('not found');

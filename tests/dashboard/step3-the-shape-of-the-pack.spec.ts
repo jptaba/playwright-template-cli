@@ -1,4 +1,4 @@
-import { expect, test } from './harness';
+import { expect, reopenSteps, test } from './harness';
 
 /**
  * Step 3 — roles, where credentials come from, and which optional layers ship.
@@ -11,6 +11,7 @@ import { expect, test } from './harness';
 
 async function reachStep3(dashboard: Parameters<Parameters<typeof test>[2]>[0]['dashboard']) {
   const { page } = dashboard;
+  await reopenSteps(page);
   await page.fill('#name', 'shop');
   await page.fill('#baseURL', 'https://staging.shop.test');
   await page.click('#skipProbe');
@@ -30,6 +31,12 @@ async function reachTheCredentialFields(
   await reachStep3(dashboard);
   await dashboard.page.click('#preview');
   await expect(dashboard.page.locator('#s4')).toBeVisible();
+  /*
+     The preview folds the three steps above it, and every test below this
+     helper goes on to change a role or a layer — which is what the "Change
+     this" button is for. Reopening here is that click.
+  */
+  await reopenSteps(dashboard.page);
 }
 
 test.describe('roles', () => {
@@ -155,6 +162,7 @@ test.describe('the optional layers', () => {
     await page.click('#preview');
     const bare = await planned(page);
 
+    await reopenSteps(page);
     await page.check('#lA11y');
     await page.check('#lDb');
     await page.click('#preview');
@@ -167,6 +175,7 @@ test.describe('the optional layers', () => {
     await reachStep3(dashboard);
     await page.click('#preview');
     const first = await planned(page);
+    await reopenSteps(page);
     await page.click('#preview');
 
     expect(await planned(page)).toBe(first);
@@ -257,6 +266,7 @@ test.describe("step 3's own sign that its button worked", () => {
     await page.click('#preview');
     await expect(page.locator('#s3Badge')).toHaveText('Previewed');
 
+    await reopenSteps(page);
     await page.check('#lA11y');
 
     await expect(page.locator('#s3Badge')).toHaveText('Needs your input');
@@ -532,6 +542,7 @@ test.describe('your Vault', () => {
     await page.click('#preview');
     await expect(page.locator('#plan')).toContainText('file(s) will be written');
 
+    await reopenSteps(page);
     await page.fill('#accountType', 'contractors');
     await expect(page.locator('#plan')).toContainText('The shape changed');
     await expect(page.locator('#create')).toBeDisabled();
