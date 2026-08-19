@@ -5218,6 +5218,43 @@ orangehrm **4 · 0 · 0**, restful-booker **3 · 0 · 1**, saucedemo **1 · 0 ·
   script template literal. Run 67 recorded the same thing. It is written down in
   two places and still cost a cycle.
 
-**Next:** item 59 — a known-failure marker that cannot tell "the defect is still
-there" from "this stopped testing anything". Then 58 and 56, which are the same
-shape twice: a declared capability nothing checks.
+**Validated live, after the owner asked for exactly that.** The change had been
+proven by driving the page and by 254 dashboard tests against a fake service,
+but nothing had let the framework *generate a target's artifacts* with the fold
+in place. So a scratch target was onboarded end to end through the running
+dashboard against `https://www.saucedemo.com`:
+
+- the real probe read `data-test` (×7), `Username` / `Password` / `Login`, and
+  correctly reported no published API document;
+- **step 1 did not fold on the read** and all three folded on the preview,
+  which is the trigger behaving as designed on a real journey;
+- the summaries were accurate — `fold-scratch · https://www.saucedemo.com`,
+  `data-test · / · Username, Password, Login`, `standard · local · no optional
+  layers`;
+- **steps 4 and 5 stayed open** at 654px and 527px — the case that folding on
+  the rail's `done` state would have broken;
+- **Create wrote 6 files**, and the credential landed in the gitignored
+  `config/secrets.private.json` with the tracked file's checksum byte-identical
+  before and after.
+
+Removed afterwards with `target:remove`, which took the pack, the profile and
+the credential; both secret files ended byte-identical to their pre-run
+checksums and the tree was clean.
+
+**That live pass found item 60**, which none of the 1085 tests did: the result
+panel tells you to *"Add credentials for standard to
+`config/secrets.local.json`"* — the **tracked** file — moments after writing
+them to the private one. `scaffold.ts:419` hardcodes it. It is item 15's defect
+one layer over: run 17 fixed where onboarding *writes* a credential and left
+what it *tells you to do* naming the old destination. Raised with the evidence
+rather than fixed here, because this run's item was already landed and pushed.
+
+**The lesson, and it is the reason the owner asked:** driving the page proves
+the page; only letting the framework generate a target proves the journey. The
+finding was in the last panel of that journey, which no unit or dashboard test
+reads.
+
+**Next:** item 60 or item 59 — 60 is small and fully evidenced; 59 is a
+known-failure marker that cannot tell "the defect is still there" from "this
+stopped testing anything". Then 58 and 56, which are the same shape twice: a
+declared capability nothing checks.

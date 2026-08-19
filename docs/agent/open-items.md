@@ -15,6 +15,7 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
+| 60 | The scaffold's next step names the file onboarding refuses to write to | `ready` |
 | 52 | One coverage cell is left, and it is blocked | `blocked` |
 | 59 | A known-failure marker cannot be narrower than its test | `ready` |
 | 58 | `sharedEnvironment` is declared, documented, and enforced by nothing | `ready` |
@@ -40,6 +41,10 @@ date is 2026-09-19 and `target:doctor` says so on every check. Run 69 gave `sauc
 and 58 doing it; **57 shipped in run 70**, so a corrected template line now
 reaches the packs that already exist.
 
+**Item 60 was found in run 74's live validation** — onboarding a scratch target
+through the running dashboard, against the real application, and reading what
+the page said afterwards. It is small and well-evidenced; take it or 59 first.
+
 **Take item 59 next.** It is the highest-ranked `ready` item now that 53 is
 closed, and it is the one that makes a *reported* failure trustworthy: a
 known-failure marker that cannot tell "the defect is still there" from "this
@@ -50,6 +55,49 @@ are a declared capability nothing checks, which is the same shape twice.
 accident while archiving item 51 — the two were adjacent, and the row in the
 table above survived while its body did not. Worth a glance whenever a section
 is cut from this file.)*
+
+---
+
+### 60. The scaffold's next step names the file onboarding refuses to write to — `ready`
+
+**Found in run 74**, by onboarding a scratch target end to end through the
+running dashboard against `https://www.saucedemo.com` and reading the result
+panel — not by reading source. The credential was written to the **gitignored**
+`config/secrets.private.json`, which is the default step 4 offers and the
+correct one. The panel then said:
+
+> 1. Add credentials for standard to `config/secrets.local.json` — the keys are
+>    listed above.
+
+Both halves are wrong at that moment. The credential **had just been written**,
+so there is nothing to add; and the file named is the **tracked** one, which
+`.gitignore`, the Test users page and item 15 all say is the wrong place for
+anything real.
+
+**Where it is.** `src/support/onboarding/scaffold.ts:419` hardcodes the path:
+
+```ts
+secretSource === 'local'
+  ? `Add credentials for ${roles.join(', ')} to config/secrets.local.json — …`
+  : `Write username and password to ${credentialPaths[0]} in Vault (…)`
+```
+
+**This is item 15's defect one layer over, and that is the useful part.** Run 17
+fixed *where onboarding writes* a credential and left *what onboarding tells you
+to do* naming the old destination. The same shape as items 14 and 17: the page
+contradicting what it just did. Verified on disk in the same run — the tracked
+file's checksum was byte-identical before and after, so the write is right and
+only the instruction is wrong.
+
+**Shape.** `buildScaffold` already takes `secretSource`; it needs to know
+whether credentials were supplied and which of `WRITABLE_LOCATIONS` they went
+to, and to say either nothing or the right file. The CLI path — where nobody
+typed a credential — still needs the instruction, so this is a message that
+varies rather than one to delete. Prefer naming the location the caller
+actually used over defaulting to either file.
+
+**Do not fix it by editing a pack.** The message is generated; the generator is
+the thing that is wrong.
 
 ---
 
