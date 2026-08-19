@@ -308,6 +308,32 @@ export interface TargetProfile {
   sharedEnvironment?: boolean;
 
   /**
+   * This application's live suites are not to be run for now, and why.
+   *
+   * **A decision somebody has to revisit, not a suite somebody deleted.** The
+   * same shape as a contract or accessibility waiver, and for the same reason:
+   * an application that is broken on the vendor's side turns every run red,
+   * and a red that nobody can act on is how a team learns to ignore the
+   * colour. Removing the specs would lose the coverage; leaving them red
+   * costs the signal on the other four applications.
+   *
+   * So `npm run suites:live` reports a parked application as **parked** rather
+   * than running it, `target:doctor` says so on every check, and the review
+   * date is what stops "for now" becoming "forever" — the doctor reports one
+   * that has passed, exactly as it does for a waiver.
+   *
+   * Parking is not for a suite that fails. It is for an application that
+   * cannot be tested at all: a defect in *our* specs is ours to fix, and a
+   * defect in the application is a finding worth keeping red until somebody
+   * decides otherwise, deliberately, here.
+   */
+  parked?: {
+    reason: string;
+    /** ISO date. `target:doctor` reports a parking whose review date has passed. */
+    reviewBy: string;
+  };
+
+  /**
    * Which deployment of the application this profile points at — `staging`,
    * `uat`, `reference`. Reported in the run report's verdict band, and it is
    * half of the TOTP key name (`totp/keys/<env>-<account>`).

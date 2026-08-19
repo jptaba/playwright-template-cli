@@ -47,7 +47,7 @@ export interface LiveFailure {
 
 export interface LiveTargetResult {
   target: string;
-  status: 'passed' | 'failed' | 'not-run';
+  status: 'passed' | 'failed' | 'not-run' | 'parked';
   totals: {
     total: number;
     passed: number;
@@ -124,6 +124,24 @@ export function summariseLiveRun(target: string, run: RunResult): LiveTargetResu
 }
 
 /** An application whose suite could not be run at all, which is not a pass. */
+/**
+ * An application whose profile says not to run it for now.
+ *
+ * Distinct from `not-run`, which means something went wrong and nothing was
+ * measured. This one is a decision: it was not run because somebody said so,
+ * in the profile, with a reason and a review date. Reporting the two the same
+ * way would let a broken command hide inside a deliberate pause.
+ */
+export function liveRunParked(target: string, reason: string): LiveTargetResult {
+  return {
+    target,
+    status: 'parked',
+    totals: { total: 0, passed: 0, failed: 0, flaky: 0, skipped: 0, expectedFailures: 0 },
+    failures: [],
+    reason,
+  };
+}
+
 export function liveRunNotRun(target: string, reason: string): LiveTargetResult {
   return {
     target,
@@ -152,6 +170,13 @@ export function liveRunNotRun(target: string, reason: string): LiveTargetResult 
 export function liveExitCode(results: LiveTargetResult[]): 0 | 1 | 2 {
   if (results.length === 0) return 2;
   if (results.some((result) => result.status === 'not-run')) return 2;
+  /*
+     Parked is a zero, and every application being parked is a two. The first
+     is the point of parking; the second is the trap it would otherwise set —
+     a command that reported success having run nothing at all is the silent
+     zero this whole model refuses everywhere else.
+  */
+  if (results.every((result) => result.status === 'parked')) return 2;
   return results.some((result) => result.status === 'failed') ? 1 : 0;
 }
 
@@ -164,12 +189,14 @@ export function liveExitCode(results: LiveTargetResult[]): 0 | 1 | 2 {
  */
 export function formatLiveReport(results: LiveTargetResult[]): string[] {
   const lines: string[] = [];
-  const symbol = { passed: '✓', failed: '✗', 'not-run': '!' };
+  const symbol = { passed: '✓', failed: '✗', 'not-run': '!', parked: '⏸' };
 
   for (const result of results) {
     const { totals } = result;
     const counts =
-      result.status === 'not-run'
+      result.status === 'parked'
+        ? `parked — ${result.reason ?? 'no reason given'}`
+        : result.status === 'not-run'
         ? (result.reason ?? 'did not run')
         : `${totals.passed}/${totals.total} passed` +
           (totals.failed > 0 ? ` · ${totals.failed} failed` : '') +
@@ -195,13 +222,18 @@ export function formatLiveReport(results: LiveTargetResult[]): string[] {
     }
   }
 
+  const parked = results.filter((result) => result.status === 'parked').length;
   const failed = results.filter((result) => result.status === 'failed').length;
   const notRun = results.filter((result) => result.status === 'not-run').length;
   const passed = results.filter((result) => result.status === 'passed').length;
   lines.push('');
   lines.push(
     `  ${passed} application(s) passing · ${failed} failing` +
-      (notRun > 0 ? ` · ${notRun} could not be run` : ''),
+      (notRun > 0 ? ` · ${notRun} could not be run` : '') +
+      // Named in the total, not only in its own line: a parked application is
+      // coverage nobody is getting, and a summary that omitted it would read
+      // as though everything onboarded had been tested.
+      (parked > 0 ? ` · ${parked} parked` : ''),
   );
   return lines;
 }

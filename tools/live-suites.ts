@@ -2,12 +2,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { targetNames } from '../config/target';
+import { resolveTarget, targetNames } from '../config/target';
 import { RESULTS_DIR } from '../src/support/paths';
 import {
   formatLiveReport,
   liveExitCode,
   liveRunNotRun,
+  liveRunParked,
   summariseLiveRun,
   type LiveTargetResult,
 } from '../src/support/live-suites';
@@ -119,7 +120,16 @@ function main(): number {
       'the suite — every failure below carries the triage category a rule settled it as.',
   );
 
-  const results = targets.map(runOne);
+  /*
+     A parked application is not run, and is reported as parked rather than
+     quietly dropped. `--target=` still runs it: asking for one by name is a
+     deliberate act, and refusing would leave somebody with no way to check
+     whether the reason for parking still holds.
+  */
+  const results = targets.map((name) => {
+    const parked = asked.includes(name) ? undefined : resolveTarget(name).parked;
+    return parked ? liveRunParked(name, parked.reason) : runOne(name);
+  });
 
   console.log('\nLive suites:\n');
   for (const line of formatLiveReport(results)) console.log(line);

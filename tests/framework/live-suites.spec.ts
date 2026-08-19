@@ -4,6 +4,7 @@ import {
   formatLiveReport,
   liveExitCode,
   liveRunNotRun,
+  liveRunParked,
   summariseLiveRun,
 } from '../../src/support/live-suites';
 import { tally, type RunResult, type TestRecord } from '../../src/support/reporters/run-result';
@@ -195,4 +196,56 @@ test('a failure a rule recognised but could not explain says what it found', () 
   expect(lines).toContain('needs judgement');
   expect(lines).toContain("role 'customer'");
   expect(lines).not.toContain('no rule matched');
+});
+
+test.describe('an application somebody has parked', () => {
+  /*
+     ParaBank answered HTTP 500 on its own login and accounts pages twice in
+     one day. Nothing in this repository can fix that, and five red specs
+     nobody can act on cost the signal on the four applications that pass — so
+     the profile says not to run it, with a reason and a review date.
+  */
+  const parked = liveRunParked('parabank', 'the application answers HTTP 500');
+  const passed = summariseLiveRun('shop', runWith([passing('a')]));
+  const failed = summariseLiveRun('shop', runWith([failing('a', 'boom')]));
+
+  test('is a zero, because not running it is the decision rather than a fault', () => {
+    expect(liveExitCode([passed, parked])).toBe(0);
+  });
+
+  test('everything parked is a two, not a green board', () => {
+    /*
+       The trap parking sets, and the reason this is not simply "parked never
+       fails". A command that reported success having run nothing at all is the
+       silent zero this model refuses everywhere else.
+    */
+    expect(liveExitCode([parked])).toBe(2);
+    expect(liveExitCode([parked, liveRunParked('other', 'also down')])).toBe(2);
+  });
+
+  test('does not hide a real failure beside it', () => {
+    expect(liveExitCode([parked, failed])).toBe(1);
+  });
+
+  test('says so, with the reason, rather than being quietly dropped', () => {
+    const report = formatLiveReport([passed, parked]).join('\n');
+
+    expect(report).toContain('parked');
+    expect(report).toContain('the application answers HTTP 500');
+    // Named in the total too: a parked application is coverage nobody is
+    // getting, and a summary that omitted it would read as though everything
+    // onboarded had been tested.
+    expect(report).toContain('1 parked');
+  });
+
+  test('is not reported the same way as a suite that could not be run', () => {
+    // One is a decision and the other is something going wrong. Reporting them
+    // alike would let a broken command hide inside a deliberate pause.
+    const both = formatLiveReport([parked, liveRunNotRun('x', 'no run model was written')]).join(
+      '\n',
+    );
+
+    expect(both).toContain('could not be run');
+    expect(liveExitCode([parked, liveRunNotRun('x', 'no run model was written')])).toBe(2);
+  });
 });

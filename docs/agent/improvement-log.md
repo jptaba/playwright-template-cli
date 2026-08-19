@@ -5004,3 +5004,66 @@ red, because the application is broken and that is what the suite is for.
 **Next:** `orangehrm` needs `@audit` and `@boundary`, which are the two that
 need data the spec creates — the point at which its pack stops being read-only.
 That finishes item 52 apart from toolshop's blocked `@audit` (item 56).
+
+## 2026-08-19 · run 72 · Parking an application, without losing it
+
+**Picked:** the owner's instruction — park parabank. It had answered **HTTP
+500** on its own login and accounts pages twice in one day, so all five of its
+specs failed at the first page and every run showed a red nobody in this
+repository can act on.
+
+**There was no mechanism for it, and that was the gap.** Nothing in the profile
+type, `suites:live` or the doctor knew what "parked" meant, so the only ways to
+stop the noise were to delete the specs or to live with it. Both are the trade
+the conventions refuse: the specs include two that report *real defects* — this
+bank accepts a negative transfer and one larger than the account holds — and a
+red that cannot be acted on costs the signal on the four applications that pass.
+
+**Did.** `parked: { reason, reviewBy }` on the profile, shaped exactly like the
+contract and accessibility waivers already there, and for the same stated
+reason: a decision somebody has to revisit rather than a suite somebody deleted.
+
+- `suites:live` reports it as **parked** rather than running it —
+  `⏸ parabank — parked — ParaBank answers HTTP 500 on its own login and
+  accounts pages` — and names it in the total, because a parked application is
+  coverage nobody is getting.
+- **`--target=parabank` still runs it.** Asking for one by name is a deliberate
+  act, and refusing would leave nobody a way to find out whether the reason
+  still holds.
+- `target:doctor` says so on **every** check, not only when the date passes.
+  The cost of parking is invisible by construction — the suites do not run, so
+  nothing turns red, so nothing reminds anybody — where a waiver at least sits
+  beside a spec that still runs.
+- Past its review date it becomes a different finding, `parked-review-due`,
+  whose fix is *decide again*.
+
+**The trap it would otherwise set is covered by a test.** Parked is a zero, but
+**everything** parked is a **two**: a command reporting success having run
+nothing at all is the silent zero this model refuses everywhere else. A failure
+beside a parked application is still a one.
+
+**Verify:** `npm run verify` passes, exit 0 — **1079 tests**, up from 1071.
+
+**Live suites: 4 passing, 0 failing, 1 parked.** orangehrm 5/5,
+restful-booker 13/13, saucedemo 6/6, toolshop 22/22.
+
+**Learned:**
+
+- **Parking had to cost something visible or it is just deletion with better
+  manners.** The three things that make it honest are the line in the report,
+  the count in the total, and the doctor saying it every time. Any one of them
+  missing and a parked application quietly stops being anybody's problem.
+- **The distinction between *parked* and *could not be run* is worth the extra
+  state.** One is a decision and the other is something going wrong; reporting
+  them alike would let a broken command hide inside a deliberate pause, which
+  is the same argument that separates `flaky` from `passed`.
+- **One toolshop failure appeared and did not reproduce.** `TOOL-4-05`, the
+  boundary spec written in run 68, failed once inside a full `suites:live` and
+  then passed three times alone and again in the next full run; the API answers
+  exactly what it asserts. Recorded rather than acted on — three singletons are
+  not a flake rate, and this repository has quarantine machinery for the
+  question.
+
+**Next:** `orangehrm`'s `@audit` and `@boundary` finish item 52 apart from
+toolshop's blocked one. They need data the spec creates, which is where that
+pack stops being read-only.

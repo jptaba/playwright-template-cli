@@ -50,6 +50,29 @@ export const parabank: TargetProfile = {
   */
   sharedEnvironment: true,
 
+  /*
+     Parked on 2026-08-19, at the owner's direction, and the reason is the
+     application rather than the suite.
+
+     ParaBank's own login and accounts endpoints answered **HTTP 500** twice in
+     one day — checked directly against the service, not inferred from a
+     failure — so every spec here fails at the first page. Triage settles all
+     five as `application-defect` via the `server-error` rule, which is correct
+     and is exactly the point: nothing in this repository can fix it, and a red
+     that nobody can act on costs the signal on the four applications that can.
+
+     The specs stay. Two of them (PB-2-01, PB-6-01) report real defects — this
+     bank accepts a negative transfer and one larger than the account holds —
+     and deleting them to get a green board is the trade the conventions refuse.
+
+     `npm run suites:live -- --target=parabank` still runs it, which is how to
+     find out whether the reason still holds.
+  */
+  parked: {
+    reason: 'ParaBank answers HTTP 500 on its own login and accounts pages',
+    reviewBy: '2026-09-19',
+  },
+
   capabilities: {
     mfa: 'none', // 'none' | 'totp' | 'email'
     accountPool: 'static', // 'static' | 'leased'

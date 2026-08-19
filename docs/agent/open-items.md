@@ -29,7 +29,10 @@ decide what to do.
 under way** — `toolshop` went from one coverage kind to four in run 68, and
 `target:doctor` now names the missing ones itself rather than leaving it to a
 six-stage journey. **Carry on with 52**: `orangehrm` is the last one, and its two are the pair
-that need data the spec creates. Run 69 gave `saucedemo` all five kinds and turned up items 57
+that need data the spec creates. `parabank` is **parked** as of run 72 — its
+five specs stay, two of them reporting real defects, and `suites:live` reports
+it as parked rather than running it until ParaBank's own 500s clear. Its review
+date is 2026-09-19 and `target:doctor` says so on every check. Run 69 gave `saucedemo` all five kinds and turned up items 57
 and 58 doing it; **57 shipped in run 70**, so a corrected template line now
 reaches the packs that already exist.
 
@@ -102,7 +105,7 @@ Read off the tags in each pack, and **`target:doctor` now reports it directly**
 |---|---|---|
 | toolshop | `@smoke` `@negative` `@idempotency` `@boundary` | audit — **blocked**, see item 56 |
 | saucedemo | all five | — |
-| parabank | all five | — (two of them fail: real defects, run 71) |
+| parabank | all five | — **parked** (run 72): the application answers HTTP 500 |
 | orangehrm | `@smoke` `@negative` `@idempotency` | audit, boundary |
 
 `restful-booker` and `saucedemo` have all five. **saucedemo is the better

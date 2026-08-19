@@ -152,6 +152,7 @@ export function diagnose(profile: TargetProfile, facts: TargetFacts): Diagnostic
   checkRoles(profile, facts, pack, error, warn);
   checkCapabilities(profile, facts, pack, error, warn);
   checkAuthentication(profile, facts, error, warn);
+  checkParked(profile, warn);
   checkRotation(profile, warn);
   checkOrphanedSessions(facts, warn);
 
@@ -696,6 +697,33 @@ function checkOrphanedSessions(facts: TargetFacts, warn: Report): void {
     describeOrphanedSessions(orphans),
     `Delete them: ${orphans.map((session) => `.auth/${session.file}`).join(', ')}. ` +
       'Nothing is lost — `setup:auth` writes a fresh session per run.',
+  );
+}
+
+/**
+ * An application somebody has paused, and whether the pause has expired.
+ *
+ * Said on **every** check rather than only when the date passes, because the
+ * cost of parking is invisible by construction: the suites do not run, so
+ * nothing turns red, so nothing reminds anybody. A waiver at least sits beside
+ * a spec that still runs.
+ */
+function checkParked(profile: TargetProfile, warn: Report): void {
+  if (!profile.parked) return;
+
+  const expired = Date.parse(profile.parked.reviewBy) < Date.now();
+  warn(
+    expired ? 'parked-review-due' : 'target-parked',
+    expired
+      ? `This application has been parked since before ${profile.parked.reviewBy}, ` +
+        `which has passed: "${profile.parked.reason}"`
+      : `This application is parked and its live suites are not run: ` +
+        `"${profile.parked.reason}" — review by ${profile.parked.reviewBy}.`,
+    expired
+      ? 'Decide again. Either the reason still holds and the date moves, or it does not and ' +
+        `\`parked\` comes off config/targets/${profile.name}.ts.`
+      : 'Nothing to fix. Run `npm run suites:live -- --target=' +
+        `${profile.name}\` to check whether the reason still holds.`,
   );
 }
 

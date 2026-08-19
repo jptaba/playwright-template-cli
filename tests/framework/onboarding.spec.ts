@@ -403,6 +403,38 @@ test.describe('the onboarding preflight', () => {
     expect(codes(found)).not.toContain('no-triage-fixture');
   });
 
+  test('a parked application is said on every check, not only when it lapses', () => {
+    /*
+       The cost of parking is invisible by construction: the suites do not run,
+       so nothing turns red, so nothing reminds anybody. A waiver at least sits
+       beside a spec that still runs.
+    */
+    const found = diagnose(
+      profile({ parked: { reason: 'the application answers HTTP 500', reviewBy: '2099-01-01' } }),
+      facts(),
+    );
+
+    expect(codes(found)).toContain('target-parked');
+    expect(found.find((one) => one.code === 'target-parked')?.message).toContain('HTTP 500');
+  });
+
+  test('a parking past its review date is a different finding, and says decide again', () => {
+    // "For now" becoming "forever" is the failure mode, and the review date is
+    // the only thing standing between the two.
+    const found = diagnose(
+      profile({ parked: { reason: 'the application answers HTTP 500', reviewBy: '2020-01-01' } }),
+      facts(),
+    );
+
+    expect(codes(found)).toContain('parked-review-due');
+    expect(codes(found)).not.toContain('target-parked');
+    expect(found.find((one) => one.code === 'parked-review-due')?.fix).toContain('Decide again');
+  });
+
+  test('an application nobody parked is not told anything about parking', () => {
+    expect(codes(diagnose(profile(), facts()))).not.toContain('target-parked');
+  });
+
   test('an accessibility waiver past its review date is surfaced, not forgotten', () => {
     // A waiver nobody revisits is a defect with better paperwork.
     const found = diagnose(
