@@ -139,7 +139,7 @@ export const DASHBOARD_PAGES: readonly PageLink[] = [
     href: '/onboard',
     label: 'Applications',
     group: 'Set up',
-    hint: 'Read an application and write its pack',
+    hint: 'Add one, or change what it declares',
   },
   {
     href: '/users',

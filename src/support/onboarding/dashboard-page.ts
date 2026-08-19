@@ -216,7 +216,7 @@ ${overview([
   <section id="s2" class="pending" inert>
     <div class="head">
       <span class="step">Step 2</span>
-      <h2>What it says about itself</h2>
+      <h2>What was read from it</h2>
       <span class="badge locked" data-ready="Filled in for you" data-kind="auto">Locked</span>
     </div>
     <p class="explain">
@@ -270,7 +270,7 @@ ${overview([
   <section id="s3" class="pending" inert>
     <div class="head">
       <span class="step">Step 3</span>
-      <h2>The shape of the pack</h2>
+      <h2>Roles and layers</h2>
       <span class="badge locked" id="s3Badge" data-ready="Needs your input" data-kind="manual">Locked</span>
     </div>
     <p class="explain">
@@ -434,7 +434,7 @@ ${overview([
   <section id="s5" class="pending" inert>
     <div class="head">
       <span class="step">Step 5</span>
-      <h2>Write it</h2>
+      <h2>Write the files</h2>
       <span class="badge locked" data-ready="Done for you" data-kind="auto">Locked</span>
     </div>
     <p class="explain">
@@ -504,10 +504,10 @@ const ASIDE = `
   <p class="rail-title">Where you are</p>
   <ol class="steps" id="stepRail">
     <li data-for="s1"><a href="#s1">The application</a></li>
-    <li data-for="s2"><a href="#s2">What it says</a></li>
-    <li data-for="s3"><a href="#s3">Shape of the pack</a></li>
+    <li data-for="s2"><a href="#s2">What was read</a></li>
+    <li data-for="s3"><a href="#s3">Roles and layers</a></li>
     <li data-for="s4"><a href="#s4">Credentials</a></li>
-    <li data-for="s5"><a href="#s5">Write it</a></li>
+    <li data-for="s5"><a href="#s5">Write the files</a></li>
   </ol>
   <p class="rail-note" id="railNote">Nothing is written until step 5, and nothing is ever
   overwritten.</p>
@@ -2183,17 +2183,30 @@ export function onboardingPageContent(): DashboardPageContent {
     title: 'Onboard an application',
     eyebrow: 'Onboarding',
     heading: 'Add an application under test',
+    /*
+       "its whole four-layer pack" was the old wording. "Pack" is this
+       repository's word for `src/targets/<app>/`, and the first screen is the
+       one place a reader has not met it yet — a lede that needs a glossary is
+       not a lede.
+    */
     lede:
-      'Reads the running application, then writes its profile and its whole four-layer pack in one go.',
+      'Reads the running application, then writes its profile and all four layers of its test code in one go.',
     /*
        "You fill in: steps 1, 3 and 4" and "filled in for you: steps 2 and 5"
        used to be facts here. The preflight panel says both, in terms of the
        information rather than of the step numbers — which is the half somebody
        who has not been here can act on.
     */
+    /*
+       The aim used to read "`setup:auth` passes unedited". That is the exact
+       truth and it is stated in the name of a Playwright project the reader has
+       not run yet — the one piece of vocabulary on this screen that belongs to
+       this repository rather than to testing. What it *means* is the promise
+       worth making on the first screen, so it says that instead.
+    */
     facts: [
       { label: 'Overwrites', value: 'Never' },
-      { label: 'Aim', value: '<code>setup:auth</code> passes unedited' },
+      { label: 'Aim', value: 'Sign-in works with no file edited by hand' },
     ],
     styles: STYLES,
     body: BODY,
