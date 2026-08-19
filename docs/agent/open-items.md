@@ -15,130 +15,129 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 46 | The operational surfaces are proven for one application, not four | `ready` |
-| 48 | Cases and stories are seeded, not shaped to exercise triage | `ready` |
+| 50 | The dashboard explains itself in the framework's own vocabulary | `ready` |
+| 51 | Three applications cannot reach the triage stage at all | `ready` |
+| 52 | Fourteen coverage cells are missing across four applications | `ready` |
+| 46 | The journey has been run for one application, not five | `ready` |
+| 48 | Seeded failure cases exist for one application, not five | `ready` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Nothing carries a `ready` label.** Items 38 and 41 to 42 all closed across
-runs 46 to 50. The next run is either a **scan** — drive the dashboard and the
-onboarding journey and raise what is found with evidence — or the **coverage
-phase**, which is now much the largest body of work left: four of seven
-applications are not onboarded, and 32 of 35 coverage cells are empty.
-
-**Item 38 resolved itself in run 48.** The lockout cleared — `POST /users/login`
-now answers **HTTP 200** — and toolshop is back to **20/20** live. Nothing in
-this repository changed it, which is the point: the failure was left red and
-legible rather than tailored around, and it went away on its own.
-
-`npm run suites:live` runs every onboarded application's specs against the real
-deployment, and **step 5 of the working agreement in `backlog.md` says every
-run does this and records the result.**
+**Take 50 first.** The dashboard and the onboarding journey are the standing
+priority and always have been; the owner has now asked for the same treatment
+on its *words* as the framework has had on its behaviour. 51 before 52 because
+a triage fixture is four specs and unblocks a whole journey stage, where
+coverage is the longer grind.
 
 ---
 
-### 11. A repeatable learn-fix-optimise loop over a full run — `hypothesis`
+### 50. The dashboard explains itself in the framework's own vocabulary — `ready`
 
-Full text: `backlog.md`, item 11. Two slices shipped (runs 12, 13).
+**The owner's ask, 2026-08-18:**
 
-**Standing objective, not a task.** The owner's stopping condition is "until the
-entire solution meets the intent and it is bulletproof", so this closes when the
-suites are, not when a list is empty.
+> There are very vague description or instructions there that needs to be
+> revisited. It should be concise but very clear. Make it more intuitive and ui
+> look and feel should be very pleasing.
 
-**What is left:**
+Measured on the running page rather than recalled — 14 explanatory blocks,
+**264 words** before anybody has typed anything.
 
-- A `toolshop` triage-fixture. **Ranked below the real suites**, and run 39b is
-  the evidence: a fixture of deliberate failures is worth less than running the
-  suite that is meant to pass. Run 41 shipped the running half
-  (`npm run suites:live`), so this is now the smaller remaining piece.
-- **Only 1 of the 7 rules in `rules.ts` has ever been settled against ground
-  truth** (`transport-failure`). The other six have unit coverage on synthetic
-  message text and no ground truth at all. That is the measurement's real blind
-  spot and nobody had written it down before run 39b.
+**Headings name internal concepts, or nothing at all.** A first-time operator
+meets, in order: *"What it says about itself"*, *"The shape of the pack"*,
+*"Write it"*. The first is poetic and says nothing; the second uses **"pack"**,
+which is this repository's word for a directory the reader has never seen; the
+third does not say what is written or where.
+
+**Jargon arrives before the thing it names.** `setup:auth`, `getByTestId` and
+`OpenAPI` are all on screen before step 1 is complete. `setup:auth` is a
+Playwright project this person has not run; `getByTestId` is an API they may
+never call.
+
+**The copy budget does not cover the longest text on the page.**
+`tests/framework/page-copy.spec.ts` caps a `p.explain` at 34 words — and the
+two longest blocks are `.note` elements at **48 and 27 words**, which the
+budget never counts. That is a framework gap, not a copy problem, and it is why
+the page grew a 48-word paragraph without any test objecting.
+
+**Labels carry their own hint, and the accessible name swallows it.** The
+Target name field's accessible name is the whole of *"Target name lower-case,
+hyphenated — becomes a directory and a TARGET value"*. A screen reader reads
+the explanation every time the field is focused.
+
+**Shape, and the order matters:**
+
+1. **Extend the budget to every explanatory block**, not just `p.explain` —
+   otherwise the rewrite is unenforced and drifts straight back.
+2. **Rewrite the headings and the first-screen copy** to say what the operator
+   gets, in their words: what an application is, what will be read from it,
+   what will be written. Jargon earns its place only after the thing exists.
+3. **Separate hint from label** so the accessible name is the field's name.
+4. **Then the visual pass** — the look-and-feel half of the ask, which is worth
+   doing after the words are settled rather than before.
+
+Everything the previous UI work established still holds and should not be
+undone: the four budgets (copy, height, measure, contrast), progressive
+disclosure, the theme control, one application switcher.
 
 ---
 
-## The coverage phase
+### 51. Three applications cannot reach the triage stage at all — `ready`
 
-A separate, time-boxed piece of work with its own log:
-[`coverage-phase.md`](coverage-phase.md). Five new applications alongside the
-two already here, each taken end to end through happy path, negative,
-idempotency, audit and boundary coverage, one at a time.
+`toolshop`, `parabank` and `orangehrm` have no `tests/triage-fixture/`, so
+`npm run app:journey` reports stage 5 as **failed** for each: *"triage
+classifies failures, and a green run exercises none of it"*. Confirmed by
+running it against `orangehrm`.
 
-It is kept out of this file on purpose. It is a programme with its own
-per-application state, and folding it in would put this list back where
-`backlog.md` was.
+`saucedemo` and `restful-booker` have fixtures. Four specs each is the size of
+the job, and it unblocks a whole journey stage per application.
+
+**Worth pairing with the rules that have no ground truth.** Three of the
+taxonomy's categories still have no rule — `test-data` deliberately, and
+`contract-drift` and the rest untested. A fixture written for the *categories*
+rather than for interesting failures is what turns that into a measurement.
 
 ---
 
-### 46. The operational surfaces are proven for one application, not four — `ready`
+### 52. Fourteen coverage cells are missing across four applications — `ready`
 
-**Audited in run 54 at the owner's question**, with evidence rather than
-recollection. The functional half is genuinely covered; the operational half is
-not, and the two should not be reported together.
+Counted from `coverage-phase.md` and confirmed against the tags in each pack:
 
-**Functional testing against the live applications: yes, and it is real.**
-16 spec files across 4 applications, all driving real deployments, **38/38
-green** on the last `suites:live`. That includes e2e, api and a11y projects —
-not the framework's own tests.
-
-**Everything else, measured from what is actually on disk:**
-
-| surface | state | evidence |
+| application | has | missing |
 |---|---|---|
-| onboarding | **2 of 4** | parabank and restful-booker were onboarded through the dashboard; toolshop and saucedemo predate it |
-| offboarding | ✓ | exercised repeatedly on scratch targets, with `secrets.local.json` checksums unchanged |
-| runs | ✓ **4 of 4** | `results/live/` holds a run model per application |
-| report | ✓ **first time in run 54** | `report:render` produced a 20 KB self-contained `index.html` from restful-booker's live run, and correctly refused a stale triage result, naming the fix |
-| triage | ~ | clusters and rules have run on real failures, but **`config/triage-verdicts.jsonl` does not exist** — no human verdict has ever been recorded, for any application |
-| cases | ✗ **1 of 4** | `cases/` holds `toolshop` and nothing else |
-| stories | ✗ **1 of 4** | `stories/` holds `TOOL-1`…`TOOL-5` and nothing else |
-| publish (Jira) | ~ | ran correctly against a live run and said *"No failures. Nothing to file."* — the right answer for a green run, but the filing path is unexercised |
-| publish (PractiTest) | ✗ | reads the run correctly — *"13 test(s), 12 carrying a PractiTest id"* — then stops at `PRACTITEST_URL is not set` |
-| test users | ✗ | not verified against a live application |
+| toolshop | `@smoke` | negative, idempotency, audit, boundary |
+| saucedemo | `@smoke` | negative, idempotency, audit, boundary |
+| parabank | `@smoke` | negative, idempotency, audit, boundary |
+| orangehrm | `@smoke` `@negative` `@idempotency` | audit, boundary |
 
-**So the honest answer to "do we truly exercise all of it": no.** The
-functional suites are proven four ways over; the operational chain is proven
-for toolshop, and only as far as the point where it needs an external service.
+`restful-booker` is the only application with all five, and is the worked
+example of what each looks like.
 
-**Two different kinds of gap, and they want different answers:**
+**OrangeHRM's two need data the spec creates** — adding a system user — which
+is the point at which its pack stops being read-only.
 
-- **Blocked on a service nobody here has.** `cases:pull`, `cases:push` and
-  `publish:practitest` need a PractiTest instance; the Jira filing path needs a
-  Jira. That is the owner's call — connect real ones, or accept that this half
-  is proven against fakes only.
-- **Not blocked, merely undone.** No triage verdict has ever been recorded,
-  and the Test users page has never been driven against a live application.
-  Both are doable now.
+---
 
+### 46. The journey has been run for one application, not five — `ready`
 
-### 48. Cases and stories are seeded, not shaped to exercise triage — `ready`
+**Rewritten in run 59: the original claim is out of date.** It said the
+operational surfaces could only be exercised by whoever owned a PractiTest
+licence. `npm run fakes:serve` and `npm run app:journey` now exist, and the
+whole six-stage journey has been run green end to end for `restful-booker`.
 
-`npm run fakes:serve` seeds PractiTest with the case ids the specs already
-carry and Jira with two stories whose acceptance criteria match the specs. That
-proves the *plumbing* — a story pulls, results post — and it proves nothing
-about **triage**, because every one of those runs is green.
+What is actually left is narrower: **run it for the other four**, and fix what
+it reports. That is one command per application, and items 51 and 52 are most
+of what it will report.
 
-The owner's ask, in their words: *"When we create cases, let's try to also
-tweak them to truly test the triaging."*
+---
 
-**What is missing.** Triage classifies *failures*. The rules in `rules.ts`
-number seven, and exactly **one** (`transport-failure`) has ever been settled
-against a failure whose cause was known in advance — the measurement blind spot
-item 11 already records. The fakes now make the rest reachable: a seeded case
-can be paired with a spec engineered to fail a stated way, and
-`npm run triage:measure` scores whether the rule agreed.
+### 48. Seeded failure cases exist for one application, not five — `ready`
 
-**Shape:** a triage fixture for a target that has none, with each spec carrying
-its `triage-ground-truth` annotation, chosen to hit the rules that have never
-been exercised — `locator-drift`, `test-data`, `environment-config`,
-`contract-drift`, `timing-synchronisation`. saucedemo's existing fixture covers
-four causes and settles one; the point of a second is the six rules nothing has
-ever confirmed.
+Also narrower than written. `fakes:serve` seeds four deliberate-failure cases
+and a Jira story stating them as acceptance criteria — for `restful-booker`.
+The other applications have neither, which is the same gap as item 51 seen from
+the services' end, and the two should be done together per application.
 
-Note the ordering the log already established: a fixture of deliberate failures
-is worth less than running the suites that are meant to pass, and those now run
-every run. This is the next thing, not the first.
+---
 
 ### 49. Point the notifications at a real Teams channel and Outlook relay — `blocked`
 
@@ -176,3 +175,43 @@ make green runs notify too. The tools default them off, and their own comments
 argue for that — *"a nightly mail that is green 90% of the time trains its
 recipients to filter it"*. The fakes set both so a demo shows something; a real
 channel probably should not.
+
+---
+
+---
+
+### 11. A repeatable learn-fix-optimise loop over a full run — `hypothesis`
+
+Full text: `backlog.md`, item 11. Two slices shipped (runs 12, 13).
+
+**Standing objective, not a task.** The owner's stopping condition is "until the
+entire solution meets the intent and it is bulletproof", so this closes when the
+suites are, not when a list is empty.
+
+**What is left:**
+
+- A `toolshop` triage-fixture. **Ranked below the real suites**, and run 39b is
+  the evidence: a fixture of deliberate failures is worth less than running the
+  suite that is meant to pass. Run 41 shipped the running half
+  (`npm run suites:live`), so this is now the smaller remaining piece.
+- **Only 1 of the 7 rules in `rules.ts` has ever been settled against ground
+  truth** (`transport-failure`). The other six have unit coverage on synthetic
+  message text and no ground truth at all. That is the measurement's real blind
+  spot and nobody had written it down before run 39b.
+
+---
+
+---
+
+## The coverage phase
+
+A separate, time-boxed piece of work with its own log:
+[`coverage-phase.md`](coverage-phase.md). Five new applications alongside the
+two already here, each taken end to end through happy path, negative,
+idempotency, audit and boundary coverage, one at a time.
+
+It is kept out of this file on purpose. It is a programme with its own
+per-application state, and folding it in would put this list back where
+`backlog.md` was.
+
+---
