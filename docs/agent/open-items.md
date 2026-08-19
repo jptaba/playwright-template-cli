@@ -16,7 +16,8 @@ decide what to do.
 | # | Item | Status |
 |---|---|---|
 | 46 | The operational surfaces are proven for one application, not four | `ready` |
-| 47 | The publish and cases tools cannot reach a loopback fake | `ready` |
+| 48 | Cases and stories are seeded, not shaped to exercise triage | `ready` |
+| 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
 **Nothing carries a `ready` label.** Items 38 and 41 to 42 all closed across
@@ -110,25 +111,68 @@ for toolshop, and only as far as the point where it needs an external service.
   and the Test users page has never been driven against a live application.
   Both are doable now.
 
-### 47. The publish and cases tools cannot reach a loopback fake — `ready`
 
-Found while trying to close item 46 without a real PractiTest.
+### 48. Cases and stories are seeded, not shaped to exercise triage — `ready`
 
-`tests/support/fake-practitest-server.ts` exists and is thorough — the
-framework tests use it — so pointing `PRACTITEST_URL` at one should let the
-whole chain be exercised for any application. It does not work: the fake
-recorded **zero calls**, and both tools failed at the connection with the
-framework's proxy/CA advice.
+`npm run fakes:serve` seeds PractiTest with the case ids the specs already
+carry and Jira with two stories whose acceptance criteria match the specs. That
+proves the *plumbing* — a story pulls, results post — and it proves nothing
+about **triage**, because every one of those runs is green.
 
-Notably `publish:practitest` then **degraded to a warning and exited 0**,
-which is correct and is the framework working — *"reporting never turns a
-green suite red"*.
+The owner's ask, in their words: *"When we create cases, let's try to also
+tweak them to truly test the triaging."*
 
-The fake is reached happily from inside a Playwright test, where the request
-context belongs to the test. The standalone tools construct their own, and
-that is the difference worth investigating first.
+**What is missing.** Triage classifies *failures*. The rules in `rules.ts`
+number seven, and exactly **one** (`transport-failure`) has ever been settled
+against a failure whose cause was known in advance — the measurement blind spot
+item 11 already records. The fakes now make the rest reachable: a seeded case
+can be paired with a spec engineered to fail a stated way, and
+`npm run triage:measure` scores whether the rule agreed.
 
-**Why it matters more than a test convenience:** without it, every claim about
-cases, stories and publishing depends on somebody owning a PractiTest licence.
-With it, the whole operational chain is provable for all four applications on
-any machine, and item 46's blocked half stops being blocked.
+**Shape:** a triage fixture for a target that has none, with each spec carrying
+its `triage-ground-truth` annotation, chosen to hit the rules that have never
+been exercised — `locator-drift`, `test-data`, `environment-config`,
+`contract-drift`, `timing-synchronisation`. saucedemo's existing fixture covers
+four causes and settles one; the point of a second is the six rules nothing has
+ever confirmed.
+
+Note the ordering the log already established: a fixture of deliberate failures
+is worth less than running the suites that are meant to pass, and those now run
+every run. This is the next thing, not the first.
+
+### 49. Point the notifications at a real Teams channel and Outlook relay — `blocked`
+
+Both notification paths are **built, tested and proven end to end** against
+local fakes (run 55). What is missing is one channel and one relay, and neither
+is something an agent can create.
+
+**Gmail was tried first and abandoned at the owner's direction.** Recorded
+because the finding stands for any consumer mailbox: direct MX delivery is
+refused outright —
+
+```
+550-5.7.1 The IP you're using to send mail is not authorized to
+550-5.7.1 send email directly to our servers. Please use the SMTP relay at your
+550-5.7.1 service provider instead.
+```
+
+— so unauthenticated sending is not a route to any Google-hosted address, and
+authenticated sending needs an App Password that must never be pasted into a
+chat or committed.
+
+**What is needed, and it is configuration rather than code:**
+
+| | |
+|---|---|
+| Teams | An **incoming webhook** on the destination channel. Its URL *is* the credential — anybody holding it can post — so it is registered for redaction the moment it is read. Set `TEAMS_WEBHOOK_URL`. |
+| Outlook | An authenticated relay: `SMTP_HOST=smtp.office365.com`, `SMTP_PORT=587`, `SMTP_SECURE=false` (STARTTLS), `SMTP_USER`, `SMTP_PASSWORD`, plus `DIGEST_TO` and `DIGEST_FROM`. |
+
+`credentialFromEnv('SMTP_PASSWORD', …)` registers the password for redaction,
+so it cannot reach a log or an attachment. A **service mailbox** rather than a
+person's account is what the tool's own copy already asks for.
+
+**One decision worth taking deliberately.** `TEAMS_ALWAYS` and `DIGEST_ALWAYS`
+make green runs notify too. The tools default them off, and their own comments
+argue for that — *"a nightly mail that is green 90% of the time trains its
+recipients to filter it"*. The fakes set both so a demo shows something; a real
+channel probably should not.

@@ -4012,3 +4012,73 @@ red.
 spent itself on the audit they asked for first. Application 5 is
 **AutomationExercise** per the coverage file's order (4 → 6 → 5 → 7).
 Items 46 and 47 are `ready` and 47 is the one that unblocks the other.
+
+## 2026-08-18 · run 55 · Four fake services, and the notification paths that needed them
+
+**Picked:** the owner's ask — stand up fakes for Jira and PractiTest, and send
+the report to Teams and Outlook with the config left open.
+
+**Correcting run 54's item 47, which was wrong.** It said the tools could not
+reach a loopback fake and recorded zero calls. They can: Playwright's request
+context talks to the fake perfectly (200 on the first try). **My harness was
+the defect** — it used `spawnSync`, which blocks the parent's event loop, so
+the in-process fake could not answer the child it had just spawned. The fakes
+were never the problem, and item 47 is deleted rather than fixed.
+
+**Did:** `npm run fakes:serve` holds four services open:
+
+| service | role |
+|---|---|
+| Jira | user stories come *from* here |
+| PractiTest | test cases come *from* here, run results go *to* here |
+| Teams | an incoming webhook the report posts *to* |
+| SMTP | a mailbox the digest is sent *to* |
+
+Two are new. `FakeTeamsServer` answers `200` with body `1` like a real
+incoming webhook, and **refuses** a card past the 28 KB Teams silently
+truncates — a fake that accepts anything teaches nothing. `FakeSmtpServer`
+speaks enough of RFC 5321 to complete a transaction, deliberately over a real
+socket rather than as a stub transport: `notify:email` builds a real nodemailer
+transport, and the interesting failures live in that layer.
+
+`notify:teams` is new and follows `notify:email`'s contract exactly — renders,
+retains the card in `report-out/` whether or not the post lands, never fails
+the build, and posts only on failure unless `TEAMS_ALWAYS=true`. The webhook
+URL is registered for redaction, because it *is* the credential.
+
+**Proven end to end against a live application's run:**
+
+- `story:pull RB-1` → `wrote stories/RB-1.json`, 3 acceptance criteria
+- `publish:practitest` → *"Posted 11 result(s); 1 unresolved, 0 failed"*
+- `notify:teams` → *"Posted to Teams."*
+- `notify:email` → *"Sent to qa-team@fake.invalid."*
+
+**Verify:** `npm run verify` passes, exit 0 — **1007 tests**, up from 1000.
+
+**Gmail, tried and abandoned at the owner's direction.** Port 25 to Gmail's MX
+is open from here, so direct delivery is technically reachable, and Gmail
+refuses it outright: *"The IP you're using to send mail is not authorized to
+send email directly to our servers."* Authenticated sending needs an App
+Password only the account holder can create and that must never be pasted into
+a chat. Recorded in item 49 because it holds for any consumer mailbox.
+
+**Learned:**
+
+- **I raised an item on a defect I had caused.** Item 47 blamed the tools for
+  not reaching a fake, on the evidence of zero recorded calls. The zero was
+  real; the cause was `spawnSync` blocking the very event loop the fake needed
+  to answer. Two runs earlier I wrote that a diagnostic must be checked before
+  it is trusted, and then trusted my own harness. **When a measurement says
+  "nothing happened at all", suspect the measuring instrument first.**
+- **A fake that accepts everything proves the plumbing and nothing else.** The
+  Teams fake refuses oversized and non-card payloads, so the 28 KB limit is a
+  tested behaviour rather than a comment. The real service answers `200` while
+  truncating, which is the failure worth being unable to make.
+- **`fixtureRun()` is a failing run, and I asserted a green card against it.**
+  It carries a deliberate mix — 2 passed, 1 failed, 1 flaky, 1 skipped. The
+  test now builds its own green run and says why in the helper.
+
+**Next:** item 48 — shape cases and a triage fixture so the six rules that have
+never been settled against ground truth finally are. The fakes make that
+reachable for any application, which is what they were for. Then application 5
+of the coverage phase.
