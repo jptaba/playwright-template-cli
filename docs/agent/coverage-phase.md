@@ -84,7 +84,7 @@ applicable to this application
 | 3 | ParaBank | ✓ | ✓ | — | — | — | — | 3/3 (`setup:auth`, `@smoke`, `@a11y`) |
 | 4 | restful-booker | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 13/13 |
 | 5 | DemoBlaze | — | — | — | — | — | — | — |
-| 6 | AutomationExercise | — | — | — | — | — | — | — |
+| 6 | AutomationExercise | blocked | — | — | — | — | — | needs an account |
 | 7 | OrangeHRM | — | — | — | — | — | — | — |
 
 **toolshop and saucedemo have happy-path coverage only.** Their existing specs
@@ -306,3 +306,44 @@ or after a refusal. The accessibility tree was reporting a node that is not the
 banner. The honest handle is `div.alert-danger`, which is also better here —
 it is absent until the form refuses, which is what lets a verb wait for
 "listed *or* refused" rather than time out on one of them.
+
+### 6 · AutomationExercise — blocked before onboarding, on an account
+
+**Reachable and healthy** — `/`, `/login` and `/api/productsList` all answer
+200 (checked 2026-08-18). The blocker is not availability.
+
+**It publishes no test account.** Every other application here came with
+credentials the vendor prints — `standard_user`, `john/demo`, `admin/password`,
+toolshop's README table. AutomationExercise expects each user to **register
+their own**, and its login page carries a signup form beside the login one for
+exactly that.
+
+**An agent must not create it.** Creating accounts is off the table regardless
+of who asks — the same rule that stopped the Gmail app password in run 55. So
+this needs a person: register an account, then put it where the other three
+live (`config/secrets.private.json`, gitignored) under
+`qa/automationexercise/pools/workforce/<role>/1`.
+
+**Read off the running page while checking, so whoever picks this up has it:**
+
+| | |
+|---|---|
+| sign-in path | `/login` |
+| username field | `Email Address` |
+| password field | `Password` |
+| submit | `Login` |
+
+**And a trap worth knowing before the probe meets it.** `/login` renders the
+login form *and* a signup form, and **both carry a textbox named "Email
+Address"**. That is the duplicated-accessible-name shape backlog item 1 was
+built for — the probe anchors on the password field and takes the textbox above
+it, which lands on the right one here, but any locator written as
+`getByRole('textbox', { name: 'Email Address' })` without scoping matches two
+elements and fails strict mode.
+
+**How much is reachable without an account**, if the decision is to defer the
+credential: the API is public — `/api/productsList` answers 200 unauthenticated
+— and the catalogue, search and product pages are all browsable signed out. So
+happy path, negative, boundary and a good deal of the API surface are all
+writable now; only the account-scoped journeys (cart persistence, checkout,
+order history) need the credential.
