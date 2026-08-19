@@ -4772,3 +4772,88 @@ catalog is the hallucination it exists to prevent.
 **Next:** `orangehrm` needs `@audit` and `@boundary`; `saucedemo` and
 `parabank` need four each. Item 56 wants a measurement before anybody touches
 toolshop's pool.
+
+## 2026-08-19 · run 69 · A template's guess, propagated to four packs
+
+**Picked:** item 52 for `saucedemo` — four coverage cells, chosen over
+`orangehrm` because saucedemo's pack stays read-only and nothing about it is
+blocked. It turned into a framework fix on the way, which is the entry.
+
+**All four cells landed, and every claim was read off the running application
+first:**
+
+| | |
+|---|---|
+| `SD-2-01` `@negative` | `locked_out_user` is refused *and says so* — a published account that exists to be refused, so no lockout budget is spent |
+| `SD-3-01` `@idempotency` | a product in the cart offers Remove, not a second Add |
+| `SD-4-01` `@audit` | the checkout summary charges for what the listing priced |
+| `SD-5-01` `@boundary` | the cart reaches the whole catalogue, and empties again |
+
+**The framework fix, and it is rule zero's own worked example arriving live.**
+`SD-2-01` failed with `readError` returning **null** while the banner plainly
+said *"Epic sadface: Sorry, this user has been locked out."* The locator was
+`page.getByRole('alert')`, and saucedemo's banner carries no role.
+
+That is the exact failure `docs/CONVENTIONS.md` uses to explain why a pack must
+not be hand-fixed — so it was not. The mechanism is the **scaffold template**,
+which emitted that bare guess into every pack it has ever written, with a
+comment admitting it: *"`error` is still a guess: nothing can read it off a
+page that has not had a sign-in refused."* Four of the five packs on disk
+carried it verbatim.
+
+The template now emits the priority the conventions already mandate for every
+other locator — role first, this target's own test id second:
+
+```ts
+error: (page) => page.getByRole('alert').or(page.getByTestId('error')),
+```
+
+and the reasoning is in the template, including why onboarding cannot simply
+derive it: deriving an error locator means being refused on purpose, and on a
+shared deployment that spends a lockout budget belonging to everybody.
+
+**`target:upgrade` could not propagate it**, and that is the honest gap. It
+reports `locators/sign-in.ts` as differing and stops — correctly, because it
+cannot tell a hand-written locator from a stale template. So the corrected line
+was applied to the four packs carrying the bare guess, which is what rule zero
+prescribes for an output left behind by a corrected mechanism. Raised as item
+57, because a template fix that reaches no existing pack is half a fix.
+
+**A lint rule caught a defect in my own spec, which is the other thing worth
+recording.** `SD-2-01` was written into `coverage.spec.ts` and
+`auth-project-boundary` refused it: a spec tagged `@auth` there runs in `e2e`
+with a session already established, and *"passes without testing anything"*. It
+now lives in `login.spec.ts` and runs in `auth-flows`, signed out. A reviewer
+would very likely have missed that; the rule did not.
+
+**Verify:** `npm run verify` passes, exit 0 — **1065 tests**, catalog rebuilt
+for the new verbs.
+
+**Live suites: 4 of 5, 48/49.** saucedemo **6/6** with all five kinds,
+orangehrm 5/5, parabank 3/3, restful-booker 13/13; toolshop 21/22 — `TOOL-1-02`
+timed out on the search grid, which is the ~800ms caption-then-grid race its own
+action comments describe on a shared demo, not this change.
+
+**Learned:**
+
+- **A guessed locator that returns null is worse than one that throws.**
+  `readError` answering null is indistinguishable from "the form reported no
+  error", which is the sentence that sent this session to the wrong file twice
+  — once on toolshop's locked account in run 63, and once here. The fix is a
+  locator that can match what applications actually ship; the deeper lesson is
+  that a scaffolded guess should fail loudly or not be written.
+- **Four packs carrying one wrong line is a template defect, not four
+  mistakes.** Grepping `error: (page` across `src/targets/*/locators/` took
+  seconds and turned "saucedemo has a bad locator" into "the scaffolder has
+  been writing this since the first target". Worth doing for any pack file that
+  looks wrong: if the other packs agree with it, the template is the defect.
+- **The vocabulary gap was the application telling me something.** The first
+  draft of `SD-3-01` called `addToCart` twice and died on a fifteen-second
+  timeout — because this application *replaces* Add with Remove rather than
+  repeating it. The verb the spec actually needed was `isInCart`, which asks
+  the application which state a product is in. A missing verb is a design
+  question, and the answer here was better than the spec I set out to write.
+
+**Next:** `parabank` needs four cells and `orangehrm` two — orangehrm's need
+data the spec creates, which is where its pack stops being read-only. Item 57
+(propagating a corrected template) is small and unblocks the next one of these.

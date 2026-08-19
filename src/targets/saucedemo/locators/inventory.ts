@@ -47,6 +47,18 @@ export const inventoryLocators = {
   addToCart: (page: Page, name: string): Locator =>
     inventoryLocators.item(page, name).getByRole('button', { name: 'Add to cart' }),
 
+  /**
+   * The control a product in the cart offers instead of Add.
+   *
+   * This application *replaces* the button rather than repeating it, so
+   * "add it again" is not a thing a user can do — and a spec that tried died
+   * as a fifteen-second timeout on a control that had been renamed, which
+   * reads as a broken cart. Naming both states is what lets a verb say which
+   * one a product is in.
+   */
+  removeFromCart: (page: Page, name: string): Locator =>
+    inventoryLocators.item(page, name).getByRole('button', { name: 'Remove' }),
+
   cartBadge: (page: Page): Locator => page.getByTestId('shopping-cart-badge'),
 
   price: (page: Page): Locator => page.getByTestId('inventory-item-price'),

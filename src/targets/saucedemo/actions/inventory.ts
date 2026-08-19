@@ -27,10 +27,45 @@ export const inventory = {
     return names.map((name) => name.trim());
   },
 
-  async addToCart(page: Page, name: string): Promise<void> {
-    await test.step(`Add "${name}" to the cart`, async () => {
-      await inventoryLocators.addToCart(page, name).click();
+  /**
+   * Add one product, or several.
+   *
+   * Several rather than a loop in the spec, because this application's control
+   * *toggles*: the same call on a product already in the cart removes it. A
+   * spec that wants "everything, then nothing again" says so twice, and the
+   * step titles read as the two intentions they are rather than as twelve
+   * clicks.
+   */
+  async addToCart(page: Page, name: string | string[]): Promise<void> {
+    const names = Array.isArray(name) ? name : [name];
+    await test.step(`Add ${names.map((one) => `"${one}"`).join(', ')} to the cart`, async () => {
+      for (const one of names) await inventoryLocators.addToCart(page, one).click();
     });
+  },
+
+  /**
+   * Take products back out.
+   *
+   * Its own verb rather than calling `addToCart` twice: the control is
+   * replaced rather than toggled, so a second add finds no button at all.
+   */
+  async removeFromCart(page: Page, name: string | string[]): Promise<void> {
+    const names = Array.isArray(name) ? name : [name];
+    await test.step(`Remove ${names.map((one) => `"${one}"`).join(', ')} from the cart`, async () => {
+      for (const one of names) await inventoryLocators.removeFromCart(page, one).click();
+    });
+  },
+
+  /**
+   * Whether this product is in the cart, asked of the control it offers.
+   *
+   * The application answers by *replacing* Add with Remove, so this is the
+   * application's own account of the cart rather than a count inferred from
+   * the badge — which is what makes "adding it again is not possible" a claim
+   * a spec can make at all.
+   */
+  async isInCart(page: Page, name: string): Promise<boolean> {
+    return inventoryLocators.removeFromCart(page, name).isVisible();
   },
 
   /** The number on the cart badge, or 0 when the cart is empty. */

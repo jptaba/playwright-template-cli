@@ -27,7 +27,20 @@ export const signInLocators = {
   username: (page: Page): Locator => page.getByRole('textbox', { name: 'Username' }),
   password: (page: Page): Locator => page.getByRole('textbox', { name: 'Password' }),
   submit: (page: Page): Locator => page.getByRole('button', { name: 'Login' }),
-  error: (page: Page): Locator => page.getByRole('alert'),
+  /**
+   * The refusal banner.
+   *
+   * **Brought in line with the corrected scaffold template**, which used to
+   * emit a bare `getByRole('alert')` into every pack. That matched nothing on
+   * an application whose banner carries no role, and `readError` then returned
+   * null — a null indistinguishable from "the form reported no error", which
+   * is the one failure mode that sends people to the wrong file.
+   *
+   * Role first because that is what a screen reader hears, this target's own
+   * test id second because that is what applications actually ship. The
+   * template carries the full reasoning.
+   */
+  error: (page: Page): Locator => page.getByRole('alert').or(page.getByTestId('error')),
   /** Something only a signed-in page shows. Used to verify a session, not to assert. */
   signedInMarker: (page: Page): Locator =>
     page.getByRole('button', { name: 'Open Menu' }),

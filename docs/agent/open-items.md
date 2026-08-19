@@ -16,7 +16,9 @@ decide what to do.
 | # | Item | Status |
 |---|---|---|
 | 53 | Onboarding: one step at a time, and a way back | `ready` |
-| 52 | Ten coverage cells are missing across four applications | `ready` |
+| 52 | Six coverage cells are missing across three applications | `ready` |
+| 57 | A corrected template reaches no pack that already exists | `ready` |
+| 58 | `sharedEnvironment` is declared, documented, and enforced by nothing | `ready` |
 | 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `ready` |
 | 46 | The journey has been run for one application, not five | `ready` |
 | 48 | Seeded failure cases exist for one application, not five | `ready` |
@@ -26,8 +28,9 @@ decide what to do.
 **Items 51 and 55 are `done`** and archived in `backlog.md`. **Item 52 is
 under way** — `toolshop` went from one coverage kind to four in run 68, and
 `target:doctor` now names the missing ones itself rather than leaving it to a
-six-stage journey. **Carry on with 52**, one application at a time:
-`orangehrm` needs two, `saucedemo` and `parabank` four each.
+six-stage journey. **Carry on with 52**, one application at a time: `parabank` needs four and
+`orangehrm` two. Run 69 gave `saucedemo` all five kinds and turned up items 57
+and 58 doing it — 57 is small and makes the next one of these cheaper.
 
 *(Item 52's section below was restored in run 68. Run 66 removed it by
 accident while archiving item 51 — the two were adjacent, and the row in the
@@ -88,7 +91,7 @@ fields across steps.
 
 ---
 
-### 52. Ten coverage cells are missing across four applications — `ready`
+### 52. Six coverage cells are missing across three applications — `ready`
 
 Read off the tags in each pack, and **`target:doctor` now reports it directly**
 (`coverage-incomplete`, added in run 68) rather than leaving it to
@@ -97,12 +100,14 @@ Read off the tags in each pack, and **`target:doctor` now reports it directly**
 | application | has | missing |
 |---|---|---|
 | toolshop | `@smoke` `@negative` `@idempotency` `@boundary` | audit |
-| saucedemo | `@smoke` | negative, idempotency, audit, boundary |
+| saucedemo | all five | — |
 | parabank | `@smoke` | negative, idempotency, audit, boundary |
 | orangehrm | `@smoke` `@negative` `@idempotency` | audit, boundary |
 
-`restful-booker` is the only application with all five, and is the worked
-example of what each looks like.
+`restful-booker` and `saucedemo` have all five. **saucedemo is the better
+worked example of the four beyond the happy path**, because each one is a
+claim about a UI-only application with no service to ask — which is the harder
+case and the one the other two are in.
 
 **Look for cells that already exist before writing any.** Two of toolshop's
 four were present and merely untagged — genuinely negative specs that
@@ -169,6 +174,75 @@ checks it — that is the framework-shaped half, and it is the interesting one.
 one-account pool and see whether they still interfere. That answers which of
 the two stories is true, and it is one command plus a profile value nobody has
 to keep.
+
+---
+
+### 57. A corrected template reaches no pack that already exists — `ready`
+
+**Found in run 69**, fixing the scaffolded sign-in error locator.
+
+The template had emitted `page.getByRole('alert')` into every pack it ever
+wrote, and it matched nothing on an application whose banner carries no role.
+The template is fixed. **`target:upgrade` cannot deliver the fix**: it reports
+`locators/sign-in.ts` as *differing* and stops, because the file legitimately
+differs — its names were read off the real application.
+
+```
+Differ from the templates. Not touched, and mostly should not be:
+  ~ src/targets/<app>/locators/sign-in.ts
+A file differs either because somebody wrote it … or because the template has
+moved on since. This tool cannot tell those apart, so it reports and stops.
+```
+
+Stopping is the right default and should stay. What is missing is a way to say
+*this one line moved on*, so run 69 applied the corrected line to four packs by
+hand — which works once and does not scale, and is exactly the manual step the
+scaffolder exists to remove.
+
+**Shape worth trying**, and it is smaller than a merge tool. The template knows
+which parts of a file are *derived* (the accessible names, the marker) and
+which are **template-owned** — the error locator, the doc comments, the
+imports. If the scaffolder marked the template-owned lines, `target:upgrade`
+could offer to replace exactly those and leave the derived ones alone, which is
+the distinction it currently says it cannot make.
+
+**Do not solve it by making `upgrade --apply` overwrite the file.** That would
+throw away locators somebody read off a running application, which is the
+single most expensive thing in a pack to recreate.
+
+---
+
+### 58. `sharedEnvironment` is declared, documented, and enforced by nothing — `ready`
+
+**Checked in run 69** and it holds: `sharedEnvironment` appears in the profile
+type, in `docs/CONVENTIONS.md`, in the Test users page and in one sign-in
+message. **No lint rule reads it, `playwright.config.ts` does not consult it,
+and `target:doctor` does not check it.**
+
+The conventions are unambiguous about what it should do:
+
+> Negative authentication specs spend the account's lockout budget… on a
+> deployment shared with strangers, declare `sharedEnvironment: true` in the
+> profile and skip them entirely.
+
+Nothing skips them, and the harm is not hypothetical — **run 63 watched
+toolshop's shared customer account get locked** (`423 Account locked, too many
+failed attempts`), taking its whole suite red until the vendor's counter
+cleared hours later.
+
+**The specs that exist today are written correctly**, which is why this is a
+warning about the future rather than a defect to fix: `TOOL-2-02` signs in as
+an unregistered address unique per run, and `SD-2-01` uses a published account
+that exists to be refused. Neither spends anybody's budget. Nothing stops the
+next one being written the other way.
+
+**Do not fix it by skipping every `@negative @auth` spec on a shared target.**
+That would silently drop both specs above, which are safe and valuable — and a
+framework that quietly stops running tests is worse than one that lets a
+mistake through. The hazard is narrower than the tag: *a sign-in expected to
+fail, using a pooled credential*. Whether that is reachable by a lint rule, by
+a fixture-level refusal, or only by a preflight warning is the open question,
+and it should be answered before anything is built.
 
 ---
 

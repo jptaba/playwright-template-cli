@@ -634,7 +634,29 @@ export const signInLocators = {
   username: (page: Page): Locator => page.getByRole('textbox', { name: ${username} }),
   password: (page: Page): Locator => page.getByRole('textbox', { name: ${password} }),
   submit: (page: Page): Locator => page.getByRole('button', { name: ${submit} }),
-  error: (page: Page): Locator => page.getByRole('alert'),
+  /**
+   * The refusal banner.
+   *
+   * **Two shapes, because this is the one locator onboarding cannot read.**
+   * Every other name here came off the running page; nothing can read an error
+   * off a page that has not had a sign-in refused, and deriving one would mean
+   * spending a lockout budget on an application that may share it with
+   * strangers.
+   *
+   * So it follows the same priority the conventions set for every locator
+   * rather than guessing at one application: the accessible role first,
+   * because that is what a screen reader hears, and this target's own test id
+   * second, because that is what applications actually ship. A single
+   * \`getByRole('alert')\` matched nothing on an application whose banner
+   * carries no role — \`readError\` then returned null, and a failed run
+   * reported *"the form reported no error"* while the application was saying
+   * "Account locked" on screen.
+   *
+   * If neither matches here, correct it from a real refusal rather than
+   * leaving it: a null it cannot distinguish from "no error" is the one
+   * failure mode that sends people to the wrong file.
+   */
+  error: (page: Page): Locator => page.getByRole('alert').or(page.getByTestId('error')),
   /** Something only a signed-in page shows. Used to verify a session, not to assert. */
   signedInMarker: (page: Page): Locator =>
     page.getByRole('${marker.role}', { name: ${quote(marker.name)} }),

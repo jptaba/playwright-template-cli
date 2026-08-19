@@ -149,10 +149,13 @@ _L2 UI vocabulary. Composes locators, returns data, asserts nothing._
 | `checkout.openCart` | `(page: Page) => Promise<void>` |  |
 | `checkout.proceedToCheckout` | `(page: Page) => Promise<void>` |  |
 | `checkout.provideDeliveryDetails` | `(page: Page, details: DeliveryDetails) => Promise<void>` |  |
+| `checkout.readSummary` | `(page: Page) => Promise<{ products: string[]; itemTotal: number; }>` | What the order summary says was bought, and what it charges for it. |
 | `checkout.readError` | `(page: Page) => Promise<string \| null>` | The validation error the step reported, or null when it reported none. |
 | `inventory.open` | `(page: Page) => Promise<void>` |  |
 | `inventory.productNames` | `(page: Page) => Promise<string[]>` | The names on the listing, in the order shown. |
-| `inventory.addToCart` | `(page: Page, name: string) => Promise<void>` |  |
+| `inventory.addToCart` | `(page: Page, name: string \| string[]) => Promise<void>` | Add one product, or several. |
+| `inventory.removeFromCart` | `(page: Page, name: string \| string[]) => Promise<void>` | Take products back out. |
+| `inventory.isInCart` | `(page: Page, name: string) => Promise<boolean>` | Whether this product is in the cart, asked of the control it offers. |
 | `inventory.cartCount` | `(page: Page) => Promise<number>` | The number on the cart badge, or 0 when the cart is empty. |
 | `inventory.sortBy` | `(page: Page, label: string) => Promise<void>` |  |
 | `inventory.displayedProducts` | `(page: Page) => Promise<{ name: string; price: number; }[]>` | Name and price for every card, in the order shown. |
