@@ -43,6 +43,10 @@ test.beforeEach(async ({ page: browserPage }) => {
 test.describe('the rail', () => {
   test('lists every destination, grouped, in pipeline order', async ({ page: p }) => {
     const rail = p.getByRole('navigation', { name: 'Dashboard sections' });
+    // Set up is a disclosure now and starts closed, so this opens it: the
+    // claim being made is about the order and completeness of the rail, not
+    // about what happens to be revealed on a Runs page.
+    await rail.locator('details[data-nav-group="set-up"] > summary').click();
     await expect(rail.getByRole('link')).toHaveText([
       'Test framework',
       /Applications/,
@@ -146,6 +150,9 @@ test.describe('narrow windows', () => {
 
   test('every destination is still reachable there', async ({ page: p }) => {
     await p.setViewportSize({ width: 560, height: 900 });
+    // Including the two behind the disclosure — "reachable" is the claim, and
+    // a group that could not be opened at this width would break it.
+    await p.locator('details[data-nav-group="set-up"] > summary').click();
     for (const link of DASHBOARD_PAGES) {
       await expect(p.getByRole('link', { name: new RegExp(link.label) })).toBeVisible();
     }
@@ -245,5 +252,98 @@ test.describe('the disclosures', () => {
     const instruction = (await p.getByText('Do the thing.').boundingBox())!;
     const summary = (await p.getByText('Why the thing works this way').boundingBox())!;
     expect(instruction.y).toBeLessThan(summary.y);
+  });
+});
+
+test.describe('the set-up group', () => {
+  /*
+     `tests/framework/` asserts the markup; only a browser can say whether the
+     links are actually off the screen, whether a keyboard reaches the
+     disclosure, and whether opening it survives a navigation. The persistence
+     is script, and script that is never run is a comment.
+  */
+  const setUp = (p: import('@playwright/test').Page) =>
+    p.locator('details[data-nav-group="set-up"]');
+
+  test('keeps its two pages off the screen until it is asked', async ({ page: p }) => {
+    const labels = await p.locator('nav.rail a:visible .nav-label').allTextContents();
+
+    expect(labels).toEqual(['Stories', 'Cases', 'Runs', 'Triage', 'Publish']);
+    // Off the screen, not out of the document: the group is one click away and
+    // its own heading is still on screen saying so, which is the difference
+    // between this and a hamburger.
+    await expect(setUp(p).getByText('Set up', { exact: true })).toBeVisible();
+  });
+
+  test('a click reveals both of them', async ({ page: p }) => {
+    await setUp(p).getByText('Set up').click();
+
+    const labels = await p.locator('nav.rail a:visible .nav-label').allTextContents();
+    expect(labels).toEqual([
+      'Applications',
+      'Test users',
+      'Stories',
+      'Cases',
+      'Runs',
+      'Triage',
+      'Publish',
+    ]);
+  });
+
+  test('a keyboard opens it too, which a div and a click handler would not', async ({ page: p }) => {
+    await setUp(p).locator('summary').focus();
+    await p.keyboard.press('Enter');
+
+    await expect(p.getByRole('link', { name: /Applications/ })).toBeVisible();
+  });
+
+  /*
+     `setContent` leaves the page on `about:blank`, where Chromium refuses
+     `localStorage` outright — the script swallows that by design, so a
+     persistence test written against it would pass for the wrong reason and
+     then fail. These two serve the same markup over a real origin instead,
+     the way the theme tests do, so a reload is a reload.
+  */
+  const served = async (p: import('@playwright/test').Page, options = {}) => {
+    await p.route('http://shell.test/**', (route) =>
+      route.fulfill({ contentType: 'text/html', body: page(options) }),
+    );
+    await p.goto('http://shell.test/');
+  };
+
+  test('opening it is remembered on the next page', async ({ page: p }) => {
+    /*
+       Somebody who opens Set up to add an application and then check its
+       credentials should not have to open it again on the way. Only the
+       opening is stored — a person who never opens it never sees it open.
+    */
+    await served(p);
+    await setUp(p).getByText('Set up', { exact: true }).click();
+    await p.reload();
+
+    await expect(setUp(p)).toHaveJSProperty('open', true);
+  });
+
+  test('and closing it again is forgotten rather than stored as a preference', async ({
+    page: p,
+  }) => {
+    await served(p);
+    await setUp(p).getByText('Set up', { exact: true }).click();
+    await setUp(p).getByText('Set up', { exact: true }).click();
+    await p.reload();
+
+    await expect(setUp(p)).toHaveJSProperty('open', false);
+  });
+
+  test('the group holding the current page is open, so the rail says where you are', async ({
+    page: p,
+  }) => {
+    await p.setContent(page({ current: '/users' }));
+
+    await expect(setUp(p)).toHaveJSProperty('open', true);
+    await expect(p.getByRole('link', { name: /Test users/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 });

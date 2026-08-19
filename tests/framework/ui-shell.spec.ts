@@ -493,3 +493,82 @@ test('the shell forwards every option the onboarding page is given', () => {
   expect(html).toContain('uat');
   expect(markup(html)).toContain('nav-badge');
 });
+
+const CONTENT = {
+  title: 'Runs',
+  eyebrow: 'Results',
+  heading: 'What happened',
+  lede: 'The last run and the ones before it.',
+  body: '<section><p>body</p></section>',
+};
+
+test.describe('the set-up group is not always on screen', () => {
+  /*
+     The owner, 2026-08-19: "hide the entire onboarding and test users inside a
+     button or something that's not always present on the page… for each team,
+     they most likely just do the application onboarding once or twice then
+     after that the day to day would be focused on the Authoring, Executions
+     and Reporting."
+
+     Two of seven links — a quarter of the rail, and the first thing read in
+     it — for a job a team finishes in its first week.
+  */
+  const rail = (current: string, available?: readonly string[]) =>
+    renderPage(CONTENT, {
+      token: 't',
+      pages: DASHBOARD_PAGES,
+      current,
+      ...(available ? { target: { name: null, available } } : {}),
+    });
+
+  test('renders as a disclosure, closed, on a day-to-day page', () => {
+    const html = rail('/runs');
+
+    expect(html).toContain('<details class="nav-collapsible" data-nav-group="set-up">');
+    // Closed is the absence of the attribute, so assert on the attribute
+    // rather than on the words: the links are still in the markup either way.
+    expect(html).not.toContain('data-nav-group="set-up" open');
+  });
+
+  test('the day-to-day groups are not disclosures', () => {
+    // Collapsing Execute would hide the badge that makes the rail worth its
+    // width — four failures nobody has looked at, visible from every page.
+    const html = rail('/runs');
+
+    expect(html).toContain('<p class="nav-group" id="nav-execute">');
+    expect(html).toContain('<p class="nav-group" id="nav-author">');
+    expect(html).toContain('<p class="nav-group" id="nav-report">');
+  });
+
+  test('opens itself when the page being rendered is inside it', () => {
+    /*
+       Otherwise navigating to Test users collapses the link marked
+       `aria-current`, and the rail claims you are nowhere.
+    */
+    expect(rail('/users')).toContain('data-nav-group="set-up" open');
+    expect(rail('/onboard')).toContain('data-nav-group="set-up" open');
+  });
+
+  test('opens itself when nothing is onboarded, because there is nothing else to do', () => {
+    // The same judgement `landingPath()` makes about `/`: an empty repository
+    // has one useful thing in it, and it must not be behind a disclosure.
+    expect(rail('/runs', [])).toContain('data-nav-group="set-up" open');
+    expect(rail('/runs', ['acme-shop'])).not.toContain('data-nav-group="set-up" open');
+  });
+
+  test('an absent application list is not an empty one', () => {
+    // Pages that are about something else omit `available` entirely, and a
+    // missing list is not a statement that nothing is onboarded.
+    expect(rail('/runs')).not.toContain('data-nav-group="set-up" open');
+  });
+
+  test('the wordmark goes to the route that decides where home is', () => {
+    /*
+       It used to go to `pages[0]`, which is /onboard — the one page this whole
+       change exists to stop putting in front of people. `/` already redirects
+       to Runs when anything is configured and serves onboarding when nothing
+       is, so linking there keeps one decision in one place.
+    */
+    expect(rail('/runs')).toContain('<a class="wordmark" href="/">');
+  });
+});

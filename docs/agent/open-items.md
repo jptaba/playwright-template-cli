@@ -15,7 +15,6 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 55 | Set-up is two pages a team visits twice, and they hold a quarter of the rail | `ready` |
 | 53 | Onboarding: one step at a time, and a way back | `ready` |
 | 52 | Fourteen coverage cells are missing across four applications | `ready` |
 | 46 | The journey has been run for one application, not five | `ready` |
@@ -23,9 +22,11 @@ decide what to do.
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Item 51 is `done`** — all five applications carry a triage fixture as of run
-66, and it is archived in `backlog.md`. **Take 55 next**: it is the standing
-priority and the owner's own words. Then 52, the coverage cells.
+**Items 51 and 55 are both `done`** — every application carries a triage
+fixture (run 66), and the set-up pages are out of the permanent rail (run 67).
+Both are archived in `backlog.md`. **Take 52 next**, the coverage cells: three
+applications have only `@smoke`, and it is now the largest gap between what
+this framework claims and what it demonstrates.
 
 ---
 
@@ -78,60 +79,6 @@ it is also how somebody checks what they typed two steps ago. Collapsing them
 to a summary line is the version worth building; hiding them outright would
 cost more than it returns, and would churn a large number of tests that read
 fields across steps.
-
----
-
-### 55. Set-up is two pages a team visits twice, and they hold a quarter of the rail — `ready`
-
-**The owner's ask, 2026-08-19:**
-
-> Hide the entire onboarding and test users inside a button or something
-> that's not always present on the page. Again, for each team, they most
-> likely just do the application onboarding once or twice then after that the
-> day to day would be focused on the Authoring, Executions and Reporting.
-
-**The shape of it, read off `DASHBOARD_PAGES` in `src/support/ui/shell.ts:137`
-rather than recalled.** Seven pages in four groups, and the first group is the
-one nobody uses twice:
-
-| group | pages | how often |
-|---|---|---|
-| **Set up** | Applications, Test users | once or twice per application, ever |
-| Author | Stories, Cases | every day |
-| Execute | Runs, Triage | every day |
-| Report | Publish | every day |
-
-So two of seven links — a whole quarter of the rail, and the *first* thing read
-in it — are permanently occupying the most valuable space on every page for a
-job that is finished by the end of the first week.
-
-**This is the third and largest turn of the same screw**, and the first two
-landed, which is what makes the case for this one concrete rather than
-speculative:
-
-- Run 62 stopped `/` serving onboarding and sent it to `/runs`, so the page
-  everybody met daily was no longer the one they use once.
-- Run 62 also put step 1 behind an *Add an application* button, so the wizard
-  no longer runs at somebody who came to look at a list.
-- **What is left is the navigation itself**, which still presents the setup
-  pages as co-equal with the daily ones.
-
-**Shape, and the constraint that matters.** Neither page may become
-unreachable, and neither may become hard to find on the day somebody does need
-it — the first week of a repository is exactly when a person is least able to
-go hunting. A disclosure in the shell that reveals the *Set up* group — off by
-default, remembered when opened, and opened automatically when nothing is
-onboarded — keeps both properties. The precedent is already in the page:
-`landingPath()` and the wizard's auto-open both make the same judgement, which
-is that an empty repository has genuinely nothing else to do.
-
-**Do not solve it by deleting the group from the rail and relying on a URL.**
-`/onboard` and `/users` are real routes and must stay linked from somewhere
-visible, or the second application anybody onboards becomes a support question.
-
-**Ranked above the coverage items but below anything broken.** It is the
-standing priority — the dashboard being simpler for the person using it every
-day — and it is the owner's own words, twice now.
 
 ---
 

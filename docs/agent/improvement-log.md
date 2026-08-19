@@ -4622,3 +4622,62 @@ since run 53, and the first ever with five applications.
 
 **Next:** item 55, the owner's own, and the standing priority — take the set-up
 pages out of the permanent navigation. Then item 52's coverage cells.
+
+## 2026-08-19 · run 67 · The rail stopped opening with a job nobody does twice
+
+**Picked:** item 55, the owner's own, added in run 66 and taken next because it
+is the standing priority.
+
+**Did:** the *Set up* group — Applications and Test users — is a `<details>`
+disclosure in the rail, closed on a day-to-day page. Full reasoning is item 55
+in `backlog.md`.
+
+**Measured on the running dashboard, not in the markup**, because that is this
+loop's own rule and because three of item 20's four polish claims were written
+from source and turned out mis-shaped:
+
+| page | rail shows |
+|---|---|
+| `/runs` | Stories, Cases, Runs, Triage, Publish |
+| `/users` | all seven — the group holding the current page opens itself |
+
+and opening it on `/runs` then navigating to `/triage` left it open, which is
+the remembering working over a real origin.
+
+**Verify:** `npm run verify` passes, exit 0 — **1060 tests**, up from 1048.
+
+**Live suites: 4 of 5 passing, 42/43.** orangehrm 5/5, parabank 3/3,
+restful-booker 13/13, saucedemo 2/2, toolshop 19/20 — a cart-totals spec on a
+demo whose cart is shared state, declining rather than being guessed at. Three
+consecutive runs of `suites:live` disagreed with each other about which
+toolshop spec failed (sign-out, then cart), which is the shared demo behaving
+like a shared demo. Nothing in this change touches a target suite.
+
+**Learned:**
+
+- **The comment I was contradicting was right, and the distinction is worth
+  keeping.** `navigation()` cited the guidance against hiding desktop
+  navigation behind a hamburger. That objection is about hiding *where you can
+  go and what is waiting there* — and a collapsed group hides neither: its
+  heading stays on screen, everything with a badge stays expanded. Correcting
+  the comment to say which half still applies was more useful than deleting it,
+  and it is what stops the next person re-litigating this.
+- **A persistence test against `setContent` would have passed for the wrong
+  reason.** `about:blank` has no origin, Chromium refuses `localStorage` there,
+  and the script swallows that by design — so the test would have proved
+  nothing and then failed the day somebody looked. Serving the same markup over
+  a routed `http://` origin is what makes a reload a reload, which is exactly
+  the argument `theme.spec.ts` already had written down.
+- **Two tests broke by *relying* on the old behaviour rather than asserting
+  it**, which is the third time this file records that shape. Both were about
+  order and reachability, not about what happens to be revealed on a Runs page;
+  opening the disclosure first made each a better test of its own claim.
+- **The backtick trap caught me again**, in two files at once — a comment
+  inside `DASHBOARD_STYLES` and one inside the shell's body script, both
+  template literals. It is written down in the loop's own notes and it still
+  cost a cycle. Worth reading before touching `tokens.ts` or any `*-page.ts`.
+
+**Next:** item 52, the fourteen missing coverage cells — `toolshop`,
+`saucedemo` and `parabank` each have only `@smoke`, and OrangeHRM's audit and
+boundary cells need data the spec creates. Item 53's third part is still parked
+by design.

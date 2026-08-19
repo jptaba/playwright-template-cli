@@ -59,6 +59,11 @@ export interface TargetContext {
    *
    * Omitted renders the old read-only label, which is what the tests that are
    * about something else pass — a page is not required to know the list.
+   *
+   * An **empty** list is a different statement from an absent one, and the
+   * rail reads it: nothing is onboarded, so the *Set up* group opens itself
+   * rather than making somebody find the only useful work in the tool behind
+   * a disclosure. The same judgement `landingPath()` makes about `/`.
    */
   available?: readonly string[];
   /** False when the environment decided; the bar then says so, and refuses. */
@@ -333,9 +338,16 @@ export function checkField(spec: Field): string {
  * takes a seventh destination without rearranging itself. This information
  * architecture has grown once per phase and will grow again.
  *
- * It is always on screen. Hiding desktop navigation behind a hamburger is the
- * one thing that guidance is unambiguous about, and the whole point here is
- * that Triage's count is visible from Cases.
+ * It is always on screen, and that has not changed: hiding desktop navigation
+ * behind a hamburger is the one thing that guidance is unambiguous about, and
+ * the whole point here is that Triage's count is visible from Cases.
+ *
+ * **One group is a disclosure, and it is not the same thing.** The objection
+ * to a hamburger is that it hides the navigation — where you can go, and what
+ * is waiting for you there. Collapsing *Set up* hides neither: the group's own
+ * heading stays on screen, everything with a badge stays expanded, and the two
+ * pages behind it are ones a team uses in its first week and then stops. See
+ * `COLLAPSED_GROUPS`.
  *
  * Labels are words. An icon rail looks tidier and costs a guess per icon.
  */
@@ -343,6 +355,7 @@ function navigation(
   pages: readonly PageLink[],
   current: string,
   badges: Readonly<Record<string, NavBadge>>,
+  nothingConfigured: boolean,
 ): string {
   // One entry is not a choice, so it is not rendered as one.
   if (pages.length < 2) return '';
@@ -372,18 +385,64 @@ function navigation(
           ].join('');
         })
         .join('\n');
+      const id = `nav-${slug(group.name)}`;
+      const list = `      <ul aria-labelledby="${id}">\n${items}\n      </ul>`;
+
+      if (!COLLAPSED_GROUPS.has(group.name)) {
+        return `      <p class="nav-group" id="${id}">${escapeHtml(group.name)}</p>\n${list}`;
+      }
+
+      /*
+         `<details>` rather than a button and a class. It is a disclosure in
+         the markup as well as on screen, so a screen reader announces the
+         state and the keyboard works before a line of script runs — and the
+         script only has to remember the choice, never to implement it.
+      */
+      const open = groupHolds(group.pages, current) || nothingConfigured;
       return (
-        `      <p class="nav-group" id="nav-${slug(group.name)}">${escapeHtml(group.name)}</p>\n` +
-        `      <ul aria-labelledby="nav-${slug(group.name)}">\n${items}\n      </ul>`
+        `      <details class="nav-collapsible" data-nav-group="${slug(group.name)}"` +
+        `${open ? ' open' : ''}>\n` +
+        `        <summary class="nav-group" id="${id}">${escapeHtml(group.name)}</summary>\n` +
+        `  ${list}\n      </details>`
       );
     })
     .join('\n');
 
+  /*
+     The wordmark goes to `/`, which is the route that already decides where
+     home is — `/runs` when anything is configured, onboarding when nothing
+     is. It used to go to `pages[0]`, which is `/onboard`: the one page this
+     change exists to stop putting in front of people every day.
+  */
   return (
     `\n  <nav class="rail" aria-label="Dashboard sections">\n` +
-    `    <a class="wordmark" href="${escapeHtml(pages[0]!.href)}">Test framework</a>\n` +
+    `    <a class="wordmark" href="/">Test framework</a>\n` +
     `${rendered}\n  </nav>`
   );
+}
+
+/**
+ * Groups that are not on screen unless somebody asks for them.
+ *
+ * The owner's ask, and the arithmetic behind it: *Set up* is two of seven
+ * links — a quarter of the rail, and the first thing read in it — for a job a
+ * team finishes in its first week. The day-to-day is Author, Execute, Report.
+ *
+ * A set rather than a flag on `PageLink`, because this is a property of the
+ * *stage of work* and not of a page: a third set-up page added later should
+ * inherit the answer rather than restate it.
+ */
+const COLLAPSED_GROUPS: ReadonlySet<string> = new Set(['Set up']);
+
+/**
+ * Whether the page being rendered is inside this group.
+ *
+ * A collapsed group holding the current page would hide the `aria-current`
+ * link that says where you are, so navigating to Test users would leave the
+ * rail claiming you are nowhere.
+ */
+function groupHolds(pages: readonly PageLink[], current: string): boolean {
+  return pages.some((page) => page.href === current);
 }
 
 function slug(value: string): string {
@@ -537,7 +596,7 @@ export function renderPage(page: DashboardPageContent, options: ShellOptions): s
 </head>
 <body>
 <a class="skip" href="#content">Skip to the page</a>
-<div class="app">${navigation(options.pages, options.current, options.badges ?? {})}
+<div class="app">${navigation(options.pages, options.current, options.badges ?? {}, options.target?.available?.length === 0)}
   <div class="main">${topbar(page, options.target)}
     <div class="shell">
       <header class="masthead">
@@ -701,6 +760,40 @@ function showFirst(container, selector, limit, noun, onShowAll) {
   }
 
   paint(chosen());
+})();
+
+/*
+   Remember a collapsed group somebody opened.
+
+   Only the *opening* is stored, and only per group. A person who opens Set up
+   to add an application and check its credentials should not have to open it
+   again on the next page; a person who never opens it should never see it
+   open. So there is no key until there is a choice, which is the same shape
+   the theme control uses and for the same reason.
+
+   A server-rendered open state wins where it is set — the current page being inside
+   the group, or nothing being onboarded — because both are statements about
+   this page rather than a preference, and a remembered "closed" must not hide
+   the link saying where you are.
+*/
+(function () {
+  const groups = document.querySelectorAll('details[data-nav-group]');
+  for (const group of groups) {
+    const key = 'nav-open:' + group.dataset.navGroup;
+    try {
+      if (localStorage.getItem(key) === 'yes') group.open = true;
+    } catch (error) {
+      /* Storage can be denied outright. The group still opens on a click. */
+    }
+    group.addEventListener('toggle', () => {
+      try {
+        if (group.open) localStorage.setItem(key, 'yes');
+        else localStorage.removeItem(key);
+      } catch (error) {
+        /* The choice still applies to this page; it just will not persist. */
+      }
+    });
+  }
 })();
 ${page.script ?? ''}
 </script>

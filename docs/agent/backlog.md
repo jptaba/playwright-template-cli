@@ -2942,3 +2942,61 @@ because `kindOf` never returns `api` for the `triage-fixture` project;
 truth for `sign-in-setup-failed` and for `server-error`'s word vocabulary lives
 in `tests/framework/triage-dashboard.spec.ts` for the same reason — no spec a
 target can write makes the auth setup fail.
+
+### 55. Set-up was two pages a team visits twice, holding a quarter of the rail — `done`
+
+Shipped on `agent/2026-08-19-set-up-out-of-the-way` (run 67), from the owner's
+ask on 2026-08-19.
+
+**What changed.** The *Set up* group is a `<details>` disclosure in the rail,
+closed on a day-to-day page. Measured on the running dashboard rather than in
+the markup: `/runs` now shows **Stories, Cases, Runs, Triage, Publish** and
+nothing else, where it used to open with Applications and Test users above all
+five.
+
+`<details>` rather than a button and a class, and that is the whole reason it
+is only a few lines: it is a disclosure in the *markup* as well as on screen,
+so a screen reader announces the state and the keyboard works before any script
+runs. The script only has to remember the choice, never to implement it.
+
+**It opens itself in the two cases where hiding it would be wrong**, and both
+are statements about the page rather than preferences:
+
+- **The current page is inside it.** A collapsed group holding the current page
+  would hide the `aria-current` link, so navigating to Test users would leave
+  the rail claiming you are nowhere.
+- **Nothing is onboarded.** The same judgement `landingPath()` already makes
+  about `/`: an empty repository has exactly one useful thing in it and it must
+  not be behind a disclosure. `TargetContext.available` being an **empty** list
+  says this; being **absent** does not, and there is a test for the difference,
+  because most pages omit it.
+
+**Opening it is remembered; closing it is not.** Somebody who opens Set up to
+add an application and then check its credentials should not reopen it on the
+way. There is no stored key until there is a choice — the same shape the theme
+control uses, and for the same reason.
+
+**Also here: the wordmark went to `/onboard`.** It was `pages[0].href`, which
+is the one page this change exists to stop putting in front of people. It now
+goes to `/`, the route that already decides where home is, so the decision
+lives in one place instead of two.
+
+**The comment above `navigation()` was corrected rather than left lying.** It
+said the rail is always on screen and cited the guidance against hamburgers.
+That guidance still holds and the rail is still always on screen: the objection
+to a hamburger is that it hides *where you can go and what is waiting there*,
+and collapsing one group hides neither — the group's heading stays visible,
+everything carrying a badge stays expanded, and the two pages behind it are the
+ones a team stops using after its first week.
+
+**Two existing tests were rewritten rather than worked around.** "Lists every
+destination, grouped, in pipeline order" and "every destination is still
+reachable at 560px" were both *relying* on all seven links being rendered
+visible rather than asserting it. They now open the disclosure first, which is
+a better test of what each was actually about.
+
+**And the persistence tests had to be served over a real origin.** `setContent`
+leaves the page on `about:blank`, where Chromium refuses `localStorage`
+outright — and the script swallows that by design, so a persistence test
+written against `setContent` would have passed for the wrong reason. They use a
+routed `http://` origin, the way the theme tests use the loopback harness.

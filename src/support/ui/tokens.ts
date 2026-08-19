@@ -226,6 +226,36 @@ export const DASHBOARD_STYLES = `
     color: var(--muted); font-weight: 700;
   }
   .nav-group:first-of-type { margin-top: 0; }
+
+  /*
+     A collapsed group. The marker is the only affordance it needs — it is
+     what a browser already draws for a disclosure, and what a person already
+     knows how to read — so the heading keeps the type of every other group
+     and gains a pointer and a hover, which is what says it is pressable.
+
+     Removing the summary's own list-style is not tidying: without it, Safari
+     draws its own triangle beside the one below.
+  */
+  .nav-collapsible > summary {
+    cursor: pointer; list-style: none;
+    display: flex; align-items: center; gap: .4rem;
+  }
+  .nav-collapsible > summary::-webkit-details-marker { display: none; }
+  .nav-collapsible > summary::after {
+    content: "";
+    width: .3rem; height: .3rem; margin-left: auto; margin-right: .1rem;
+    border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+    transform: rotate(-45deg); transition: transform .15s ease;
+  }
+  .nav-collapsible[open] > summary::after { transform: rotate(45deg); }
+  .nav-collapsible > summary:hover { color: var(--ink); }
+  .nav-collapsible > summary:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nav-collapsible > summary::after { transition: none; }
+  }
+
   nav.rail ul { list-style: none; margin: 0; padding: 0; }
   nav.rail a {
     display: grid; grid-template-columns: 1fr auto; align-items: baseline;
