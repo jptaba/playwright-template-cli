@@ -1,4 +1,9 @@
-import { ACCOUNT_LOCKED, roleWithoutSession, TRANSPORT_ERROR } from '../failure-signals';
+import {
+  ACCOUNT_LOCKED,
+  roleWithoutSession,
+  SERVER_FAULT,
+  TRANSPORT_ERROR,
+} from '../failure-signals';
 import type { RunResult, TestRecord } from '../reporters/run-result';
 import type { FailureCluster, TriageVerdict } from './types';
 
@@ -129,6 +134,42 @@ export const RULES: TriageRule[] = [
       evidence: [matched(text, TRANSPORT_ERROR), `${cluster.size} test(s) share this signature`],
       recommendedAction: 'escalate',
       suggestedOwner: 'platform',
+      needsHumanReview: false,
+    });
+  }),
+
+  /**
+   * The application saying it faulted → its defect, never a locator and never
+   * a wait.
+   *
+   * **Two vocabularies, and it only had one.** A status code is what an API
+   * suite sees. The *words* are what a UI suite sees, and this rule knew only
+   * the code — so a browser watching an application fall over matched nothing.
+   *
+   * parabank found it, after its sign-in had been failing all day. Its own
+   * login endpoint answers **HTTP 500**; what reaches the suite is
+   * *"An internal error has occurred and has been logged."* The framework had
+   * every piece of evidence a person needs and reported a failure that needed
+   * judgement.
+   *
+   * **Moved ahead of the sign-in and timing rules**, because an application
+   * that says why it failed outranks both "I cannot tell why" and a heuristic
+   * about how long something waited. Where a 5xx and a short timeout are both
+   * in the text, the 5xx is the cause and the timeout is a consequence.
+   */
+  rule('server-error', (cluster, { tests }) => {
+    const text = errorText(tests);
+    if (!SERVER_FAULT.test(text)) return null;
+    return verdict(cluster, 'server-error', {
+      category: 'application-defect',
+      confidence: 'medium',
+      summary: 'The application reported a fault of its own on a valid request',
+      evidence: [
+        matched(text, SERVER_FAULT),
+        'a server fault is an application or infrastructure problem, never a locator',
+      ],
+      recommendedAction: 'file-defect',
+      suggestedOwner: 'dev-team',
       needsHumanReview: false,
     });
   }),
@@ -337,21 +378,6 @@ export const RULES: TriageRule[] = [
       evidence: [matched(text, /(SecretStoreUnavailableError|SecretNotFoundError|PollTimeoutError|InboxUnreadableError)/)],
       recommendedAction: 'escalate',
       suggestedOwner: 'owner-of-that-system',
-      needsHumanReview: false,
-    });
-  }),
-
-  // A 5xx from the app is never a locator problem.
-  rule('server-error', (cluster, { tests }) => {
-    const text = errorText(tests);
-    if (!/\b(50[0-9]|HTTP 5\d\d)\b/.test(text)) return null;
-    return verdict(cluster, 'server-error', {
-      category: 'application-defect',
-      confidence: 'medium',
-      summary: 'The application returned a server error on a valid request',
-      evidence: [matched(text, /\b(50[0-9])\b/), 'a 5xx is an application or infrastructure fault, never a locator'],
-      recommendedAction: 'file-defect',
-      suggestedOwner: 'dev-team',
       needsHumanReview: false,
     });
   }),

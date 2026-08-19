@@ -53,6 +53,74 @@ function runWith(tests: TestRecord[]): RunResult {
   return run;
 }
 
+test.describe('an application that failed rather than refused', () => {
+  /*
+     parabank found this, after its sign-in had been failing all day. Its own
+     login endpoint answers HTTP 500, and what reaches the suite is *"An
+     internal error has occurred and has been logged."* The rule knew only
+     status codes, so a browser watching an application fall over matched
+     nothing at all.
+  */
+  const saying = (...lines: string[]) => {
+    const failed = failing('t1', lines.join('\n'), { project: 'setup:auth' });
+    const tests = [failed, failing('t2', 'fine', { outcome: 'expected', status: 'passed' })];
+    return { run: runWith(tests), tests: [failed] };
+  };
+
+  const NO_SESSION_LINE = "Sign-in for role 'customer' did not establish a session.";
+
+  test('is recognised from the words a browser sees, not only from a status code', () => {
+    const { run, tests } = saying(
+      NO_SESSION_LINE,
+      'The application said: "An internal error has occurred and has been logged."',
+    );
+    const settled = classifyByRule(clusterFailures(run)[0]!, { run, tests });
+
+    expect(settled?.rule).toBe('server-error');
+    expect(settled?.category).toBe('application-defect');
+    expect(settled?.recommendedAction).toBe('file-defect');
+  });
+
+  test('outranks "the sign-in failed and I cannot say why"', () => {
+    // An application that says why beats a rule that admits it cannot tell,
+    // which is the whole reason this one is ordered ahead of it.
+    const { run, tests } = saying(
+      NO_SESSION_LINE,
+      'The application said: "Internal Server Error"',
+      '- Timeout 10000ms exceeded while waiting on the predicate',
+    );
+
+    expect(classifyByRule(clusterFailures(run)[0]!, { run, tests })?.rule).toBe('server-error');
+  });
+
+  test('does not read a user-facing "something went wrong" as a server fault', () => {
+    /*
+       Deliberately narrow. Applications print "something went wrong" and
+       "unexpected error" for validation failures and for a user's own mistake
+       too, and a rule that read those as server faults would file defects
+       against working software.
+    */
+    const { run, tests } = saying(
+      NO_SESSION_LINE,
+      'The application said: "Something went wrong. Please check your details."',
+    );
+
+    expect(classifyByRule(clusterFailures(run)[0]!, { run, tests })?.rule).toBe(
+      'sign-in-setup-failed',
+    );
+  });
+
+  test('a lockout still wins, because its remedy is the one nobody guesses', () => {
+    // Ordering, stated as a test: no credential is wrong and only an
+    // administrator can clear it, so it must not be filed against the product.
+    const { run, tests } = saying(
+      'The application said: "Account locked, too many failed attempts." HTTP 500',
+    );
+
+    expect(classifyByRule(clusterFailures(run)[0]!, { run, tests })?.rule).toBe('account-locked');
+  });
+});
+
 test.describe('a sign-in that established no session', () => {
   /*
      Watched happen on a live suite, and it is the reason this rule exists.

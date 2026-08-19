@@ -1,4 +1,9 @@
-import { looksLikeLockout, looksLikeTransportFailure, NO_SESSION } from '../failure-signals';
+import {
+  looksLikeLockout,
+  looksLikeServerFault,
+  looksLikeTransportFailure,
+  NO_SESSION,
+} from '../failure-signals';
 
 /**
  * Proving a credential can actually sign in, rather than merely existing.
@@ -35,6 +40,7 @@ export interface SignInVerdict {
   code:
     | 'sign-in-ok'
     | 'account-locked'
+    | 'application-error'
     | 'environment-unreachable'
     | 'sign-in-failed'
     | 'sign-in-not-run';
@@ -121,6 +127,14 @@ export function reportedByApplication(output: string): string | null {
  */
 export function interpretSignInCheck(result: SignInCheckResult): SignInVerdict {
   const reported = reportedByApplication(result.output);
+  /*
+     Only the *quoted* sentence is the application's. `reported` falls back to
+     the framework's own summary line, and attributing that to the application
+     is the same lie the `${reported}` placeholder was — it reads as though the
+     form said something when the pack could not read the form at all, which is
+     precisely the case that wants the marker looked at.
+  */
+  const said = quotedByApplication(result.output);
 
   if (result.status === 0) {
     return {
@@ -169,6 +183,33 @@ export function interpretSignInCheck(result: SignInCheckResult): SignInVerdict {
     };
   }
 
+  /*
+     The application failing rather than refusing, which is neither the
+     credential nor the pack.
+
+     parabank found this: its login endpoint answers HTTP 500 and prints *"An
+     internal error has occurred and has been logged."* The preflight read that
+     sentence, reported it faithfully, and then advised *"it is usually the
+     credential or the account"* — sending somebody to check the one thing the
+     application had just told them was not the problem.
+
+     Matched on the quoted sentence, not the whole output: the words have to be
+     the application's own. A 500 in a stack trace or in a spec's own
+     expectation is not the application saying it fell over.
+  */
+  if (said && looksLikeServerFault(said)) {
+    return {
+      ok: false,
+      code: 'application-error',
+      message: `The application failed rather than refusing — it said: "${said}"`,
+      fix:
+        'Nothing here is wrong with the credential, the pack or the marker. File it against ' +
+        'the application: a sign-in that answers a server error is its defect, and a suite ' +
+        'that goes green on it would be hiding one.',
+      reported,
+    };
+  }
+
   if (reported && looksLikeLockout(reported)) {
     return {
       ok: false,
@@ -181,15 +222,6 @@ export function interpretSignInCheck(result: SignInCheckResult): SignInVerdict {
       reported,
     };
   }
-
-  /*
-     Only the *quoted* sentence is the application's. The fallback above is
-     the framework's own summary line, and attributing that to the
-     application is the same lie the placeholder was — it reads as though the
-     form said something when the pack could not read the form at all, which
-     is precisely the case that wants the marker looked at.
-  */
-  const said = quotedByApplication(result.output);
 
   return {
     ok: false,

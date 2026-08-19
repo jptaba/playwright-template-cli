@@ -4470,3 +4470,79 @@ settling.
 **Next:** the rest of item 51 — `parabank` and `orangehrm` triage fixtures,
 which `target:doctor` now names by itself. Item 53's third part is still parked
 by design.
+
+## 2026-08-19 · run 65 · ParaBank was broken, and the framework would not say so
+
+**Picked:** chasing parabank's sign-in, which had been failing all day and
+which run 64 had just taught the framework to report as *"needs judgement"*.
+The owner's standing instruction is the frame: the live application's errors
+are not to be worked around, they are to be captured and reported.
+
+**What it actually was, established before anything was changed.** ParaBank's
+own login endpoint answers **HTTP 500** to the credential in the store — posted
+directly to `/parabank/login.htm` and read off the response, not inferred from
+the suite. What reaches a browser is the sentence *"An internal error has
+occurred and has been logged."*
+
+So the credential is right, the locators are right, the marker is right, and
+the application is broken. **The correct outcome is a red suite naming an
+application defect**, and neither of the two things that look at this failure
+said that:
+
+| | before | after |
+|---|---|---|
+| `suites:live` | `no rule matched — needs judgement` | `application-defect (rule: server-error)` |
+| `target:doctor --sign-in` | `sign-in-failed` → *"it is usually the credential or the account"* | `application-error` → *"Nothing here is wrong with the credential, the pack or the marker. File it against the application."* |
+
+**Did.** `SERVER_FAULT` in `failure-signals.ts`, matching **both vocabularies**
+— the status code an API suite sees, and the words a UI suite sees. That is the
+same blind spot `ACCOUNT_LOCKED` was written to close, for the same reason: a
+browser is shown a banner and never a status line. The `server-error` rule had
+only ever known the code, so a browser watching an application fall over
+matched nothing at all.
+
+The rule also **moved ahead of `sign-in-setup-failed` and `short-wait`**. An
+application that says why it failed outranks a rule that admits it cannot tell,
+and outranks a heuristic about how long something waited — where a 5xx and a
+short timeout are both in the text, the 5xx is the cause and the timeout is the
+consequence. `account-locked` stays ahead of everything, and a test says so: no
+credential is wrong in a lockout and only an administrator can clear it, so it
+must not be filed against the product.
+
+The preflight grew the matching branch, `application-error`, so both halves of
+the journey mean the same thing by "the application faulted" — pinned by a test
+in the same shape as the one already guarding the lockout definition.
+
+**Verify:** `npm run verify` passes, exit 0 — **1048 tests**, up from 1041.
+
+**Live suites: 3 of 5 passing.** restful-booker 13/13, saucedemo 2/2, toolshop
+20/20. parabank 0/3, now correctly reported as `application-defect` and left
+red. orangehrm 4/5, an idempotency spec settling as `timing-synchronisation`.
+
+**Triage agreement, all three fixtures, after the reordering:** toolshop
+**4 agreed · 0 contradicted · 0 declined**, restful-booker **3 · 0 · 1**,
+saucedemo **1 · 0 · 3** — unchanged, which is the check that mattered for a
+rule promoted past three others.
+
+**Learned:**
+
+- **Run 64's rule did its job by being unsatisfying.** `sign-in-setup-failed`
+  reported "no session, and I cannot say why", which is what sent this run to
+  ask the application directly — and the application had been saying exactly
+  why all along. A rule that declines honestly is not a dead end; it is the
+  thing that points at the question nobody had asked.
+- **The narrowness had to be tested, not just intended.** "Something went
+  wrong" and "unexpected error" are what applications also print for a
+  validation failure or a user's own mistake, and a signal that swallowed those
+  would file defects against working software. Both the exclusion and
+  `Timeout 500ms exceeded` — a duration, not a status — are assertions rather
+  than comments.
+- **A defect in the application under test is a finding, and the suite stays
+  red.** Nothing here made parabank pass. The change makes the failure *legible*
+  — application-defect, file-defect, dev-team — which is the difference between
+  a suite that reports a broken product and one that reports a mystery.
+
+**Next:** the rest of item 51 — `parabank` and `orangehrm` triage fixtures,
+which `target:doctor` now names by itself. Note for whoever writes parabank's:
+its sign-in is currently broken server-side, so do not build a fixture that
+depends on that staying true.

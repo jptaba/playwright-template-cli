@@ -3,7 +3,11 @@ import {
   interpretSignInCheck,
   reportedByApplication,
 } from '../../src/support/onboarding/sign-in-check';
-import { ACCOUNT_LOCKED, looksLikeLockout } from '../../src/support/failure-signals';
+import {
+  ACCOUNT_LOCKED,
+  looksLikeLockout,
+  looksLikeServerFault,
+} from '../../src/support/failure-signals';
 import { RULES } from '../../src/support/triage/rules';
 
 /**
@@ -92,6 +96,37 @@ test.describe('the verdict', () => {
     expect(verdict.code).toBe('sign-in-ok');
   });
 
+  test('an application that fell over is not reported as a credential problem', () => {
+    /*
+       parabank, live: its login endpoint answers HTTP 500 and the form prints
+       "An internal error has occurred and has been logged." The preflight read
+       that sentence, repeated it faithfully, and then advised *"it is usually
+       the credential or the account"* — sending somebody to check the one
+       thing the application had just said was not the problem.
+    */
+    const output = [
+      "    Error: Sign-in for role 'customer' did not establish a session.",
+      '    The application said: "An internal error has occurred and has been logged."',
+    ].join('\n');
+    const verdict = interpretSignInCheck({ status: 1, output });
+
+    expect(verdict.code).toBe('application-error');
+    expect(verdict.fix).toContain('File it against');
+    expect(verdict.fix).not.toContain('credential or the account');
+  });
+
+  test('a 500 the application did not say is not put in its mouth', () => {
+    // The words have to be the application's own. A status code inside a stack
+    // trace, or a spec's own expectation of 500, is not the product falling
+    // over — and filing a defect on that is how a checker loses its credibility.
+    const output = [
+      "    Error: Sign-in for role 'customer' did not establish a session.",
+      '    at handler (/repo/node_modules/thing/index.js:500:9)',
+    ].join('\n');
+
+    expect(interpretSignInCheck({ status: 1, output }).code).toBe('sign-in-failed');
+  });
+
   test('a lockout is called a lockout, because the remedy is different', () => {
     /*
        No credential is wrong, nothing has drifted, and re-running cannot help
@@ -168,4 +203,26 @@ test('the doctor and triage share one definition of a lockout', () => {
   const rule = RULES.find((candidate) => candidate.name === 'account-locked');
   expect(rule, 'the triage rule still exists').toBeDefined();
   expect(ACCOUNT_LOCKED.source, 'and reads the shared pattern').toContain('too many failed attempts');
+});
+
+test('the doctor and triage share one definition of the application faulting', () => {
+  /*
+     Same argument as the lockout above, and the same failure it prevents. The
+     preflight says "the application fell over, file it" and triage says
+     `application-defect`; if either learned a word the other did not, the two
+     halves of the same journey would disagree about a live outage.
+
+     The narrowness is asserted, not just intended: a user-facing "something
+     went wrong" is what applications print for a validation failure, and a
+     rule that read it as a server fault would file defects against working
+     software.
+  */
+  expect(looksLikeServerFault('An internal error has occurred and has been logged.')).toBe(true);
+  expect(looksLikeServerFault('Internal Server Error')).toBe(true);
+  expect(looksLikeServerFault('Request failed with HTTP 503')).toBe(true);
+  expect(looksLikeServerFault('Something went wrong. Please check your details.')).toBe(false);
+  expect(looksLikeServerFault('Timeout 500ms exceeded'), 'a duration is not a status').toBe(false);
+
+  const rule = RULES.find((candidate) => candidate.name === 'server-error');
+  expect(rule, 'the triage rule still exists').toBeDefined();
 });

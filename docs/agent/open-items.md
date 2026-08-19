@@ -90,6 +90,14 @@ settled by a rule. It settled two things nothing had settled before:
 `dependency-failure`, and the *polled* branch of `short-wait`, which is the
 high-confidence half the other fixtures' short locator waits never reach.
 
+**`parabank`'s sign-in is broken server-side**, found in run 65: its own login
+endpoint answers HTTP 500 and the form prints *"An internal error has occurred
+and has been logged."* Its suite is red for that reason and correctly reports
+`application-defect`. Whoever writes its fixture must not build one that
+depends on that staying broken — the conventions are explicit that a fixture
+relying on an application being broken a particular way stops reproducing the
+moment somebody fixes it.
+
 `parabank` and `orangehrm` still have no `tests/triage-fixture/`, so
 `npm run app:journey` reports stage 5 as **failed** for each: *"triage
 classifies failures, and a green run exercises none of it"*. Confirmed by

@@ -68,3 +68,29 @@ export const NO_SESSION = /Sign-in for role '([^']+)'(?: \(account \d+\))?[^\n]*
 export function roleWithoutSession(text: string): string | null {
   return NO_SESSION.exec(text)?.[1] ?? null;
 }
+
+/**
+ * The application saying it faulted, in both vocabularies.
+ *
+ * The status code is what an API suite sees. The **words** are what a UI suite
+ * sees, and until this existed the rule knew only the code — the same blind
+ * spot `ACCOUNT_LOCKED` was written to close, for the same reason: a browser
+ * is shown a banner and never a status line.
+ *
+ * Found on parabank, whose sign-in had been failing all day. Its own login
+ * endpoint answers **HTTP 500**, and what reaches a UI suite is the sentence
+ * *"An internal error has occurred and has been logged."* Nothing matched it,
+ * so a plainly broken application was reported as a failure needing judgement.
+ *
+ * Deliberately narrow. "Something went wrong" and "unexpected error" are what
+ * applications also print for validation failures and for a user's own
+ * mistake, and a rule that read those as server faults would file defects
+ * against working software.
+ */
+export const SERVER_FAULT =
+  /(\b(50[0-9]|HTTP 5\d\d)\b|internal (server )?error|server error occurred)/i;
+
+/** Whether this text is the application reporting a fault of its own. */
+export function looksLikeServerFault(text: string): boolean {
+  return SERVER_FAULT.test(text);
+}
