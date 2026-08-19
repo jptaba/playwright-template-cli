@@ -60,6 +60,45 @@ export const rooms = {
     });
   },
 
+  /**
+   * Try to add a room, and report what happened either way.
+   *
+   * **`add` cannot express a refusal, and that is why this exists.** It waits
+   * for the room to be listed, so a spec about a *rejected* room would sit
+   * there until it timed out and then report "the room was not listed" — a
+   * message about the application, describing a validation rule working
+   * correctly. A vocabulary has to be able to describe every state the
+   * application has, and "refused, and here is what it said" is one of them.
+   *
+   * Waits for whichever arrives first: the row, or the alert. Polling for both
+   * is what keeps a refusal fast rather than a timeout.
+   */
+  async attemptAdd(page: Page, room: NewRoom): Promise<{ created: boolean; errors: string[] }> {
+    return test.step(`Try to add room "${room.name}" at ${room.price}`, async () => {
+      await roomLocators.name(page).fill(room.name);
+      await roomLocators.type(page).selectOption(room.type);
+      await roomLocators.accessible(page).selectOption(String(room.accessible));
+      await roomLocators.price(page).fill(String(room.price));
+      await roomLocators.create(page).click();
+
+      const listed = roomLocators.listed(page, room.name);
+      const alert = roomLocators.errors(page);
+      await expect
+        .poll(async () => (await listed.count()) > 0 || (await alert.count()) > 0, {
+          message: `the form neither listed "${room.name}" nor said why it would not`,
+        })
+        .toBe(true);
+
+      if ((await listed.count()) > 0) return { created: true, errors: [] };
+      return {
+        created: false,
+        errors: (await roomLocators.errorMessages(page).allTextContents())
+          .map((text) => text.trim())
+          .filter(Boolean),
+      };
+    });
+  },
+
   /** Every room name currently listed, in the order shown. */
   async listed(page: Page): Promise<string[]> {
     return test.step('Read the listed rooms', async () => {

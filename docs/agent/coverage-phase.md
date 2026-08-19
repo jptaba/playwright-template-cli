@@ -82,7 +82,7 @@ applicable to this application
 | 1 | toolshop | ✓ | ✓ | — | — | — | — | 20/20 (incl. 7 contract) |
 | 2 | saucedemo | ✓ | ✓ | — | — | — | — | 2/2 |
 | 3 | ParaBank | ✓ | ✓ | — | — | — | — | 3/3 (`setup:auth`, `@smoke`, `@a11y`) |
-| 4 | restful-booker | ✓ | ✓ | — | — | — | — | 4/4 |
+| 4 | restful-booker | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 13/13 |
 | 5 | DemoBlaze | — | — | — | — | — | — | — |
 | 6 | AutomationExercise | — | — | — | — | — | — | — |
 | 7 | OrangeHRM | — | — | — | — | — | — | — |
@@ -262,3 +262,47 @@ edited one.
 **Still to write:** negative, idempotency, audit and boundary. The API layer is
 still the scaffolder's invented `orders` starter and must be rewritten from
 `/api/room` first.
+
+**All five kinds shipped (run 53), and it is the first application to have
+them.** 13/13 live.
+
+| kind | specs |
+|---|---|
+| happy path `@smoke` | RB-1-01, RB-1-02 — a room created appears; a room removed is gone |
+| negative `@negative` | RB-2-01 — a room with no name is refused, *and the form says why* |
+| boundary `@boundary` | RB-2-02/03 refuse 0 and 1000; **RB-2-04 accepts 1 and 999** |
+| idempotency `@idempotency` | RB-3-02 — removing the same room twice removes one room |
+| audit `@audit` | RB-3-01 — a room created in the admin survives a re-read from the service |
+
+**The API layer is real now.** The scaffolder's invented `endpoints/orders.ts`
+and `api/orders.ts` are gone, replaced by `rooms.ts` written from the running
+service — every path called and its status recorded first. Read-only on
+purpose: creating a room needs the admin session and the UI already owns that
+verb, and a second way to create one record is two things to keep in step.
+`tests/api/rooms.spec.ts` adds RB-4-01/02/03, and `target:doctor` now reports
+**nothing to fix**.
+
+**Two design points worth carrying to applications 5–7:**
+
+- **The bounds were read off the service, not guessed.** `POST /api/room`
+  answers `must be greater than or equal to 1` and `must be less than or equal
+  to 999`, so `@boundary` asserts the application's own stated range. RB-2-04
+  is the half usually skipped: three specs proving things are *refused* say
+  nothing about a range being too narrow, and a service rejecting everything
+  would pass all of them.
+- **Audit and idempotency both cross a surface.** The UI makes the change and
+  the *service* is asked whether it happened. A spec that writes in the UI and
+  reads the UI has only proved the page is consistent with itself — which a
+  purely client-side list would also manage. RB-3-02 asserts the room *count*
+  rather than the room's absence, because "it is gone" passes whether the
+  second delete did nothing or removed somebody else's room.
+
+**What it cost, and it is a locator lesson.** `getByRole('alert')` matched
+*something* on the admin page — Playwright reported exactly one node — and
+reading it returned an empty string, so all four validation specs failed with
+`Received string: ""` while the message sat plainly on screen. Checked against
+the DOM: `querySelectorAll('[role="alert"]')` finds **nothing** there, before
+or after a refusal. The accessibility tree was reporting a node that is not the
+banner. The honest handle is `div.alert-danger`, which is also better here —
+it is absent until the form refuses, which is what lets a verb wait for
+"listed *or* refused" rather than time out on one of them.

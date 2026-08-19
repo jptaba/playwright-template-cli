@@ -1,6 +1,7 @@
 import { test as framework } from '../../fixtures/base';
 import { signIn } from './actions/sign-in';
 import { rooms, type NewRoom } from './actions/rooms';
+import { roomsApi } from './api/rooms';
 
 /**
  * L3 — the one import a spec makes.
@@ -31,6 +32,14 @@ export interface RestfulBookerFixtures {
   signIn: typeof signIn;
   /** Administering rooms: the journey this application exists for. */
   rooms: typeof rooms;
+  /**
+   * Reading rooms back from the service.
+   *
+   * Read-only and unauthenticated, which is the point: it answers whether
+   * what the UI did actually persisted, through a different surface from the
+   * one that did it.
+   */
+  roomsApi: ReturnType<typeof roomsApi>;
   /** Builders for the data a spec needs. Never reads the application. */
   testData: RestfulBookerTestData;
 }
@@ -41,6 +50,9 @@ export const test = framework.extend<RestfulBookerFixtures>({
   },
   rooms: async ({}, use) => {
     await use(rooms);
+  },
+  roomsApi: async ({ api }, use) => {
+    await use(roomsApi(api));
   },
   testData: async ({ run }, use) => {
     await use({

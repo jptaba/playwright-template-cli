@@ -17,6 +17,34 @@ import type { Locator, Page } from '@playwright/test';
  * the justifications and use them.
  */
 export const roomLocators = {
+  /**
+   * The banner the form shows when it refuses, present only when it has.
+   *
+   * **Not `getByRole('alert')`, and the reason is worth keeping.** That
+   * matched *something* — Playwright reported exactly one node — and reading
+   * it returned an empty string, so a spec asserting on the refusal text got
+   * `""` while the message sat plainly on screen. Checked against the DOM
+   * directly rather than inferred: `querySelectorAll('[role="alert"]')` finds
+   * **nothing** on this page, before or after a refusal. The accessibility
+   * tree was reporting a node that is not this banner.
+   *
+   * So the honest handle is the Bootstrap class, and here it is the better
+   * one anyway: it is absent until the form refuses, which is what lets a
+   * verb wait for "listed *or* refused" instead of timing out on one of them.
+   */
+  // locator-justification: the refusal banner carries no role, id or test id — checked in the DOM.
+  errors: (page: Page): Locator => page.locator('div.alert-danger'),
+
+  /**
+   * One message per line, rather than the banner's own text.
+   *
+   * The banner concatenates its children with no separator, so two failures
+   * read as `Room name must be setmust be greater than or equal to 1` — one
+   * unreadable string where there are two findings.
+   */
+  // locator-justification: messages are bare paragraphs inside the refusal banner.
+  errorMessages: (page: Page): Locator => page.locator('div.alert-danger p'),
+
   /** The Create button, and the only control here with an accessible name. */
   create: (page: Page): Locator => page.getByRole('button', { name: 'Create' }),
 

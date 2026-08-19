@@ -74,6 +74,7 @@ _Added on top of the framework fixtures when TARGET=restful-booker._
 |---|---|---|
 | `signIn` | `named actions — see the table below` | Signing in, and reading what the form reported. |
 | `rooms` | `named actions — see the table below` | Administering rooms: the journey this application exists for. |
+| `roomsApi` | `named actions — see the table below` | Reading rooms back from the service. |
 | `testData` | `RestfulBookerTestData` | Builders for the data a spec needs. |
 
 ## actions/ — restful-booker
@@ -84,6 +85,7 @@ _L2 UI vocabulary. Composes locators, returns data, asserts nothing._
 |---|---|---|
 | `rooms.open` | `(page: Page) => Promise<void>` | Open the admin room list and wait for it to have actually loaded. |
 | `rooms.add` | `(page: Page, room: NewRoom) => Promise<string>` | Add a room, and return the name it was created with. |
+| `rooms.attemptAdd` | `(page: Page, room: NewRoom) => Promise<{ created: boolean; errors: string[]; }>` | Try to add a room, and report what happened either way. |
 | `rooms.listed` | `(page: Page) => Promise<string[]>` | Every room name currently listed, in the order shown. |
 | `rooms.remove` | `(page: Page, name: string) => Promise<void>` | Remove a room, and wait for it to be gone. |
 | `rooms.isListed` | `(page: Page, name: string) => Promise<boolean>` | Whether a room with this name is listed. |
@@ -98,8 +100,9 @@ _L2 HTTP vocabulary. Typed clients with response-schema validation._
 
 | Name | Signature | What it does |
 |---|---|---|
-| `ordersApi.create` | `(order: NewOrder) => Promise<Order>` | Create an order and register it for cleanup at the end of the test. |
-| `ordersApi.get` | `(id: string) => Promise<Order>` | Read one order. |
+| `roomsApi.all` | `() => Promise<Room[]>` | Every room the service knows about. |
+| `roomsApi.byId` | `(roomId: number) => Promise<Room>` | One room, by the id the service assigned it. |
+| `roomsApi.byName` | `(name: string) => Promise<Room \| null>` | The room with this name, or null. |
 
 ## Fixtures — saucedemo
 

@@ -3887,3 +3887,65 @@ all day on shared public demos. Left red.
 **Next:** the other four coverage kinds for `restful-booker` — negative,
 idempotency, audit, boundary — starting with the API layer, whose scaffolded
 `orders` endpoints are invented and must be rewritten from `/api/room` first.
+
+## 2026-08-18 · run 53 · Five kinds of coverage, and a locator that matched nothing twice over
+
+**Picked:** the rest of the coverage phase for application 4 —
+`restful-booker` — after the happy path landed in run 52.
+
+**Did:** all five kinds, and it is the first application to have them.
+**13/13 live**, and `target:doctor` reports nothing to fix.
+
+The scaffolder's invented `endpoints/orders.ts` and `api/orders.ts` are gone —
+this application has rooms, bookings and messages and never had orders —
+replaced by `rooms.ts` written from the running service, every path called and
+its status recorded before being written down. Read-only on purpose: creating a
+room needs the admin session and the UI already owns that verb.
+
+**The bounds are the application's own.** `POST /api/room` answers `must be
+greater than or equal to 1` and `must be less than or equal to 999`, so
+`@boundary` asserts a stated range rather than a guessed one. RB-2-04 is the
+half usually skipped — three specs proving values are *refused* say nothing
+about a range being too narrow, and a service that rejected everything would
+pass all three.
+
+**Audit and idempotency both cross a surface**, deliberately: the UI makes the
+change and the service is asked whether it happened. A spec that writes in the
+UI and reads the UI has only proved the page agrees with itself, which a purely
+client-side list would also manage. RB-3-02 asserts the room *count* rather
+than the room's absence — "it is gone" passes whether the second delete did
+nothing or removed somebody else's room.
+
+**Verify:** `npm run verify` passes, exit 0 — **1000 tests**. The whole
+`restful-booker` suite including framework and dashboard: **1013 passed**.
+
+**Live suites (step 5): 38/38, four applications, all green** — parabank 3/3,
+restful-booker 13/13, saucedemo 2/2, toolshop 20/20. First all-green step 5 in
+this file.
+
+**Learned:**
+
+- **`getByRole('alert')` matched a node that was not the alert.** All four
+  validation specs failed with `Received string: ""` while the refusal sat
+  plainly on screen. Playwright reported exactly *one* alert node; the DOM
+  reports **zero** `[role="alert"]` elements on that page, before or after a
+  refusal. So the accessibility tree named something the DOM does not, and
+  reading it gave nothing. The conventions say to ground locators in the
+  accessibility tree rather than a DOM dump — this is the case that cuts the
+  other way, and the rule that survives both is *check that what you matched
+  is the thing you meant*, whichever tree you read it from.
+- **It also broke the specs that were supposed to pass**, which is what made
+  it obvious. The always-present empty node meant `attemptAdd`'s "listed or
+  refused" poll returned immediately every time, so RB-2-04 reported a room as
+  refused that had been created perfectly. A locator that is wrong in one
+  direction usually lies in both.
+- **Cleanup proven rather than assumed.** An orphan count taken after an
+  earlier run showed one room, which was ambiguous — this demo resets itself
+  every few minutes. Running the full suite and reading the service
+  *immediately* afterwards gave `qa- left: 0`, which is the measurement that
+  actually answers it.
+
+**Next:** application 5 of the coverage phase — the file's order is
+**4 → 6 → 5 → 7**, so AutomationExercise next, cleanest API surface first.
+`restful-booker` is done and is the template for what "all five kinds" looks
+like.
