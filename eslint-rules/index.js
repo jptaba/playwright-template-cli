@@ -17,6 +17,7 @@ const rules = {
   'typed-clients-only': require('./typed-clients-only'),
   'secrets-via-fixture': require('./secrets-via-fixture'),
   'require-case-id': require('./require-case-id'),
+  'known-failures-declared': require('./known-failures-declared'),
   'step-naming': require('./step-naming'),
   'auth-project-boundary': require('./auth-project-boundary'),
   'no-target-coupling': require('./no-target-coupling'),

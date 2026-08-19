@@ -1,5 +1,6 @@
 import { clusterFailures } from './triage/cluster';
 import { classifyByRule } from './triage/rules';
+import { classifyKnownFailures, type KnownFailureRow } from './triage/known-failures';
 import type { RunResult } from './reporters/run-result';
 import { namesACause } from './triage/types';
 import type { TriageCategory } from './triage/types';
@@ -54,10 +55,18 @@ export interface LiveTargetResult {
     failed: number;
     flaky: number;
     skipped: number;
-    /** Known failures a spec declared with `test.fail()`. Reported, never hidden. */
+    /** Known failures, whether marked with `test.fail()` or declared. Reported, never hidden. */
     expectedFailures: number;
   };
   failures: LiveFailure[];
+  /**
+   * Every spec carrying a `known-failure` declaration, and whether this run
+   * confirmed it. A confirmed one is folded out of `failures`; a drifted one
+   * stays in, because it is failing for a reason nobody declared.
+   */
+  knownFailures: KnownFailureRow[];
+  /** Declarations with nothing in them — a typo, not a result. */
+  malformedKnownFailures: Array<{ testId: string; title: string }>;
   /** Why nothing ran, when status is `not-run`. */
   reason: string | null;
 }
@@ -96,8 +105,21 @@ export function summariseLiveRun(target: string, run: RunResult): LiveTargetResu
     }
   }
 
+  /*
+     A declared known failure that failed for the reason it declared is folded
+     out of the failure list and counted as expected — the design
+     `run-result.ts` already describes for `test.fail()`, on a mechanism narrow
+     enough to be trusted. One that failed for a *different* reason is not
+     folded: it has stopped testing what it claims, which is the whole defect
+     item 59 was raised about.
+  */
+  const known = classifyKnownFailures(run.tests);
+  const confirmed = new Set(
+    known.rows.filter((row) => row.outcome === 'confirmed').map((row) => row.testId),
+  );
+
   const failures: LiveFailure[] = run.tests
-    .filter((test) => test.outcome === 'unexpected')
+    .filter((test) => test.outcome === 'unexpected' && !confirmed.has(test.id))
     .map((test) => ({
       title: test.title,
       caseId: test.caseId,
@@ -112,13 +134,17 @@ export function summariseLiveRun(target: string, run: RunResult): LiveTargetResu
     status: failures.length > 0 ? 'failed' : 'passed',
     totals: {
       total: run.totals.total,
-      passed: run.totals.passed,
-      failed: run.totals.failed,
+      // Moved across rather than added: a confirmed known failure is one test,
+      // and counting it in both columns would make the totals stop summing.
+      passed: run.totals.passed + confirmed.size,
+      failed: run.totals.failed - confirmed.size,
       flaky: run.totals.flaky,
       skipped: run.totals.skipped,
-      expectedFailures: run.totals.expectedFailures ?? 0,
+      expectedFailures: (run.totals.expectedFailures ?? 0) + confirmed.size,
     },
     failures,
+    knownFailures: known.rows,
+    malformedKnownFailures: known.malformed,
     reason: null,
   };
 }
@@ -138,6 +164,8 @@ export function liveRunParked(target: string, reason: string): LiveTargetResult 
     status: 'parked',
     totals: { total: 0, passed: 0, failed: 0, flaky: 0, skipped: 0, expectedFailures: 0 },
     failures: [],
+    knownFailures: [],
+    malformedKnownFailures: [],
     reason,
   };
 }
@@ -148,6 +176,8 @@ export function liveRunNotRun(target: string, reason: string): LiveTargetResult 
     status: 'not-run',
     totals: { total: 0, passed: 0, failed: 0, flaky: 0, skipped: 0, expectedFailures: 0 },
     failures: [],
+    knownFailures: [],
+    malformedKnownFailures: [],
     reason,
   };
 }
@@ -219,6 +249,29 @@ export function formatLiveReport(results: LiveTargetResult[]): string[] {
             ? `        needs judgement — ${failure.unnamedCause}`
             : '        no rule matched — needs judgement',
       );
+    }
+
+    /*
+       Every declaration is shown, including the confirmed ones. A known
+       failure that is quietly folded away is the state `expectedFailures`
+       already refuses: a suite can accumulate a dozen of them and read as
+       perfectly green.
+    */
+    for (const known of result.knownFailures) {
+      const name = known.caseId ? `${known.caseId} · ${known.title}` : known.title;
+      lines.push(`      [known failure] ${name}`);
+      lines.push(
+        known.outcome === 'confirmed'
+          ? `        still failing as declared — "${known.expected}"`
+          : known.outcome === 'drifted'
+            ? `        failing for something else — declared "${known.expected}", counted as a failure`
+            : `        passed — the defect may be fixed; remove the known-failure marker`,
+      );
+    }
+
+    for (const malformed of result.malformedKnownFailures) {
+      lines.push(`      [known failure] ${malformed.title}`);
+      lines.push('        declares nothing to match, so it can confirm nothing');
     }
   }
 

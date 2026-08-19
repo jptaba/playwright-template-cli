@@ -122,6 +122,94 @@ test.describe('summarising one application’s live run', () => {
   });
 });
 
+test.describe('a failure a spec declared in advance', () => {
+  /*
+     Item 59. `test.fail()` inverts the whole test, so a spec marked for a
+     defect the application genuinely has is reported as *passing* whenever it
+     fails for some other reason — which on an application with known defects
+     is the normal case rather than a corner one. ParaBank did exactly that:
+     two markers, green through a run where neither spec reached a transfer
+     form, because the bank was answering HTTP 500 two pages earlier.
+  */
+  const declaring = (id: string, message: string, expected: string, overrides = {}) =>
+    failing(id, message, {
+      annotations: [{ type: 'known-failure', description: expected }],
+      ...overrides,
+    });
+
+  test('still failing for the reason it declared is not a red suite', () => {
+    const result = summariseLiveRun(
+      'bank',
+      runWith([
+        passing('a'),
+        declaring('b', 'a bank accepted a negative transfer: Transfer Complete!', 'accepted a negative transfer'),
+      ]),
+    );
+
+    expect(result.status).toBe('passed');
+    expect(result.failures).toEqual([]);
+    expect(result.totals.expectedFailures).toBe(1);
+    // Moved across rather than added, so the columns still sum to the total.
+    expect(result.totals.passed + result.totals.failed).toBe(result.totals.total);
+  });
+
+  test('failing for something else stays an ordinary failure', () => {
+    // The whole defect item 59 names: a marker that cannot tell "the defect is
+    // still there" from "this stopped testing anything".
+    const result = summariseLiveRun(
+      'bank',
+      runWith([
+        declaring('b', 'connect ECONNREFUSED 10.0.0.5:443', 'accepted a negative transfer'),
+      ]),
+    );
+
+    expect(result.status).toBe('failed');
+    expect(result.failures).toHaveLength(1);
+    expect(result.totals.expectedFailures).toBe(0);
+    expect(formatLiveReport([result]).join('\n')).toContain('failing for something else');
+  });
+
+  test('passing says the marker can go, and fails nothing', () => {
+    /*
+       The opposite of a ground-truth spec that passed, which really is a
+       broken fixture. A known-failure spec passing is the defect being fixed.
+    */
+    const passed = declaring('b', '', 'accepted a negative transfer', {
+      outcome: 'expected',
+      status: 'passed',
+      firstRunStatus: 'passed',
+      error: null,
+    });
+    const result = summariseLiveRun('bank', runWith([passed]));
+
+    expect(result.status).toBe('passed');
+    expect(formatLiveReport([result]).join('\n')).toContain('remove the known-failure marker');
+  });
+
+  test('a confirmed one is still named in the report, never quietly folded away', () => {
+    // A suite that accumulates known failures must not read as perfectly green
+    // — the same claim `expectedFailures` already makes about `test.fail()`.
+    const result = summariseLiveRun(
+      'bank',
+      runWith([declaring('b', 'a bank accepted a negative transfer', 'accepted a negative transfer')]),
+    );
+    const report = formatLiveReport([result]).join('\n');
+
+    expect(report).toContain('known failure');
+    expect(report).toContain('still failing as declared');
+  });
+
+  test('a declaration with nothing in it is reported, not skipped', () => {
+    // A blank marker confirms nothing and would otherwise read as an absent
+    // one — a typo silently disabling the check it was meant to add.
+    const result = summariseLiveRun('bank', runWith([declaring('b', 'boom', '   ')]));
+
+    expect(result.malformedKnownFailures).toHaveLength(1);
+    expect(result.status).toBe('failed');
+    expect(formatLiveReport([result]).join('\n')).toContain('declares nothing to match');
+  });
+});
+
 test.describe('what the command exits with', () => {
   const passed = summariseLiveRun('shop', runWith([passing('a')]));
   const failed = summariseLiveRun('shop', runWith([failing('a', 'boom')]));
@@ -180,6 +268,8 @@ test('a failure a rule recognised but could not explain says what it found', () 
       status: 'failed',
       reason: null,
       totals: { total: 3, passed: 0, failed: 1, flaky: 0, skipped: 2, expectedFailures: 0 },
+      knownFailures: [],
+      malformedKnownFailures: [],
       failures: [
         {
           title: 'Establish a session for each role',

@@ -3090,3 +3090,73 @@ what was missing was a way to say *this line inside it was never yours*.
 Proven with the tool itself: saucedemo's marked line was put back to the old
 `getByRole('alert')`, the report named the file, the key and both renderings,
 `--apply` restored it, and `git diff --stat` showed one line changed.
+
+### 59. A known-failure marker cannot be narrower than its test — `done`
+
+Shipped on `agent/2026-08-19-declared-known-failures` (run 75). A known failure
+is **declared** now, not inverted:
+
+```ts
+annotation: [
+  { type: 'practitest', description: 'PB-2-01' },
+  { type: 'known-failure', description: 'a bank accepted a negative transfer' },
+]
+```
+
+`classifyKnownFailures` in `src/support/triage/known-failures.ts` checks the
+declared text against the error the run actually produced, and `summariseLiveRun`
+reports the three outcomes that `test.fail()` collapsed into one:
+
+| outcome | what the run does with it |
+|---|---|
+| **confirmed** — still failing as declared | folded into `expectedFailures`, not red |
+| **drifted** — failing for something else | an ordinary failure, because it has stopped testing what it claims |
+| **resolved** — it passed | reported, fails nothing: the defect may be fixed and the marker can go |
+
+**`resolved` is deliberately the opposite of `not-reproduced`.** A ground-truth
+fixture spec that passes is a broken fixture and exits 1. A known-failure spec
+that passes is good news. The two look identical from a status field and mean
+opposite things, which is why they are separate mechanisms rather than one.
+
+**The signature is the error text, not a triage category, and that was the one
+real design decision.** A category was tried first and does not work: no rule in
+`rules.ts` keys on a hand-written business assertion like *"a bank accepted a
+negative transfer"* — they key on transport, timeout, auth and schema text — so
+a rule-based category is `null` for precisely the failures this exists to track,
+and every confirmed known failure would have been reported as drifted. The
+message a spec already writes into its own `expect()` is the fact that
+distinguishes "still the same defect" from "failing somewhere else now", and it
+needs no triage pass to read.
+
+**The lint rule is the half that stops the mechanism coming back.** Nothing
+prevented the next person reaching for `test.fail()` and getting the same wrong
+report, so `known-failures-declared` refuses it in a spec and names the
+replacement, and refuses a `known-failure` annotation with an empty description
+— a blank marker confirms nothing and reads exactly like an absent one. It uses
+`require-case-id`'s declaration-versus-modifier test, so the conditional form
+`test.fail(condition, 'reason')` inside a body is untouched.
+
+**A blank declaration is reported rather than skipped**, on the same reasoning
+as `unknownCategories` in `agreement.ts`: silence about a typo is how a check
+gets disabled without anybody deciding to.
+
+**No target pack was touched**, and that is rule zero rather than an oversight.
+ParaBank's `PB-2-01` and `PB-6-01` are the intended first users — item 59 was
+found writing them — but applying the marker there would be editing a pack to
+make an existing failure stop counting, which is the exact shape rule zero
+forbids. The mechanism ships; the packs adopt it when somebody is authoring
+coverage rather than troubleshooting. `parabank` is parked in any case, so
+nothing would have been measured.
+
+The original item follows.
+
+**Found in run 71**, writing two specs for defects ParaBank genuinely has: it
+accepts a negative transfer and one far larger than the account holds, and
+reports *"Transfer Complete!"* for both.
+
+`test.fail()` inverts the *whole* test. So when ParaBank started answering HTTP
+500 on the accounts overview — two pages before either spec reached its own
+assertion — both were reported as **passing**. A marker that cannot tell *the
+defect is still there* from *this stopped testing anything* is worse than no
+marker, and on an application that fails upstream, which is exactly the kind
+that has known defects, that is the normal case rather than a corner one.

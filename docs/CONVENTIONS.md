@@ -233,6 +233,25 @@ Ask which one it is *before* touching anything, and say which in the commit.
 The evidence is usually cheap: run the failing thing with nothing else running.
 If it still fails, no change in this repository will honestly fix it.
 
+**A known failure is declared, never inverted.** — `known-failures-declared`
+`test.fail()` inverts the *whole* test, so a spec marked that way is reported
+as **passing** the moment it fails for some other reason — an outage, a moved
+locator, an expired session. On an application with known defects, which is
+also the kind that falls over upstream, that is the normal case. Say instead
+what the failure should contain, and leave the assertion alone:
+
+```ts
+annotation: [
+  { type: 'practitest', description: 'PB-2-01' },
+  { type: 'known-failure', description: 'a bank accepted a negative transfer' },
+]
+```
+
+`npm run suites:live` then reports it three ways rather than one — still
+failing as declared (counted as expected, not red), failing for something else
+(an ordinary failure, because it has stopped testing what it claims), or
+passing, which means the defect may be fixed and the marker can go.
+
 **Provider drift is the one recorded exception, and it is not a code change.**
 An accepted difference between a published document and a running service goes
 in the profile as a `ContractWaiver`, with a reason and a review date the

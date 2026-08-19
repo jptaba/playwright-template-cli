@@ -17,7 +17,6 @@ decide what to do.
 |---|---|---|
 | 60 | The scaffold's next step names the file onboarding refuses to write to | `ready` |
 | 52 | One coverage cell is left, and it is blocked | `blocked` |
-| 59 | A known-failure marker cannot be narrower than its test | `ready` |
 | 58 | `sharedEnvironment` is declared, documented, and enforced by nothing | `ready` |
 | 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `ready` |
 | 46 | The journey has been run for one application, not five | `ready` |
@@ -25,7 +24,11 @@ decide what to do.
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Items 51, 53 and 55 are `done`** and archived in `backlog.md`. **Item 53
+**Items 51, 53, 55 and 59 are `done`** and archived in `backlog.md`. **Item 59
+closed in run 75**: a known failure is now *declared* — the spec states the text
+its failure should contain, `suites:live` checks the failure against it, and a
+lint rule refuses `test.fail()`, which is the mechanism that could not tell
+"the defect is still there" from "this stopped testing anything". **Item 53
 closed in run 74**: a step the preview has an answer for folds to one line, and
 the finished wizard went from 5.68 screens to 3.03 measured on the running
 page. **Item 52 is
@@ -45,11 +48,10 @@ reaches the packs that already exist.
 through the running dashboard, against the real application, and reading what
 the page said afterwards. It is small and well-evidenced; take it or 59 first.
 
-**Take item 59 next.** It is the highest-ranked `ready` item now that 53 is
-closed, and it is the one that makes a *reported* failure trustworthy: a
-known-failure marker that cannot tell "the defect is still there" from "this
-stopped testing anything" is worse than no marker. 58 and 56 follow it — both
-are a declared capability nothing checks, which is the same shape twice.
+**Take item 58 next**, then 56. They are the same shape twice — a capability a
+profile declares that nothing checks — and 58 is the one with a recorded cost:
+run 63 watched toolshop's shared customer account get locked and take its whole
+suite red for hours.
 
 *(Item 52's section below was restored in run 68. Run 66 removed it by
 accident while archiving item 51 — the two were adjacent, and the row in the
@@ -137,50 +139,6 @@ Writing them surfaced three latent races in its verbs, including one in
 `searchByUsername` that had been waiting for a fact that was already true.
 
 **What is left is `toolshop`'s `@audit` only, and it is blocked on item 56.**
-
----
-
-### 59. A known-failure marker cannot be narrower than its test — `ready`
-
-**Found in run 71**, writing two specs for defects ParaBank genuinely has: it
-accepts a negative transfer and one far larger than the account holds, and
-reports *"Transfer Complete!"* for both.
-
-`run-result.ts` documents `test.fail()` as the way to mark *"a known provider
-or application defect"*, counted inside `passed` so a run does not turn red and
-counted separately so it stays visible. That design is right. **The mechanism
-underneath it is not narrow enough.**
-
-`test.fail()` inverts the *whole* test. So when ParaBank started answering HTTP
-500 on the accounts overview — two pages before either spec reached its own
-assertion — both were reported as **passing**. A marker that cannot tell *the
-defect is still there* from *this stopped testing anything* is worse than no
-marker, and on an application that fails upstream, which is exactly the kind
-that has known defects, that is the normal case rather than a corner one.
-
-Both markers were withdrawn in run 71 and the specs left plainly failing, which
-is what §10 asks for anyway: known-failure handling belongs in triage and the
-report, never in the code under the assertion.
-
-**What is actually missing**, and it already exists one taxonomy over.
-`triage:measure` reports `not-reproduced` when a ground-truth spec *passes* —
-the fixture stopped reproducing the cause it claims. A `@known-failure` spec
-needs the same check from the other side: it should fail **for its own reason**,
-and a run where it failed for a different one is not a known failure, it is an
-unmeasured one.
-
-**Shape worth trying.** The spec states what it expects to fail *with* — the
-error signature, or the triage category, the way `triage-ground-truth`
-annotations already state a category. The reporter then counts it as an
-expected failure only when the failure matches, and as an ordinary failure when
-it does not. That reuses the annotation channel already reaching
-`run-result.json` verbatim, so nothing needs to import a target pack.
-
-**Do not solve it by widening `test.fail()`.** Playwright's marker is what it
-is; the judgement belongs where every other verdict about a failure already
-lives, which is triage and the report.
-
----
 
 ### 56. Toolshop's cart is per-tab, and its profile says it is per-account — `ready`
 

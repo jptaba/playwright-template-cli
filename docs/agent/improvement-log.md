@@ -5258,3 +5258,80 @@ reads.
 known-failure marker that cannot tell "the defect is still there" from "this
 stopped testing anything". Then 58 and 56, which are the same shape twice: a
 declared capability nothing checks.
+
+## 2026-08-19 · run 75 · A known failure says what it should fail with
+
+**Picked:** item 59, the top-ranked `ready` item and the one that makes a
+*reported* failure trustworthy.
+
+**Re-read the worklist immediately before picking, and it had moved under me
+again.** Item 60 landed on `main` in `7195c9e` during this session, after
+`open-items.md` had been read — a docs-only commit from run 74's live
+validation pass. It says to take it or 59 first, so 59 still stood. This is the
+third run to meet the overlap the working agreement warns about, and re-reading
+is what catches it.
+
+**Did:** a known failure is declared, not inverted. Full reasoning is item 59 in
+`backlog.md`. Three pieces:
+
+- `src/support/triage/known-failures.ts` — pure, one run model in, a row per
+  declaration out: **confirmed**, **drifted** or **resolved**.
+- `summariseLiveRun` folds a confirmed one into `expectedFailures` and leaves a
+  drifted one an ordinary failure, so a suite goes red for a spec that has
+  stopped testing what it claims.
+- `known-failures-declared`, a lint rule refusing `test.fail()` in a spec and
+  refusing an empty declaration.
+
+**The signature is error text, not a triage category, and finding that out was
+the work.** A category was the obvious shape — `triage-ground-truth` already
+proves the annotation channel — and it does not survive contact with the rules.
+None of the seven rules in `rules.ts` keys on a hand-written business assertion
+like *"a bank accepted a negative transfer"*; they key on transport, timeout,
+auth and schema text. So a rule-based category is `null` for exactly the
+failures this exists to track, and every confirmed known failure would have
+been reported as having drifted. The spec's own `expect()` message is already
+the distinguishing fact and needs no triage pass to read.
+
+**No target pack was touched.** ParaBank's two specs are the intended first
+users — item 59 was found writing them — and applying the marker there would be
+editing a pack to make an existing failure stop counting, which is rule zero's
+exact shape. The mechanism ships; adoption is authoring work, not
+troubleshooting.
+
+**Verify:** `npm run verify` passes, exit 0 — **1091 tests**, up from 1085.
+
+**Live suites: 3 passing, 1 failing, 1 parked.** orangehrm 7/7, saucedemo 6/6,
+restful-booker 12/13 with 1 flaky, parabank parked. **toolshop 21/22** —
+`TOOL-3-03 · Adding the same product twice is one line of two @idempotency`,
+failing in `cart.ts:147` on `line.waitFor({ state: 'detached' })` during the
+cart's own cleanup, settled by no rule. Run 74 recorded toolshop 22/22, so this
+is new since yesterday and it is on the shared-cart demo item 56 is about.
+Recorded rather than chased: it is not this run's item, and item 56 already
+says the next step there is a measurement.
+
+**Triage agreement, unchanged, which is the check that matters for a change
+touching no rule:** toolshop **4 agreed · 0 contradicted · 0 declined**,
+orangehrm **4 · 0 · 0**, restful-booker **3 · 0 · 1**, saucedemo **1 · 0 · 3**.
+Identical to run 74 on all four.
+
+**Learned:**
+
+- **A new mechanism's hardest question is what it keys on, not what it
+  reports.** The three outcomes were obvious within a minute; the category
+  versus error-text choice took the rest, and picking the wrong one would have
+  produced a mechanism that reported every known failure as drifted — worse
+  than the marker it replaced, and green in every test I would have written for
+  it.
+- **`resolved` and `not-reproduced` are opposites wearing the same status
+  field.** A ground-truth spec that passes is a broken fixture and exits 1. A
+  known-failure spec that passes means the defect got fixed. Both are "declared
+  to fail, did not", and folding them into one outcome would have made good
+  news fail a run.
+- **Shipping a mechanism without adopting it is the correct end of a
+  troubleshooting item.** Every instinct said to finish by marking ParaBank's
+  two specs, which would have been a pack edit making an existing failure stop
+  counting. Rule zero draws the line at exactly the point where the work stops
+  feeling finished.
+
+**Next:** item 58 — `sharedEnvironment` is declared, documented and enforced by
+nothing — then 56. Item 60 is small and evidenced if a shorter run is wanted.

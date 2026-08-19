@@ -241,6 +241,40 @@ test('require-case-id demands a case reference outside the contract project', ()
   });
 });
 
+test('known-failures-declared refuses an inverted test and an empty declaration', () => {
+  /*
+     `test.fail()` inverts the whole test, so a spec marked that way reads as
+     passing whenever it fails for some *other* reason. Watched on ParaBank:
+     two specs marked for defects the bank genuinely has were green through a
+     run in which neither reached a transfer form, because the application was
+     answering HTTP 500 two pages earlier.
+  */
+  const declared = `{ annotation: [{ type: 'known-failure', description: 'accepted a negative transfer' }] }`;
+  ruleTester.run('known-failures-declared', plugin.rules['known-failures-declared'], {
+    valid: [
+      { code: `test('a bank refuses a negative transfer', ${declared}, async () => {});`, filename: SPEC },
+      { code: `test('does a thing', ${CASE_ID}, async () => {});`, filename: SPEC },
+      // The conditional form declares nothing and cannot carry an annotation.
+      { code: `test('x', ${CASE_ID}, async () => { test.fail(isDemo, 'known'); });`, filename: SPEC },
+      // Actions are not specs; the rule is scoped to where markers are written.
+      { code: `test.fail('x', async () => {});`, filename: ACTION },
+    ],
+    invalid: [
+      { code: `test.fail('a bank refuses a negative transfer', async () => {});`, filename: SPEC, errors: [{ messageId: 'inverted' }] },
+      {
+        code: `test('x', { annotation: [{ type: 'known-failure', description: '' }] }, async () => {});`,
+        filename: SPEC,
+        errors: [{ messageId: 'empty' }],
+      },
+      {
+        code: `test('x', { annotation: [{ type: 'known-failure' }] }, async () => {});`,
+        filename: SPEC,
+        errors: [{ messageId: 'empty' }],
+      },
+    ],
+  });
+});
+
 test('step-naming keeps the report readable by someone who does not know what a locator is', () => {
   ruleTester.run('step-naming', plugin.rules['step-naming'], {
     valid: [

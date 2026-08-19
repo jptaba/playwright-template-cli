@@ -82,6 +82,13 @@ export interface KindTotals {
    * Tests that failed and were *supposed* to — a `test.fail()` marking a known
    * provider or application defect.
    *
+   * **`test.fail()` is no longer the way to mark one**, and the count here is
+   * the narrower part of the design rather than the whole of it. It inverts
+   * the entire test, so a spec that never reached its own assertion is
+   * reported as passing; `known-failures.ts` checks a declared failure against
+   * the error the run actually produced, and `summariseLiveRun` folds only the
+   * confirmed ones in here. The lint rule is `known-failures-declared`.
+   *
    * Counted inside `passed` as well, because an expected failure is not an
    * unexpected one and the run's verdict should not turn red for it. Counted
    * separately because otherwise it is invisible: a suite could accumulate a
