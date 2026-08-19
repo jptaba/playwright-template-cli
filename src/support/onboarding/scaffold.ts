@@ -1009,10 +1009,28 @@ test(
   },
 );
 
-function describeFindings(scan: { violations: { id: string; impact: string | null; nodes: unknown[] }[] }): string {
-  return scan.violations
-    .map((violation) => \`[\${violation.impact}] \${violation.id} on \${violation.nodes.length} node(s)\`)
+/**
+ * The failure message, and it names **which page was scanned**.
+ *
+ * Without the URL, a violation on a page you did not think you were scanning
+ * is indistinguishable from one you expected — and so is a profile waiver
+ * scoped to the wrong page. Onboarding an application whose \`/\` redirects to
+ * a dashboard, a waiver written for the sign-in URL simply never applied, and
+ * finding out took a throwaway script to ask the browser where it had ended
+ * up. The scan already knows; it just was not saying.
+ */
+function describeFindings(scan: {
+  url: string;
+  waived: { rule: string }[];
+  violations: { id: string; impact: string | null; nodes: unknown[] }[];
+}): string {
+  const found = scan.violations
+    .map((violation) => \`  [\${violation.impact}] \${violation.id} on \${violation.nodes.length} node(s)\`)
     .join('\\n');
+  const waived = scan.waived.length
+    ? \`\\nwaived here: \${scan.waived.map((entry) => entry.rule).join(', ')}\`
+    : '';
+  return \`scanned \${scan.url}\\n\${found}\${waived}\`;
 }
 `;
 

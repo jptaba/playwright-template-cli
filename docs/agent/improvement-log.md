@@ -4221,3 +4221,74 @@ declines, and the decline is correct.
   left a fixture asserting something untrue.
 
 **Next:** application 5 of the coverage phase.
+
+## 2026-08-18 · run 58 · Skipping an application, and the waiver that never applied
+
+**Picked:** the owner's instruction — skip AutomationExercise, offboard it, and
+take the next live application end to end.
+
+**There was nothing to offboard, and I checked rather than claimed.**
+`target:remove --name=automationexercise` reports *"Nothing to remove"* and
+names the four that are onboarded. Run 57 recorded the blocker in
+`coverage-phase.md` and never created a target, so the skip is a documentation
+change. Saying "offboarded" would have been a claim about work that never
+happened.
+
+**Took OrangeHRM rather than DemoBlaze, and the reason is the same blocker.**
+Checked both by loading them: DemoBlaze publishes no credentials either, so it
+would have hit the identical wall one application later. OrangeHRM prints
+`Admin` / `admin123` on its own login page, exactly as ParaBank prints
+`john` / `demo`.
+
+**Onboarded through the dashboard**, `setup:auth` passing with no file edited
+by hand, and three coverage kinds shipped — happy path, negative, idempotency.
+**5/5 live.**
+
+**The owner's mid-run reminder landed exactly where it should have.** I was
+about to iterate on a profile waiver that would not apply. Stopping to ask
+*why* found the framework gap underneath it: the accessibility failure message
+never said **which page it had scanned**. The waiver was scoped to the sign-in
+URL; `authedPage` is signed in, so `/` redirects to the dashboard, and the
+violation was there. Discovering that took a throwaway script to ask the
+browser where it had ended up — information the scan already had and simply was
+not printing.
+
+`describeFindings` now leads with `scanned <url>` and lists what was waived on
+that page. **And the fix reached the existing pack through the tool**, not by
+hand: deleted the scaffolder-written spec, `target:upgrade --apply` wrote the
+current template, and the next run of the spec said
+
+```
+Error: scanned https://opensource-demo.orangehrmlive.com/web/index.php/dashboard/index
+  [serious] html-has-lang on 1 node(s)
+```
+
+which makes a mis-scoped waiver self-evident. That is item 42's tool used for
+the purpose it was built for, on its first real outing.
+
+**Verify:** `npm run verify` passes, exit 0 — **1021 tests**.
+
+**Live suites (step 5):** orangehrm 5/5, restful-booker 13/13, saucedemo 2/2,
+toolshop 20/20, **parabank 2/3** — the shared-demo intermittent that has flapped
+all day. Left red.
+
+**Learned:**
+
+- **A waiver that does not apply looks exactly like a waiver that is ignored.**
+  Both present as "the violation is still failing", and the difference is the
+  URL nobody printed. Worth generalising past accessibility: any scoped
+  exception needs its scope *and* the thing it was matched against in the same
+  message, or debugging it is guesswork.
+- **`authedPage` changes what `/` means.** The scaffolded a11y spec navigates
+  to `/` and is written as "the landing page", which on any application with a
+  post-login redirect is the dashboard instead. The spec is not wrong, but its
+  name is, and the URL in the message is what makes that visible.
+- **Skipping is a decision worth recording as carefully as doing.** Two of the
+  three remaining applications are blocked on the same thing — an account an
+  agent must not create — and writing that down once stops the next run
+  discovering it twice.
+
+**Next:** audit and boundary for OrangeHRM, which need data the spec creates —
+adding a system user, and the point at which it stops being read-only. Then
+DemoBlaze and AutomationExercise, both waiting on a person to register an
+account.

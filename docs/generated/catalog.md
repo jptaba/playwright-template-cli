@@ -32,6 +32,31 @@ _Target-agnostic. Available in every spec, whichever application is under test._
 | `a11y` | `A11yScanner` | Accessibility scanning against the standard the target declares. |
 | `accountSlot` | `number` | Which account in the role's pool this test holds. |
 
+## Fixtures — orangehrm
+
+_Added on top of the framework fixtures when TARGET=orangehrm._
+
+| Name | Signature | What it does |
+|---|---|---|
+| `signIn` | `named actions — see the table below` | Signing in, and reading what the form reported. |
+| `users` | `named actions — see the table below` | Searching the system user list — the administrator journey. |
+| `testData` | `OrangehrmTestData` | Builders for the data a spec needs. |
+
+## actions/ — orangehrm
+
+_L2 UI vocabulary. Composes locators, returns data, asserts nothing._
+
+| Name | Signature | What it does |
+|---|---|---|
+| `signIn.withCredentials` | `(page: Page, credentials: Credentials) => Promise<void>` | Submit the sign-in form. |
+| `signIn.isSignedIn` | `(page: Page) => Promise<boolean>` | Whether the page currently carries a session. |
+| `signIn.signedInAs` | `(page: Page) => Promise<string \| null>` | Who the session belongs to, or null when signed out. |
+| `signIn.readError` | `(page: Page) => Promise<string \| null>` | What the application said when the sign-in failed. |
+| `users.open` | `(page: Page) => Promise<void>` | Open the list and wait for it to have arrived. |
+| `users.searchByUsername` | `(page: Page, username: string) => Promise<UserSearch>` | Filter by username and return what came back. |
+| `users.read` | `(page: Page) => Promise<UserSearch>` | What the list currently shows. |
+| `users.reset` | `(page: Page) => Promise<void>` | Clear the filters, so a later search is not narrowed by an earlier one. |
+
 ## Fixtures — parabank
 
 _Added on top of the framework fixtures when TARGET=parabank._

@@ -84,8 +84,8 @@ applicable to this application
 | 3 | ParaBank | ✓ | ✓ | — | — | — | — | 3/3 (`setup:auth`, `@smoke`, `@a11y`) |
 | 4 | restful-booker | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 13/13 |
 | 5 | DemoBlaze | — | — | — | — | — | — | — |
-| 6 | AutomationExercise | blocked | — | — | — | — | — | needs an account |
-| 7 | OrangeHRM | — | — | — | — | — | — | — |
+| 6 | AutomationExercise | skipped | — | — | — | — | — | needs an account |
+| 7 | OrangeHRM | ✓ | ✓ | ✓ | ✓ | — | — | 5/5 |
 
 **toolshop and saucedemo have happy-path coverage only.** Their existing specs
 are the journey and nothing else, so they need the other four kinds like the new
@@ -347,3 +347,49 @@ credential: the API is public — `/api/productsList` answers 200 unauthenticate
 happy path, negative, boundary and a good deal of the API surface are all
 writable now; only the account-scoped journeys (cart persistence, checkout,
 order history) need the credential.
+
+### 7 · OrangeHRM — onboarded, three kinds shipped
+
+**Taken ahead of 5 and 6, deliberately.** Both of those expect you to register
+your own account and an agent must not create one; OrangeHRM prints
+`Admin` / `admin123` on its own login page, exactly as ParaBank prints
+`john` / `demo`. Checked by loading all three pages rather than assumed.
+
+Onboarded through the dashboard, `setup:auth` passes, **5/5 live**.
+
+| kind | spec |
+|---|---|
+| happy path `@smoke` | OHRM-1-01 — filtering the user list narrows it |
+| negative `@negative` | OHRM-1-02 — a username nobody has says so, rather than showing an empty table |
+| idempotency `@idempotency` | OHRM-1-03 — clearing the filter restores the full list, and clearing twice is the same as once |
+
+**Read-only on purpose.** This demo's users are editable by anybody, so a verb
+that created one would change what every other reader sees, and a spec
+asserting about a user it did not create would be asserting on data it does not
+own. The one username used is read off the list at run time, never written
+down.
+
+**What it taught the framework**, all found by driving it:
+
+- **Labels without association.** Every filter sits in an `.oxd-input-group`
+  beside a `<label>` carrying no `for`, and the input carries no `id` — so the
+  accessible name is empty and `getByLabel('Username')` matches nothing. The
+  vendor's WCAG defect, recorded in the locators with justifications rather
+  than worked around.
+- **A verb must establish its own precondition.** `read()` first assumed its
+  caller had waited, and under parallel load it resolved the count element and
+  then timed out on `textContent` when the table re-rendered — a failure
+  *inside* the verb, reported against a spec that had done nothing wrong. It
+  now retries the whole read, so a re-render costs an attempt rather than the
+  run.
+- **Clearing a filter is not "rows appeared".** Resetting after an empty result
+  re-renders while "No Records Found" is still in the DOM, so a verb that
+  waited for rows handed back a total of 0 for a list that plainly had five.
+
+**Accessibility: measured and waived.** The dashboard fails `html-has-lang` on
+one node — the vendor's defect — recorded as a profile waiver with a reason and
+a review date of 2026-11-18, scoped to the page it was granted for.
+
+**Still to write:** audit and boundary. Both want data the spec creates, which
+on this application means adding a system user — doable, and the point at which
+this stops being read-only.
