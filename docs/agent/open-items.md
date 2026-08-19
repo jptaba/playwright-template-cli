@@ -17,7 +17,7 @@ decide what to do.
 |---|---|---|
 | 60 | The scaffold's next step names the file onboarding refuses to write to | `ready` |
 | 52 | One coverage cell is left, and it is blocked | `blocked` |
-| 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `ready` |
+| 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `blocked` |
 | 46 | The journey has been run for one application, not five | `ready` |
 | 48 | Seeded failure cases exist for one application, not five | `ready` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
@@ -52,11 +52,12 @@ reaches the packs that already exist.
 through the running dashboard, against the real application, and reading what
 the page said afterwards. It is small and well-evidenced; take it or 59 first.
 
-**Take item 56 next.** It is the other half of 58's shape — a capability a
-profile declares that nothing checks — and its own next step is already
-written: a measurement, not an edit. Run the cart specs against a one-account
-pool and see whether they still interfere. Item 60 is smaller and evidenced if
-a shorter run is wanted.
+**Item 56's measurement was run in run 77 and it is answered** — see the item.
+What is left of it is a decision only the owner can take, so it is `blocked`
+rather than ready.
+
+**Take item 60 next**, then 46 and 48, which are one command per application
+and should be done together.
 
 **Toolshop's live suite failed on a different spec in each of runs 75 and 76** —
 `TOOL-3-03` in the cart's cleanup, then `TOOL-1-02` settled as
@@ -152,54 +153,54 @@ Writing them surfaced three latent races in its verbs, including one in
 
 **What is left is `toolshop`'s `@audit` only, and it is blocked on item 56.**
 
-### 56. Toolshop's cart is per-tab, and its profile says it is per-account — `ready`
+### 56. Toolshop's cart is per-tab, and its profile says it is per-account — `blocked`
 
-**Found in run 68 while looking for an audit surface**, by driving the running
-storefront with a signed-in session rather than by reading the pack.
+**The measurement the item asked for was run in run 77, and the framework half
+shipped with it**: `npm run pool:measure` and the `POOL_SIZE_OVERRIDE` that
+lets a pool be collapsed without editing the profile of the application under
+test.
 
-**What the profile and the pack say.** `serverState: true`, and
-`config/targets/toolshop.ts` explains the three-customer pool with it: *"the
-cart lives on the server against the signed-in account… so two workers signing
-in as `customer` share one cart."* `cart-totals.spec.ts` opens with the same
-claim and records that the cart specs once emptied each other mid-assertion.
+**The answer, measured rather than argued.** Both arms at three workers, so the
+only difference between them is how many identities they share:
 
-**What the application does.** Measured, signed in as the pooled customer:
-
-| | |
+| arm | result |
 |---|---|
-| `sessionStorage` | `cart_id`, `cart_quantity` |
-| `localStorage` | `auth-token` only — no cart |
-| a **new tab in the same context** | empty cart |
-| a **fresh context** with the same session | empty cart |
+| the declared pool of 3 | **0 of 2 runs green** — failures on cart *and* catalogue specs |
+| every worker on one account | **2 of 2 runs green** |
 
-`sessionStorage` is per-tab. So the cart is keyed by something a tab holds, not
-by the account — and two workers signed in as the same customer would *not*
-share a cart, because each has its own context.
+The collapsed arm was *cleaner than the control*. Sharing one account produced
+**fewer** failures than spreading across three, so the pool is not preventing
+the interference its profile says it prevents. Three separate hand
+measurements agree: the cart specs alone, on one account at three workers,
+passed 4 of 4.
 
-**Why it matters, and why it was not acted on in the run that found it.**
+**Two caveats, both worth keeping.**
 
-- **The pool's stated rationale may be wrong**, and `poolSize: { customer: 3 }`
-  costs a worker (`e2e` runs at two rather than three, and the profile says so).
-  If the cart is per-tab, that cost buys nothing on this application.
-- **There is no audit surface for the cart**, which is why toolshop still has
-  no `@audit` cell. An audit spec asserts a change was *recorded* where a
-  different surface can see it; toolshop's API layer is a read-only catalogue,
-  and a cart that does not outlive its tab cannot be asked about from anywhere.
-- **The old observation is not obviously false**, which is the part needing a
-  person rather than another probe. Cart specs really did interfere when there
-  was one account — recorded at the time, not recalled. Either the application
-  changed, or that interference had a different cause and the pool fixed it by
-  accident. Both are worth knowing and neither is settled by what is above.
+- The control runs at the pool's own worker count (3), which is *above*
+  toolshop's normal ceiling of 2. Both arms share it so the comparison is
+  sound, but neither arm is a normal run — and at the normal ceiling the same
+  suite went 22/22 in the same session.
+- With `poolSize: 3` and `authFlowAccount: 3`, the usable accounts are
+  `[1, 2]`, so a third worker already shares account 1 with the first. The
+  declared pool was never giving three workers three identities.
 
-**Do not fix this by editing the profile.** Rule zero: the claim is an output,
-and the question is which mechanism should have caught a declared capability
-that the application does not have. `serverState` is human-declared and nothing
-checks it — that is the framework-shaped half, and it is the interesting one.
+**What is left is a decision, and it is the owner's.** Rule zero forbids
+troubleshooting by editing the profile, and the item already said this half
+"needs a person rather than another probe". The options:
 
-**Next step is a measurement, not an edit**: run the cart specs against a
-one-account pool and see whether they still interfere. That answers which of
-the two stories is true, and it is one command plus a profile value nobody has
-to keep.
+1. Drop `poolSize` for `customer` and let `e2e` run at its natural width. The
+   measurement says nothing is lost. A pool also guards collisions no spec
+   currently exercises, which is the argument for keeping it.
+2. Keep it, and correct the *stated reason* in the profile, which is currently
+   a claim about server-side carts that the application does not support.
+
+**The wider finding, which outlives toolshop.** All five profiles declare
+`serverState: true`, and four still carry the scaffolder's comment verbatim —
+`// does state need cross-test cleanup?`. That is the question, not an answer,
+and it is a scaffold default nobody revisits. Only toolshop pays for it today
+because only toolshop declares a `poolSize`; the next application to declare
+one inherits the same unexamined claim. `pool:measure` is what that application
+now has and toolshop did not.
 
 ### 46. The journey has been run for one application, not five — `ready`
 

@@ -163,7 +163,47 @@ export function resolveTarget(name = process.env.TARGET ?? undefined): TargetPro
     );
   }
   assertNonProductionHost(profile);
-  return profile;
+  return withPoolOverride(profile);
+}
+
+/**
+ * `POOL_SIZE_OVERRIDE=<n>` collapses every role's account pool for one run.
+ *
+ * **For measuring whether a pool is earning its cost**, which is what
+ * `npm run pool:measure` does with it — and the reason it is an environment
+ * variable rather than a profile edit. `serverState: true` plus a `poolSize`
+ * caps the worker count on every run, and until this existed the only way to
+ * ask whether that cap was buying anything was to edit the profile of the
+ * application under test, which is exactly what rule zero forbids.
+ *
+ * Applied here rather than inside `poolSizeFor` so that one substitution
+ * reaches everything downstream consistently — the worker ceiling, the
+ * per-worker account, and the sessions `setup:auth` establishes. Two of those
+ * disagreeing would produce a measurement of nothing in particular.
+ *
+ * Ignored unless it parses to a positive integer: a typo must not silently
+ * reshape a run.
+ */
+function withPoolOverride(profile: TargetProfile): TargetProfile {
+  const raw = process.env.POOL_SIZE_OVERRIDE;
+  if (!raw) return profile;
+  const size = Number(raw);
+  if (!Number.isInteger(size) || size < 1) return profile;
+
+  return {
+    ...profile,
+    credentials: {
+      ...profile.credentials,
+      poolSize: size,
+      /*
+         A reservation cannot survive a collapse to one account: there is no
+         spare identity to withhold, and leaving it set would have the
+         auth-flow project and every worker claiming the same reserved index
+         for different reasons.
+      */
+      ...(size === 1 ? { authFlowAccount: undefined } : {}),
+    },
+  };
 }
 
 /**

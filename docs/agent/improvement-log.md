@@ -5416,3 +5416,87 @@ contradicted · 0 declined**, orangehrm **4 · 0 · 0**, restful-booker
 **Next:** item 56 — the other half of 58's shape, a declared capability nothing
 checks — and its own next step is already written as a measurement rather than
 an edit. Item 60 is smaller if a shorter run is wanted.
+
+## 2026-08-19 · run 77 · The account pool gets a measurement instead of an argument
+
+**Picked:** item 56, the top-ranked `ready` item. Its stated next step was a
+measurement rather than an edit, and that is what it got — plus the framework
+half the item called "the interesting one".
+
+**The finding, measured.** Both arms at three workers, so the only difference
+is how many identities they share:
+
+| arm | result |
+|---|---|
+| the declared pool of 3 | **0 of 2 runs green** |
+| every worker on one account | **2 of 2 runs green** |
+
+The collapsed arm was *cleaner than the control*. Sharing one account produced
+fewer failures than spreading across three, so toolshop's pool is not
+preventing the interference its profile says it prevents. Three separate hand
+measurements agree — the cart specs alone, one account, three concurrent
+workers, 4 of 4 green, with the worker indices checked in the JSON to confirm
+they really were concurrent rather than serialised into one worker.
+
+**Did:** `npm run pool:measure`, plus `POOL_SIZE_OVERRIDE` honoured in
+`resolveTarget`. The override is the part that matters for rule zero: until it
+existed, the only way to ask whether a pool was earning its cost was to edit
+the profile of the application under test.
+
+**The tool shipped wrong first, and fixing it is the entry.** Version one ran
+only the collapsed arm. It reported 1 of 2 green with a cart spec failing —
+which reads as proof the pool is needed, and I nearly wrote that down. It is
+not: the same suite had failed at its *declared* pool on each of the two
+previous runs, on a different spec each time. A background failure rate is
+indistinguishable from contention unless both arms are measured, so the command
+now runs a control and has a fourth verdict — "both arms failed, so this
+measures nothing about the pool" — that version one could not express.
+
+**Two caveats kept in the item.** The control runs at the pool's own worker
+count (3), above toolshop's normal ceiling of 2, so neither arm is a normal
+run. And with `poolSize: 3` and `authFlowAccount: 3` the usable accounts are
+`[1, 2]` — the declared pool was never giving three workers three identities.
+
+**The wider finding.** All five profiles declare `serverState: true` and four
+still carry the scaffolder's comment verbatim — `// does state need cross-test
+cleanup?` — which is the question, not an answer. Only toolshop pays for it
+because only toolshop declares a `poolSize`, but the next application to
+declare one inherits the same unexamined claim.
+
+**Item 56 is `blocked`, not `done`.** What remains is a decision between
+dropping the pool and correcting its stated reason, both of which are profile
+edits the owner should take. Rule zero forbids me doing it as troubleshooting,
+and the item already said this half needs a person.
+
+**Verify:** `npm run verify` passes, exit 0 — **1102 tests**, up from 1093.
+
+**Live suites: 4 of 4 running applications passing, 48/48.** orangehrm 7/7,
+restful-booker 13/13, saucedemo 6/6, toolshop 22/22; parabank parked. Toolshop
+green again at its normal ceiling after failing once in each of runs 75 and 76,
+which supports the reading that its failures are concurrency-dependent rather
+than a spec defect.
+
+**Triage agreement, unchanged on all four:** toolshop **4 · 0 · 0**, orangehrm
+**4 · 0 · 0**, restful-booker **3 · 0 · 1**, saucedemo **1 · 0 · 3**.
+
+**Learned:**
+
+- **A measurement without a control is an anecdote.** This is the second time
+  in three runs that the *shape of the evidence* was the hard part rather than
+  the code — item 58 was choosing the right discriminator, this was realising
+  one arm proves nothing. Both would have shipped something confidently wrong.
+- **Check that concurrency is real before believing a concurrency result.**
+  The first cart measurement looked green at three workers; `fullyParallel` is
+  true here, but had it not been, all three specs would have run in one worker
+  and the green would have meant nothing. Reading the worker indices out of the
+  JSON took a minute and made the number trustworthy.
+- **A verbatim scaffolder comment is a tell.** `// does state need cross-test
+  cleanup?` sitting unedited in four of five profiles is a reliable signal that
+  nobody answered the question — worth grepping for wherever a scaffold writes
+  a default that costs something.
+- **Heredoc escapes cost three cycles.** Writing TypeScript containing `\n`
+  through a shell heredoc into Python mangled the escape every time. The Edit
+  tool is the right instrument for content with escapes; this is the same class
+  of trap as the backtick-in-template-literal one recorded in runs 67 and 74.
+
+**Next:** item 60, then 46 and 48 together — one command per application.
