@@ -70,6 +70,20 @@ turned one target's patch into three framework mechanisms — a triage rule, a
 scaffolder gap and a missing preflight. The full statement is rule zero in
 `docs/CONVENTIONS.md`.
 
+## Running an application end to end
+
+When the owner asks for an application to be run end to end, that is
+`npm run app:journey -- --target=<app>` and it is **six stages**, not the
+suite: onboarding (with `--sign-in`), stories or cases, all five coverage
+kinds, the live run, triage **on a real failure**, and publish — results back
+to PractiTest plus the report to Teams and email.
+
+A skipped stage is not a pass, and the command says so. `npm run fakes:serve`
+stands up Jira, PractiTest, Teams and SMTP locally, and **seeds the deliberate
+failures triage needs** — so the whole journey runs on any machine.
+
+Full statement: rule zero's neighbour in `docs/CONVENTIONS.md`.
+
 ## How the agent uses this file
 
 1. Read this file and `improvement-log.md` before doing anything else.

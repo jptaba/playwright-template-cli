@@ -1,5 +1,5 @@
 <!-- GENERATED FILE — DO NOT EDIT.
-     Source: docs/CONVENTIONS.md (sha256 6d6d99d3ad8d9bb3)
+     Source: docs/CONVENTIONS.md (sha256 7d734f2f70f9f4a3)
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 
@@ -332,6 +332,42 @@ await test.step('click #submit-btn', ...)          // no
   capabilities all arrive through the `target` and `secrets` fixtures.
 - Never log a credential, never write one to disk, never copy one into a
   snapshot or an attachment.
+
+## "Run the application end to end" means all of it
+
+**When somebody asks for an application to be run end to end, that is the whole
+journey and not the suite.** The suite is one stage of six. Anything short of
+the list below is a partial run and should say which stages it skipped.
+
+| # | Stage | What proves it |
+|---|---|---|
+| 1 | **Onboarding** | the pack exists and `target:doctor --sign-in` passes — a credential that resolves *and* signs in |
+| 2 | **Stories or cases** | a story pulled from Jira, **or** cases pulled from PractiTest — the suite is traceable to something a person asked for |
+| 3 | **Coverage** | all five kinds present: happy path, negative, idempotency, audit, boundary |
+| 4 | **Run** | the live suites execute against the real deployment |
+| 5 | **Triage** | a run **containing a real failure**, clustered and classified |
+| 6 | **Publish** | results pushed back to PractiTest, and the report posted to Teams *and* sent by email |
+
+**PractiTest is both directions**, and stage 2 and stage 6 are the two halves
+of it: cases come *out* of it so a spec is traceable to a case somebody wrote,
+and results go *back into* it so the case's history is what the run actually
+did. Pulling without pushing leaves the case looking untested; pushing without
+pulling leaves a result attached to nothing.
+
+**The failures are injected in the seeded cases and stories, not invented in a pack.** `npm run fakes:serve` seeds PractiTest with deliberate-failure cases — each named for the triage category it should produce — and a Jira story that states them as acceptance criteria. The pack's `tests/triage-fixture/` specs *implement* those cases, and `publish:practitest` pushes their results back against the same ids. A case is where a person says what should happen, so a case describing a known-cause failure is where the cause belongs.
+
+**Stage 5 needs a failure on purpose, and that is the stage people skip.**
+Triage classifies failures; a green run exercises none of it. So an application
+is not end-to-end tested until it carries a **triage ground-truth fixture** —
+specs written to fail a stated way, each annotated with the category it should
+produce — and `npm run triage:measure` has scored the rules against them. A
+green suite plus a green triage report is two claims where only one was
+checked.
+
+**None of this requires owning Jira, PractiTest, Teams or a mail relay.**
+`npm run fakes:serve` stands all four up locally and prints the environment to
+export. Real instances change nothing about the journey; they change whose
+channel it lands in.
 
 ## What kind of test goes where
 

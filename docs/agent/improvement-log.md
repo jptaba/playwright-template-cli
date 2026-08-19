@@ -4082,3 +4082,73 @@ a chat. Recorded in item 49 because it holds for any consumer mailbox.
 never been settled against ground truth finally are. The fakes make that
 reachable for any application, which is what they were for. Then application 5
 of the coverage phase.
+
+## 2026-08-18 · run 56 · "End to end" made executable, and the fixture that measured itself wrong
+
+**Picked:** the owner's definition — running an application end to end is
+onboarding, stories or cases, coverage, run, triage **on a deliberate
+failure**, and publish to PractiTest, Teams and email — plus their instruction
+to put it in the recurring routines.
+
+**Did:** `npm run app:journey -- --target=<app>` runs all six stages and
+refuses to report a skipped one as a pass. The definition is written into
+`docs/CONVENTIONS.md` beside rule zero, regenerated into the three instruction
+files, and into `backlog.md`'s working agreement so a scheduled run meets it
+before it meets the conventions.
+
+**Proven end to end** against `restful-booker`, with `fakes:serve` standing up
+Jira, PractiTest, Teams and SMTP:
+
+```
+✓ onboarding         profile, pack and credentials agree, and a real sign-in succeeded
+✓ stories-or-cases   story RB-1 pulled from Jira — 3 acceptance criteria
+✓ coverage           all five kinds present
+✓ run                13/13 passed
+✓ triage             1 agreed · 0 contradicted · 3 declined
+✓ publish            PractiTest ✓ · Teams ✓ · email ✓
+```
+
+**The failures are injected in the seed**, at the owner's direction and it is
+the right way round: `fakes:serve` seeds four deliberate-failure cases, each
+named for the triage category it should produce, plus a Jira story stating them
+as acceptance criteria. The pack's `tests/triage-fixture/` specs implement
+those cases and `publish:practitest` pushes their results back against the same
+ids. A case is where a person says what should happen, so a case describing a
+known-cause failure is where the cause belongs.
+
+**The measurement caught my own fixture on its first run, which is the entry.**
+The first draft took `authedPage`. The `triage-fixture` project runs with
+`role: ''`, so every spec threw *"authedPage was requested with no role"*
+before reaching the failure it was written for — four identical auth-shaped
+errors, all settled as `environment-config` by `all-failed-at-auth`.
+**0 agreed · 4 contradicted.** I nearly wrote that up as a rule defect. The
+rule was right: every executed test had failed and the text was auth-shaped.
+Rewritten to take `page` and drive the public site, it reads **1 agreed · 0
+contradicted · 3 declined**.
+
+**And the three declines are the finding worth keeping.** They are correct:
+`rules.ts` has **no rule at all** for `locator-drift`, `test-data` or
+`timing-synchronisation`. Six rules had never been settled against ground
+truth; it now turns out three of the categories the taxonomy defines have
+nothing to settle them.
+
+**Verify:** `npm run verify` passes, exit 0 — **1015 tests**, up from 1007.
+
+**Learned:**
+
+- **A fixture can fail for the wrong reason and look like a rule defect.**
+  Four contradictions is a loud, specific signal pointing at `rules.ts`, and
+  the cause was one fixture parameter. Reading the *error text* rather than the
+  verdict took two minutes and moved the blame to where it belonged.
+- **My own journey tool reported a false pass and I caught it by reading the
+  output.** Stage 2 matched `\d+ case\(s\) pulled`, which "0 case(s) pulled"
+  satisfies — so a run that traced the suite to nothing reported green. Zero is
+  the answer that stage exists to catch. It now counts, and falls back to a
+  story.
+- **The three declines are more valuable than the one agreement.** The
+  agreement confirms a rule that already had ground truth. The declines name
+  three categories with no rule, which is a work list nobody had.
+
+**Next:** write rules for `locator-drift`, `test-data` and
+`timing-synchronisation`, then re-measure — the fixture is now the instrument
+for that. Then application 5 of the coverage phase.

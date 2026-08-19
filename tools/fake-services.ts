@@ -31,6 +31,27 @@ import { FakeTeamsServer } from '../tests/support/fake-teams-server';
  *   - **Teams** and **SMTP** are where the report goes *out*, so the
  *     notification paths can be exercised with no channel and no mailbox.
  */
+/**
+ * The failures, injected **here** — in the seeded cases and the story that
+ * describes them — rather than invented in a pack.
+ *
+ * That is the owner's instruction and it is the right way round: a case is
+ * where a person says what should happen, so a case describing a known-cause
+ * failure is where the cause is *stated*. The pack's `tests/triage-fixture/`
+ * specs implement these cases, and `publish:practitest` pushes their results
+ * back against them — so the loop closes on the same ids it started from.
+ *
+ * Each carries the triage category it should produce, in the case name, so
+ * seeing the seed tells you what the measurement expects without opening a
+ * spec.
+ */
+const FAILURE_CASES: Array<[string, string]> = [
+  ['TF-RB-01', 'A control that is not on the page → locator-drift'],
+  ['TF-RB-02', 'An assertion about data the spec did not create → test-data'],
+  ['TF-RB-03', 'A page that will not load because the address is wrong → network-infrastructure'],
+  ['TF-RB-04', 'A wait too short for a page that fetches → timing-synchronisation'],
+];
+
 const SEEDED_STORIES: Array<[string, Record<string, unknown>]> = [
   [
     'RB-1',
@@ -68,6 +89,26 @@ const SEEDED_STORIES: Array<[string, Record<string, unknown>]> = [
       issuetype: { name: 'Story' },
     },
   ],
+  [
+    // The story the deliberate failures belong to. Triage is a product
+    // capability like any other, and it is only exercised by things that fail.
+    'RB-9',
+    {
+      summary: 'Failures are classified so a run says where to look',
+      description: [
+        'As a tester I want a failing run to say which kind of failure it was so that I am not',
+        'reading four stack traces to find out whether the application is broken.',
+        '',
+        'Acceptance Criteria',
+        '* A control that is not on the page is classified as locator drift',
+        '* An assertion about data the spec did not create is classified as test data',
+        '* An unreachable address is classified as network or infrastructure',
+        '* A wait shorter than the page takes is classified as timing',
+      ].join('\n'),
+      status: { name: 'In Progress' },
+      issuetype: { name: 'Story' },
+    },
+  ],
 ];
 
 async function main(): Promise<void> {
@@ -95,12 +136,23 @@ async function main(): Promise<void> {
     .filter(Boolean);
   for (const id of caseIds) practitest.seedCase(id, { name: `Case ${id}` } as never);
 
+  /*
+     The deliberate failures, seeded as cases in their own right. Without them
+     the fixture's results have no case to be pushed against, and triage would
+     be measuring specs that PractiTest has never heard of.
+  */
+  for (const [id, name] of FAILURE_CASES) practitest.seedCase(id, { name } as never);
+
   console.log('Fake services are up. They hold no data between runs.\n');
   console.log('  Jira        (user stories)        ', jiraUrl);
   console.log('  PractiTest  (cases in, results out)', practitestUrl);
   console.log('  Teams       (report out)          ', teamsUrl);
   console.log(`  SMTP        (report out)           ${mailbox.host}:${mailbox.port}`);
-  if (caseIds.length > 0) console.log(`\n  Seeded ${caseIds.length} case(s): ${caseIds.join(', ')}`);
+  if (caseIds.length > 0) {
+    console.log(`\n  Seeded ${caseIds.length} passing case(s): ${caseIds.join(', ')}`);
+  }
+  console.log(`\n  Seeded ${FAILURE_CASES.length} deliberate-failure case(s) — triage's input:`);
+  for (const [id, name] of FAILURE_CASES) console.log(`    ${id}  ${name}`);
   console.log('\nExport these in the shell you run the tools from:\n');
   console.log(`  export JIRA_BASE_URL=${jiraUrl}`);
   console.log('  export JIRA_PAT=jira-service-pat');
