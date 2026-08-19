@@ -15,6 +15,7 @@ export type FrameworkRuleName =
   | 'secrets-via-fixture'
   | 'require-case-id'
   | 'known-failures-declared'
+  | 'no-lockout-on-shared'
   | 'step-naming'
   | 'auth-project-boundary'
   | 'no-target-coupling';

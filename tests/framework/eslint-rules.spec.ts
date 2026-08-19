@@ -1,7 +1,10 @@
 import { test } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
 import { RuleTester } from 'eslint';
 import tseslint from 'typescript-eslint';
 import plugin from '../../eslint-rules';
+import { repoPath } from '../../src/support/paths';
 
 /**
  * The lint rules are the framework's conventions in executable form, so they
@@ -270,6 +273,100 @@ test('known-failures-declared refuses an inverted test and an empty declaration'
         code: `test('x', { annotation: [{ type: 'known-failure' }] }, async () => {});`,
         filename: SPEC,
         errors: [{ messageId: 'empty' }],
+      },
+    ],
+  });
+});
+
+/**
+ * The one target-dependent rule: it fires only where a profile declares the
+ * deployment shared, so the test needs a target that does.
+ *
+ * Discovered rather than named. Hardcoding `toolshop` would make a framework
+ * test fail the day somebody offboards it, and `main` is meant to be pointable
+ * at no application at all.
+ */
+function sharedTargetSpec(): string | null {
+  const dir = repoPath('config', 'targets');
+  if (!fs.existsSync(dir)) return null;
+  for (const file of fs.readdirSync(dir)) {
+    if (!file.endsWith('.ts') || file === 'types.ts') continue;
+    if (/sharedEnvironment\s*:\s*true/.test(fs.readFileSync(path.join(dir, file), 'utf8'))) {
+      return `src/targets/${file.replace(/\.ts$/, '')}/tests/e2e/thing.spec.ts`;
+    }
+  }
+  return null;
+}
+
+test('no-lockout-on-shared stays silent where no profile declares the deployment shared', () => {
+  /*
+     The fallback direction, pinned. `demo` has no profile, and a rule that
+     fired on every target the moment it could not read one would be wrong on
+     the majority of them.
+  */
+  ruleTester.run('no-lockout-on-shared', plugin.rules['no-lockout-on-shared'], {
+    valid: [
+      {
+        code: `test('x', ${CASE_ID}, async ({ page, secrets, signIn }) => { const a = await secrets.account('customer'); await signIn.withCredentials(page, { username: a.username, password: 'wrong' }); });`,
+        filename: SPEC,
+      },
+    ],
+    invalid: [],
+  });
+});
+
+test('no-lockout-on-shared refuses a real identity with a made-up password', () => {
+  const SHARED = sharedTargetSpec();
+  test.skip(SHARED === null, 'no onboarded application declares sharedEnvironment: true');
+
+  /*
+     The harm this exists for, recorded twice: two specs asserting "a wrong
+     password is refused" locked the account every other spec signed in as,
+     and 21 unrelated tests went red across five features. Run 63 watched it
+     happen again — `423 Account locked, too many failed attempts`.
+
+     The valid cases matter more than the invalid one. Both are real specs in
+     this repository, both are negative authentication tests on a shared
+     deployment, and a rule that dropped either would be worse than no rule:
+     a framework that quietly stops running tests beats nothing at all only
+     in the mind of whoever wrote it.
+  */
+  ruleTester.run('no-lockout-on-shared', plugin.rules['no-lockout-on-shared'], {
+    valid: [
+      // An address nobody registered spends nothing — the account does not exist.
+      {
+        code: `test('x', ${CASE_ID}, async ({ page, signIn, run }) => { await signIn.withCredentials(page, { username: \`\${run.unique('nobody')}@example.invalid\`, password: 'not-the-password' }); });`,
+        filename: SHARED!,
+      },
+      // An account published in order to be refused, signed in with its own
+      // real credential: no failed-password attempt is generated at all.
+      {
+        code: `test('x', ${CASE_ID}, async ({ page, secrets, signIn }) => { const a = await secrets.account('locked'); await signIn.withCredentials(page, { username: a.username!, password: a.password! }); });`,
+        filename: SHARED!,
+      },
+      // An ordinary sign-in, and the destructured shape `auth.setup.ts` writes.
+      {
+        code: `test('x', ${CASE_ID}, async ({ page, secrets, signIn }) => { const c = await secrets.signInAccount('customer'); const username = c.username; const password = c.password; await signIn.withCredentials(page, { username, password }); });`,
+        filename: SHARED!,
+      },
+      // Creating a user with a written-down password is not a sign-in against
+      // a real identity — the username came from the test's own data.
+      {
+        code: `test('x', ${CASE_ID}, async ({ page, users, testData }) => { await users.add(page, { username: testData.username(), password: 'Pas5wrd' }); });`,
+        filename: SHARED!,
+      },
+    ],
+    invalid: [
+      {
+        code: `test('x', ${CASE_ID}, async ({ page, secrets, signIn }) => { const a = await secrets.account('customer'); await signIn.withCredentials(page, { username: a.username, password: 'not-the-password' }); });`,
+        filename: SHARED!,
+        errors: [{ messageId: 'lockout' }],
+      },
+      // Through a second hop: the username was lifted out first.
+      {
+        code: `test('x', ${CASE_ID}, async ({ page, secrets, signIn }) => { const a = await secrets.account('customer'); const username = a.username; await signIn.withCredentials(page, { username, password: 'wrong' }); });`,
+        filename: SHARED!,
+        errors: [{ messageId: 'lockout' }],
       },
     ],
   });

@@ -275,9 +275,19 @@ deleted. Accessibility waivers work the same way and for the same reason.
   `contract` worker 0 pick the same slot.
 - **Negative authentication specs spend the account's lockout budget.** Two
   specs asserting "a wrong password is refused" locked the shared account every
-  other spec signed in as, and twenty-one unrelated tests failed. Use a
-  disposable identity — and on a deployment shared with strangers, declare
-  `sharedEnvironment: true` in the profile and skip them entirely.
+  other spec signed in as, and twenty-one unrelated tests failed. Declare
+  `sharedEnvironment: true` in the profile of a deployment shared with
+  strangers, and `no-lockout-on-shared` then refuses **a real account's
+  username paired with a made-up password** — the shape that actually spends
+  the budget.
+
+  **Negative authentication itself stays**, and the narrowness is the point: a
+  framework that quietly stopped running tests would be worse than the mistake
+  it prevents. Two identities cost nothing and both are already in use here —
+  an address nobody registered, unique per run, and an account the application
+  publishes *in order to* refuse it, signed in with its own real credential.
+  Neither generates a failed-password attempt against an identity anyone else
+  is using.
 
 ## Specs
 

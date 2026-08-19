@@ -17,14 +17,18 @@ decide what to do.
 |---|---|---|
 | 60 | The scaffold's next step names the file onboarding refuses to write to | `ready` |
 | 52 | One coverage cell is left, and it is blocked | `blocked` |
-| 58 | `sharedEnvironment` is declared, documented, and enforced by nothing | `ready` |
 | 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `ready` |
 | 46 | The journey has been run for one application, not five | `ready` |
 | 48 | Seeded failure cases exist for one application, not five | `ready` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Items 51, 53, 55 and 59 are `done`** and archived in `backlog.md`. **Item 59
+**Items 51, 53, 55, 58 and 59 are `done`** and archived in `backlog.md`.
+**Item 58 closed in run 76**: `sharedEnvironment` is read by
+`no-lockout-on-shared`, which refuses a real account's username paired with a
+made-up password — the shape that actually spends a lockout budget. It is
+deliberately narrower than the `@negative @auth` tag, so both existing negative
+sign-in specs still run. **Item 59
 closed in run 75**: a known failure is now *declared* — the spec states the text
 its failure should contain, `suites:live` checks the failure against it, and a
 lint rule refuses `test.fail()`, which is the mechanism that could not tell
@@ -48,10 +52,18 @@ reaches the packs that already exist.
 through the running dashboard, against the real application, and reading what
 the page said afterwards. It is small and well-evidenced; take it or 59 first.
 
-**Take item 58 next**, then 56. They are the same shape twice — a capability a
-profile declares that nothing checks — and 58 is the one with a recorded cost:
-run 63 watched toolshop's shared customer account get locked and take its whole
-suite red for hours.
+**Take item 56 next.** It is the other half of 58's shape — a capability a
+profile declares that nothing checks — and its own next step is already
+written: a measurement, not an edit. Run the cart specs against a one-account
+pool and see whether they still interfere. Item 60 is smaller and evidenced if
+a shorter run is wanted.
+
+**Toolshop's live suite failed on a different spec in each of runs 75 and 76** —
+`TOOL-3-03` in the cart's cleanup, then `TOOL-1-02` settled as
+`timing-synchronisation`. Two singletons on two different specs is not yet a
+flake rate, and `src/support/quarantine.ts` plus `FLAKE_MINIMUM_RUNS` is the
+machinery for deciding whether it becomes one. Recorded here so a third
+sighting has something to join.
 
 *(Item 52's section below was restored in run 68. Run 66 removed it by
 accident while archiving item 51 — the two were adjacent, and the row in the
@@ -188,42 +200,6 @@ checks it — that is the framework-shaped half, and it is the interesting one.
 one-account pool and see whether they still interfere. That answers which of
 the two stories is true, and it is one command plus a profile value nobody has
 to keep.
-
----
-
-### 58. `sharedEnvironment` is declared, documented, and enforced by nothing — `ready`
-
-**Checked in run 69** and it holds: `sharedEnvironment` appears in the profile
-type, in `docs/CONVENTIONS.md`, in the Test users page and in one sign-in
-message. **No lint rule reads it, `playwright.config.ts` does not consult it,
-and `target:doctor` does not check it.**
-
-The conventions are unambiguous about what it should do:
-
-> Negative authentication specs spend the account's lockout budget… on a
-> deployment shared with strangers, declare `sharedEnvironment: true` in the
-> profile and skip them entirely.
-
-Nothing skips them, and the harm is not hypothetical — **run 63 watched
-toolshop's shared customer account get locked** (`423 Account locked, too many
-failed attempts`), taking its whole suite red until the vendor's counter
-cleared hours later.
-
-**The specs that exist today are written correctly**, which is why this is a
-warning about the future rather than a defect to fix: `TOOL-2-02` signs in as
-an unregistered address unique per run, and `SD-2-01` uses a published account
-that exists to be refused. Neither spends anybody's budget. Nothing stops the
-next one being written the other way.
-
-**Do not fix it by skipping every `@negative @auth` spec on a shared target.**
-That would silently drop both specs above, which are safe and valuable — and a
-framework that quietly stops running tests is worse than one that lets a
-mistake through. The hazard is narrower than the tag: *a sign-in expected to
-fail, using a pooled credential*. Whether that is reachable by a lint rule, by
-a fixture-level refusal, or only by a preflight warning is the open question,
-and it should be answered before anything is built.
-
----
 
 ### 46. The journey has been run for one application, not five — `ready`
 

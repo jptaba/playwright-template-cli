@@ -18,6 +18,7 @@ const rules = {
   'secrets-via-fixture': require('./secrets-via-fixture'),
   'require-case-id': require('./require-case-id'),
   'known-failures-declared': require('./known-failures-declared'),
+  'no-lockout-on-shared': require('./no-lockout-on-shared'),
   'step-naming': require('./step-naming'),
   'auth-project-boundary': require('./auth-project-boundary'),
   'no-target-coupling': require('./no-target-coupling'),

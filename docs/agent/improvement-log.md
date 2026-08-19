@@ -5335,3 +5335,84 @@ Identical to run 74 on all four.
 
 **Next:** item 58 — `sharedEnvironment` is declared, documented and enforced by
 nothing — then 56. Item 60 is small and evidenced if a shorter run is wanted.
+
+## 2026-08-19 · run 76 · The shared-environment flag finally does something
+
+**Picked:** item 58, the top-ranked `ready` item after 59 closed. Re-read the
+worklist and `git log origin/main` first; nothing had moved this time.
+
+**The item is mostly a design question and insists it be answered first.** It
+was, and both halves of the answer mattered.
+
+**Which instrument.** A lint rule, because the damage is done by the *first*
+failed attempt and is permanent until somebody else's administrator clears it —
+so the only useful moment to catch it is before the spec has ever run. A
+fixture cannot: it hands over a credential and cannot see what the spec does
+with the password afterwards, and intercepting the sign-in would mean framework
+code reaching into a pack's verbs. `target:doctor` reads tags but not spec
+bodies. Reasoning table in item 58 in `backlog.md`.
+
+**What the hazard actually is**, and this is the half that would have gone
+wrong. Not the `@negative @auth` tag — skipping those on a shared target drops
+both negative sign-in specs this repository has, and both are safe. The shape
+that spends a budget is **a real account's username paired with a password that
+is not that account's**. Everything else is fine, including a spec that signs
+in as an account the vendor publishes *in order to* refuse it, because that
+generates no failed-password attempt at all.
+
+**Did:** `no-lockout-on-shared`, firing only where a profile declares
+`sharedEnvironment: true`, plus `isSharedEnvironment` beside the existing
+`authFlowPatternFor` textual profile reader. The convention text was corrected
+too — it promised "skip them entirely", which is the fix the item rules out.
+
+**Validated against every existing spec before the rule was written.** Grepped
+every `username:`/`password:` pair in every pack and worked out by hand which
+the rule must not touch: `TOOL-2-02` (disposable address), `SD-2-01` (published
+locked account, real credential), `TOOL-2-01`/`TOOL-2-03`/`auth.setup.ts` (both
+halves from the store), OrangeHRM's user creation (literal password, but the
+username is the test's own data). All silent; only the historical shape fires.
+
+**Proven through real lint, not only the RuleTester.** A scratch spec of the
+harmful shape went into a shared target, `npx eslint` reported it with the
+message naming both safe identities, and it was removed — `git status
+src/targets/` clean afterwards. No pack ships a change.
+
+**Verify:** `npm run verify` passes, exit 0 — **1093 tests**, up from 1091.
+
+**Live suites: 3 passing, 1 failing, 1 parked.** orangehrm 7/7, saucedemo 6/6,
+restful-booker 12/13 with 1 flaky, parabank parked. **toolshop 21/22** —
+`TOOL-1-02 · A search that matches nothing says so`, settled
+`timing-synchronisation` by `short-wait`. **Note this is a different spec from
+run 75's**, which was `TOOL-3-03` in the cart's cleanup. Two singletons on two
+different toolshop specs across two consecutive runs. Recorded rather than
+chased: this repository's own rule is that singletons are not a flake rate, and
+`quarantine.ts` plus `FLAKE_MINIMUM_RUNS` is the machinery for deciding when
+they become one. A third sighting now has something to join.
+
+**Triage agreement, unchanged on all four:** toolshop **4 agreed · 0
+contradicted · 0 declined**, orangehrm **4 · 0 · 0**, restful-booker
+**3 · 0 · 1**, saucedemo **1 · 0 · 3**. Identical to runs 74 and 75.
+
+**Learned:**
+
+- **The item was right that the question outranked the code.** The rule is
+  about 200 lines and took an hour; picking the tag as the hazard would have
+  taken ten minutes and produced a framework that silently stopped running two
+  good tests — which the item predicted in writing, and which no test I wrote
+  would have caught, because I would have written the tests to match the wrong
+  definition.
+- **Enumerate what the rule must *not* flag before writing it.** Grepping every
+  credential pair in every pack took five minutes and produced the valid cases
+  in the test file directly. It also found the second-hop and destructuring
+  shapes (`auth.setup.ts`) that the first draft of the detection would have
+  reported.
+- **A rule test that names a target breaks when the target leaves.** This one
+  discovers a shared target from `config/targets/` and skips visibly when there
+  is none, which keeps it honest on a `main` pointed at no application.
+- **Two consecutive runs, two different toolshop specs, one failure each.** Not
+  yet a rate, but worth watching — and worth writing down *where somebody will
+  look*, which is why it is in `open-items.md` and not only here.
+
+**Next:** item 56 — the other half of 58's shape, a declared capability nothing
+checks — and its own next step is already written as a measurement rather than
+an edit. Item 60 is smaller if a shorter run is wanted.

@@ -3160,3 +3160,80 @@ assertion — both were reported as **passing**. A marker that cannot tell *the
 defect is still there* from *this stopped testing anything* is worse than no
 marker, and on an application that fails upstream, which is exactly the kind
 that has known defects, that is the normal case rather than a corner one.
+
+### 58. `sharedEnvironment` is declared, documented, and enforced by nothing — `done`
+
+Shipped on `agent/2026-08-19-shared-environment-enforced` (run 76). The flag has
+existed since item 28 and nothing read it; `no-lockout-on-shared` reads it now.
+
+**The whole item was the design question, and it says so: answer it before
+building.** Three instruments were on the table.
+
+| | why not |
+|---|---|
+| a fixture-level refusal | it hands over a credential and cannot see what the spec does with the password afterwards. Intercepting the sign-in means framework code reaching into a pack's verbs, which is forbidden — and it refuses at *run* time, after the first attempt has already been spent |
+| `target:doctor` preflight | it reads tags, not spec bodies, so it cannot tell the dangerous shape from the safe one, and a warning naming no file is not actionable |
+| **a lint rule** | the damage is done by the first attempt and is permanent until somebody else's administrator clears it, so the only useful moment is before the spec has ever run. Lint is inside `npm run verify` |
+
+**The harder half was defining the hazard, and the tag is not it.** Skipping
+every `@negative @auth` spec on a shared target would drop both of the ones this
+repository has, and both are safe. What actually spends a budget is **a real
+account's username paired with a password that is not that account's**:
+
+```ts
+const account = await secrets.account('customer');
+await signIn.withCredentials(page, {
+  username: account.username,     // a real identity
+  password: 'not-the-password',   // …and a failed attempt against it
+});
+```
+
+Checked against every `username:`/`password:` pair written in every pack before
+the rule was built, because a rule that flagged a good spec is the failure mode
+the item warns about:
+
+| spec | shape | reported |
+|---|---|---|
+| `TOOL-2-02` | an address nobody registered, unique per run | no — the account does not exist, so nothing is spent |
+| `SD-2-01` | an account published *in order to* be refused, with its own real credential | no — no failed-password attempt is generated at all |
+| `TOOL-2-01`, `TOOL-2-03`, `auth.setup.ts` | both halves from the store | no |
+| `OHRM` user creation | a literal password, but the username is the test's own data | no |
+| the historical shape | secret-derived username, written-down password | **yes** |
+
+**Detection is the object shape, not a verb name.** Every pack's
+`SignInCredentials` is `{ username, password }` and the scaffolder writes it, so
+matching the literal rather than `withCredentials` keeps the rule
+target-agnostic and survives a pack that names its verb something else. A
+password counts as made-up when it is a written-down string — a fabricated one
+essentially always is, and requiring that is what stops the rule arguing with
+every credential expression it does not recognise. Username derivation is
+tracked through one hop (`const username = account.username`) and through
+destructuring, which is what `auth.setup.ts` needs.
+
+**The profile is read textually**, the same way `authFlowPatternFor` already
+reads `authFlowPattern` and for the same reason: profiles are TypeScript and a
+lint rule runs in plain CommonJS. The fallback direction is the opposite one and
+the comment says so — an unreadable profile means silence, because a rule
+firing on every target would be wrong on most of them.
+
+**Proven through real lint, not only the RuleTester.** A scratch spec of the
+harmful shape was written into a shared target, `npx eslint` reported
+`no-lockout-on-shared` with the message naming both safe identities, and the
+scratch file was removed; the two real shared targets' specs — including the
+negative sign-in one — lint clean. The rule test discovers a shared target from
+`config/targets/` rather than naming one, so it does not break the day somebody
+offboards it.
+
+**The convention was wrong and is corrected.** It said to declare the flag "and
+skip them entirely". Nothing skipped them, and skipping them is the fix this
+item explicitly rules out.
+
+The original item follows.
+
+**Checked in run 69** and it holds: `sharedEnvironment` appears in the profile
+type, in `docs/CONVENTIONS.md`, in the Test users page and in one sign-in
+message. **No lint rule reads it, `playwright.config.ts` does not consult it,
+and `target:doctor` does not check it.** The harm is not hypothetical — run 63
+watched toolshop's shared customer account get locked (`423 Account locked, too
+many failed attempts`), taking its whole suite red until the vendor's counter
+cleared hours later.

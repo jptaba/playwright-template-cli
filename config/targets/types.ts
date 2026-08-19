@@ -304,6 +304,13 @@ export interface TargetProfile {
    *
    * `serverState` is a different claim: it says data needs cleaning up, not
    * that the environment can be damaged for others.
+   *
+   * **What reads it:** the `no-lockout-on-shared` lint rule, which refuses a
+   * real account's username paired with a made-up password in any spec of a
+   * target that declares this. Deliberately narrower than the `@negative
+   * @auth` tag — the two negative sign-in specs already here are safe and stay
+   * — because a framework that quietly stops running tests is worse than the
+   * mistake it prevents.
    */
   sharedEnvironment?: boolean;
 

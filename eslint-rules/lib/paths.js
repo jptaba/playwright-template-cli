@@ -117,6 +117,32 @@ function authFlowPatternFor(relativePath) {
 }
 
 /**
+ * Whether this file's target declares itself a deployment shared with
+ * strangers.
+ *
+ * Read textually for the same reason `authFlowPatternFor` is: profiles are
+ * TypeScript and a lint rule runs in plain CommonJS.
+ *
+ * **The fallback direction is the opposite one here, and it is deliberate.**
+ * An unreadable auth-flow pattern falls back to asking for *more* than the
+ * runtime does, which is safe. This one falls back to `false`, which is the
+ * quieter answer rather than the safer one — but a rule that fired on every
+ * target the moment a profile computed this flag would be wrong on the
+ * majority of them, and `sharedEnvironment` is a plain boolean nobody has any
+ * reason to compute. If that ever stops being true, the fix is for the rule to
+ * read the profile properly, not for it to guess.
+ */
+function isSharedEnvironment(relativePath) {
+  const target = targetOf(relativePath);
+  if (!target) return false;
+
+  const profile = path.join(REPO_ROOT, 'config', 'targets', `${target}.ts`);
+  if (!fs.existsSync(profile)) return false;
+
+  return /sharedEnvironment\s*:\s*true/.test(fs.readFileSync(profile, 'utf8'));
+}
+
+/**
  * Directories a non-relative specifier can point into and still be this
  * repository's own code. Anything else is a package.
  */
@@ -183,5 +209,6 @@ module.exports = {
   projectOf,
   resolveImport,
   authFlowPatternFor,
+  isSharedEnvironment,
   DEFAULT_AUTH_FLOW_PATTERN,
 };
