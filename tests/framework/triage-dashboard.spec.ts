@@ -65,9 +65,9 @@ const failing = (
 });
 
 /**
- * Six failures with causes known in advance: two infrastructure, one 5xx, one
- * contract, and two the rules should decline because the answer genuinely
- * needs a person.
+ * Seven failures with causes known in advance: two infrastructure, one 5xx,
+ * one contract, and three the rules should decline because the answer
+ * genuinely needs a person.
  */
 const GROUND_TRUTH: GroundTruth[] = [
   {
@@ -113,6 +113,36 @@ const GROUND_TRUTH: GroundTruth[] = [
     // upstream. A rule that guesses here is the failure mode, not the feature.
     expected: null,
   },
+  {
+    test: failing(
+      't9',
+      '5109',
+      [
+        "Sign-in for role 'customer' (account 1) did not establish a session.",
+        'The form reported no error, so the credential was accepted but no session marker appeared.',
+        '- Timeout 10000ms exceeded while waiting on the predicate',
+      ].join('\n'),
+      'Sign in',
+      { project: 'setup:auth', file: 'src/targets/demo/tests/auth.setup.ts' },
+    ),
+    /*
+       A locked account, a rotated credential and a stale signedInMarker all
+       arrive exactly like this, and nothing in the text says which — so this
+       must decline, like the two above it.
+
+       It is here because it could not be caught any other way. A per-target
+       `triage-fixture` cannot produce it: that project runs with no role and
+       does not depend on `setup:auth`, so no spec a target can write makes the
+       auth setup fail. This corpus is the only place the case exists.
+
+       Before the `sign-in-setup-failed` rule, this was settled as
+       `timing-synchronisation` with high confidence and an action of
+       fix-test — because `auth.setup.ts` waits for the marker with
+       `expect.poll` and `short-wait` matched the polling. Watched happen on a
+       live suite against a genuinely locked account.
+    */
+    expected: null,
+  },
 ];
 
 const RUN: RunResult = {
@@ -131,9 +161,9 @@ const RUN: RunResult = {
     status: 'failed',
   },
   totals: {
-    total: 8,
+    total: 9,
     passed: 1,
-    failed: 6,
+    failed: 7,
     flaky: 1,
     skipped: 0,
     expectedFailures: 0,
@@ -174,7 +204,7 @@ function harness(overrides: Partial<TriageService> = {}): Harness {
         id: RUN.run.id,
         target: RUN.run.target,
         finishedAt: RUN.run.finishedAt,
-        failures: 6,
+        failures: 7,
         source: 'dashboard',
       },
     ],
@@ -249,7 +279,7 @@ test.describe('against causes known in advance', () => {
       )!;
       expect(cluster.verdict, `${record.caseId} needs judgement`).toBeNull();
     }
-    expect(review.stats.declined).toBe(2);
+    expect(review.stats.declined).toBe(3);
   });
 
   test('a test that passed on retry is flaky by definition and never clustered', async () => {

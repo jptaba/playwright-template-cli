@@ -1,6 +1,7 @@
 import { clusterFailures } from './triage/cluster';
 import { classifyByRule } from './triage/rules';
 import type { RunResult } from './reporters/run-result';
+import { namesACause } from './triage/types';
 import type { TriageCategory } from './triage/types';
 
 /**
@@ -32,6 +33,16 @@ export interface LiveFailure {
    */
   category: TriageCategory | null;
   rule: string | null;
+  /**
+   * What a rule found when it recognised the failure but could not name its
+   * cause — `sign-in-setup-failed` is the one that does this.
+   *
+   * Without it the line read *"no rule matched — needs judgement"* for a
+   * failure a rule had matched and had something useful to say about, which
+   * is a smaller version of the same defect: the report disagreeing with what
+   * actually happened.
+   */
+  unnamedCause: string | null;
 }
 
 export interface LiveTargetResult {
@@ -65,10 +76,21 @@ export interface LiveTargetResult {
  */
 export function summariseLiveRun(target: string, run: RunResult): LiveTargetResult {
   const settled = new Map<string, { category: TriageCategory; rule: string | null }>();
+  const unnamed = new Map<string, string>();
   for (const cluster of clusterFailures(run)) {
     const tests = run.tests.filter((test) => cluster.testIds.includes(test.id));
     const ruled = classifyByRule(cluster, { run, tests });
     if (!ruled) continue;
+    /*
+       A rule that recognised the failure but named no cause has not settled
+       it. Rendering `unclassified` as the category would read as an answer;
+       it is the absence of one, so its summary is carried separately and the
+       line says the failure still needs a person.
+    */
+    if (!namesACause(ruled)) {
+      for (const id of cluster.testIds) unnamed.set(id, ruled.summary);
+      continue;
+    }
     for (const id of cluster.testIds) {
       settled.set(id, { category: ruled.category, rule: ruled.rule ?? null });
     }
@@ -81,6 +103,7 @@ export function summariseLiveRun(target: string, run: RunResult): LiveTargetResu
       caseId: test.caseId,
       project: test.project,
       category: settled.get(test.id)?.category ?? null,
+      unnamedCause: unnamed.get(test.id) ?? null,
       rule: settled.get(test.id)?.rule ?? null,
     }));
 
@@ -165,7 +188,9 @@ export function formatLiveReport(results: LiveTargetResult[]): string[] {
       lines.push(
         failure.category
           ? `        ${failure.category}${failure.rule ? ` (rule: ${failure.rule})` : ''}`
-          : '        no rule matched — needs judgement',
+          : failure.unnamedCause
+            ? `        needs judgement — ${failure.unnamedCause}`
+            : '        no rule matched — needs judgement',
       );
     }
   }

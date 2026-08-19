@@ -1,6 +1,7 @@
 import { clusterFailures } from './cluster';
 import { classifyByRule, flakyVerdicts } from './rules';
 import { agreementOf, latestVerdicts, type Agreement, type HumanVerdict } from './verdicts';
+import { namesACause } from './types';
 import type { FailureCluster, TriageVerdict } from './types';
 import type { RunResult } from '../reporters/run-result';
 import type { FlakeCandidate, QuarantineEntry } from '../quarantine';
@@ -125,7 +126,16 @@ function view(
   recorded: Map<string, HumanVerdict>,
 ): ClusterView {
   const tests = run.tests.filter((test) => cluster.testIds.includes(test.id));
-  const verdict = classifyByRule(cluster, { run, tests }) ?? fromAgent.get(cluster.id) ?? null;
+  /*
+     A rule that recognised the failure but named no cause has not settled it,
+     so the agent still gets its turn — and if nothing names one, this cluster
+     is declined and counts as declined. Otherwise a rule that honestly says
+     "I cannot tell why" would take the cluster out of triage entirely, which
+     is worse than the confident wrong answer it replaced.
+  */
+  const ruled = classifyByRule(cluster, { run, tests });
+  const verdict =
+    (ruled && namesACause(ruled) ? ruled : null) ?? fromAgent.get(cluster.id) ?? null;
   const human = recorded.get(`${run.run.id}:${cluster.id}`) ?? null;
 
   return {

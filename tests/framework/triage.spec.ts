@@ -53,6 +53,109 @@ function runWith(tests: TestRecord[]): RunResult {
   return run;
 }
 
+test.describe('a sign-in that established no session', () => {
+  /*
+     Watched happen on a live suite, and it is the reason this rule exists.
+     toolshop's shared account was genuinely locked — the service answering
+     *423 Account locked, too many failed attempts* to the exact credential in
+     the store — and the run reported `timing-synchronisation`, high
+     confidence, action fix-test, owner qa. For something only an
+     administrator can clear.
+
+     The cause is that `auth.setup.ts` waits for the signed-in marker with
+     `expect.poll`, so every failed sign-in in every target carries "waiting on
+     the predicate" and `short-wait` matched it first.
+  */
+  const SIGN_IN_FAILURE = [
+    "Sign-in for role 'customer' did not establish a session.",
+    '- Timeout 10000ms exceeded while waiting on the predicate',
+  ].join('\n');
+
+  const authSetup = (message = SIGN_IN_FAILURE) =>
+    failing('t1', message, { project: 'setup:auth', file: 'src/targets/demo/tests/auth.setup.ts' });
+
+  test('is not called a test-timing defect, however the marker was waited for', () => {
+    // One passing test, so this is a run with a working environment and one
+    // identity that could not be established — not a whole environment down.
+    const tests = [authSetup(), failing('t2', 'fine', { outcome: 'expected', status: 'passed' })];
+    const verdict = classifyByRule(clusterFailures(runWith(tests))[0]!, {
+      run: runWith(tests),
+      tests: [tests[0]!],
+    });
+
+    expect(verdict?.rule).toBe('sign-in-setup-failed');
+    expect(verdict?.category).toBe('unclassified');
+    expect(verdict?.needsHumanReview).toBe(true);
+  });
+
+  test('names the role, because that is the one thing the text does say', () => {
+    const tests = [authSetup(), failing('t2', 'fine', { outcome: 'expected', status: 'passed' })];
+    const verdict = classifyByRule(clusterFailures(runWith(tests))[0]!, {
+      run: runWith(tests),
+      tests: [tests[0]!],
+    });
+
+    expect(verdict?.summary).toContain("role 'customer'");
+  });
+
+  test('still yields to the banner when the application managed to say it', () => {
+    /*
+       `account-locked` is ordered first and stays there. This rule is for the
+       case its evidence never arrives — which is most lockouts, because a pack
+       that could read the banner would have put it in the error.
+    */
+    const message = `${SIGN_IN_FAILURE}\nThe application said: "Account locked, too many failed attempts."`;
+    const tests = [authSetup(message), failing('t2', 'fine', { outcome: 'expected', status: 'passed' })];
+    const verdict = classifyByRule(clusterFailures(runWith(tests))[0]!, {
+      run: runWith(tests),
+      tests: [tests[0]!],
+    });
+
+    expect(verdict?.rule).toBe('account-locked');
+    expect(verdict?.category).toBe('environment-config');
+  });
+
+  test('holds when everything downstream was skipped, which is what really happens', () => {
+    /*
+       The shape a live suite actually reports: the auth setup fails and every
+       spec depending on it is *skipped* rather than run, so one failure and
+       two skips is "every executed test failed".
+
+       The first draft of this rule stood aside in that case, meaning to leave
+       it to `all-failed-at-auth` — which is ordered after `short-wait`, so
+       standing aside handed it back to the rule this one exists to pre-empt.
+       It would have been inert everywhere except where it did harm.
+    */
+    const tests = [
+      authSetup(),
+      failing('t2', '', { outcome: 'skipped', status: 'skipped', error: null }),
+      failing('t3', '', { outcome: 'skipped', status: 'skipped', error: null }),
+    ];
+    const verdict = classifyByRule(clusterFailures(runWith(tests))[0]!, {
+      run: runWith(tests),
+      tests: [tests[0]!],
+    });
+
+    expect(verdict?.rule).toBe('sign-in-setup-failed');
+  });
+
+  test('leaves an ordinary short wait alone', () => {
+    // The rule narrows `short-wait`; it must not replace it. A spec that chose
+    // a 1ms timeout is still the spec's own timing problem.
+    const tests = [
+      failing('t1', 'locator.click: Timeout 1ms exceeded'),
+      failing('t2', 'fine', { outcome: 'expected', status: 'passed' }),
+    ];
+    const verdict = classifyByRule(clusterFailures(runWith(tests))[0]!, {
+      run: runWith(tests),
+      tests: [tests[0]!],
+    });
+
+    expect(verdict?.rule).toBe('short-wait');
+    expect(verdict?.category).toBe('timing-synchronisation');
+  });
+});
+
 test.describe('an account the application will not let anybody into', () => {
   /*
      The rule exists because this cost three runs of the improvement loop. A

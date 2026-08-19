@@ -15,7 +15,6 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 54 | A failed sign-in is confidently misfiled as a test-timing defect | `ready` |
 | 53 | Onboarding: one step at a time, and a way back | `ready` |
 | 51 | Two applications cannot reach the triage stage at all | `ready` |
 | 52 | Fourteen coverage cells are missing across four applications | `ready` |
@@ -24,12 +23,10 @@ decide what to do.
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Take 54 first**, and it is new at the top for a reason: it is a rule
-answering a question it cannot answer, with high confidence, and sending a
-locked account to the wrong team. Run 63 watched it happen on a live suite.
-Then finish 51 — `toolshop` has a fixture now, `parabank` and `orangehrm` do
-not — before 52, because a fixture is four specs and unblocks a whole journey
-stage where coverage is the longer grind.
+**Item 54 shipped in run 64** and is in `backlog.md`. **Take the rest of 51
+next** — `toolshop` has a fixture, `parabank` and `orangehrm` do not — before
+52, because a fixture is four specs and unblocks a whole journey stage where
+coverage is the longer grind.
 
 ---
 
@@ -82,46 +79,6 @@ it is also how somebody checks what they typed two steps ago. Collapsing them
 to a summary line is the version worth building; hiding them outright would
 cost more than it returns, and would churn a large number of tests that read
 fields across steps.
-
----
-
-### 54. A failed sign-in is confidently misfiled as a test-timing defect — `ready`
-
-**Observed live in run 63**, on toolshop, and it is the failure rule zero's own
-worked example exists to prevent arriving through a different door.
-
-`toolshop`'s shared customer account was **locked** — the vendor's API
-answering `423 Account locked, too many failed attempts` to the exact
-credential in the store, checked directly. What `npm run suites:live` reported
-was:
-
-```
-✗ toolshop — 13/20 passed · 1 failed · 6 skipped
-    [setup:auth] Establish a session for each role
-      timing-synchronisation (rule: short-wait)
-```
-
-High confidence, `recommendedAction: fix-test`, owner **qa** — for an account
-only an administrator can unlock, on a run where no test was wrong about
-timing. `parabank` reported identically in the same run.
-
-**The mechanism, and it is not the pack's.** `auth.setup.ts` waits for the
-signed-in marker with `expect.poll`, so *every* failed sign-in carries
-Playwright's "waiting on the predicate". `short-wait` matches that first and
-settles it. `account-locked` sits ahead of it in the ordering and never gets
-the chance, because the application's own sentence never reaches the error
-text unless the pack's `readError` could read the form — which is exactly the
-case a lockout tends not to be.
-
-So the ordering is right and the *evidence* is missing. The candidate fix is
-that a failure inside `setup:auth` is not a locator timeout at all: it is a
-run that has no session, and no rule should be allowed to call it a wait that
-was too short. Worth measuring against a ground-truth spec that produces it
-rather than reasoned about — which is what item 51's remaining fixtures are
-for.
-
-Do **not** fix this by widening `short-wait` or by editing a pack. Run 57 is
-the precedent: the rule that claimed too much was the one that changed.
 
 ---
 

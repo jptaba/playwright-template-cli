@@ -165,3 +165,34 @@ test('the report says how many applications are passing, not only how many tests
   // than left as a bare zero that reads like an empty pass.
   expect(lines.join('\n')).toContain('no run model was written');
 });
+
+test('a failure a rule recognised but could not explain says what it found', () => {
+  /*
+     parabank's sign-in, live: `sign-in-setup-failed` matches the cluster and
+     names no cause, because a locked account, a rotated credential and a
+     stale marker all look identical here. The line used to read "no rule
+     matched", which was untrue and threw away the one useful sentence.
+  */
+  const lines = formatLiveReport([
+    {
+      target: 'demo',
+      status: 'failed',
+      reason: null,
+      totals: { total: 3, passed: 0, failed: 1, flaky: 0, skipped: 2, expectedFailures: 0 },
+      failures: [
+        {
+          title: 'Establish a session for each role',
+          caseId: null,
+          project: 'setup:auth',
+          category: null,
+          rule: 'sign-in-setup-failed',
+          unnamedCause: "Sign-in for role 'customer' established no session — the run had no identity",
+        },
+      ],
+    },
+  ]).join('\n');
+
+  expect(lines).toContain('needs judgement');
+  expect(lines).toContain("role 'customer'");
+  expect(lines).not.toContain('no rule matched');
+});

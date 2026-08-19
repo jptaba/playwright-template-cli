@@ -47,3 +47,24 @@ export const ACCOUNT_LOCKED =
 export function looksLikeLockout(text: string): boolean {
   return ACCOUNT_LOCKED.test(text);
 }
+
+/**
+ * A sign-in that ran and left no session, in whichever words a pack says it.
+ *
+ * Here rather than in either caller because three things now have to agree
+ * about it: `target:doctor --sign-in` reads it *before* a run, triage
+ * classifies it *after* one, and the scaffolder writes the sentence that
+ * produces it.
+ *
+ * The account number is optional, and that is the point — packs scaffolded at
+ * different times say *"role 'customer' (account 1)"* and *"role 'customer'"*.
+ * The doctor's fallback required the bracketed half, so on a target whose pack
+ * predates it the one useful sentence in the output was not lifted out at all.
+ * Observed on parabank, whose sign-in was failing while this was written.
+ */
+export const NO_SESSION = /Sign-in for role '([^']+)'(?: \(account \d+\))?[^\n]*did not establish a session/i;
+
+/** The role a run failed to sign in as, or null when that is not what happened. */
+export function roleWithoutSession(text: string): string | null {
+  return NO_SESSION.exec(text)?.[1] ?? null;
+}

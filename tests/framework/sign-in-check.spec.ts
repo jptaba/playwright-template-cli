@@ -36,6 +36,18 @@ test.describe('reading what the application contributed', () => {
     expect(reportedByApplication(output)).toContain("role 'admin' (account 2)");
   });
 
+  test('the account number is optional, because older packs do not print one', () => {
+    /*
+       Observed on parabank, whose sign-in was failing while this was written:
+       its pack says "role 'customer'" with no bracketed account, and the
+       fallback required the brackets — so the one useful sentence in the whole
+       output was not lifted out at all, and the doctor printed nothing where
+       it had something to say.
+    */
+    const output = "Error: Sign-in for role 'customer' did not establish a session.";
+    expect(reportedByApplication(output)).toContain("role 'customer'");
+  });
+
   test('the echoed source of the sentence it looks for is not the sentence', () => {
     /*
        Observed on a real toolshop run, and it is the reason this function

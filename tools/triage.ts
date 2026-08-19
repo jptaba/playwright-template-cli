@@ -5,7 +5,7 @@ import { clusterFailures } from '../src/support/triage/cluster';
 import { classifyByRule, flakyVerdicts } from '../src/support/triage/rules';
 import { buildEvidence, guarded } from '../src/support/triage/agent';
 import { AnthropicTriageAgent } from '../src/integrations/llm/triage-agent';
-import { TRIAGE_SCHEMA_VERSION, triageIsForRun, type TriageResult, type TriageVerdict } from '../src/support/triage/types';
+import { namesACause, TRIAGE_SCHEMA_VERSION, triageIsForRun, type TriageResult, type TriageVerdict } from '../src/support/triage/types';
 import type { RunResult } from '../src/support/reporters/run-result';
 
 /**
@@ -87,7 +87,15 @@ async function main(): Promise<number> {
       }
     }
     result.verdicts = settled;
-    result.stats.resolvedByRule = settled.filter((verdict) => verdict.clusterId !== 'flaky').length;
+    /*
+       A verdict that names no cause has not settled anything. Counting it as
+       resolved would report a run as fully triaged while the one failure in it
+       was still waiting for a person — which is the reporting half of the
+       defect this rule set was just corrected for.
+    */
+    result.stats.resolvedByRule = settled.filter(
+      (verdict) => verdict.clusterId !== 'flaky' && namesACause(verdict),
+    ).length;
     save(result);
 
     const remaining = result.clusters.length - result.stats.resolvedByRule;
@@ -102,7 +110,12 @@ async function main(): Promise<number> {
   }
 
   // stage === 'agent'
-  const settledIds = new Set(result.verdicts.map((verdict) => verdict.clusterId));
+  // Same distinction as the count above: a cluster a rule recognised but could
+  // not explain is exactly what the model is for, and its evidence travels
+  // with it rather than being thrown away.
+  const settledIds = new Set(
+    result.verdicts.filter(namesACause).map((verdict) => verdict.clusterId),
+  );
   const remaining = result.clusters.filter((cluster) => !settledIds.has(cluster.id));
 
   if (remaining.length === 0) {

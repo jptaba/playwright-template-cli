@@ -145,3 +145,20 @@ export function validateVerdict(candidate: unknown): string[] {
   }
   return problems;
 }
+
+/**
+ * Whether a verdict actually names a cause.
+ *
+ * `unclassified` is a real and useful answer — a rule may recognise *what*
+ * happened and still be unable to say *why*, which is what the `sign-in-setup-failed`
+ * rule does. But it is not a settled cluster: the count must not report it as
+ * resolved, and the model must still be asked about it, or a rule that
+ * declines would silently take the cluster out of triage altogether.
+ *
+ * One definition because three places ask the question — the rules stage's
+ * count, the agent stage's work list, and the agreement measurement, which has
+ * always scored `unclassified` as a decline.
+ */
+export function namesACause(verdict: Pick<TriageVerdict, 'category'>): boolean {
+  return verdict.category !== 'unclassified';
+}

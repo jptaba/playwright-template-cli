@@ -1,4 +1,4 @@
-import { ACCOUNT_LOCKED, TRANSPORT_ERROR } from '../failure-signals';
+import { ACCOUNT_LOCKED, roleWithoutSession, TRANSPORT_ERROR } from '../failure-signals';
 import type { RunResult, TestRecord } from '../reporters/run-result';
 import type { FailureCluster, TriageVerdict } from './types';
 
@@ -56,6 +56,9 @@ function verdict(
 const AUTH_ERROR =
   /(\bauth\b|authentication|unauthori[sz]ed|sign ?in|log ?in|\b401\b|\b403\b|storage ?state)/i;
 
+
+/** The project that establishes a session. Framework-defined, not a pack's. */
+const AUTH_SETUP_PROJECT = 'setup:auth';
 
 const errorText = (tests: TestRecord[]): string =>
   tests.map((test) => `${test.error?.message ?? ''} ${test.error?.stack ?? ''}`).join('\n');
@@ -127,6 +130,77 @@ export const RULES: TriageRule[] = [
       recommendedAction: 'escalate',
       suggestedOwner: 'platform',
       needsHumanReview: false,
+    });
+  }),
+
+  /**
+   * The auth setup failed → the run has no session, and *why* is a judgement
+   * call.
+   *
+   * **Ordered ahead of `short-wait`, and that ordering is the whole fix.**
+   * `auth.setup.ts` waits for the signed-in marker with `expect.poll`, so
+   * every failed sign-in in every target carries Playwright's "waiting on the
+   * predicate" — and `short-wait` matched it, settling the failure as
+   * `timing-synchronisation` with **high** confidence and an action of
+   * `fix-test`, owner qa.
+   *
+   * Watched happen on a live suite: toolshop's shared account was genuinely
+   * locked — its own service answering *423 Account locked, too many failed
+   * attempts* to the exact credential in the store — and the run reported a
+   * test-timing defect for a condition only an administrator can clear. That
+   * is the failure `account-locked` exists to prevent, arriving through a
+   * different door: the rule is ordered first and correctly, but the
+   * application's sentence only reaches the error text when the pack's
+   * `readError` could read the banner, which on a lockout is exactly the case
+   * it often cannot.
+   *
+   * So this rule claims the cluster and then declines to name a cause.
+   * `unclassified` is scored as a decline by the agreement measurement, which
+   * is the honest outcome: no session was established, and the text does not
+   * say whether that is a locked account, a rotated credential or a
+   * `signedInMarker` that no longer matches. Naming one of the three
+   * confidently is how a real lockout gets sent to the wrong team — and it is
+   * the same lesson as the "Pay now" button this repository already declines
+   * to guess about.
+   *
+   * Keyed on the project rather than on the message: the project is the
+   * framework's own, where the sentence is written by each pack and already
+   * differs between packs scaffolded at different times.
+   *
+   * **It does not stand aside for `all-failed-at-auth`, and the first draft
+   * did.** The reasoning was that "every executed test failed" is stronger
+   * evidence — true, but that rule is ordered *after* `short-wait`, so
+   * deferring handed the cluster straight back to the rule this one exists to
+   * pre-empt. And the case it would have deferred in is the exact one that
+   * gets reported: when the auth setup fails, everything downstream is
+   * *skipped* rather than run, so a live suite is one failure and two skips —
+   * which is "every executed test failed". The deferral would have been
+   * inert everywhere except where it did harm.
+   */
+  rule('sign-in-setup-failed', (cluster, { tests }) => {
+    if (tests.length === 0 || !tests.every((test) => test.project === AUTH_SETUP_PROJECT)) {
+      return null;
+    }
+    const role = roleWithoutSession(errorText(tests));
+    return verdict(cluster, 'sign-in-setup-failed', {
+      category: 'unclassified',
+      confidence: 'high',
+      summary: role
+        ? `Sign-in for role '${role}' established no session — the run had no identity`
+        : 'The auth setup failed, so the run had no identity',
+      evidence: [
+        `${cluster.size} test(s) in the ${AUTH_SETUP_PROJECT} project failed`,
+        'the application said nothing a rule can act on — no lockout banner, no transport error',
+        'a locked account, a rotated credential and a stale signedInMarker all look like this',
+      ],
+      recommendedAction: 'escalate',
+      suggestedOwner: null,
+      /*
+         High confidence in *what* happened and none at all in why, which is
+         why the category declines and this is true. `npm run target:doctor
+         --sign-in` is the thing that separates the three, and it says which.
+      */
+      needsHumanReview: true,
     });
   }),
 

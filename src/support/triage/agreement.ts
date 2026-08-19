@@ -1,5 +1,5 @@
 import type { RunResult } from '../reporters/run-result';
-import { TRIAGE_CATEGORIES, type TriageCategory, type TriageResult } from './types';
+import { namesACause, TRIAGE_CATEGORIES, type TriageCategory, type TriageResult } from './types';
 
 /**
  * Agreement between what triage settled and what the fixture said was true —
@@ -59,8 +59,7 @@ export function measureAgreement(run: RunResult, triage: TriageResult): Agreemen
     const verdict = cluster
       ? triage.verdicts.find((candidate) => candidate.clusterId === cluster.id)
       : undefined;
-    const settled =
-      verdict && verdict.category !== 'unclassified' ? verdict.category : null;
+    const settled = verdict && namesACause(verdict) ? verdict.category : null;
 
     rows.push({
       testId: test.id,

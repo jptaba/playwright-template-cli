@@ -2820,3 +2820,77 @@ on a shared four-word phrase.
 now carries an accent edge and a lift — shape and elevation, not colour alone.
 
 Runs 60–61. Superseded nothing; item 53 continues on the same page.
+
+### 54. A failed sign-in was confidently misfiled as a test-timing defect — `done`
+
+Shipped on `agent/2026-08-19-sign-in-not-a-timing-defect` (run 64), raised from
+what run 63 watched happen on a live suite.
+
+**The evidence.** `toolshop`'s shared customer account was genuinely locked —
+its own service answering `423 {"error":"Account locked, too many failed
+attempts."}` to the exact credential in the store, checked directly rather than
+inferred. What `npm run suites:live` reported was `timing-synchronisation`,
+**high confidence**, `recommendedAction: fix-test`, owner **qa**. For a
+condition only an administrator can clear. `parabank` reported identically.
+
+**The mechanism.** `auth.setup.ts` waits for the signed-in marker with
+`expect.poll`, so every failed sign-in in every target carries Playwright's
+*"waiting on the predicate"* — and `short-wait` matched it first.
+`account-locked` is ordered ahead of it and correctly so, but its evidence is
+the application's own sentence, which only reaches the error text when the
+pack's `readError` could read the banner. On a lockout that is exactly the case
+it often cannot.
+
+**The fix is a rule that claims the cluster and then refuses to explain it.**
+`sign-in-setup-failed` is ordered ahead of `short-wait`, keyed on the
+framework's own `setup:auth` project rather than on a message each pack words
+differently, and returns `unclassified` with `needsHumanReview: true`. No
+session was established, and nothing in the text says whether that is a locked
+account, a rotated credential or a `signedInMarker` that no longer matches.
+Naming one of the three confidently is how a real lockout goes to the wrong
+team.
+
+**The first draft stood aside when the whole run had failed**, meaning to leave
+that case to `all-failed-at-auth`. Wrong twice over, and the test that caught
+it is worth keeping: that rule is ordered *after* `short-wait`, so standing
+aside handed the cluster straight back to the rule this one exists to pre-empt
+— and when the auth setup fails everything downstream is *skipped* rather than
+run, so a live suite is one failure and two skips, which **is** "every executed
+test failed". The deferral would have been inert everywhere except where it did
+harm.
+
+**`unclassified` had to become a real answer for this to work**, and that was
+the second half of the change. Several places asked "did a rule settle this?"
+and most of them counted an `unclassified` verdict as settled — so a rule that
+honestly said *I cannot tell why* would have taken the cluster out of triage
+altogether: not counted as needing judgement, and never passed to the model.
+`namesACause` is now one definition in `triage/types.ts`, used by the rules
+stage's count, the agent stage's work list, the review, the live report and the
+agreement measurement, which had been the only one getting it right.
+
+**Proven on the failure that raised it**, not only in tests. The same parabank
+run, before and after the change:
+
+- before — `[timing-synchronisation] A polled condition never became true
+  inside its timeout  (rule: short-wait)`, reported as settled.
+- after — `0 of 1 cluster(s) settled deterministically. 1 need judgement.`
+  and `[unclassified] Sign-in for role 'customer' established no session — the
+  run had no identity`.
+
+In `suites:live` the line went from `no rule matched — needs judgement` to
+`needs judgement — Sign-in for role 'customer' established no session`, so the
+report keeps what the rule did find rather than throwing it away.
+
+**Also here, because sharing the pattern found it.** `NO_SESSION` moved into
+`failure-signals.ts`, the neutral home whose whole purpose is a pattern two
+tools must agree on. The doctor's local copy required the bracketed `(account
+1)` that packs scaffolded before that existed do not print — so on parabank the
+one useful sentence in the output was not lifted out at all.
+
+**No target fixture could have caught this**, which is why the ground truth
+went into `tests/framework/triage-dashboard.spec.ts` as case 5109 rather than
+into a pack: the `triage-fixture` project runs with no role and does not depend
+on `setup:auth`, so no spec a target can write makes the auth setup fail.
+
+Measured afterwards, all three fixtures unchanged: `toolshop` 4 agreed · 0
+contradicted · 0 declined, `restful-booker` 3 · 0 · 1, `saucedemo` 1 · 0 · 3.

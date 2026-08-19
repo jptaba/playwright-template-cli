@@ -1,4 +1,4 @@
-import { looksLikeLockout, looksLikeTransportFailure } from '../failure-signals';
+import { looksLikeLockout, looksLikeTransportFailure, NO_SESSION } from '../failure-signals';
 
 /**
  * Proving a credential can actually sign in, rather than merely existing.
@@ -100,8 +100,14 @@ export function reportedByApplication(output: string): string | null {
      still better than handing back a stack trace — and deliberately *not* to
      "first line containing the word error", which on a Playwright run is
      almost always a file path.
+
+     Shared with triage rather than written twice, and the sharing fixed a
+     blind spot: the local copy required the bracketed `(account 1)`, which
+     packs scaffolded before that existed do not print — so on parabank, whose
+     sign-in was failing while this was written, the one useful sentence in the
+     output was not lifted out at all.
   */
-  const summary = /Sign-in for role '[^']+' \(account \d+\)[^\n]*/.exec(output);
+  const summary = NO_SESSION.exec(output);
   return summary?.[0]?.trim() ?? null;
 }
 

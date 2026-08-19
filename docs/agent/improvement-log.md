@@ -4412,3 +4412,61 @@ recorded below rather than fixed — none is this run's doing and none is ours.
 **Next:** item 54, with a ground-truth spec that produces a failed sign-in so
 the fix is measured rather than argued. Then the rest of item 51 — `parabank`
 and `orangehrm` — which `target:doctor` now names by itself.
+
+## 2026-08-19 · run 64 · The locked account that was reported as a slow test
+
+**Picked:** item 54, raised by run 63 and put at the top of the worklist —
+prompted by the owner, whose framing is the item in one sentence: *"We don't
+need to work around the live app's errors, it should be captured and reported
+by our framework as it should be."*
+
+**Did:** `sign-in-setup-failed`, a rule ordered ahead of `short-wait` that
+claims a failed `setup:auth` cluster and then declines to say why. The full
+reasoning is item 54 in `backlog.md`; what belongs here is the two things this
+run nearly got wrong.
+
+**Verify:** `npm run verify` passes, exit 0 — **1041 tests**, up from 1034.
+
+**Live suites (step 5): 3 of 5 passing**, and the number moved for reasons
+outside this change — the vendor lockout cleared mid-session. orangehrm 5/5,
+restful-booker 13/13, saucedemo 2/2, toolshop 19/20 (a cart-totals spec on a
+demo whose cart is shared), parabank 0/3 (sign-in, still). Both failures are
+the applications' own and are left red.
+
+**Triage agreement, all three fixtures, after the rule change:** toolshop
+**4 agreed · 0 contradicted · 0 declined**, restful-booker **3 · 0 · 1**,
+saucedemo **1 · 0 · 3**. Unchanged, which is the check that mattered: a rule
+inserted ahead of three others must not quietly claim anything they were
+settling.
+
+**Learned:**
+
+- **The deferral I wrote first was inert everywhere except where it did harm.**
+  The rule originally stood aside when every executed test had failed, to leave
+  that case to `all-failed-at-auth` — which is ordered *after* `short-wait`, so
+  standing aside handed the cluster back to the rule the whole change exists to
+  pre-empt. And it is the case that actually gets reported: when the auth setup
+  fails, everything downstream is *skipped*, so a live suite is one failure and
+  two skips, and "every executed test failed" is **true** there. A unit test
+  caught it; without one the live suite would have reported the same wrong
+  verdict again and the fix would have looked like it worked.
+- **A rule that declines has to be allowed to decline.** Writing the rule was
+  half the work. `unclassified` was being counted as settled in most of the
+  places that ask, so an honest "I cannot tell why" would have removed the
+  cluster from triage entirely — not counted as needing judgement, and never
+  handed to the model. Worth generalising past this change: adding a new *kind*
+  of answer to a system means auditing everything that asks the old question.
+- **Sharing a pattern found a second bug for free.** Moving `NO_SESSION` into
+  `failure-signals.ts` — the file whose stated purpose is a pattern two tools
+  must agree on — exposed that the doctor's own copy required a bracketed
+  `(account 1)` that older packs do not print. On parabank the one useful
+  sentence in the output was not being lifted out at all.
+- **The reproduction expired inside the hour.** toolshop's lockout was gone by
+  the second `--sign-in`, so the corrected message could never be shown against
+  the failure that prompted it. Everything after that was proven on parabank,
+  which was still failing. On a shared vendor demo, capture what the service
+  said the moment it says it — the evidence does not wait.
+
+**Next:** the rest of item 51 — `parabank` and `orangehrm` triage fixtures,
+which `target:doctor` now names by itself. Item 53's third part is still parked
+by design.
