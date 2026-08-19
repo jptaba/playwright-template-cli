@@ -1,5 +1,7 @@
 import {
   DASHBOARD_PAGES,
+  checkField,
+  field,
   overview,
   renderPage,
   type DashboardPageContent,
@@ -170,28 +172,42 @@ ${overview([
       Name it, and say where it runs. Everything below follows from these two.
     </p>
     <div class="row">
-      <div>
-        <label for="name">Target name <small>lower-case, hyphenated — becomes a directory and a <code>TARGET</code> value</small></label>
-        <input type="text" id="name" placeholder="acme-shop" autocomplete="off">
-      </div>
-      <div>
-        <label for="env">Environment <small>which deployment this profile points at</small></label>
-        <input type="text" id="env" value="staging" autocomplete="off">
-      </div>
+      ${field({
+        id: 'name',
+        label: 'Target name',
+        hint: 'lower-case, hyphenated — becomes a directory and a <code>TARGET</code> value',
+        control: '<input type="text" id="name" placeholder="acme-shop" autocomplete="off">',
+      })}
+      ${field({
+        id: 'env',
+        label: 'Environment',
+        hint: 'which deployment this profile points at',
+        control: '<input type="text" id="env" value="staging" autocomplete="off">',
+      })}
     </div>
-    <label for="baseURL">Base URL <small>the test environment, never production</small></label>
-    <input type="text" id="baseURL" placeholder="https://staging.acme.example" autocomplete="off">
+    ${field({
+      id: 'baseURL',
+      label: 'Base URL',
+      hint: 'the test environment, never production',
+      control:
+        '<input type="text" id="baseURL" placeholder="https://staging.acme.example" autocomplete="off">',
+    })}
 
-    <label>Service APIs <small>optional, and often on different hosts — a spec calls each one by name, as <code>apis.billing</code></small></label>
-    <div id="services"></div>
-    <button class="secondary" type="button" id="addService">Add another service</button>
+    <!-- A group of rows rather than one control, so it names itself with
+         aria-labelledby: a label pointing at a div names nothing. -->
+    <div class="field" role="group" aria-labelledby="servicesName" aria-describedby="services-hint">
+      <span class="fieldname" id="servicesName">Service APIs</span>
+      <small class="hint" id="services-hint">optional, often on other hosts — a spec calls each by name, as <code>apis.billing</code></small>
+      <div id="services" class="field-body"></div>
+      <button class="secondary" type="button" id="addService">Add another service</button>
+    </div>
 
-    <label class="check">
-      <input type="checkbox" id="confirmTest">
-      <span>This is a test environment.
-        <small>Reading it loads pages in a real browser. It signs nothing in and submits no forms.</small>
-      </span>
-    </label>
+    ${checkField({
+      id: 'confirmTest',
+      label: 'This is a test environment.',
+      hint: 'Reading it loads pages in a real browser. It signs nothing in and submits no forms.',
+      control: '<input type="checkbox" id="confirmTest">',
+    })}
     <button id="probe">Read the application</button>
     <button class="secondary" id="skipProbe">Skip and fill in by hand</button>
     <div class="status" id="s1status"></div>
@@ -230,18 +246,24 @@ ${overview([
       </div>
     </div>
     <div class="row">
-      <div>
-        <label for="uName">Username field <small>accessible name</small></label>
-        <input type="text" id="uName" autocomplete="off">
-      </div>
-      <div>
-        <label for="pName">Password field <small>accessible name</small></label>
-        <input type="text" id="pName" autocomplete="off">
-      </div>
-      <div>
-        <label for="sName">Submit control <small>accessible name</small></label>
-        <input type="text" id="sName" autocomplete="off">
-      </div>
+      ${field({
+        id: 'uName',
+        label: 'Username field',
+        hint: 'accessible name',
+        control: '<input type="text" id="uName" autocomplete="off">',
+      })}
+      ${field({
+        id: 'pName',
+        label: 'Password field',
+        hint: 'accessible name',
+        control: '<input type="text" id="pName" autocomplete="off">',
+      })}
+      ${field({
+        id: 'sName',
+        label: 'Submit control',
+        hint: 'accessible name',
+        control: '<input type="text" id="sName" autocomplete="off">',
+      })}
     </div>
   </section>
 
@@ -264,8 +286,12 @@ ${overview([
         reported as “not applicable” rather than as a silent zero.</p>
       </div>
     </details>
-    <label for="roles">Roles <small>comma separated</small></label>
-    <input type="text" id="roles" value="standard" autocomplete="off">
+    ${field({
+      id: 'roles',
+      label: 'Roles',
+      hint: 'comma separated',
+      control: '<input type="text" id="roles" value="standard" autocomplete="off">',
+    })}
     <div class="row">
       <div>
         <label for="secrets">Credentials resolve from</label>
@@ -279,7 +305,10 @@ ${overview([
         <input type="text" id="a11y" value="wcag22aa" autocomplete="off">
       </div>
     </div>
-    <label>Where credentials come from <small>and how they are laid out there</small></label>
+    <div class="field">
+      <span class="fieldname">Where credentials come from</span>
+      <small class="hint">and how they are laid out there</small>
+    </div>
     <div id="vaultBox" hidden>
       <p class="explain">
         No credential goes here. Vault authentication comes from the environment.
@@ -300,23 +329,29 @@ ${overview([
           <label for="vaultAddr">Vault address</label>
           <input type="text" id="vaultAddr" placeholder="https://vault.example" autocomplete="off">
         </div>
-        <div>
-          <label for="vaultNamespace">Namespace <small>Enterprise only</small></label>
-          <input type="text" id="vaultNamespace" autocomplete="off">
-        </div>
+        ${field({
+          id: 'vaultNamespace',
+          label: 'Namespace',
+          hint: 'Enterprise only',
+          control: '<input type="text" id="vaultNamespace" autocomplete="off">',
+        })}
       </div>
       <label for="vaultMount">KV mount</label>
       <input type="text" id="vaultMount" value="kv" autocomplete="off">
     </div>
     <div class="row">
-      <div>
-        <label for="accountType">Account type <small>the path segment under the root</small></label>
-        <input type="text" id="accountType" value="workforce" autocomplete="off">
-      </div>
-      <div>
-        <label for="credentialRoot">Credential root <small>defaults from the target name</small></label>
-        <input type="text" id="credentialRoot" autocomplete="off">
-      </div>
+      ${field({
+        id: 'accountType',
+        label: 'Account type',
+        hint: 'the path segment under the root',
+        control: '<input type="text" id="accountType" value="workforce" autocomplete="off">',
+      })}
+      ${field({
+        id: 'credentialRoot',
+        label: 'Credential root',
+        hint: 'defaults from the target name',
+        control: '<input type="text" id="credentialRoot" autocomplete="off">',
+      })}
     </div>
     <p class="explain">
       It reads one path and reports the field names it holds, never a value.
@@ -324,11 +359,30 @@ ${overview([
     <button class="secondary" id="vaultCheck">Check where credentials come from</button>
     <div class="status" id="vaultStatus"></div>
 
-    <label>Optional layers</label>
-    <label class="check"><input type="checkbox" id="lApi"><span>API — typed HTTP clients<small>needs at least one service above</small></span></label>
-    <label class="check"><input type="checkbox" id="lContracts"><span>Contracts — schema conformance<small>switched on automatically when a published document was found</small></span></label>
-    <label class="check"><input type="checkbox" id="lA11y"><span>Accessibility — axe against the declared standard</span></label>
-    <label class="check"><input type="checkbox" id="lDb"><span>Database — read-only query vocabulary<small>only when a fact has no UI and no API</small></span></label>
+    <span class="fieldname">Optional layers</span>
+    ${checkField({
+      id: 'lApi',
+      label: 'API — typed HTTP clients',
+      hint: 'needs at least one service above',
+      control: '<input type="checkbox" id="lApi">',
+    })}
+    ${checkField({
+      id: 'lContracts',
+      label: 'Contracts — schema conformance',
+      hint: 'switched on automatically when a published document was found',
+      control: '<input type="checkbox" id="lContracts">',
+    })}
+    ${checkField({
+      id: 'lA11y',
+      label: 'Accessibility — axe against the standard',
+      control: '<input type="checkbox" id="lA11y">',
+    })}
+    ${checkField({
+      id: 'lDb',
+      label: 'Database — read-only query vocabulary',
+      hint: 'only when a fact has no UI and no API',
+      control: '<input type="checkbox" id="lDb">',
+    })}
     <button id="preview">Preview what will be written</button>
     <div class="status" id="previewStatus"></div>
   </section>

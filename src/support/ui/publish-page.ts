@@ -1,4 +1,4 @@
-import { overview, type DashboardPageContent } from './shell';
+import { field, overview, type DashboardPageContent } from './shell';
 
 /**
  * The publish page — §08 phase 6, §14, §15.
@@ -151,10 +151,12 @@ ${overview([
     <div id="rSkipped"></div>
     <div class="confirm">
       <div class="row">
-        <div>
-          <label for="rConfirm">Type the run id to confirm <small>this cannot be undone</small></label>
-          <input type="text" id="rConfirm" autocomplete="off" placeholder="run id">
-        </div>
+        ${field({
+          id: 'rConfirm',
+          label: 'Type the run id to confirm',
+          hint: 'this cannot be undone',
+          control: '<input type="text" id="rConfirm" autocomplete="off" placeholder="run id">',
+        })}
         <button id="rSend" class="destructive">Post results</button>
       </div>
       <div class="status" id="rStatus"></div>
@@ -182,10 +184,12 @@ ${overview([
     <div id="dList"></div>
     <div class="confirm">
       <div class="row">
-        <div>
-          <label for="dConfirm">Type the run id to confirm <small>tickets are visible to other teams</small></label>
-          <input type="text" id="dConfirm" autocomplete="off" placeholder="run id">
-        </div>
+        ${field({
+          id: 'dConfirm',
+          label: 'Type the run id to confirm',
+          hint: 'tickets are visible to other teams',
+          control: '<input type="text" id="dConfirm" autocomplete="off" placeholder="run id">',
+        })}
         <button id="dSend" class="destructive">File the selected defects</button>
       </div>
       <div class="status" id="dStatus"></div>

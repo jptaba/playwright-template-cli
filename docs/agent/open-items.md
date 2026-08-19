@@ -16,6 +16,7 @@ decide what to do.
 | # | Item | Status |
 |---|---|---|
 | 50 | The dashboard explains itself in the framework's own vocabulary | `ready` |
+| 53 | Onboarding is a permanent page for a once-per-application job | `ready` |
 | 51 | Three applications cannot reach the triage stage at all | `ready` |
 | 52 | Fourteen coverage cells are missing across four applications | `ready` |
 | 46 | The journey has been run for one application, not five | `ready` |
@@ -78,6 +79,52 @@ the explanation every time the field is focused.
 Everything the previous UI work established still holds and should not be
 undone: the four budgets (copy, height, measure, contrast), progressive
 disclosure, the theme control, one application switcher.
+
+---
+
+### 53. Onboarding is a permanent page for a once-per-application job — `ready`
+
+**The owner's ask, 2026-08-18:**
+
+> Onboarding an app is not something that will always be done but it is always
+> there as a first page. Figure out how we can make that only called if a new
+> app will be onboarded. Also make it like a wizard like process.
+
+Two asks, and the second is nearly done already — which makes the first the
+real work.
+
+**Onboard is the rail's first destination and the route `/` redirects to.** So
+the page everybody lands on, every day, for the whole life of a repository, is
+the one page they will use once per application and never again. The steady
+state of this tool is *run, triage, publish*; the first screen says *add an
+application*.
+
+**The wizard is most of the way there already** — checked on the running page,
+not recalled. Five sections revealed in turn, locked badges, and a *Where you
+are* rail listing all five numbered steps with the current one marked. Two of
+the three things that make a wizard tolerable are done: how many are left, and
+where I am.
+
+**What is missing is the third: getting back.** The step links scroll, and a
+completed step stays open below the current one, so the page grows downward
+into one long form rather than showing one step at a time. That is the part
+that still reads as a scrolling document rather than a wizard.
+
+**Shape:**
+
+1. **Onboarding becomes an action, not a destination.** The rail keeps a way in
+   — an *Add an application* control near the application switcher, which is
+   where somebody already goes to change applications — and `/onboard` stays a
+   real route so a link to it still works.
+2. **`/` lands somewhere useful instead.** With no application configured that
+   is still onboarding, because there is nothing else to do; with one or more,
+   it is the page that reflects the steady state.
+3. **Show one step at a time**, with the *Where you are* rail switching between
+   them rather than scrolling to them — and a completed step reopenable without
+   losing what the later ones hold.
+
+Sequenced after item 50, and not because it is smaller. Item 50 is rewriting
+the words on these steps; moving the steps first would mean doing that twice.
 
 ---
 

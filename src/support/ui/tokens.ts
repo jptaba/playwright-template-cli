@@ -584,6 +584,36 @@ export const DASHBOARD_STYLES = `
 
   label { display: block; font-weight: 620; margin: 1rem 0 .3rem; font-size: .87rem; }
   label small { font-weight: 400; color: var(--muted); }
+
+  /*
+     A field is its name, its description and its control.
+
+     The description used to live inside the label, where it read correctly
+     and became part of the accessible name — so the Target name input
+     announced twelve words, of which two were its name. It sits outside the
+     label now and is referenced by aria-describedby; this rule is what keeps
+     it looking like it always did, on the same line as the name.
+  */
+  .field { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .4rem; }
+  .field > label, .field > .fieldname { flex: 0 0 auto; }
+  /* A group names itself with a span, because a label pointing at a div names
+     nothing. It should still look like every other field name. */
+  .fieldname { display: block; font-weight: 620; margin: 1rem 0 .3rem; font-size: .87rem; }
+  .field > .hint {
+    flex: 1 1 auto; min-width: 0; align-self: baseline;
+    font-weight: 400; font-size: .87rem; color: var(--muted);
+  }
+  /* The control takes the next line whatever the name and hint did on this one. */
+  .field > input, .field > select, .field > textarea, .field > .field-body { flex: 1 0 100%; }
+  .field > button { flex: 0 0 auto; }
+
+  /* A checkbox names itself in its label, so its hint goes underneath, indented
+     past the box rather than hanging under it. */
+  .check-field { display: block; }
+  .check-field > .hint {
+    display: block; margin: -.25rem 0 .55rem 1.55rem;
+    color: var(--muted); font-size: .85rem; max-width: 68ch;
+  }
   input[type=text], input[type=password], select {
     width: 100%; padding: .5rem .6rem; border: 1px solid var(--rule-strong); border-radius: 5px;
     background: var(--surface-2); color: var(--ink); font: inherit; font-size: .9rem;

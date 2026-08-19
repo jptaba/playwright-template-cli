@@ -1,4 +1,4 @@
-import type { DashboardPageContent } from './shell';
+import { checkField, field, type DashboardPageContent } from './shell';
 
 /**
  * The runs page — §08, phase 2.
@@ -109,28 +109,33 @@ const BODY = `
       </div>
     </details>
     <div class="starter">
-      <div>
-        <label for="rProjects">Projects <small>comma separated; blank runs them all</small></label>
-        <input type="text" id="rProjects" placeholder="e2e, api" autocomplete="off">
-      </div>
-      <div>
-        <label for="rGrep">Only tests tagged <small>optional</small></label>
-        <input type="text" id="rGrep" placeholder="@smoke" autocomplete="off">
-      </div>
+      ${field({
+        id: 'rProjects',
+        label: 'Projects',
+        hint: 'comma separated; blank runs them all',
+        control: '<input type="text" id="rProjects" placeholder="e2e, api" autocomplete="off">',
+      })}
+      ${field({
+        id: 'rGrep',
+        label: 'Only tests tagged',
+        hint: 'optional',
+        control: '<input type="text" id="rGrep" placeholder="@smoke" autocomplete="off">',
+      })}
     </div>
-    <label class="check">
-      <input type="checkbox" id="rLive" checked>
-      <span>Show the browser in the page
-        <small>A live view of one worker, embedded. Chromium only.</small>
-      </span>
-    </label>
-    <label class="check">
-      <input type="checkbox" id="rHeaded">
-      <span>Open real browser windows instead
-        <small>Watch it on your own screen. Headed timing differs from headless, which is what CI
-        runs — so this is for watching, never for deciding whether something passed.</small>
-      </span>
-    </label>
+    ${checkField({
+      id: 'rLive',
+      label: 'Show the browser in the page',
+      hint: 'A live view of one worker, embedded. Chromium only.',
+      control: '<input type="checkbox" id="rLive" checked>',
+    })}
+    ${checkField({
+      id: 'rHeaded',
+      label: 'Open real browser windows instead',
+      hint:
+        'Watch it on your own screen. Headed timing differs from headless, which is what CI ' +
+        'runs — so this is for watching, never for deciding whether something passed.',
+      control: '<input type="checkbox" id="rHeaded">',
+    })}
     <button id="rStart">Run it</button>
     <div class="status" id="rStatus"></div>
   </section>

@@ -1,4 +1,4 @@
-import type { DashboardPageContent } from './shell';
+import { field, type DashboardPageContent } from './shell';
 
 /**
  * The stories page — §08, phase 4.
@@ -104,9 +104,14 @@ const BODY = `
         content hash somewhere to live so drift is detectable later.</p>
       </div>
     </details>
-    <label for="sKey">Read a story from Jira <small>an issue key, like FIN-2210</small></label>
-    <input type="text" id="sKey" placeholder="FIN-2210" autocomplete="off">
-    <button id="sPull">Read it</button>
+    ${field({
+      id: 'sKey',
+      label: 'Read a story from Jira',
+      hint: 'an issue key, like FIN-2210',
+      control:
+        '<input type="text" id="sKey" placeholder="FIN-2210" autocomplete="off">' +
+        '<button id="sPull">Read it</button>',
+    })}
     <div class="status" id="sPullStatus"></div>
     <div class="stories" id="sList"></div>
   </section>

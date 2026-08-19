@@ -197,6 +197,64 @@ test.describe('the reasoning', () => {
   });
 });
 
+test.describe('what a control is called', () => {
+  /*
+     The accessible name of a control is its label's text — for both the `for=`
+     form and the wrapping form — and that is what a screen reader announces
+     every time the field takes focus.
+
+     The copy budget above reads `p.explain` and nothing else, so the hints
+     grew inside the labels where nothing was counting them. Eighteen fields
+     across four pages had an accessible name that was a sentence, the longest
+     at 21 words. A hint is a *description*: `aria-describedby`, announced
+     after the name and skippable, which is the whole reason the attribute
+     exists.
+
+     This is not a general nicety. This dashboard fronts a suite whose product
+     is an accessibility scan, and a form field whose name is a paragraph is
+     the 1.3.1/4.1.2 finding it reports about everybody else.
+  */
+  const labels = (page: DashboardPageContent): Array<{ name: string; html: string }> =>
+    [...page.body.matchAll(/<label\b([^>]*)>([\s\S]*?)<\/label>/g)].map((match) => ({
+      name: words(match[2]!).join(' '),
+      html: match[0]!,
+    }));
+
+  test('is a name, not a sentence', () => {
+    for (const [page, content] of Object.entries(PAGES)) {
+      for (const label of labels(content)) {
+        expect(
+          words(label.name).length,
+          `${page}: "${label.name}" is what a screen reader reads out on every focus`,
+        ).toBeLessThanOrEqual(6);
+      }
+    }
+  });
+
+  test('keeps its hint, outside the label and described rather than announced', () => {
+    /*
+       The failure this guards against is the lazy fix: deleting the hints to
+       satisfy the rule above. They are the most useful copy on the page.
+    */
+    let described = 0;
+    for (const [page, content] of Object.entries(PAGES)) {
+      for (const label of labels(content)) {
+        expect(label.html, `${page}: "${label.name}" still has its hint inside the label`).not.toMatch(
+          /<small\b/,
+        );
+      }
+      for (const hint of content.body.matchAll(/<small class="hint" id="([^"]+)-hint"/g)) {
+        expect(
+          content.body,
+          `${page}: the hint for "${hint[1]}" is on the page but nothing points at it`,
+        ).toContain(`aria-describedby="${hint[1]}-hint"`);
+        described += 1;
+      }
+    }
+    expect(described, 'the hints were deleted rather than moved').toBeGreaterThanOrEqual(15);
+  });
+});
+
 test('every page still names itself and says what it is for', () => {
   // A budget that produced a page saying nothing would be a worse page.
   for (const [name, page] of Object.entries(PAGES)) {

@@ -230,6 +230,101 @@ export function escapeHtml(value: string): string {
 }
 
 /**
+ * A labelled control, where the hint is a *description* rather than part of the
+ * name.
+ *
+ * Every field on every page was written as
+ * `<label for="x">Name <small>the hint</small></label>`, which reads correctly
+ * and computes an accessible name of the whole thing. The Target name field
+ * announced as *"Target name lower-case, hyphenated — becomes a directory and a
+ * TARGET value"*, and it did that on focus, on every arrow key, on every
+ * re-read of the form. Eighteen fields across four pages were doing it, the
+ * longest at 21 words.
+ *
+ * That matters more here than it would elsewhere: this dashboard is the front
+ * end of a suite whose product is an accessibility scan, and 1.3.1/4.1.2 is
+ * exactly the failure it reports about other people's applications.
+ *
+ * So the hint moves out of the label and is referenced by `aria-describedby`,
+ * which is what the attribute is for — a name is announced first and always, a
+ * description is announced after it and can be skipped. The visual result is
+ * unchanged: `.field` lays the two out on one line, and the control below.
+ */
+export interface Field {
+  /** The control's `id`. `-hint` is appended for the description's id. */
+  id: string;
+  /** The accessible name. A name, not a sentence — the budget is six words. */
+  label: string;
+  /** The description. May contain markup; omitted when there is nothing to add. */
+  hint?: string;
+  /** The control itself, rendered by the caller. */
+  control: string;
+}
+
+/**
+ * Point the control at its description.
+ *
+ * The caller writes the control, because a select with eight options and a
+ * text input with a placeholder have nothing in common worth abstracting. What
+ * they do have in common is needing to reference the hint, and a helper that
+ * silently failed to add the attribute would produce markup that looks right
+ * and announces nothing — so this throws rather than returning the string
+ * unchanged.
+ */
+function describedBy(control: string, id: string): string {
+  const patched = control.replace(
+    /(<(?:input|select|textarea)\b[^>]*?)(\s*\/?>)/,
+    `$1 aria-describedby="${id}-hint"$2`,
+  );
+  if (patched === control) {
+    throw new Error(`field("${id}"): the control has no input, select or textarea to describe`);
+  }
+  return patched;
+}
+
+export function field(spec: Field): string {
+  if (!spec.hint) {
+    return (
+      `<div class="field">` +
+      `<label for="${spec.id}">${escapeHtml(spec.label)}</label>` +
+      spec.control +
+      `</div>`
+    );
+  }
+  return (
+    `<div class="field">` +
+    `<label for="${spec.id}">${escapeHtml(spec.label)}</label>` +
+    `<small class="hint" id="${spec.id}-hint">${spec.hint}</small>` +
+    describedBy(spec.control, spec.id) +
+    `</div>`
+  );
+}
+
+/**
+ * A checkbox, same rule.
+ *
+ * The wrapping-label form makes the whole span the name, so the hint sits
+ * outside the label and is described rather than announced. The control keeps
+ * its `id` so `aria-describedby` has something to point at.
+ */
+export function checkField(spec: Field): string {
+  if (!spec.hint) {
+    return (
+      `<div class="field check-field">` +
+      `<label class="check">${spec.control}<span>${escapeHtml(spec.label)}</span></label>` +
+      `</div>`
+    );
+  }
+  return (
+    `<div class="field check-field">` +
+    `<label class="check">${describedBy(spec.control, spec.id)}` +
+    `<span>${escapeHtml(spec.label)}</span></label>` +
+    `<small class="hint" id="${spec.id}-hint">${spec.hint}</small>` +
+    `</div>`
+  );
+}
+
+/**
  * The left rail.
  *
  * A vertical list rather than a row of tabs, and the reasons are the ones
