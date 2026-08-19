@@ -4546,3 +4546,79 @@ rule promoted past three others.
 which `target:doctor` now names by itself. Note for whoever writes parabank's:
 its sign-in is currently broken server-side, so do not build a fixture that
 depends on that staying true.
+
+## 2026-08-19 · run 66 · The last two applications can reach the triage stage
+
+**Picked:** the rest of item 51 — `parabank` and `orangehrm` triage fixtures —
+at the owner's direction, having first recorded their new item 55 (hide the
+set-up pages behind a disclosure; day to day is Author, Execute, Report).
+
+**Did:** four ground-truth specs each, and both measure **4 agreed · 0
+contradicted · 0 declined**. Every one of the five onboarded applications now
+has a fixture, and `target:doctor` reports `no-triage-fixture` for none of
+them — the check run 63 added has nothing left to say, which is the shape a
+preflight should end up in.
+
+**Item 51's stated symptom, closed the way it was raised.** It was confirmed by
+running `app:journey` against orangehrm and reading stage 5 as *failed*. The
+same command now reads:
+
+```
+✓ onboarding         profile, pack and credentials agree, and a real sign-in succeeded
+✗ coverage           missing: audit (@audit), boundary (@boundary)
+✓ run                5/5 passed
+✓ triage             4 agreed · 0 contradicted · 0 declined
+```
+
+The coverage line is item 52 and the two skipped stages want `fakes:serve`;
+neither is this item.
+
+**The four causes are the same four the other three fixtures produce, and that
+is the point rather than a shortcut** — written into both file headers so
+nobody "improves" it later. The `triage-fixture` project runs with `role: ''`,
+so a fixture has one signed-out page and the framework's own vocabulary, which
+bounds what any target can produce on demand. Running the identical set against
+unlike applications is what turns *the rules work* into *the rules are
+application-agnostic*. A cause only ParaBank could produce would be testing
+ParaBank.
+
+**Both pages were read before anything was written.** ParaBank's landing
+carries 33 links, so `getByRole('link')` is a genuine strict-mode violation.
+OrangeHRM reports **0 links at `domcontentloaded` and 5 once the form has
+rendered** — it is a single-page application, so every spec there waits for a
+control the application actually renders before doing the thing it is present
+to fail at. Without that they would have failed for the wrong reason and
+measured nothing, which is precisely how run 56's first fixture went wrong.
+
+**Verify:** `npm run verify` passes, exit 0 — **1048 tests**.
+
+**Live suites: 5 of 5 passing, 43/43** — orangehrm 5/5, parabank 3/3,
+restful-booker 13/13, saucedemo 2/2, toolshop 20/20. The first all-green step 5
+since run 53, and the first ever with five applications.
+
+**Triage agreement across every fixture:** parabank **4 · 0 · 0**, orangehrm
+**4 · 0 · 0**, toolshop **4 · 0 · 0**, restful-booker **3 · 0 · 1**, saucedemo
+**1 · 0 · 3**.
+
+**Learned:**
+
+- **ParaBank fixed itself, and the framework's account of it held up.** Run 65
+  established it was answering HTTP 500 from its own login endpoint and taught
+  the suite to report `application-defect`. Hours later it is 3/3 green with
+  nothing changed here. That is the whole argument for reporting a defect
+  rather than working around it: the finding was accurate, it cost nothing when
+  the vendor fixed it, and a retry or a loosened assertion would have hidden
+  both the outage and the recovery.
+- **A single-page application changes what "the page is open" means**, and it
+  is measurable rather than a matter of taste: the same accessibility tree
+  answers 0 links and 5 links seconds apart. Any fixture, and any spec, that
+  navigates and immediately asserts on that application is asserting about a
+  page that does not exist yet.
+- **Sameness across fixtures needed defending in writing.** Four identical
+  causes across five applications looks like copy-paste and is the opposite —
+  it is the only way the agnosticism claim gets tested. Left unexplained, the
+  next contributor would have "varied" them and quietly turned a controlled
+  comparison into five unrelated anecdotes.
+
+**Next:** item 55, the owner's own, and the standing priority — take the set-up
+pages out of the permanent navigation. Then item 52's coverage cells.

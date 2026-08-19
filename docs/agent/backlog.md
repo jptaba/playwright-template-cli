@@ -2894,3 +2894,51 @@ on `setup:auth`, so no spec a target can write makes the auth setup fail.
 
 Measured afterwards, all three fixtures unchanged: `toolshop` 4 agreed · 0
 contradicted · 0 declined, `restful-booker` 3 · 0 · 1, `saucedemo` 1 · 0 · 3.
+
+### 51. Three applications could not reach the triage stage at all — `done`
+
+Shipped across runs 63 (`toolshop`) and 66 (`parabank`, `orangehrm`). **All
+five onboarded applications now carry a `tests/triage-fixture/`**, and every
+one measures clean:
+
+| application | agreement |
+|---|---|
+| parabank | 4 agreed · 0 contradicted · 0 declined |
+| orangehrm | 4 agreed · 0 contradicted · 0 declined |
+| toolshop | 4 agreed · 0 contradicted · 0 declined |
+| restful-booker | 3 agreed · 0 contradicted · 1 declined |
+| saucedemo | 1 agreed · 0 contradicted · 3 declined |
+
+**Closed the way it was raised.** The item was evidenced by running
+`app:journey` against `orangehrm` and reading stage 5 as *failed*; that stage
+now reads `✓ triage  4 agreed · 0 contradicted · 0 declined`.
+
+**The mechanism went in first, which is why this did not have to be
+rediscovered.** Run 63 added `no-triage-fixture` to `target:doctor`, so the
+condition is caught by preflight instead of only by running the whole
+six-stage journey. With all five packs done the check now has nothing to say,
+which is where a preflight should end up.
+
+**The four causes are the same four in every fixture, deliberately**, and both
+new file headers say so, so nobody "improves" it later. The `triage-fixture`
+project runs with `role: ''` — one signed-out page and the framework's own
+vocabulary — which bounds what any target can produce on demand. Running the
+identical set against unlike applications is what turns *the rules work* into
+*the rules are application-agnostic*; a cause only one demo could produce would
+be testing that demo. Varying them would trade a controlled comparison for five
+unrelated anecdotes.
+
+**What it settled along the way.** `dependency-failure` had never been
+confirmed against a known cause before run 63, and the *polled* branch of
+`short-wait` — the high-confidence half — had no ground truth either. Both now
+have it five times over.
+
+**And what a fixture still cannot reach**, measured rather than assumed, so the
+next run does not spend itself finding out: `api-only-failure` is unreachable
+because `kindOf` never returns `api` for the `triage-fixture` project;
+`known-issue` needs a fingerprint set that only comes from Jira; and
+`contract-drift` cannot be produced because `throwOnDrift` is true only in the
+`contract` project, which is a deliberate design decision worth keeping. Ground
+truth for `sign-in-setup-failed` and for `server-error`'s word vocabulary lives
+in `tests/framework/triage-dashboard.spec.ts` for the same reason — no spec a
+target can write makes the auth setup fail.

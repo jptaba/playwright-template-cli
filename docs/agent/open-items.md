@@ -15,18 +15,17 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
+| 55 | Set-up is two pages a team visits twice, and they hold a quarter of the rail | `ready` |
 | 53 | Onboarding: one step at a time, and a way back | `ready` |
-| 51 | Two applications cannot reach the triage stage at all | `ready` |
 | 52 | Fourteen coverage cells are missing across four applications | `ready` |
 | 46 | The journey has been run for one application, not five | `ready` |
 | 48 | Seeded failure cases exist for one application, not five | `ready` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Item 54 shipped in run 64** and is in `backlog.md`. **Take the rest of 51
-next** — `toolshop` has a fixture, `parabank` and `orangehrm` do not — before
-52, because a fixture is four specs and unblocks a whole journey stage where
-coverage is the longer grind.
+**Item 51 is `done`** — all five applications carry a triage fixture as of run
+66, and it is archived in `backlog.md`. **Take 55 next**: it is the standing
+priority and the owner's own words. Then 52, the coverage cells.
 
 ---
 
@@ -82,62 +81,57 @@ fields across steps.
 
 ---
 
-### 51. Two applications cannot reach the triage stage at all — `ready`
+### 55. Set-up is two pages a team visits twice, and they hold a quarter of the rail — `ready`
 
-**`toolshop` landed in run 63** — four specs, `4 agreed · 0 contradicted · 0
-declined`, and the first fixture in this repository where every spec was
-settled by a rule. It settled two things nothing had settled before:
-`dependency-failure`, and the *polled* branch of `short-wait`, which is the
-high-confidence half the other fixtures' short locator waits never reach.
+**The owner's ask, 2026-08-19:**
 
-**`parabank`'s sign-in is broken server-side**, found in run 65: its own login
-endpoint answers HTTP 500 and the form prints *"An internal error has occurred
-and has been logged."* Its suite is red for that reason and correctly reports
-`application-defect`. Whoever writes its fixture must not build one that
-depends on that staying broken — the conventions are explicit that a fixture
-relying on an application being broken a particular way stops reproducing the
-moment somebody fixes it.
+> Hide the entire onboarding and test users inside a button or something
+> that's not always present on the page. Again, for each team, they most
+> likely just do the application onboarding once or twice then after that the
+> day to day would be focused on the Authoring, Executions and Reporting.
 
-`parabank` and `orangehrm` still have no `tests/triage-fixture/`, so
-`npm run app:journey` reports stage 5 as **failed** for each: *"triage
-classifies failures, and a green run exercises none of it"*. Confirmed by
-running it against `orangehrm`.
+**The shape of it, read off `DASHBOARD_PAGES` in `src/support/ui/shell.ts:137`
+rather than recalled.** Seven pages in four groups, and the first group is the
+one nobody uses twice:
 
-**`target:doctor` now says so**, which it did not before run 63 — the only way
-to find out used to be running the whole six-stage journey. `no-triage-fixture`
-warns on a pack that has been written and has no ground truth, and is quiet on
-one nobody has started.
-
-Four specs each is the size of the job, and it unblocks a whole journey stage
-per application.
-
-**Worth pairing with the rules that have no ground truth.** `test-data` has no
-rule deliberately; `contract-drift`, `server-error`, `known-issue` and
-`api-only-failure` still have none settled. Two of those cannot be settled by a
-fixture at all, measured in run 63 rather than assumed: `kindOf` never returns
-`api` for the `triage-fixture` project, so `api-only-failure` is unreachable,
-and `known-issue` needs a fingerprint set that only comes from Jira. A fixture
-written for the *categories* rather than for interesting failures is what turns
-the rest into a measurement.
-
----
-
-### 52. Fourteen coverage cells are missing across four applications — `ready`
-
-Counted from `coverage-phase.md` and confirmed against the tags in each pack:
-
-| application | has | missing |
+| group | pages | how often |
 |---|---|---|
-| toolshop | `@smoke` | negative, idempotency, audit, boundary |
-| saucedemo | `@smoke` | negative, idempotency, audit, boundary |
-| parabank | `@smoke` | negative, idempotency, audit, boundary |
-| orangehrm | `@smoke` `@negative` `@idempotency` | audit, boundary |
+| **Set up** | Applications, Test users | once or twice per application, ever |
+| Author | Stories, Cases | every day |
+| Execute | Runs, Triage | every day |
+| Report | Publish | every day |
 
-`restful-booker` is the only application with all five, and is the worked
-example of what each looks like.
+So two of seven links — a whole quarter of the rail, and the *first* thing read
+in it — are permanently occupying the most valuable space on every page for a
+job that is finished by the end of the first week.
 
-**OrangeHRM's two need data the spec creates** — adding a system user — which
-is the point at which its pack stops being read-only.
+**This is the third and largest turn of the same screw**, and the first two
+landed, which is what makes the case for this one concrete rather than
+speculative:
+
+- Run 62 stopped `/` serving onboarding and sent it to `/runs`, so the page
+  everybody met daily was no longer the one they use once.
+- Run 62 also put step 1 behind an *Add an application* button, so the wizard
+  no longer runs at somebody who came to look at a list.
+- **What is left is the navigation itself**, which still presents the setup
+  pages as co-equal with the daily ones.
+
+**Shape, and the constraint that matters.** Neither page may become
+unreachable, and neither may become hard to find on the day somebody does need
+it — the first week of a repository is exactly when a person is least able to
+go hunting. A disclosure in the shell that reveals the *Set up* group — off by
+default, remembered when opened, and opened automatically when nothing is
+onboarded — keeps both properties. The precedent is already in the page:
+`landingPath()` and the wizard's auto-open both make the same judgement, which
+is that an empty repository has genuinely nothing else to do.
+
+**Do not solve it by deleting the group from the rail and relying on a URL.**
+`/onboard` and `/users` are real routes and must stay linked from somewhere
+visible, or the second application anybody onboards becomes a support question.
+
+**Ranked above the coverage items but below anything broken.** It is the
+standing priority — the dashboard being simpler for the person using it every
+day — and it is the owner's own words, twice now.
 
 ---
 
