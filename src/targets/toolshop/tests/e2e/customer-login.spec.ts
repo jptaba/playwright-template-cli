@@ -54,7 +54,7 @@ test(
 );
 
 test(
-  'TOOL-2-02 · A wrong password does not establish a session @auth',
+  'TOOL-2-02 · A wrong password does not establish a session @negative @auth',
   {
     annotation: [
       { type: 'practitest', description: 'TOOL-2-02' },

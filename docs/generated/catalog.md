@@ -207,7 +207,7 @@ _L2 HTTP vocabulary. Typed clients with response-schema validation._
 
 | Name | Signature | What it does |
 |---|---|---|
-| `catalogueApi.products` | `() => Promise<Page<Product>>` | One page of the catalogue. |
+| `catalogueApi.products` | `(page?: number) => Promise<Page<Product>>` | One page of the catalogue. |
 | `catalogueApi.product` | `(productId: string) => Promise<Product>` | One product, by the id the application uses. |
 | `catalogueApi.search` | `(term: string) => Promise<Page<Product>>` | Search, which returns the same envelope as the listing. |
 | `catalogueApi.related` | `(productId: string) => Promise<Product[]>` |  |

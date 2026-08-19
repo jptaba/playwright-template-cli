@@ -44,9 +44,20 @@ export interface Category {
 
 export function catalogueApi(client: ApiClient) {
   return {
-    /** One page of the catalogue. The response is schema-checked on the way through. */
-    async products(): Promise<Page<Product>> {
-      const response = await client.call<Page<Product>>(catalogueEndpoints.listProducts);
+    /**
+     * One page of the catalogue. The response is schema-checked on the way
+     * through.
+     *
+     * The page number is optional and passed through rather than defaulted
+     * here: the service's own default is page 1, and restating it would mean
+     * two places to change if it ever moved. A caller asking for a specific
+     * page is asking a boundary question — where the range ends, and what the
+     * service does past it — which is what TOOL-4-05 is about.
+     */
+    async products(page?: number): Promise<Page<Product>> {
+      const response = await client.call<Page<Product>>(catalogueEndpoints.listProducts, {
+        ...(page === undefined ? {} : { query: { page: String(page) } }),
+      });
       return response.body;
     },
 

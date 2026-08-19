@@ -105,3 +105,59 @@ test(
     }
   },
 );
+
+test(
+  'TOOL-3-03 · Adding the same product twice is one line of two, not two lines @idempotency @cart',
+  {
+    annotation: [
+      { type: 'practitest', description: 'TOOL-3-03' },
+      { type: 'jira', description: 'TOOL-3' },
+    ],
+  },
+  async ({ authedPage, catalogue, cart }) => {
+    /*
+       The idempotency claim this application actually makes, confirmed
+       against the running storefront before it was written down: adding a
+       product that is already in the cart raises its quantity rather than
+       appending a second row. Badge 1, then 2; one row; quantity "2".
+
+       It is worth a spec because the failure is silent in both directions. A
+       second row with quantity 1 totals the same money as one row with
+       quantity 2, so every assertion about the order total still passes while
+       the cart has stopped meaning what it says — and a checkout built on the
+       row count would then ship two of something somebody asked for once.
+    */
+    await cart.open(authedPage);
+    await cart.empty(authedPage);
+
+    await catalogue.open(authedPage);
+    // Addable, not simply first: an out-of-stock product renders the button
+    // disabled, and taking the first card fails as a timeout that reads as a
+    // broken cart.
+    const addable = await catalogue.addableProductNames(authedPage);
+    expect(addable.length, 'nothing on the listing is in stock, so there is nothing to add')
+      .toBeGreaterThan(0);
+    await catalogue.openProduct(authedPage, addable[0]!);
+    const product = await catalogue.readProduct(authedPage);
+
+    try {
+      await cart.addOpenProduct(authedPage);
+      await cart.addOpenProduct(authedPage);
+      await cart.open(authedPage);
+
+      const lines = await cart.lines(authedPage);
+
+      expect(lines, 'the same product twice should be one line, not two').toHaveLength(1);
+      expect(lines[0]!.product).toBe(product.name);
+      expect(lines[0]!.quantity, 'the second add did not raise the quantity').toBe(2);
+      /*
+         And the money, because the row count alone does not settle it: a
+         cart that merged the rows and kept quantity 1 would satisfy every
+         assertion above while quietly losing what somebody asked for.
+      */
+      expect(lines[0]!.total).toBeCloseTo(product.price * 2, 2);
+    } finally {
+      await cart.empty(authedPage);
+    }
+  },
+);

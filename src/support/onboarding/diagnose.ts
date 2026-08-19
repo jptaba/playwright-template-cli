@@ -1,6 +1,7 @@
 import { describeOrphanedSessions, orphanedSessions } from './sessions';
 import { poolSizeFor } from '../paths';
 import { SCAFFOLDED_SPECS } from './scaffold';
+import { COVERAGE_KINDS } from '../journey';
 import { KNOWN_A11Y_STANDARDS, type TargetProfile } from '../../../config/targets/types';
 
 /**
@@ -41,6 +42,18 @@ export interface TargetFacts {
   packFiles: string[];
   /** True when `src/targets/<name>/` exists at all. */
   packExists: boolean;
+  /**
+   * The coverage tags every spec in the pack carries, deduplicated.
+   *
+   * Passed in rather than read here, like every other fact, so this module
+   * stays pure — and read from the *tags* rather than from directory names,
+   * because the tag is what the suite itself selects on and therefore cannot
+   * drift from what actually runs.
+   *
+   * Absent means nobody looked, which is not the same as none: a caller that
+   * cannot read spec sources gets no finding rather than a wrong one.
+   */
+  specTags?: string[];
   /** Roles whose credentials the configured secret store can resolve. */
   resolvableRoles: string[];
   /** Whether roles could be checked at all — a Vault store may be unreachable. */
@@ -255,6 +268,31 @@ function checkPack(
      triage it claims to have, which `npm run app:journey` reports as a
      failed stage and nothing else ever mentions.
   */
+  /*
+     Coverage kinds the pack does not have.
+
+     `npm run app:journey` reports this as a failed stage, and until now that
+     was the only thing that did — so an application could sit for weeks with
+     one happy-path spec while `target:doctor` said there was nothing to fix.
+     Same shape as `no-triage-fixture` above, and raised for the same reason:
+     a condition a run should have caught earlier belongs in the preflight.
+
+     `COVERAGE_KINDS` is the journey's own list, imported rather than copied,
+     so the two cannot come to disagree about what five kinds means.
+  */
+  if (startedWriting && facts.specTags) {
+    const missing = COVERAGE_KINDS.filter(({ tag }) => !facts.specTags!.includes(tag));
+    if (missing.length > 0) {
+      warn(
+        'coverage-incomplete',
+        `The pack has ${COVERAGE_KINDS.length - missing.length} of ${COVERAGE_KINDS.length} ` +
+          `coverage kinds: missing ${missing.map((one) => `${one.kind} (${one.tag})`).join(', ')}.`,
+        'Add specs carrying those tags. A suite of happy paths is a suite that has never ' +
+          'been told no — and `npm run app:journey` reports this as a failed stage (§08).',
+      );
+    }
+  }
+
   if (startedWriting && !specsUnder('tests/triage-fixture')) {
     warn(
       'no-triage-fixture',

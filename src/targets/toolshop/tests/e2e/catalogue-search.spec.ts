@@ -35,7 +35,7 @@ test(
 );
 
 test(
-  'TOOL-1-02 · A search that matches nothing says so rather than showing an empty page @catalogue',
+  'TOOL-1-02 · A search that matches nothing says so rather than showing an empty page @negative @catalogue',
   {
     annotation: [
       { type: 'practitest', description: 'TOOL-1-02' },

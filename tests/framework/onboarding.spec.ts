@@ -5,6 +5,7 @@ import {
   type Diagnostic,
   type TargetFacts,
 } from '../../src/support/onboarding/diagnose';
+import { COVERAGE_KINDS } from '../../src/support/journey';
 import {
   camelCase,
   parseScaffoldArgs,
@@ -315,6 +316,62 @@ test.describe('the onboarding preflight', () => {
     expect(codes(found)).toContain('no-e2e-specs');
     expect(codes(found)).not.toContain('api-no-specs');
     expect(codes(found)).not.toContain('a11y-no-specs');
+  });
+
+  test('a pack missing coverage kinds is told which, before a journey has to say so', () => {
+    /*
+       `npm run app:journey` reported this as a failed stage and nothing else
+       did, so an application could sit for weeks with one happy-path spec
+       while the doctor said there was nothing to fix. Same shape as
+       `no-triage-fixture`, and raised for the same reason: a condition a run
+       should catch earlier belongs in the preflight.
+    */
+    const found = diagnose(profile(), facts({ specTags: ['@smoke'] }));
+    const message = found.find((one) => one.code === 'coverage-incomplete')?.message ?? '';
+
+    expect(message).toContain('1 of 5');
+    expect(message).toContain('@negative');
+    expect(message).toContain('@boundary');
+  });
+
+  test('a pack with all five kinds is not told anything', () => {
+    const found = diagnose(
+      profile(),
+      facts({ specTags: ['@smoke', '@negative', '@idempotency', '@audit', '@boundary'] }),
+    );
+
+    expect(codes(found)).not.toContain('coverage-incomplete');
+  });
+
+  test('nobody having looked is not the same as none, and gets no finding', () => {
+    // A caller that cannot read spec sources omits the tags. Reporting that as
+    // "no coverage" would be a wrong answer where the honest one is silence.
+    expect(codes(diagnose(profile(), facts()))).not.toContain('coverage-incomplete');
+  });
+
+  test('a pack nobody has written yet is not told its coverage is thin', () => {
+    // It has no specs at all, `no-e2e-specs` already says so, and a second
+    // block saying the same thing is how a checker gets skimmed.
+    const found = diagnose(
+      profile(),
+      facts({
+        packFiles: ['fixtures.ts', 'locators/sign-in.ts', 'actions/sign-in.ts', 'tests/auth.setup.ts'],
+        specTags: [],
+      }),
+    );
+
+    expect(codes(found)).toContain('no-e2e-specs');
+    expect(codes(found)).not.toContain('coverage-incomplete');
+  });
+
+  test('the kinds it checks are the journey’s own, not a second list', () => {
+    // Two lists is how the doctor and the journey come to disagree about what
+    // "five kinds" means, which is the argument that put every other shared
+    // pattern in one place.
+    const found = diagnose(profile(), facts({ specTags: [] }));
+    const message = found.find((one) => one.code === 'coverage-incomplete')?.message ?? '';
+
+    for (const { tag } of COVERAGE_KINDS) expect(message).toContain(tag);
   });
 
   test('a written pack with no triage ground truth is told so', () => {

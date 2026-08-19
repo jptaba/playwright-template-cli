@@ -96,6 +96,33 @@ function listPack(targetName: string): { exists: boolean; files: string[] } {
 }
 
 /**
+ * Every coverage tag the pack's specs carry.
+ *
+ * Read from the sources, because the tag in a title is what the suite selects
+ * on: a kind claimed in a directory name and missing from every title would
+ * satisfy a filename check and be reported as covered.
+ */
+function packSpecTags(targetName: string): string[] {
+  const root = path.join(REPO_ROOT, 'src', 'targets', targetName, 'tests');
+  if (!fs.existsSync(root)) return [];
+
+  const found = new Set<string>();
+  const walk = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const full = path.join(directory, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.spec.ts')) {
+        for (const tag of fs.readFileSync(full, 'utf8').match(/@[a-z][a-z0-9-]*/g) ?? []) {
+          found.add(tag);
+        }
+      }
+    }
+  };
+  walk(root);
+  return [...found];
+}
+
+/**
  * Ask the store which roles resolve. `describe` returns existence and field
  * names — there is no code path here that can reach a value.
  */
@@ -206,6 +233,7 @@ async function main(): Promise<number> {
     const facts: TargetFacts = {
       packExists: pack.exists,
       packFiles: pack.files,
+      specTags: packSpecTags(name),
       resolvableRoles: credentials.resolvable,
       credentialsChecked: credentials.checked,
       contractSpecExists: Boolean(

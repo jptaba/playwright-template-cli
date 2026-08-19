@@ -4681,3 +4681,94 @@ like a shared demo. Nothing in this change touches a target suite.
 `saucedemo` and `parabank` each have only `@smoke`, and OrangeHRM's audit and
 boundary cells need data the spec creates. Item 53's third part is still parked
 by design.
+
+## 2026-08-19 · run 68 · Three cells, a check that finds them, and the one I refused to invent
+
+**Picked:** item 52, the missing coverage cells, one application at a time —
+`toolshop` first, being the comprehensive one. The owner repeated the standing
+instruction that implementations and fixes go in the framework, so the run is
+deliberately split into the two halves rule zero draws.
+
+**The framework half.** `target:doctor` now reports `coverage-incomplete`,
+naming the kinds a pack does not carry. Before this, `npm run app:journey` was
+the only thing that said so — the same gap `no-triage-fixture` closed in run
+63, and the same fix: a condition a run should catch earlier belongs in the
+preflight.
+
+It imports `COVERAGE_KINDS` from `src/support/journey.ts` rather than restating
+the list, so the doctor and the journey cannot come to disagree about what five
+kinds means. Tags are read from the spec sources by `tools/check-target.ts` and
+passed in as a fact, keeping `diagnose()` pure — and read from *tags* rather
+than filenames, because the tag is what the suite selects on. Absent tags mean
+nobody looked, which is not the same as none and gets no finding.
+
+Live, on the day it was added:
+
+```
+toolshop        4 of 5 coverage kinds: missing audit (@audit)
+orangehrm       3 of 5: missing audit (@audit), boundary (@boundary)
+restful-booker  (nothing)
+```
+
+**The coverage half — and two of the four cells already existed.** `TOOL-1-02`
+(a search that matches nothing) and `TOOL-2-02` (a wrong password establishes
+no session) are genuinely negative specs that carried no `@negative` tag, so
+`--grep @negative` did not run them and the coverage measure could not see
+them. Tagging them is not gaming the measure: an untagged negative spec is a
+real defect in the suite's own selectors.
+
+Two are new, and both were measured against the running application before
+being written:
+
+- **`TOOL-3-03` `@idempotency`** — adding the same product twice is one line of
+  two, not two lines. Observed: badge 1, then 2; one row; quantity "2". It
+  earns a spec because the failure is silent in both directions — two rows of
+  one total the same money as one row of two, so every assertion about the
+  order total still passes while the cart has stopped meaning what it says.
+- **`TOOL-4-05` `@boundary`** — the catalogue's stated page range. Read off the
+  envelope rather than written down (`per_page` 9, `last_page` 6, `total` 50),
+  and asserting both halves: that the first page is full and the last reaches
+  the total, *and* that a page past the end answers 200 with an empty set. The
+  second half alone would be satisfied by a service that returned nothing for
+  every request.
+
+**And the fifth cell was not written, on purpose.** Toolshop has no audit
+surface: measured, its cart lives in per-tab `sessionStorage` (`cart_id`,
+`cart_quantity`) with only `auth-token` in `localStorage`, and its API layer is
+a read-only catalogue. An audit spec asserts a change was *recorded* somewhere
+a different surface can see; there is nowhere to ask. Raised as item 56,
+because the same measurement contradicts the profile's `serverState: true` and
+the three-account pool built on it — and that is a claim to investigate, not to
+quietly edit.
+
+**Verify:** `npm run verify` passes, exit 0 — **1065 tests**. `catalog:build`
+was needed and is committed: the client grew a page parameter, and a stale
+catalog is the hallucination it exists to prevent.
+
+**Live suites: 5 of 5, 45/45** — toolshop 22/22, up from 20.
+
+**Learned:**
+
+- **My own two tests had a real race, and only the heaviest run found it.** The
+  `<details>` persistence tests passed alone and under framework+dashboard, and
+  failed twice under a full `TARGET=toolshop` build. `toggle` is dispatched
+  asynchronously, so the handler that stores the choice can still be pending
+  when the reload starts — the page comes back closed and the test reports that
+  remembering is broken. Fixed by waiting for the *stored value*, which is this
+  repository's own rule: wait for the fact, not for the click. Worth
+  generalising: a test that asserts persistence must wait for the write, and
+  clicking is not writing.
+- **Two of four "missing" cells were present and invisible.** The gap between
+  what a suite proves and what its tags say it proves is a real one, and it is
+  invisible to every measure that reads tags — including the new check. Worth
+  looking for before writing anything: the cheapest coverage is the coverage
+  that already exists.
+- **Refusing to write the fifth cell was the right call and cost the most
+  time.** Three probes went into looking for an audit surface, and the finding
+  is that there isn't one. A spec that reloaded the page and asserted the cart
+  survived would have been an `@audit` tag on a claim the application does not
+  make — the measure would have gone green and said nothing true.
+
+**Next:** `orangehrm` needs `@audit` and `@boundary`; `saucedemo` and
+`parabank` need four each. Item 56 wants a measurement before anybody touches
+toolshop's pool.

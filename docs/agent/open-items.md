@@ -16,17 +16,23 @@ decide what to do.
 | # | Item | Status |
 |---|---|---|
 | 53 | Onboarding: one step at a time, and a way back | `ready` |
-| 52 | Fourteen coverage cells are missing across four applications | `ready` |
+| 52 | Ten coverage cells are missing across four applications | `ready` |
+| 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `ready` |
 | 46 | The journey has been run for one application, not five | `ready` |
 | 48 | Seeded failure cases exist for one application, not five | `ready` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Items 51 and 55 are both `done`** — every application carries a triage
-fixture (run 66), and the set-up pages are out of the permanent rail (run 67).
-Both are archived in `backlog.md`. **Take 52 next**, the coverage cells: three
-applications have only `@smoke`, and it is now the largest gap between what
-this framework claims and what it demonstrates.
+**Items 51 and 55 are `done`** and archived in `backlog.md`. **Item 52 is
+under way** — `toolshop` went from one coverage kind to four in run 68, and
+`target:doctor` now names the missing ones itself rather than leaving it to a
+six-stage journey. **Carry on with 52**, one application at a time:
+`orangehrm` needs two, `saucedemo` and `parabank` four each.
+
+*(Item 52's section below was restored in run 68. Run 66 removed it by
+accident while archiving item 51 — the two were adjacent, and the row in the
+table above survived while its body did not. Worth a glance whenever a section
+is cut from this file.)*
 
 ---
 
@@ -79,6 +85,90 @@ it is also how somebody checks what they typed two steps ago. Collapsing them
 to a summary line is the version worth building; hiding them outright would
 cost more than it returns, and would churn a large number of tests that read
 fields across steps.
+
+---
+
+### 52. Ten coverage cells are missing across four applications — `ready`
+
+Read off the tags in each pack, and **`target:doctor` now reports it directly**
+(`coverage-incomplete`, added in run 68) rather than leaving it to
+`npm run app:journey`:
+
+| application | has | missing |
+|---|---|---|
+| toolshop | `@smoke` `@negative` `@idempotency` `@boundary` | audit |
+| saucedemo | `@smoke` | negative, idempotency, audit, boundary |
+| parabank | `@smoke` | negative, idempotency, audit, boundary |
+| orangehrm | `@smoke` `@negative` `@idempotency` | audit, boundary |
+
+`restful-booker` is the only application with all five, and is the worked
+example of what each looks like.
+
+**Look for cells that already exist before writing any.** Two of toolshop's
+four were present and merely untagged — genuinely negative specs that
+`--grep @negative` did not run and no measure could see. That is the cheapest
+coverage there is, and an untagged negative spec is itself a defect in the
+suite's own selectors.
+
+**Toolshop's `@audit` is blocked rather than unwritten**, and item 56 is why:
+its cart lives in per-tab `sessionStorage` and its API layer is a read-only
+catalogue, so there is no second surface to ask whether a change was recorded.
+Do not tag a reload as an audit — the measure would go green having proved
+nothing.
+
+**OrangeHRM's two need data the spec creates** — adding a system user — which
+is the point at which its pack stops being read-only.
+
+---
+
+### 56. Toolshop's cart is per-tab, and its profile says it is per-account — `ready`
+
+**Found in run 68 while looking for an audit surface**, by driving the running
+storefront with a signed-in session rather than by reading the pack.
+
+**What the profile and the pack say.** `serverState: true`, and
+`config/targets/toolshop.ts` explains the three-customer pool with it: *"the
+cart lives on the server against the signed-in account… so two workers signing
+in as `customer` share one cart."* `cart-totals.spec.ts` opens with the same
+claim and records that the cart specs once emptied each other mid-assertion.
+
+**What the application does.** Measured, signed in as the pooled customer:
+
+| | |
+|---|---|
+| `sessionStorage` | `cart_id`, `cart_quantity` |
+| `localStorage` | `auth-token` only — no cart |
+| a **new tab in the same context** | empty cart |
+| a **fresh context** with the same session | empty cart |
+
+`sessionStorage` is per-tab. So the cart is keyed by something a tab holds, not
+by the account — and two workers signed in as the same customer would *not*
+share a cart, because each has its own context.
+
+**Why it matters, and why it was not acted on in the run that found it.**
+
+- **The pool's stated rationale may be wrong**, and `poolSize: { customer: 3 }`
+  costs a worker (`e2e` runs at two rather than three, and the profile says so).
+  If the cart is per-tab, that cost buys nothing on this application.
+- **There is no audit surface for the cart**, which is why toolshop still has
+  no `@audit` cell. An audit spec asserts a change was *recorded* where a
+  different surface can see it; toolshop's API layer is a read-only catalogue,
+  and a cart that does not outlive its tab cannot be asked about from anywhere.
+- **The old observation is not obviously false**, which is the part needing a
+  person rather than another probe. Cart specs really did interfere when there
+  was one account — recorded at the time, not recalled. Either the application
+  changed, or that interference had a different cause and the pool fixed it by
+  accident. Both are worth knowing and neither is settled by what is above.
+
+**Do not fix this by editing the profile.** Rule zero: the claim is an output,
+and the question is which mechanism should have caught a declared capability
+that the application does not have. `serverState` is human-declared and nothing
+checks it — that is the framework-shaped half, and it is the interesting one.
+
+**Next step is a measurement, not an edit**: run the cart specs against a
+one-account pool and see whether they still interfere. That answers which of
+the two stories is true, and it is one command plus a profile value nobody has
+to keep.
 
 ---
 

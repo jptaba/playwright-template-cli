@@ -311,6 +311,23 @@ test.describe('the set-up group', () => {
     await p.goto('http://shell.test/');
   };
 
+  /*
+     Wait for the write, not for the click.
+
+     `toggle` is dispatched asynchronously, so the handler that persists the
+     choice can still be pending when a reload starts — the page then comes
+     back closed and the test reports that remembering is broken. Both of
+     these failed exactly that way under a full `TARGET=<app>` run, where a
+     browser is sharing a machine with a live suite, and passed alone every
+     time. The fix is the convention this repository already has for it: wait
+     for the fact, which here is the stored value.
+  */
+  const stored = async (p: import('@playwright/test').Page, value: string | null) => {
+    await expect
+      .poll(() => p.evaluate(() => localStorage.getItem('nav-open:set-up')))
+      .toBe(value);
+  };
+
   test('opening it is remembered on the next page', async ({ page: p }) => {
     /*
        Somebody who opens Set up to add an application and then check its
@@ -319,6 +336,7 @@ test.describe('the set-up group', () => {
     */
     await served(p);
     await setUp(p).getByText('Set up', { exact: true }).click();
+    await stored(p, 'yes');
     await p.reload();
 
     await expect(setUp(p)).toHaveJSProperty('open', true);
@@ -329,7 +347,9 @@ test.describe('the set-up group', () => {
   }) => {
     await served(p);
     await setUp(p).getByText('Set up', { exact: true }).click();
+    await stored(p, 'yes');
     await setUp(p).getByText('Set up', { exact: true }).click();
+    await stored(p, null);
     await p.reload();
 
     await expect(setUp(p)).toHaveJSProperty('open', false);
