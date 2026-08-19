@@ -4919,3 +4919,88 @@ highest count this file has recorded.
 **Next:** item 52's remaining cells — `parabank` needs four, `orangehrm` two.
 Item 58 (`sharedEnvironment` enforced by nothing) still wants the product
 decision stated in the item before anything is built.
+
+## 2026-08-19 · run 71 · Four cells for a bank that broke while they were written
+
+**Picked:** item 52 for `parabank` — the last application needing all four
+kinds beyond the happy path.
+
+**All four are written and grounded, and the application went down in the
+middle of it.** Every claim was measured against the running ParaBank first;
+by the time the specs were ready to run end to end, its own login and overview
+endpoints were answering **HTTP 500** again — the same fault run 65 found and
+that had cleared within hours. Three checks, five minutes apart, all 500.
+
+**What was measured while it was up**, and the first two are the finding:
+
+| | |
+|---|---|
+| a **negative** amount | accepted — *"Transfer Complete! -$5.00 has been transferred"* |
+| an amount **far beyond the balance** | accepted — `999999999` transferred |
+| an **empty** amount, and the string `abc` | accepted, reported complete with no amount at all |
+| reloading a completed transfer | does **not** re-post — the form comes back empty |
+| the receiving account's activity | records the transfer, once, with All as the period |
+
+So `PB-2-01 @negative` and `PB-6-01 @boundary` assert what a bank must do and
+**fail**, which is the honest output: a defect in the application is a failure
+and it stays one.
+
+**`test.fail()` was tried and withdrawn, and that is the entry.** Both defect
+specs were briefly marked as expected failures — the mechanism `run-result.ts`
+documents for exactly this. Then the run showed them *passing* while failing at
+`openOverview`, two pages before their own assertion, because the application
+was 500ing. `test.fail()` inverts the whole test, so it cannot tell *the defect
+is still there* from *this stopped testing anything*. That is run 56's
+"fixture failed for the wrong reason" in a different costume, and §10 already
+says known-failure handling belongs in triage and the report rather than in the
+code under the assertion. Both markers are gone and the specs fail honestly.
+
+**The framework half: `openOverview` could not express a broken application.**
+It waited only for the account rows, so an overview answering *"An internal
+error has occurred and has been logged."* failed as a bare fifteen-second
+timeout on `#accountTable`. Every spec in the pack reported a missing table
+while the application was saying plainly what was wrong, and triage saw a
+locator timeout it could not classify.
+
+It now waits for **either** the rows or the error and says which — the shape
+the `transfer` verb in the same file already had. The whole chain works from
+one sentence:
+
+```
+Error: The accounts overview did not load. The application said:
+       "An internal error has occurred and has been logged."
+
+5 failure(s) → 1 cluster(s)
+  [application-defect] The application reported a fault of its own on a valid
+  request  (rule: server-error)
+```
+
+Five failures, one cluster, one verdict, routed to `dev-team`. Before this run
+the same outage produced five unclassifiable timeouts.
+
+**Verify:** `npm run verify` passes, exit 0 — **1071 tests**, catalog rebuilt.
+
+**Live suites: 4 of 5.** orangehrm 5/5, restful-booker 13/13, saucedemo 6/6,
+toolshop 22/22; **parabank 2/7, every failure `application-defect`** and left
+red, because the application is broken and that is what the suite is for.
+
+**Learned:**
+
+- **A known-failure marker has to be narrower than the test.** `test.fail()` is
+  the only tool Playwright offers and it inverts everything, so it reports a
+  green tick for a spec that never reached the defect it is about. On an
+  application that fails upstream — which is exactly the kind that has known
+  defects — that is not a corner case, it is the normal case.
+- **The verb that could describe a refusal could not describe an outage**, in
+  the same file. `transfer` waits for complete-or-refused and reports which;
+  `openOverview` waited for one fact and timed out on everything else. Worth
+  checking every verb that waits for a happy fact: the question is not "does it
+  wait" but "what does it do when the application says something else".
+- **Writing four specs against an application that then broke was still worth
+  it.** Two of them are the reason to have written them, and the third and
+  fourth will report the day ParaBank comes back. The alternative — waiting for
+  a green window on somebody else's demo — is how coverage never gets written.
+
+**Next:** `orangehrm` needs `@audit` and `@boundary`, which are the two that
+need data the spec creates — the point at which its pack stops being read-only.
+That finishes item 52 apart from toolshop's blocked `@audit` (item 56).

@@ -16,6 +16,19 @@ import { banking } from './actions/accounts';
 export interface ParabankTestData {
   /** Unique per call, so parallel workers never collide on a record. */
   record(overrides?: Partial<{ reference: string }>): { reference: string };
+  /**
+   * A small transfer amount this worker alone will use.
+   *
+   * This demo is shared and keeps every transfer anybody has ever made, so an
+   * amount two concurrent workers both chose would let one worker's row answer
+   * the other's search. Distinct per parallel slot fixes that.
+   *
+   * It does **not** try to be unique across runs, and it should not: the specs
+   * that use it assert a *change* in how many transactions carry the amount,
+   * never that there is exactly one. A count is the only claim that survives
+   * an application whose history nobody clears.
+   */
+  transferAmount(): string;
 }
 
 export interface ParabankFixtures {
@@ -46,6 +59,8 @@ export const test = framework.extend<ParabankFixtures>({
       // Tagged with the run id so everything created can be cleaned up, and so
       // an orphan can be traced back to the run that left it.
       record: (overrides = {}) => ({ reference: run.unique('REC'), ...overrides }),
+      // Small on purpose: these move real money on a demo everybody shares.
+      transferAmount: () => `1.${String(10 + (run.parallelIndex % 80)).padStart(2, '0')}`,
     });
   },
 });

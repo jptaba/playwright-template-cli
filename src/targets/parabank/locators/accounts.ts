@@ -95,4 +95,42 @@ export const accountLocators = {
    */
   // locator-justification: three <p class="error"> exist at once; see above
   error: (page: Page): Locator => page.locator('#rightPanel p.error:visible'),
+
+  /* --- Account activity ---------------------------------------------- */
+
+  /**
+   * The transactions table on an account's activity page.
+   *
+   * Scoped by id for the same reason the overview is: this page renders
+   * **three** tables — the account's details, the period filter, and the
+   * transactions — and `getByRole('table')` on it is whichever one the DOM
+   * offers first. Counted on the running page rather than assumed.
+   */
+  // locator-justification: the table has no caption and no accessible name
+  activityTable: (page: Page): Locator => page.locator('#transactionTable'),
+
+  /**
+   * One row per transaction.
+   *
+   * Filtered to rows holding a link, exactly as the overview's rows are: the
+   * header carries none, and a transaction's description is the link to its
+   * detail. `getByRole('row')` inside the scoped table rather than a raw
+   * `tbody tr` — the lint rule refused the CSS and was right to, because the
+   * role is available here and a justification would have been an excuse.
+   */
+  activityRows: (page: Page): Locator =>
+    accountLocators
+      .activityTable(page)
+      .getByRole('row')
+      .filter({ has: page.getByRole('link') }),
+
+  /**
+   * The period filter, which defaults to the current month.
+   *
+   * A transfer made minutes ago is inside that month, so the default is
+   * usually enough — and "usually" is what makes a spec fail at midnight on
+   * the first of a month. The verb sets it to All.
+   */
+  // locator-justification: the select has an id and no accessible name
+  activityPeriod: (page: Page): Locator => page.locator('#month'),
 };

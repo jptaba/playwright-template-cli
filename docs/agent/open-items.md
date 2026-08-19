@@ -16,7 +16,8 @@ decide what to do.
 | # | Item | Status |
 |---|---|---|
 | 53 | Onboarding: one step at a time, and a way back | `ready` |
-| 52 | Six coverage cells are missing across three applications | `ready` |
+| 52 | Two coverage cells are missing, plus one that is blocked | `ready` |
+| 59 | A known-failure marker cannot be narrower than its test | `ready` |
 | 58 | `sharedEnvironment` is declared, documented, and enforced by nothing | `ready` |
 | 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `ready` |
 | 46 | The journey has been run for one application, not five | `ready` |
@@ -27,8 +28,8 @@ decide what to do.
 **Items 51 and 55 are `done`** and archived in `backlog.md`. **Item 52 is
 under way** — `toolshop` went from one coverage kind to four in run 68, and
 `target:doctor` now names the missing ones itself rather than leaving it to a
-six-stage journey. **Carry on with 52**, one application at a time: `parabank` needs four and
-`orangehrm` two. Run 69 gave `saucedemo` all five kinds and turned up items 57
+six-stage journey. **Carry on with 52**: `orangehrm` is the last one, and its two are the pair
+that need data the spec creates. Run 69 gave `saucedemo` all five kinds and turned up items 57
 and 58 doing it; **57 shipped in run 70**, so a corrected template line now
 reaches the packs that already exist.
 
@@ -91,7 +92,7 @@ fields across steps.
 
 ---
 
-### 52. Six coverage cells are missing across three applications — `ready`
+### 52. Two coverage cells are missing, plus one that is blocked — `ready`
 
 Read off the tags in each pack, and **`target:doctor` now reports it directly**
 (`coverage-incomplete`, added in run 68) rather than leaving it to
@@ -99,9 +100,9 @@ Read off the tags in each pack, and **`target:doctor` now reports it directly**
 
 | application | has | missing |
 |---|---|---|
-| toolshop | `@smoke` `@negative` `@idempotency` `@boundary` | audit |
+| toolshop | `@smoke` `@negative` `@idempotency` `@boundary` | audit — **blocked**, see item 56 |
 | saucedemo | all five | — |
-| parabank | `@smoke` | negative, idempotency, audit, boundary |
+| parabank | all five | — (two of them fail: real defects, run 71) |
 | orangehrm | `@smoke` `@negative` `@idempotency` | audit, boundary |
 
 `restful-booker` and `saucedemo` have all five. **saucedemo is the better
@@ -123,6 +124,48 @@ nothing.
 
 **OrangeHRM's two need data the spec creates** — adding a system user — which
 is the point at which its pack stops being read-only.
+
+---
+
+### 59. A known-failure marker cannot be narrower than its test — `ready`
+
+**Found in run 71**, writing two specs for defects ParaBank genuinely has: it
+accepts a negative transfer and one far larger than the account holds, and
+reports *"Transfer Complete!"* for both.
+
+`run-result.ts` documents `test.fail()` as the way to mark *"a known provider
+or application defect"*, counted inside `passed` so a run does not turn red and
+counted separately so it stays visible. That design is right. **The mechanism
+underneath it is not narrow enough.**
+
+`test.fail()` inverts the *whole* test. So when ParaBank started answering HTTP
+500 on the accounts overview — two pages before either spec reached its own
+assertion — both were reported as **passing**. A marker that cannot tell *the
+defect is still there* from *this stopped testing anything* is worse than no
+marker, and on an application that fails upstream, which is exactly the kind
+that has known defects, that is the normal case rather than a corner one.
+
+Both markers were withdrawn in run 71 and the specs left plainly failing, which
+is what §10 asks for anyway: known-failure handling belongs in triage and the
+report, never in the code under the assertion.
+
+**What is actually missing**, and it already exists one taxonomy over.
+`triage:measure` reports `not-reproduced` when a ground-truth spec *passes* —
+the fixture stopped reproducing the cause it claims. A `@known-failure` spec
+needs the same check from the other side: it should fail **for its own reason**,
+and a run where it failed for a different one is not a known failure, it is an
+unmeasured one.
+
+**Shape worth trying.** The spec states what it expects to fail *with* — the
+error signature, or the triage category, the way `triage-ground-truth`
+annotations already state a category. The reporter then counts it as an
+expected failure only when the failure matches, and as an ordinary failure when
+it does not. That reuses the annotation channel already reaching
+`run-result.json` verbatim, so nothing needs to import a target pack.
+
+**Do not solve it by widening `test.fail()`.** Playwright's marker is what it
+is; the judgement belongs where every other verdict about a failure already
+lives, which is triage and the report.
 
 ---
 

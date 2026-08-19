@@ -76,6 +76,7 @@ _L2 UI vocabulary. Composes locators, returns data, asserts nothing._
 | `banking.openOverview` | `(page: Page) => Promise<void>` | Open the overview and wait for the account rows to be there. |
 | `banking.accountNumbers` | `(page: Page) => Promise<string[]>` | The account numbers this customer holds, in the order shown. |
 | `banking.transfer` | `(page: Page, transfer: { amount: string; from: string; to: string; }) => Promise<TransferReceipt>` | Move money between two accounts and return what the application said. |
+| `banking.activity` | `(page: Page, account: string) => Promise<AccountActivity[]>` | What an account's activity page says happened to it. |
 | `signIn.withCredentials` | `(page: Page, credentials: Credentials) => Promise<void>` | Submit the sign-in form. |
 | `signIn.isSignedIn` | `(page: Page) => Promise<boolean>` | Whether the page currently carries a session. |
 | `signIn.signedInAs` | `(page: Page) => Promise<string \| null>` | Who the session belongs to, or null when signed out. |
