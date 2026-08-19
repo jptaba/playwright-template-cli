@@ -4152,3 +4152,72 @@ nothing to settle them.
 **Next:** write rules for `locator-drift`, `test-data` and
 `timing-synchronisation`, then re-measure — the fixture is now the instrument
 for that. Then application 5 of the coverage phase.
+
+## 2026-08-18 · run 57 · Two rules, and the one I was talked out of writing
+
+**Picked:** write rules for the three categories run 56's fixture proved had
+none — `locator-drift`, `test-data`, `timing-synchronisation`.
+
+**Two shipped. The third should not exist, and finding that out is the run.**
+
+**`short-wait` → `timing-synchronisation`.** Two signals: `expect.poll`'s own
+"waiting on the predicate", which is unambiguous, and a locator timeout under
+one second. The suite waits 15s by default, so a sub-second timeout was passed
+by a caller — nobody arrives at 1ms by accident. Ordered *ahead* of
+`locator-drift`, because when both shapes match, how long the spec was willing
+to wait is the more specific evidence.
+
+**`locator-drift` → strict-mode violations only**, and the narrowness is the
+entire point.
+
+**The first version matched a plain locator timeout, and this repository's own
+fixture caught it.** `triage-dashboard.spec.ts` carries case 5106 — a timeout
+waiting for a "Pay now" button — marked as a **judgement call that must be
+declined**, with the reasoning already written down: *"Renamed button, or a
+button that never appeared because of a defect upstream. A rule that guesses
+here is the failure mode, not the feature."* My rule answered it, and a test
+that had been passing for weeks went red.
+
+The existing reasoning is right and I dropped mine. Healing a locator for a
+control that is legitimately absent would paper over an application defect —
+the exact thing the owner forbade, arrived at through triage rather than
+through a code change. A strict-mode violation carries no such ambiguity: the
+elements are there and the locator names too many of them.
+
+**So the fixture was reshaped rather than the rule widened.** TF-RB-01 now
+produces a strict-mode violation instead of clicking a control that does not
+exist, because the cause it claims has to be the cause it produces.
+
+**No rule for `test-data`, deliberately.** TF-RB-02's error is
+`expect(received).toContain(expected)` — a plain assertion failure,
+indistinguishable from an application defect. The repository already declines
+a sibling case (5105, a wrong number) for the same reason. A rule here would
+be inventing a category, which the conventions call the actual defect. It
+declines, and the decline is correct.
+
+**Measured, both fixtures:**
+
+| fixture | before | after |
+|---|---|---|
+| restful-booker | 1 agreed · 0 contradicted · 3 declined | **3 agreed · 0 contradicted · 1 declined** |
+| saucedemo | 1 agreed · 0 contradicted · 3 declined | unchanged — no regression |
+
+**Verify:** `npm run verify` passes, exit 0 — **1021 tests**, up from 1015.
+
+**Learned:**
+
+- **A test that had been green for weeks was the reviewer.** Nothing about my
+  rule looked wrong in isolation; it read as an obvious improvement. The
+  fixture that caught it exists precisely to be over-answered, and it did its
+  job on the first run — which is the argument for ground-truth fixtures
+  generally, over "the rules look reasonable".
+- **Not writing the third rule was the most valuable decision here.** Two of
+  three is not a shortfall: `test-data` has no signal that distinguishes it
+  from an application defect, and a rule that answered anyway would send real
+  defects to the wrong team with high confidence.
+- **When a rule and a fixture disagree, ask which one is claiming too much.**
+  Here the rule was, and the fixture's claim about TF-RB-01 was too — both
+  said "a missing control is locator drift". Fixing only the rule would have
+  left a fixture asserting something untrue.
+
+**Next:** application 5 of the coverage phase.

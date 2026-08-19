@@ -31,25 +31,31 @@ import { expect, test } from '../../fixtures';
  */
 
 test(
-  'TF-RB-01 · A control that is not on the page @known-failure',
+  'TF-RB-01 · A locator that matches several elements @known-failure',
   {
     annotation: [
       { type: 'practitest', description: 'TF-RB-01' },
       /*
-         What a renamed button looks like to a suite, and the commonest real
-         failure there is. Inlined rather than reached through an action on
-         purpose — there should be no verb for a control that does not exist,
-         and inventing one to make the fixture tidy would put a lie in the
-         vocabulary.
+         **A strict-mode violation, not a control that is missing**, and the
+         difference is the whole reason this spec is shaped this way.
+
+         The first draft clicked a button that does not exist, expecting
+         `locator-drift`. That is a judgement call, not a known cause: a
+         control that never appears is *either* a renamed locator *or* a
+         defect upstream that stopped it rendering — this repository had
+         already decided so in its other ground-truth fixture, and a rule
+         written to answer it would send a real application defect to healing.
+
+         Several matches carries no such ambiguity. The elements are there and
+         the locator names too many of them, which can only be the locator.
       */
       { type: 'triage-ground-truth', description: 'locator-drift' },
     ],
   },
   async ({ page }) => {
     await page.goto('/');
-    await page
-      .getByRole('button', { name: 'Publish the rooms to the website' })
-      .click({ timeout: 5_000 });
+    // The landing page has many links; naming the role alone matches them all.
+    await page.getByRole('link').click({ timeout: 5_000 });
   },
 );
 

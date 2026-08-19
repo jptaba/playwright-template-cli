@@ -482,3 +482,77 @@ test.describe('agreement against a ground-truth fixture', () => {
     expect(measureAgreement(run, triage).rows).toHaveLength(0);
   });
 });
+
+test.describe('a locator that no longer matches, and a spec that would not wait', () => {
+  /*
+     These two arrive in almost the same shape — "timed out waiting for a
+     locator" — and the ordering between them carries the whole distinction.
+     Written after a ground-truth fixture showed that three of the taxonomy's
+     categories had no rule at all.
+  */
+  const settle = (message: string) => {
+    const tests = [failing('t1', message)];
+    const run = runWith(tests);
+    return classifyByRule(clusterFailures(run)[0]!, { run, tests });
+  };
+
+  test('a control that never appeared is a judgement call, not locator drift', () => {
+    /*
+       The first version of this rule matched a plain timeout, and it settled a
+       case the other ground-truth fixture deliberately declines — the existing
+       test caught it. A control that never appears is a renamed locator *or* a
+       defect upstream that stopped it rendering, and healing the locator for
+       the second would paper over the application defect.
+    */
+    const verdict = settle(
+      "TimeoutError: locator.click: Timeout 5000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Publish' })",
+    );
+    expect(verdict?.category).not.toBe('locator-drift');
+  });
+
+  test('a locator matching several elements can only be the locator', () => {
+    const verdict = settle('Error: strict mode violation: getByRole(\'link\') resolved to 3 elements');
+    expect(verdict?.category).toBe('locator-drift');
+    expect(verdict?.needsHumanReview).toBe(false);
+  });
+
+  test('a sub-second timeout is the spec refusing to wait, not the page moving', () => {
+    /*
+       The suite waits 15s by default, so 1ms was passed by a caller — nobody
+       arrives there by accident. Ordered ahead of locator-drift because the
+       magnitude is the more specific evidence.
+    */
+    const verdict = settle(
+      "TimeoutError: locator.waitFor: Timeout 1ms exceeded.\nCall log:\n  - waiting for getByRole('heading', { name: 'Rooms' })",
+    );
+    expect(verdict?.category).toBe('timing-synchronisation');
+    expect(verdict?.recommendedAction).toBe('fix-test');
+  });
+
+  test('a polled condition that never came true is timing, with no hedging', () => {
+    // `expect.poll` is the primitive the conventions mandate for eventual
+    // consistency, so its own timeout is unambiguous about the cause.
+    const verdict = settle('Error: Timeout 10000ms exceeded while waiting on the predicate');
+    expect(verdict?.category).toBe('timing-synchronisation');
+    expect(verdict?.confidence).toBe('high');
+    expect(verdict?.needsHumanReview).toBe(false);
+  });
+
+  test('a timeout that names no locator is left for a rule that knows better', () => {
+    /*
+       The counterweight, and the reason locator-drift does not simply match
+       "Timeout". Almost every UI failure surfaces as one, including an
+       application that is down — so without a locator in the call log this is
+       not evidence about the page.
+    */
+    const verdict = settle('TimeoutError: Test timeout of 60000ms exceeded.');
+    expect(verdict?.category).not.toBe('locator-drift');
+  });
+
+  test('an ordinary assertion is not called a locator problem', () => {
+    // Over-matching here would send every failed expectation to healing.
+    expect(settle('expect(received).toBe(expected)\n\nExpected: 3\nReceived: 2')?.category).not.toBe(
+      'locator-drift',
+    );
+  });
+});

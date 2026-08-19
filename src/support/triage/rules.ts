@@ -130,6 +130,89 @@ export const RULES: TriageRule[] = [
     });
   }),
 
+  /**
+   * A wait shorter than the thing being waited for → the spec's timing, not
+   * the application.
+   *
+   * **Ordered before `locator-drift`, and the ordering carries the whole
+   * distinction.** Both arrive as "timed out waiting for a locator" and are
+   * otherwise identical in shape; what separates them is *how long the spec
+   * was willing to wait*. A timeout at the configured default means we waited
+   * the normal amount and the element never came — something moved. An
+   * explicitly short timeout means the spec chose not to wait, and the defect
+   * is the assumption about timing.
+   *
+   * `expect.poll` is the unambiguous half: Playwright renders it as "waiting
+   * on the predicate", and the conventions mandate it for exactly the
+   * eventually-consistent facts that produce this failure.
+   *
+   * The threshold is a heuristic and is stated as one. This suite configures
+   * `actionTimeout: 15_000` and `expect: { timeout: 10_000 }`, so anything
+   * under a second was deliberately passed by a caller — nobody arrives at
+   * 1ms by accident.
+   */
+  rule('short-wait', (cluster, { tests }) => {
+    const text = errorText(tests);
+    const shortWait = /Timeout (\d{1,3})ms exceeded/.exec(text);
+    const polled = /waiting on the predicate/i.test(text);
+    if (!polled && !shortWait) return null;
+
+    return verdict(cluster, 'short-wait', {
+      category: 'timing-synchronisation',
+      confidence: polled ? 'high' : 'medium',
+      summary: polled
+        ? 'A polled condition never became true inside its timeout'
+        : `A wait of ${shortWait?.[1]}ms expired — shorter than this application answers in`,
+      evidence: [
+        polled ? matched(text, /waiting on the predicate/i) : matched(text, /Timeout \d+ms exceeded/),
+        'The suite waits 15s by default, so a sub-second timeout was chosen by the caller.',
+      ],
+      recommendedAction: 'fix-test',
+      suggestedOwner: 'qa',
+      // Medium on the magnitude alone: a genuinely absent element with a short
+      // timeout looks the same, and a person should confirm which it was.
+      needsHumanReview: !polled,
+    });
+  }),
+
+  /**
+   * A locator that matches **several** elements → the locator is wrong.
+   *
+   * **Strict-mode violations only, and the narrowness is the point.** The
+   * obvious rule is "a timeout waiting for a locator is locator drift", and
+   * this repository had already decided against it, in the ground-truth
+   * fixture, with reasoning worth repeating: a "Pay now" button that never
+   * appears is *either* a renamed control *or* a button missing because
+   * checkout is broken upstream, and nothing in the text says which.
+   *
+   * The first draft of this rule ignored that and matched the timeout too. It
+   * settled a case the fixture deliberately marks as a judgement call, and the
+   * existing test caught it. Healing a locator for a control that is
+   * legitimately absent would paper over an application defect — which is
+   * exactly the thing the conventions forbid, arrived at through triage
+   * instead of through a code change.
+   *
+   * A strict-mode violation carries no such ambiguity: the element is there,
+   * and the locator names too many of them.
+   */
+  rule('locator-drift', (cluster, { tests }) => {
+    const text = errorText(tests);
+    if (!/strict mode violation/i.test(text)) return null;
+
+    return verdict(cluster, 'locator-drift', {
+      category: 'locator-drift',
+      confidence: 'high',
+      summary: 'A locator matches more than one element',
+      evidence: [
+        matched(text, /strict mode violation[^\n]*/i),
+        `${cluster.size} test(s) share this signature`,
+      ],
+      recommendedAction: 'heal',
+      suggestedOwner: 'qa',
+      needsHumanReview: false,
+    });
+  }),
+
   // "Every test in the run failed at login" → environment or credentials.
   rule('all-failed-at-auth', (cluster, { run, tests }) => {
     const executed = run.tests.filter((test) => test.outcome !== 'skipped');
