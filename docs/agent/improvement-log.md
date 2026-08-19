@@ -5067,3 +5067,83 @@ restful-booker 13/13, saucedemo 6/6, toolshop 22/22.
 **Next:** `orangehrm`'s `@audit` and `@boundary` finish item 52 apart from
 toolshop's blocked one. They need data the spec creates, which is where that
 pack stops being read-only.
+
+## 2026-08-19 · run 73 · The last two cells, and a verb that waited for something already true
+
+**Picked:** item 52's last application — `orangehrm`'s `@audit` and
+`@boundary`, the pair that need data the spec creates. Its pack stops being
+read-only here.
+
+**Both landed, and `orangehrm` now has all five kinds** — `target:doctor`
+reports no `coverage-incomplete` for it, and the live suite is **7/7**.
+
+- **`OHRM-2-01` `@boundary`** — the password rule *the form states* is the rule
+  it enforces. The bound is read from the application, never written down: it
+  answers *"Should have at least 7 characters"*, so the spec matches that
+  sentence rather than asserting a 7 it decided on. Both ends, and the accepted
+  one is the half usually skipped — a form that refused everything would
+  satisfy the refusal alone.
+- **`OHRM-3-01` `@audit`** — a user added on the form is on the *list*, and
+  gone once removed. The change is made on one surface and asked about on
+  another, through the application's own `(N) Records Found` rather than a row
+  count.
+
+**Three things had to be got right before either could run**, and all three
+were the same mistake in different clothes.
+
+**The autocomplete's first option was `"Searching...."`.** Waiting for "an
+option is visible" and clicking it selected the placeholder, so the Employee
+Name field kept the single letter typed into it and the form refused with a
+bare *"Invalid"* — while the spec reported a password rule it had never
+reached. Measured: the clicked option's text was `"Searching...."` and the
+field's value afterwards was `"a"`. The verb now waits for the options to stop
+saying that, and then confirms the field holds the name it picked.
+
+**The save was detected with a case-sensitive URL test that could not match.**
+`/systemUsers/` never matches `viewSystemUsers`, so a successful save looked
+like a form that had neither saved nor complained. It is now `viewSystemUsers`,
+and the case genuinely matters: the form itself lives at `saveSystemUser`, so a
+looser match would call every refusal a save.
+
+**And `searchByUsername` waited for a fact that was already true — which is the
+entry.** It polled until the application had reported a count or said it found
+nothing. Both are true *before* the search: arriving on the page shows every
+user and a count of them. So the poll returned instantly and the table was read
+exactly as it had been before the filter. Caught by creating a user and
+searching for it: the count came back as **30**, the whole list.
+
+The comment above that poll said *"wait for the answer, not the click"*. It was
+right and the code did not do it. It now waits for the rows to *match* — every
+username on screen contains what was searched for, or the application says it
+found none.
+
+**That is very likely what `OHRM-1-03` was failing on**, once, earlier today,
+settled as `timing-synchronisation` in a live run. Not proven — the failure did
+not recur — but it is the same verb, the same race, and the fix removes it.
+
+**Verify:** `npm run verify` passes, exit 0 — **1079 tests**, catalog rebuilt.
+
+**Live suites: 3 passing, 1 failing, 1 parked.** orangehrm **7/7**,
+restful-booker 13/13, saucedemo 6/6, parabank parked; toolshop 21/22 —
+`TOOL-3-01`, the pre-existing cart spec, on a demo whose cart is shared state.
+
+**Learned:**
+
+- **A poll is only as good as the thing it polls for, and "something is on
+  screen" is almost never it.** All three defects here were that: an option
+  exists, a count exists, a URL contains a word. The version that works asks
+  whether the *answer* arrived — the options stopped saying Searching, the rows
+  match the filter, the page is the list rather than the form.
+- **A correct comment above incorrect code is worse than no comment.**
+  `searchByUsername` explained the "wait for the fact" rule in four lines and
+  then waited for the wrong fact, which is why nobody reading it spotted the
+  race. The comment now says what it got wrong and what caught it.
+- **Writing the first spec that creates data is where a read-only pack's
+  latent races surface.** Everything else in this pack reads a list somebody
+  else populated, so a filter that returned the unfiltered list still contained
+  the row being looked for. The first spec to search for something it had *just
+  created* is the one that could tell the difference.
+
+**Next:** item 52 is finished apart from toolshop's `@audit`, which is blocked
+on item 56 — that application has no second surface to ask, and the profile
+claim underneath it needs a measurement rather than an edit.

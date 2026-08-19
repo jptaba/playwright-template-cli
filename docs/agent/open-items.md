@@ -16,7 +16,7 @@ decide what to do.
 | # | Item | Status |
 |---|---|---|
 | 53 | Onboarding: one step at a time, and a way back | `ready` |
-| 52 | Two coverage cells are missing, plus one that is blocked | `ready` |
+| 52 | One coverage cell is left, and it is blocked | `blocked` |
 | 59 | A known-failure marker cannot be narrower than its test | `ready` |
 | 58 | `sharedEnvironment` is declared, documented, and enforced by nothing | `ready` |
 | 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `ready` |
@@ -28,8 +28,10 @@ decide what to do.
 **Items 51 and 55 are `done`** and archived in `backlog.md`. **Item 52 is
 under way** — `toolshop` went from one coverage kind to four in run 68, and
 `target:doctor` now names the missing ones itself rather than leaving it to a
-six-stage journey. **Carry on with 52**: `orangehrm` is the last one, and its two are the pair
-that need data the spec creates. `parabank` is **parked** as of run 72 — its
+six-stage journey. **52 is finished** apart from `toolshop`'s `@audit`, which is blocked on item
+56: that application has no second surface to ask whether a change was
+recorded, and the profile claim underneath it wants a measurement rather than
+an edit. `parabank` is **parked** as of run 72 — its
 five specs stay, two of them reporting real defects, and `suites:live` reports
 it as parked rather than running it until ParaBank's own 500s clear. Its review
 date is 2026-09-19 and `target:doctor` says so on every check. Run 69 gave `saucedemo` all five kinds and turned up items 57
@@ -95,7 +97,7 @@ fields across steps.
 
 ---
 
-### 52. Two coverage cells are missing, plus one that is blocked — `ready`
+### 52. One coverage cell is left, and it is blocked — `blocked`
 
 Read off the tags in each pack, and **`target:doctor` now reports it directly**
 (`coverage-incomplete`, added in run 68) rather than leaving it to
@@ -106,7 +108,7 @@ Read off the tags in each pack, and **`target:doctor` now reports it directly**
 | toolshop | `@smoke` `@negative` `@idempotency` `@boundary` | audit — **blocked**, see item 56 |
 | saucedemo | all five | — |
 | parabank | all five | — **parked** (run 72): the application answers HTTP 500 |
-| orangehrm | `@smoke` `@negative` `@idempotency` | audit, boundary |
+| orangehrm | all five | — (run 73) |
 
 `restful-booker` and `saucedemo` have all five. **saucedemo is the better
 worked example of the four beyond the happy path**, because each one is a
@@ -125,8 +127,12 @@ catalogue, so there is no second surface to ask whether a change was recorded.
 Do not tag a reload as an audit — the measure would go green having proved
 nothing.
 
-**OrangeHRM's two need data the spec creates** — adding a system user — which
-is the point at which its pack stops being read-only.
+**OrangeHRM's two landed in run 73**, and they are the first specs in that
+pack to create data — adding a system user, and removing it in a `finally`.
+Writing them surfaced three latent races in its verbs, including one in
+`searchByUsername` that had been waiting for a fact that was already true.
+
+**What is left is `toolshop`'s `@audit` only, and it is blocked on item 56.**
 
 ---
 

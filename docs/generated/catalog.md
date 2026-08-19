@@ -56,6 +56,8 @@ _L2 UI vocabulary. Composes locators, returns data, asserts nothing._
 | `users.searchByUsername` | `(page: Page, username: string) => Promise<UserSearch>` | Filter by username and return what came back. |
 | `users.read` | `(page: Page) => Promise<UserSearch>` | What the list currently shows. |
 | `users.reset` | `(page: Page) => Promise<void>` | Clear the filters, so a later search is not narrowed by an earlier one. |
+| `users.add` | `(page: Page, user: NewUser) => Promise<UserSaveResult>` | Add a system user, and return what the form did about it. |
+| `users.remove` | `(page: Page, username: string) => Promise<void>` | Remove a system user, by the name it was created with. |
 
 ## Fixtures — parabank
 

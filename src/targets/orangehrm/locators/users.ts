@@ -59,4 +59,73 @@ export const userLocators = {
 
   /** What it says when a filter matches nothing. The empty state is a state. */
   noRecords: (page: Page): Locator => page.getByText('No Records Found'),
+
+  /* --- Adding a system user ------------------------------------------ */
+
+  /**
+   * The Employee Name autocomplete.
+   *
+   * By placeholder, which is the one thing on this form that *is* an
+   * accessible name — every other field's label is unassociated, and this one
+   * carries `Type for hints...` on the input itself. Read off the running page
+   * after a probe that spent three attempts typing into the sidebar's Search
+   * box instead: the add-user form has five textboxes and the first belongs to
+   * the navigation.
+   */
+  employeeName: (page: Page): Locator => page.getByPlaceholder('Type for hints...'),
+
+  /** Suggestions the autocomplete offers. They arrive in a real listbox. */
+  employeeSuggestions: (page: Page): Locator => page.getByRole('option'),
+
+  /** The new user's login name — its own group, not the filter of the same name. */
+  newUsername: (page: Page): Locator =>
+    // locator-justification: labels carry no `for` and inputs no `id`, so the group is the only handle.
+    inputGroup(page, 'Username').locator('input'),
+
+  /**
+   * Password and its confirmation, in document order.
+   *
+   * By type rather than by group: both groups contain the word "Password", so
+   * a `hasText` filter matches the confirmation twice. The order is the
+   * application's own and is asserted by the verb before either is filled.
+   */
+  // locator-justification: both groups say "Password", so the group is not a handle here.
+  passwords: (page: Page): Locator => page.locator('input[type="password"]'),
+
+  /**
+   * The two pickers, in document order: User Role, then Status.
+   *
+   * Neither is a `<select>` — this application draws its own — so there is no
+   * combobox role to match and no accessible name to filter on.
+   */
+  // locator-justification: a div-based picker with no role and no accessible name.
+  pickers: (page: Page): Locator => page.locator('.oxd-select-text'),
+
+  save: (page: Page): Locator => page.getByRole('button', { name: 'Save' }),
+
+  /**
+   * What the form said was wrong, field by field.
+   *
+   * The bound this application states about itself — *"Should have at least 7
+   * characters"* — arrives here, so a boundary spec reads the rule from the
+   * application rather than writing it down.
+   */
+  // locator-justification: the message has no role and is the only handle on it.
+  fieldErrors: (page: Page): Locator => page.locator('.oxd-input-field-error-message'),
+
+  /** The row for one username, so it can be acted on. */
+  rowFor: (page: Page, username: string): Locator =>
+    userLocators.rows(page).filter({ hasText: username }),
+
+  /**
+   * The delete control on a row, and the dialog it opens.
+   *
+   * The button carries no text — it is an icon — so it is found by position
+   * within its own row rather than by name. Scoped to the row on purpose: an
+   * unscoped icon locator deletes whichever user is first.
+   */
+  // locator-justification: an icon button with no accessible name.
+  deleteOn: (row: Locator): Locator => row.locator('.oxd-icon-button').first(),
+
+  confirmDelete: (page: Page): Locator => page.getByRole('button', { name: /Yes, Delete/i }),
 };
