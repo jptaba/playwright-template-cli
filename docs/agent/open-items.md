@@ -15,7 +15,7 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 53 | Onboarding is a permanent page for a once-per-application job | `ready` |
+| 53 | Onboarding: one step at a time, and a way back | `ready` |
 | 51 | Three applications cannot reach the triage stage at all | `ready` |
 | 52 | Fourteen coverage cells are missing across four applications | `ready` |
 | 46 | The journey has been run for one application, not five | `ready` |
@@ -23,14 +23,14 @@ decide what to do.
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Take 53 first.** Item 50 landed in runs 60–61, and 53 is the rest of the
-same ask on the same page — the owner raised it while 50 was in flight. Then 51
-before 52, because a triage fixture is four specs and unblocks a whole journey
-stage, where coverage is the longer grind.
+**Take 51 first.** Two of item 53's three parts landed in run 62 and the
+third is deliberately parked for a rethink, so the dashboard is in a good
+place. 51 before 52 because a triage fixture is four specs and unblocks a whole
+journey stage, where coverage is the longer grind.
 
 ---
 
-### 53. Onboarding is a permanent page for a once-per-application job — `ready`
+### 53. Onboarding: one step at a time, and a way back — `ready`
 
 **The owner's ask, 2026-08-18:**
 
@@ -58,21 +58,27 @@ completed step stays open below the current one, so the page grows downward
 into one long form rather than showing one step at a time. That is the part
 that still reads as a scrolling document rather than a wizard.
 
-**Shape:**
+**Shape, and the first two landed in run 62:**
 
-1. **Onboarding becomes an action, not a destination.** The rail keeps a way in
-   — an *Add an application* control near the application switcher, which is
-   where somebody already goes to change applications — and `/onboard` stays a
-   real route so a link to it still works.
-2. **`/` lands somewhere useful instead.** With no application configured that
-   is still onboarding, because there is nothing else to do; with one or more,
-   it is the page that reflects the steady state.
-3. **Show one step at a time**, with the *Where you are* rail switching between
-   them rather than scrolling to them — and a completed step reopenable without
-   losing what the later ones hold.
+1. ✅ **Onboarding is an action, not a destination.** Step 1 starts closed like
+   the four after it, behind an *Add an application* button. It still opens
+   unasked when a draft is in progress or no application exists at all.
+2. ✅ **`/` lands somewhere useful.** `landingPath()` sends it to `/runs` when
+   anything is configured, and serves onboarding when nothing is. `/onboard`
+   stays a real route either way.
+3. ⬜ **Show one step at a time**, with the *Where you are* rail switching
+   between them rather than scrolling to them — and a completed step reopenable
+   without losing what the later ones hold.
 
-Sequenced after item 50, and not because it is smaller. Item 50 is rewriting
-the words on these steps; moving the steps first would mean doing that twice.
+**Point 3 is deliberately still open, and is worth a second look before it is
+done.** The case for it is weaker after 1 and 2 than it was when this was
+written: the wizard now only runs when somebody asked for it, the current step
+carries an accent edge (run 61), and the rail already jumps. What is left is
+that completed steps stay open above the current one — which is a scroll, but
+it is also how somebody checks what they typed two steps ago. Collapsing them
+to a summary line is the version worth building; hiding them outright would
+cost more than it returns, and would churn a large number of tests that read
+fields across steps.
 
 ---
 
