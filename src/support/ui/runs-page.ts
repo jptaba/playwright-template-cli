@@ -378,9 +378,14 @@ export function runsPageContent(): DashboardPageContent {
     title: 'Runs',
     eyebrow: 'Runs',
     heading: 'Start one, and watch it',
+    /*
+       The lede opened "Start a run and watch it", which is the heading again in
+       different words. Two lines of a page saying the same thing is the same
+       defect the first-block check already names one level down.
+    */
     lede:
-      'Start a run and watch it. Every number here comes from the run’s own event stream, so this ' +
-      'page and the report cannot disagree.',
+      'Every number here comes from the run’s own event stream, so this page and the report ' +
+      'cannot disagree.',
     styles: STYLES,
     body: BODY,
     script: SCRIPT,

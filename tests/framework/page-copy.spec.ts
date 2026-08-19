@@ -84,6 +84,39 @@ test.describe('the lede', () => {
     }
   });
 
+  test('does not begin by saying the heading again', () => {
+    /*
+       Runs led with the heading "Start one, and watch it" and then a lede
+       opening "Start a run and watch it". Publish's heading was "The part that
+       leaves the building" and its lede said "the one page here that leaves the
+       building". Both are the defect the next test already catches one level
+       down — a page repeating itself — and neither was caught, because the
+       check started at the lede rather than above it.
+
+       Four words is the threshold on purpose. Shorter overlaps are ordinary
+       English ("and the run's"), and a heading and lede on the same subject are
+       *meant* to share nouns. Four consecutive words in common is a sentence
+       being reused.
+    */
+    const shingles = (text: string): Set<string> => {
+      const w = words(text)
+        .join(' ')
+        .toLowerCase()
+        .replace(/[^a-z0-9 ]/g, ' ')
+        .split(/\s+/)
+        .filter(Boolean);
+      const out = new Set<string>();
+      for (let i = 0; i + 4 <= w.length; i += 1) out.add(w.slice(i, i + 4).join(' '));
+      return out;
+    };
+
+    for (const [name, page] of Object.entries(PAGES)) {
+      const inLede = shingles(page.lede);
+      const shared = [...shingles(page.heading)].filter((phrase) => inLede.has(phrase));
+      expect(shared, `${name}: the lede says the heading again — "${shared[0]}"`).toEqual([]);
+    }
+  });
+
   test('is not repeated by the first thing under it', () => {
     /*
        Three pages opened by saying the same thing twice — Runs led with "Two

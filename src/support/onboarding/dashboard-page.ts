@@ -985,9 +985,19 @@ function refreshStepRail() {
   const lastOpen = open.lastIndexOf(true);
 
   for (let i = 0; i < ids.length; i += 1) {
+    const state = !open[i] ? 'locked' : i < lastOpen ? 'done' : 'open';
+    /*
+       The section carries the same state as its rail entry.
+
+       Four cards of identical weight, one of which is the one to act on, is a
+       page that has to be read to be navigated. The rail already worked this
+       out; the only thing missing was telling the section, so the eye can find
+       the current step without reading any of them.
+    */
+    $(ids[i]).dataset.state = state;
     const entry = document.querySelector('#stepRail li[data-for="' + ids[i] + '"]');
     if (!entry) continue;
-    entry.dataset.state = !open[i] ? 'locked' : i < lastOpen ? 'done' : 'open';
+    entry.dataset.state = state;
     /*
        A rail entry for a step that is not on the page is a link to nothing —
        it used to at least scroll to a visible locked section. Disabled both

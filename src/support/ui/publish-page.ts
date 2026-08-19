@@ -464,9 +464,14 @@ export function publishPageContent(): DashboardPageContent {
     title: 'Publish',
     eyebrow: 'Publish',
     heading: 'The part that leaves the building',
+    /*
+       The lede used to repeat the heading's phrase back — "the one page here
+       that leaves the building". The heading has already made that point; what
+       the lede is for is the consequence.
+    */
     lede:
-      'Send results to PractiTest and defects to Jira. <b>The one page here that leaves the ' +
-      'building</b> — both show the payload first and need the run’s id typed back.',
+      'Send results to PractiTest and defects to Jira. <b>Nothing here can be undone</b>, so both ' +
+      'show the payload first and need the run’s id typed back.',
     styles: STYLES,
     body: BODY,
     script: SCRIPT,

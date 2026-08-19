@@ -475,6 +475,25 @@ export const DASHBOARD_STYLES = `
     background: var(--surface); border: 1px solid var(--rule); border-radius: 8px;
     padding: 1.4rem 1.5rem 1.6rem; margin-bottom: 1.1rem; box-shadow: var(--shadow);
   }
+
+  /*
+     Which of these is the one to act on.
+
+     A wizard whose steps are five identical cards has to be read to be
+     navigated: the badges say "needs your input" and "done for you", and
+     finding the live one means reading all of them. The current step gets an
+     accent edge and a lift; the ones behind it recede to a flat border.
+
+     Colour is not carrying this on its own — the edge is a change of shape and
+     elevation as well, and the badge still says in words which step wants
+     something. A cue only a sighted reader with normal colour vision can use
+     is not a cue this dashboard is allowed to rely on.
+  */
+  section[data-state="open"] {
+    border-color: var(--accent);
+    box-shadow: inset 3px 0 0 var(--accent), var(--shadow);
+  }
+  section[data-state="done"] { box-shadow: none; }
   .head { display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap; }
   .step {
     font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
