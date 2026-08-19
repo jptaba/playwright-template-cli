@@ -207,6 +207,7 @@ test.describe('editing an existing application', () => {
     dashboard.recorder.conflicts = ['config/targets/shop-one.ts'];
 
     await page.selectOption('#pick', '');
+    await page.click('#addApp');
     await readAndPreview(dashboard, 'shop-one');
     await expect(page.locator('#plan')).toContainText('already onboarded');
     await expect(page.locator('#create')).toBeDisabled();

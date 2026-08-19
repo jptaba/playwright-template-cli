@@ -2776,3 +2776,47 @@ the question is never "does a file exist" but "did a person put it there".
 
 Confirmed on the real pack: `restful-booker` went from two warnings to one, and
 the one left — `no-e2e-specs` — is correct and actionable.
+
+### 50. The dashboard explained itself in the framework's own vocabulary — `done`
+
+Raised from the owner's ask on 2026-08-18: *"There are very vague description
+or instructions there that needs to be revisited. It should be concise but very
+clear. Make it more intuitive and ui look and feel should be very pleasing."*
+
+**Two of the three defects I raised it with were wrong, and measuring said so.**
+The item claimed a 48-word paragraph the copy budget was not counting. Read off
+the running page, no visible paragraph on any of the seven pages exceeds its
+34-word budget — the 48-word block was a runtime result message, not page copy.
+It also claimed the wizard had no step indicator; it has had one all along.
+Both corrections are in the log because the pattern is the point: the item was
+written from recollection and the fix started with a probe.
+
+**What was actually broken.**
+
+*Accessible names.* Every field was `<label>Name <small>hint</small></label>`,
+so the hint joined the accessible name. Eighteen fields across four pages, the
+longest 21 words, announced in full on every focus. The budget read `p.explain`
+and nothing else, so the hints grew where nothing counted them. Fixed with
+`field()`/`checkField()` in `shell.ts`, `aria-describedby`, and two tests — six
+words for a name, and a second that the hints were moved rather than deleted.
+
+*Vocabulary this repository invented, used before it was earned.* "The shape of
+the pack", "its whole four-layer pack", "write its pack" — `pack` is this
+repository's word for `src/targets/<app>/`. The Aim fact read
+`setup:auth passes unedited`, which is exactly true and names a Playwright
+project the reader has not run. And two headings said nothing at all: "What it
+says about itself", "Write it".
+
+Deliberately kept: `getByTestId` and `OpenAPI`. The rule applied is not "no
+jargon" — it is that words *this repository* coined have to be earned first.
+
+*A page repeating itself.* Runs' lede opened with its own heading in different
+words; Publish's quoted its heading back. The existing check for this started
+at the lede, so anything above it was unguarded. It starts at the heading now,
+on a shared four-word phrase.
+
+*Nothing said which step was live.* Five identical cards; the rail had derived
+`locked`/`done`/`open` all along and never told the sections. The current one
+now carries an accent edge and a lift — shape and elevation, not colour alone.
+
+Runs 60–61. Superseded nothing; item 53 continues on the same page.

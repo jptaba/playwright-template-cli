@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
 import {
   handleDashboardRequest,
+  landingPath,
   type DashboardRequest,
   type DashboardService,
 } from '../../src/support/onboarding/dashboard';
-import { EMPTY_DRAFT } from '../../src/support/onboarding/draft';
+import { EMPTY_DRAFT, type OnboardedApp } from '../../src/support/onboarding/draft';
 import type { GauntletStep } from '../../src/support/onboarding/gauntlet';
 
 /**
@@ -95,6 +96,21 @@ function request(overrides: Partial<DashboardRequest> = {}): DashboardRequest {
 const send = (overrides: Partial<DashboardRequest>, over: Partial<DashboardService> = {}) =>
   handleDashboardRequest(request(overrides), { token: 'the-token', service: service(over) });
 
+/** One application on disk. Only the count matters to anything below. */
+const anOnboardedApp = (): OnboardedApp => ({
+  name: 'toolshop',
+  baseURL: 'https://shop.example',
+  environment: 'staging',
+  testIdAttribute: 'data-test',
+  roles: ['standard'],
+  secretSource: 'local',
+  a11yStandard: 'wcag22aa',
+  apiBaseURL: null,
+  include: { api: false, db: false, contracts: false, a11y: true },
+  onboardedAt: '2026-08-13T09:00:00.000Z',
+  packFiles: 12,
+});
+
 // ---------------------------------------------------------------------------
 // The route table itself
 // ---------------------------------------------------------------------------
@@ -126,6 +142,49 @@ test.describe('routing', () => {
       expect((await send({ path, token: 'guessed' })).status, path).toBe(403);
       expect((await send({ path, token: null })).status, path).toBe(403);
     }
+  });
+
+  test('where the front door goes depends on whether anything is configured', () => {
+    /*
+       Onboarding was the landing page, so the screen everybody met every day
+       for the life of a repository was the one they use once per application
+       and never again. With nothing configured it is still right: there is
+       genuinely nothing else to do, and landing on an empty Runs page would be
+       the opposite mistake.
+
+       Tested as a function rather than through the socket because that is what
+       it is — a product decision with two branches, worth being able to read.
+    */
+    expect(landingPath(0)).toBe('/onboard');
+    expect(landingPath(1)).toBe('/runs');
+    expect(landingPath(7)).toBe('/runs');
+  });
+
+  test('/ sends a configured repository on to the page it actually uses', async () => {
+    const response = await send(
+      { method: 'GET', path: '/' },
+      { onboarded: () => [anOnboardedApp()] },
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers?.Location).toBe('/runs');
+  });
+
+  test('/ serves onboarding itself when there is nothing else to do', async () => {
+    // Not a redirect to /onboard: one hop rather than two, and /onboard is
+    // what `/` would have served anyway.
+    const response = await send({ method: 'GET', path: '/' }, { onboarded: () => [] });
+    expect(response.status).toBe(200);
+    expect(response.body).toContain('<!doctype html>');
+  });
+
+  test('/onboard is always itself, however many applications exist', async () => {
+    // The redirect is a default, not a lock. A link to the wizard has to keep
+    // working, or "add another application" becomes unreachable.
+    const response = await send(
+      { method: 'GET', path: '/onboard' },
+      { onboarded: () => [anOnboardedApp()] },
+    );
+    expect(response.status).toBe(200);
   });
 
   test('a body that is not an object is handled as an empty one', async () => {

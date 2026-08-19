@@ -1650,6 +1650,16 @@ function main(): void {
           host: request.headers.host ?? null,
         });
         response.writeHead(result.status, {
+          /*
+             A redirect's Location, and anything else a route adds.
+
+             Spread *first* so the headers below always win: these are the
+             cache, sniffing and content-security rules every response here
+             depends on, and a route that named one of them by accident would
+             otherwise switch it off for that response only — the kind of hole
+             that is found much later, by somebody else.
+          */
+          ...result.headers,
           'Content-Type': result.contentType,
           // Nothing here should ever be cached, embedded or sniffed.
           'Cache-Control': 'no-store',

@@ -155,6 +155,7 @@ ${overview([
     </details>
     <label for="pick">Application</label>
     <select id="pick"></select>
+    <button id="addApp">Add an application</button>
     <button class="secondary" id="editApp" hidden>Change its settings</button>
     <button id="saveApp" hidden>Save the changes</button>
     <button class="secondary" id="cancelEdit" hidden>Cancel</button>
@@ -162,7 +163,17 @@ ${overview([
     <div id="editOut"></div>
   </section>
 
-  <section id="s1">
+  <!--
+    Step 1 starts closed like the four after it.
+
+    Adding an application happens once and is then never done again, and this
+    used to be the page the dashboard opened on with its wizard already
+    running — so the daily reader met a half-filled form for a job they were
+    not doing. It opens when somebody says they are adding one, or when a
+    half-finished draft is waiting, and otherwise this page is what it is the
+    rest of the time: the list of applications and their settings.
+  -->
+  <section id="s1" class="pending" inert>
     <div class="head">
       <span class="step">Step 1</span>
       <h2>The application</h2>
@@ -740,12 +751,17 @@ function showApplication(app) {
   renderCredentials();
   setFormEnabled(false);
   /*
-     An onboarded application's settings live in steps 2 and 3, so those two
-     are what a selection has earned — read-only, because the inputs are
+     An onboarded application's settings live in steps 1, 2 and 3, so those
+     three are what a selection has earned — read-only, because the inputs are
      disabled, and on the page, because otherwise "read-only" describes fields
      nobody can see. Steps 4 and 5 stay away: this application has already been
      written, and there is nothing in either of them to do to it.
+
+     Step 1 is in that list now that it no longer starts open. It holds the
+     name, the environment and the base URL, which are the three settings
+     somebody picking an application is most likely to have come to check.
   */
+  enable('s1');
   enable('s2');
   enable('s3');
   restoring = false;
@@ -790,6 +806,8 @@ $('editApp').onclick = () => {
       'the profile stays as it is. Anything this cannot find, it says so rather than guessing.'),
   );
 };
+
+$('addApp').onclick = () => startAdding();
 
 $('cancelEdit').onclick = () => pickChanged();
 
@@ -858,10 +876,41 @@ function pickChanged() {
     $('create').disabled = false;
     applyDraft(draft);
     setDraftState(draft.savedAt ? 'kept as you type' : 'nothing in progress');
+    /*
+       Two reasons the wizard opens without being asked.
+
+       A **draft** is somebody who was already adding an application and came
+       back; making them press "Add an application" again to see their own
+       half-typed form would read as having lost it.
+
+       **No applications at all** is the same judgement landingPath() makes one
+       layer up: with nothing configured, adding one is not a job among others,
+       it is the only job. A button in front of the only useful control on an
+       otherwise empty page is ceremony.
+    */
+    if (draft.savedAt || applications.length === 0) startAdding();
+    $('addApp').hidden = !isPending('s1');
     return;
   }
+  /* Picking an existing application is not adding one. */
+  $('addApp').hidden = true;
   const app = applications.find((candidate) => candidate.name === chosen);
   if (app) showApplication(app);
+}
+
+function isPending(id) {
+  return $(id).hasAttribute('inert');
+}
+
+/**
+ * Open the wizard.
+ *
+ * Step 1 only. The four after it are earned the way they always were — this
+ * changes when the wizard starts, not how it advances.
+ */
+function startAdding() {
+  $('addApp').hidden = true;
+  if (isPending('s1')) enable('s1');
 }
 
 /**

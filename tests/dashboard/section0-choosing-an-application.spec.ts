@@ -20,6 +20,20 @@ test.describe('the picker, with nothing onboarded yet', () => {
     await expect(page.locator('#editApp')).toBeHidden();
     await expect(page.locator('#draftState')).toHaveText('nothing in progress');
   });
+
+  test('starts the wizard without being asked, because it is the only job here', async ({
+    dashboard,
+  }) => {
+    /*
+       The mirror of the rule below. With nothing configured there is nothing
+       else this page can do, and a button in front of the only useful control
+       on an otherwise empty page is ceremony — the same judgement `landingPath`
+       makes when it sends `/` here rather than to Runs.
+    */
+    const { page } = dashboard;
+    await expect(page.locator('#s1')).toBeVisible();
+    await expect(page.locator('#addApp')).toBeHidden();
+  });
 });
 
 test.describe('the picker, with applications onboarded', () => {
@@ -29,6 +43,41 @@ test.describe('the picker, with applications onboarded', () => {
       anApplication({ name: 'shop-one' }),
     ];
     await dashboard.reopen();
+  });
+
+  test('does not open the wizard at somebody who came to look at a list', async ({ dashboard }) => {
+    /*
+       Adding an application happens once and then never again, and this page
+       used to greet every visit with its five-step form already running. The
+       daily reader met a half-filled wizard for a job they were not doing.
+
+       It is behind a button now — and the button is a real one rather than a
+       disclosure, because starting a wizard is an action.
+    */
+    const { page } = dashboard;
+    await expect(page.locator('#s1')).toBeHidden();
+    await expect(page.locator('#addApp')).toBeVisible();
+
+    await page.click('#addApp');
+    await expect(page.locator('#s1')).toBeVisible();
+    await expect(page.locator('#addApp')).toBeHidden();
+    await expect(page.locator('#name')).toBeEnabled();
+  });
+
+  test('an application picked to be looked at shows its settings, wizard or not', async ({
+    dashboard,
+  }) => {
+    /*
+       Step 1 holds the name, the environment and the base URL — the three
+       settings somebody picking an application is most likely to have come to
+       check. Closing it by default must not take those away.
+    */
+    const { page } = dashboard;
+    await page.selectOption('#pick', 'shop-one');
+    await expect(page.locator('#s1')).toBeVisible();
+    await expect(page.locator('#name')).toHaveValue('shop-one');
+    await expect(page.locator('#name')).toBeDisabled();
+    await expect(page.locator('#addApp')).toBeHidden();
   });
 
   test('opens on a new application, whatever is already onboarded', async ({ dashboard }) => {
@@ -104,6 +153,7 @@ test.describe('the picker, with applications onboarded', () => {
     */
     const { page } = dashboard;
     await page.selectOption('#pick', '');
+    await page.click('#addApp');
     // Step 2 is inert until step 1 has run, and a `fill` on an inert field
     // silently does nothing — so unlocking it is part of the setup, not a
     // convenience.

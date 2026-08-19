@@ -1,4 +1,4 @@
-import { createRouter, failure, html, json, type Route, type UiRequest, type UiResponse } from '../ui/router';
+import { createRouter, failure, html, json, redirect, type Route, type UiRequest, type UiResponse } from '../ui/router';
 import type { Diagnostic } from './diagnose';
 import type { OffboardPlan } from './offboard';
 import { confirmationMatches, hasAnythingToRemove, isRemovable } from './offboard';
@@ -312,8 +312,43 @@ export interface RouteOptions {
  * a token it has not been given yet; everything else is behind the loopback and
  * token checks the router applies.
  */
+/**
+ * Where `/` should go.
+ *
+ * Onboarding was the landing page, so the screen everybody met every day for
+ * the life of a repository was the one they use once per application and never
+ * again. The steady state of this tool is run, triage, publish; the first
+ * screen said *add an application*.
+ *
+ * With nothing configured there is genuinely nothing else to do, so it still
+ * lands on onboarding — a dashboard that opened on an empty Runs page and left
+ * the reader to find their own way to the only useful control would be the
+ * opposite mistake.
+ *
+ * A function rather than an `if` in the request callback, because this is a
+ * product decision with two branches and it should be possible to test it
+ * without a socket.
+ */
+export function landingPath(configuredApplications: number): string {
+  return configuredApplications > 0 ? '/runs' : '/onboard';
+}
+
 export function onboardingRoutes(service: DashboardService): Route[] {
-  const page: Route = { method: 'GET', path: '/', public: true, handle: () => html(service.page()) };
+  const page: Route = {
+    method: 'GET',
+    path: '/onboard',
+    public: true,
+    handle: () => html(service.page()),
+  };
+  const landing: Route = {
+    method: 'GET',
+    path: '/',
+    public: true,
+    handle: () => {
+      const to = landingPath(service.onboarded().length);
+      return to === '/onboard' ? html(service.page()) : redirect(to);
+    },
+  };
   const apiPaths = [
     '/api/targets',
     '/api/onboard/state',
@@ -333,9 +368,9 @@ export function onboardingRoutes(service: DashboardService): Route[] {
   ];
 
   return [
+    landing,
+    { ...landing, path: '/index.html' },
     page,
-    { ...page, path: '/index.html' },
-    { ...page, path: '/onboard' },
     ...apiPaths.map<Route>((path) => ({
       method: 'POST',
       path,

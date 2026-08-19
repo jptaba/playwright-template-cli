@@ -70,6 +70,8 @@ test('a half-typed new application wins over the most recently onboarded one', a
   await dashboard.reopen();
 
   await page.selectOption('#pick', '');
+  // With an application already onboarded, the wizard is behind this button.
+  await page.click('#addApp');
   await page.fill('#name', 'half-typed');
   await expect.poll(() => dashboard.recorder.draft.fields.name).toBe('half-typed');
 
@@ -86,6 +88,7 @@ test('looking at an onboarded application and coming back does not lose the draf
   await dashboard.reopen();
 
   await page.selectOption('#pick', '');
+  await page.click('#addApp');
   await page.fill('#name', 'half-typed');
   await page.fill('#baseURL', 'https://staging.half.test');
   await expect.poll(() => dashboard.recorder.draft.fields.baseURL).toBe('https://staging.half.test');

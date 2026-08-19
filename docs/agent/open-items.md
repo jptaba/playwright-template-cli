@@ -15,7 +15,6 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 50 | The dashboard explains itself in the framework's own vocabulary | `ready` |
 | 53 | Onboarding is a permanent page for a once-per-application job | `ready` |
 | 51 | Three applications cannot reach the triage stage at all | `ready` |
 | 52 | Fourteen coverage cells are missing across four applications | `ready` |
@@ -24,61 +23,10 @@ decide what to do.
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Take 50 first.** The dashboard and the onboarding journey are the standing
-priority and always have been; the owner has now asked for the same treatment
-on its *words* as the framework has had on its behaviour. 51 before 52 because
-a triage fixture is four specs and unblocks a whole journey stage, where
-coverage is the longer grind.
-
----
-
-### 50. The dashboard explains itself in the framework's own vocabulary — `ready`
-
-**The owner's ask, 2026-08-18:**
-
-> There are very vague description or instructions there that needs to be
-> revisited. It should be concise but very clear. Make it more intuitive and ui
-> look and feel should be very pleasing.
-
-Measured on the running page rather than recalled — 14 explanatory blocks,
-**264 words** before anybody has typed anything.
-
-**Headings name internal concepts, or nothing at all.** A first-time operator
-meets, in order: *"What it says about itself"*, *"The shape of the pack"*,
-*"Write it"*. The first is poetic and says nothing; the second uses **"pack"**,
-which is this repository's word for a directory the reader has never seen; the
-third does not say what is written or where.
-
-**Jargon arrives before the thing it names.** `setup:auth`, `getByTestId` and
-`OpenAPI` are all on screen before step 1 is complete. `setup:auth` is a
-Playwright project this person has not run; `getByTestId` is an API they may
-never call.
-
-**The copy budget does not cover the longest text on the page.**
-`tests/framework/page-copy.spec.ts` caps a `p.explain` at 34 words — and the
-two longest blocks are `.note` elements at **48 and 27 words**, which the
-budget never counts. That is a framework gap, not a copy problem, and it is why
-the page grew a 48-word paragraph without any test objecting.
-
-**Labels carry their own hint, and the accessible name swallows it.** The
-Target name field's accessible name is the whole of *"Target name lower-case,
-hyphenated — becomes a directory and a TARGET value"*. A screen reader reads
-the explanation every time the field is focused.
-
-**Shape, and the order matters:**
-
-1. **Extend the budget to every explanatory block**, not just `p.explain` —
-   otherwise the rewrite is unenforced and drifts straight back.
-2. **Rewrite the headings and the first-screen copy** to say what the operator
-   gets, in their words: what an application is, what will be read from it,
-   what will be written. Jargon earns its place only after the thing exists.
-3. **Separate hint from label** so the accessible name is the field's name.
-4. **Then the visual pass** — the look-and-feel half of the ask, which is worth
-   doing after the words are settled rather than before.
-
-Everything the previous UI work established still holds and should not be
-undone: the four budgets (copy, height, measure, contrast), progressive
-disclosure, the theme control, one application switcher.
+**Take 53 first.** Item 50 landed in runs 60–61, and 53 is the rest of the
+same ask on the same page — the owner raised it while 50 was in flight. Then 51
+before 52, because a triage fixture is four specs and unblocks a whole journey
+stage, where coverage is the longer grind.
 
 ---
 

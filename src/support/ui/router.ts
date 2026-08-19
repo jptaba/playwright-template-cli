@@ -28,6 +28,13 @@ export interface UiResponse {
   status: number;
   contentType: string;
   body: string;
+  /**
+   * Extra response headers. Only `Location` uses it today, and it exists so a
+   * redirect is a value this module can return — the alternative was the
+   * landing decision living in the server's request callback, where nothing
+   * can test it.
+   */
+  headers?: Record<string, string>;
 }
 
 export type RouteHandler = (request: UiRequest) => Promise<UiResponse> | UiResponse;
@@ -57,6 +64,25 @@ export function failure(status: number, message: string): UiResponse {
 
 export function html(body: string): UiResponse {
   return { status: 200, contentType: HTML_TYPE, body };
+}
+
+/**
+ * Send the browser somewhere else.
+ *
+ * 303 rather than 302: it is the code that means "the answer is at this other
+ * address, fetch it with GET", which is exactly what a landing route is saying,
+ * and it does not invite a client to preserve the method. Nothing is cached
+ * either way — the decision depends on how many applications exist, and that
+ * changes.
+ */
+export function redirect(to: string): UiResponse {
+  return {
+    status: 303,
+    contentType: HTML_TYPE,
+    headers: { Location: to },
+    body: `<!doctype html><meta charset="utf-8"><title>Redirecting</title>` +
+      `<p>Continue to <a href="${to}">${to}</a>.</p>`,
+  };
 }
 
 const LOOPBACK = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
