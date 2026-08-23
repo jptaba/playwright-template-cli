@@ -6310,3 +6310,55 @@ rule, and run 85 ended with two clean passes.
 
 **Next:** items 69 and 70 are closed. Nothing is `ready`; 68 is a hypothesis,
 49 needs credentials only the owner has, 11 is standing.
+
+## 2026-08-23 · run 88 · A deep scan of all seven pages: the dashboard says less than it knows
+
+**Picked:** nothing — the owner asked whether the dashboard exposes everything
+useful. Driven through the UI, every page, per the standing instruction.
+
+**Two findings, and both are the shape run 87 found twice: the CLI is right and
+nothing drove the page.**
+
+**Item 71 — parked is invisible, and the doctor is unreachable.** Selecting
+`parabank` on `/runs` leaves **Run it enabled with no mention that the
+application is parked**. `suites:live` refuses to run it — *ParaBank answers
+HTTP 500 on its own login and accounts pages* — because somebody paused it
+deliberately, with a reason and a review date. The dashboard hands back a wall
+of red that looks like a finding.
+
+And there is no health control anywhere for an existing application. Every
+visible button on `/onboard` with one selected: *Change its settings · Add
+another service · Read the application · Skip and fill in by hand · Check where
+credentials come from · Preview what will be written · Show me what would go.*
+The doctor runs once inside Create and is never offered again, hiding six
+findings across the five applications — including `target-parked` and
+`coverage-incomplete`.
+
+**Item 72 — the page called Runs cannot show a run.** No history, hidden or
+otherwise; confirmed by searching its DOM. The history already fills dropdowns
+on `/triage` and `/publish`, so a finished run is reachable only from the two
+pages that are about something else. Nothing links to `report:render` either.
+
+**Ten other capabilities are absent and most should stay absent.** The full
+table is under item 72. The pattern: everything left out is an *authoring*
+command (`catalog`, `explore`), a *once-per-application measurement*
+(`pool:measure`), or something whose danger is being easy (`rotate:passwords`,
+`heal`). Everything raised is the page failing to report state it already has.
+
+**Verify:** `npm run verify` passes, exit 0 — **1161 tests**. No code changed.
+
+**Learned:**
+
+- **"Is anything missing" is two questions.** What the tool cannot *do*, and
+  what it will not *say*. The second list was shorter, sharper and entirely
+  defects; the first was mostly things that would make the tool worse.
+- **The declined list is the deliverable.** Ten absent capabilities, and
+  writing down why eight of them should stay absent is what stops the next
+  scan filing eight items. The standing brief already says a capability that
+  adds a step is a net loss; this is that rule applied with names attached.
+- **Three runs, three instances of the same defect family.** Item 16's
+  behaviour in two consumers (run 87), and now parking in a third. When a rule
+  lands in a pure module, its consumers are where it fails to arrive.
+
+**Next:** item 71 — the dashboard should not start a run against an application
+somebody parked.
