@@ -24,6 +24,17 @@ test(
     await page.goto('/auth/login');
 
     const scan = await a11y.scan(page);
+
+    /*
+       Nothing below is a result until two scans of this page agreed. Under
+       load a page can hold still for the quiet period because it is starved
+       rather than finished, and a scan that fires then answers for a shell —
+       which reads as a clean form that nobody actually checked.
+    */
+    expect(scan.stable, 'the page never held still long enough to be scanned twice alike').toBe(
+      true,
+    );
+
     const blocking = scan.violations.filter(
       (violation) => violation.impact === 'critical' || violation.impact === 'serious',
     );

@@ -3550,3 +3550,178 @@ be reporting a fuller page than the accidental late one did.
 **Cost: one extra axe run per scan**, on suites that hold one to three
 accessibility specs each. `npm run verify` went from 1126 tests to 1144 and the
 live suites are unchanged in duration to the second.
+
+### 62. Three applications have real accessibility violations — `done` (accepted as red)
+
+**Not a regression. These were always there** — item 61's fix is what made them
+visible, by stopping the scan answering for a page that had not finished
+rendering. Both were reported green until run 79.
+
+| application | spec | findings |
+|---|---|---|
+| **orangehrm** | `A11Y-001`, the dashboard | **critical** `button-name` ×4 · serious `color-contrast` ×11 · `list` ×1 · `scrollable-region-focusable` ×1 |
+| **toolshop** | `TOOL-5-01`, the sign-in form | **critical** `button-name`, plus two more |
+| **restful-booker** | `A11Y-001`, the landing page | **critical** `label` ×3 · serious `color-contrast` ×4 · `link-name` ×3 |
+
+**`restful-booker` was recorded here as clean and that was wrong** — run 81
+found it fails under full-suite load and passes alone, because the settle could
+fire early when the machine was busy. Item 64 fixed that in run 82, and its
+findings are now **reproducible run alone, three times out of three** — which
+also turned up `link-name` ×3 that the load-only sighting had missed. Its
+violations are real and there is no longer any doubt about the number.
+`saucedemo` declares no accessibility capability, so it is unaffected.
+
+Triage now files both as `application-defect` via the `accessibility-violation`
+rule rather than leaving them as "needs judgement", so the report says where
+they go. What it cannot say is what to *do*, and that is the blocker.
+
+**Three options per application, and all three are the owner's:**
+
+1. **Accept them as red.** They are the vendor's defects on demos this
+   repository does not own, and §10 says a defect in the application is a
+   failure that stays one. The cost is two permanently red suites.
+2. **Waive with a reason and a review date**, scoped by `urlPattern` to the
+   page they were granted for — the shape ParaBank and OrangeHRM already use
+   for `html-has-lang`. The scan keeps counting waived nodes, so an exception
+   accepted for four cannot quietly become forty.
+3. **Park**, as ParaBank is parked, if an application stops being testable.
+   Almost certainly wrong here: the rest of both suites passes.
+
+**Do not silence these by widening a waiver to make the red go away.** That is
+the move rule zero and §10 both forbid, and `button-name` at critical is a real
+barrier — a button no screen reader can announce — rather than a cosmetic one.
+
+**Worth stating plainly, because it is the argument for having done this at
+all:** four applications' accessibility specs had been green for weeks, and the
+green was worth nothing on two of them.
+
+---
+
+### 52. One coverage cell is left, and it is blocked — `done` (toolshop accepted at 4 of 5)
+
+Read off the tags in each pack, and **`target:doctor` now reports it directly**
+(`coverage-incomplete`, added in run 68) rather than leaving it to
+`npm run app:journey`:
+
+| application | has | missing |
+|---|---|---|
+| toolshop | `@smoke` `@negative` `@idempotency` `@boundary` | audit — **blocked**, see item 56 |
+| saucedemo | all five | — |
+| parabank | all five | — **parked** (run 72): the application answers HTTP 500 |
+| orangehrm | all five | — (run 73) |
+
+`restful-booker` and `saucedemo` have all five. **saucedemo is the better
+worked example of the four beyond the happy path**, because each one is a
+claim about a UI-only application with no service to ask — which is the harder
+case and the one the other two are in.
+
+**Look for cells that already exist before writing any.** Two of toolshop's
+four were present and merely untagged — genuinely negative specs that
+`--grep @negative` did not run and no measure could see. That is the cheapest
+coverage there is, and an untagged negative spec is itself a defect in the
+suite's own selectors.
+
+**Toolshop's `@audit` is blocked rather than unwritten**, and item 56 is why:
+its cart lives in per-tab `sessionStorage` and its API layer is a read-only
+catalogue, so there is no second surface to ask whether a change was recorded.
+Do not tag a reload as an audit — the measure would go green having proved
+nothing.
+
+**OrangeHRM's two landed in run 73**, and they are the first specs in that
+pack to create data — adding a system user, and removing it in a `finally`.
+Writing them surfaced three latent races in its verbs, including one in
+`searchByUsername` that had been waiting for a fact that was already true.
+
+**What is left is `toolshop`'s `@audit` only, and it is blocked on item 56.**
+
+### 56. Toolshop's cart is per-tab, and its profile said it was per-account — `done` (pool kept, reason corrected)
+
+**The measurement the item asked for was run in run 77, and the framework half
+shipped with it**: `npm run pool:measure` and the `POOL_SIZE_OVERRIDE` that
+lets a pool be collapsed without editing the profile of the application under
+test.
+
+**The answer, measured rather than argued.** Both arms at three workers, so the
+only difference between them is how many identities they share:
+
+| arm | result |
+|---|---|
+| the declared pool of 3 | **0 of 2 runs green** — failures on cart *and* catalogue specs |
+| every worker on one account | **2 of 2 runs green** |
+
+The collapsed arm was *cleaner than the control*. Sharing one account produced
+**fewer** failures than spreading across three, so the pool is not preventing
+the interference its profile says it prevents. Three separate hand
+measurements agree: the cart specs alone, on one account at three workers,
+passed 4 of 4.
+
+**Two caveats, both worth keeping.**
+
+- The control runs at the pool's own worker count (3), which is *above*
+  toolshop's normal ceiling of 2. Both arms share it so the comparison is
+  sound, but neither arm is a normal run — and at the normal ceiling the same
+  suite went 22/22 in the same session.
+- With `poolSize: 3` and `authFlowAccount: 3`, the usable accounts are
+  `[1, 2]`, so a third worker already shares account 1 with the first. The
+  declared pool was never giving three workers three identities.
+
+**What is left is a decision, and it is the owner's.** Rule zero forbids
+troubleshooting by editing the profile, and the item already said this half
+"needs a person rather than another probe". The options:
+
+1. Drop `poolSize` for `customer` and let `e2e` run at its natural width. The
+   measurement says nothing is lost. A pool also guards collisions no spec
+   currently exercises, which is the argument for keeping it.
+2. Keep it, and correct the *stated reason* in the profile, which is currently
+   a claim about server-side carts that the application does not support.
+
+**The wider finding, which outlives toolshop.** All five profiles declare
+`serverState: true`, and four still carry the scaffolder's comment verbatim —
+`// does state need cross-test cleanup?`. That is the question, not an answer,
+and it is a scaffold default nobody revisits. Only toolshop pays for it today
+because only toolshop declares a `poolSize`; the next application to declare
+one inherits the same unexamined claim. `pool:measure` is what that application
+now has and toolshop did not.
+
+### 65. The packs already on disk did not assert the stability guarantee — `done`
+
+**Raised in run 82**, by shipping item 64. `A11yScan` now carries `stable`, and
+the scaffolded a11y spec asserts it — so every application onboarded from now
+on is held to it. The four packs that already exist were written before it and
+assert `violations` and `incomplete` only.
+
+**What that costs.** A scan that never stabilised still returns findings, and a
+spec that does not ask can pass on them. The findings are the last of three
+attempts on a page that was still moving, so they may be a subset — which is a
+weaker version of the same false green item 64 was raised about. `describe()`
+prints an `UNSTABLE` caveat, and that reaches the failure message only when
+something else has already failed; a spec that passes prints nothing.
+
+**Adding the assertion to four packs by hand is the wrong fix and is the point
+of the item.** It is four edits that leave the mechanism as it was, so the
+fifth pack written by somebody who copies an existing one meets the same gap.
+Rule zero's question applies: which mechanism should have caught this?
+
+**Candidates, in the order they seem worth trying:**
+
+1. **`target:doctor`** — it already reports `coverage-incomplete` by reading
+   the tags in a pack. Reading a pack's a11y specs for an assertion on
+   `scan.stable` is the same shape of check, and it names the file to fix.
+2. **A lint rule** — `a11y-asserts-stability`, alongside the rules that already
+   govern what a spec may do. Stronger, and it fails at author time rather than
+   at preflight; the risk is that a legitimate spec deliberately reporting on
+   an unstable page has to disable it.
+3. **`upgrade.ts`** — there is already a mechanism for pushing a corrected
+   template line into packs that exist (run 70, item 57). If it can carry this
+   one, the four packs are fixed by the tool that exists for it rather than by
+   hand, which is the distinction rule zero actually draws.
+
+Option 3 plus option 1 is probably the answer: upgrade the packs with the tool,
+and have the doctor keep saying so. Worth checking what `upgrade.ts` can
+already express before assuming it needs extending.
+
+**Not urgent.** The three applications with accessibility capability are all
+red for real violations right now (item 62), so none of them is currently
+resting on a false green. It becomes urgent the moment item 62 is decided.
+
+---

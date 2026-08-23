@@ -460,6 +460,10 @@ standard must never require an edit to framework code.
   quiet period is **not** the fix: it widens the window without improving the
   signal, slows every scan on every application, and still loses whenever
   contention is worse than the number somebody guessed.
+  A spec that scans and never reads `stable` is refused.
+  — `a11y-scan-stability`
+  Any reading satisfies it, not one prescribed assertion: a spec may report on
+  an unstable page so long as it says so. What is refused is silence.
 - Scan a page a user actually reaches. Landing pages pass nearly everywhere;
   the dialogs, tables and multi-step forms are where the problems are.
 - A permanent exception is a **waiver in the profile**, with a reason and a

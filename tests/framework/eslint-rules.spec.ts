@@ -278,6 +278,92 @@ test('known-failures-declared refuses an inverted test and an empty declaration'
   });
 });
 
+test('a11y-scan-stability refuses a scan whose stability is never read', () => {
+  /*
+     `scan.stable` arrived with item 64 and the scaffolded a11y spec asserts
+     it, so applications onboarded afterwards are held to it and the four packs
+     already on disk were not. `upgrade.ts` cannot close that gap — it moves a
+     marked line the template has *changed* and skips a key the pack does not
+     have, because a deleted marker is the documented way to keep a local
+     change. Adding a line is not what that mechanism does, so the requirement
+     is stated where every file is checked.
+
+     What it protects: a scan returns findings even when two consecutive scans
+     never agreed. Those describe a page still rendering, so they may be a
+     subset — and a spec that does not ask passes on them.
+  */
+  ruleTester.run('a11y-scan-stability', plugin.rules['a11y-scan-stability'], {
+    valid: [
+      {
+        code: `test('x', ${CASE_ID}, async ({ page, a11y }) => {
+          const scan = await a11y.scan(page);
+          expect(scan.stable).toBe(true);
+          expect(scan.violations).toEqual([]);
+        });`,
+        filename: SPEC,
+      },
+      {
+        // Any reading satisfies it. A spec may legitimately report on an
+        // unstable page so long as it says that is what it is doing; what is
+        // refused is silence.
+        code: `test('x', ${CASE_ID}, async ({ page, a11y }) => {
+          const scan = await a11y.scan(page);
+          if (!scan.stable) test.info().annotations.push({ type: 'a11y-unstable', description: 'x' });
+        });`,
+        filename: SPEC,
+      },
+      {
+        // Two scans, both read. The rule is per-variable, not per-file.
+        code: `test('x', ${CASE_ID}, async ({ page, a11y }) => {
+          const first = await a11y.scan(page);
+          const second = await a11y.scan(page);
+          expect(first.stable && second.stable).toBe(true);
+        });`,
+        filename: SPEC,
+      },
+      // Not a scan, and not a spec: the rule is scoped to where scans happen.
+      {
+        code: `const scan = await other.scan(page); expect(scan.violations).toEqual([]);`,
+        filename: SPEC,
+      },
+      { code: `const scan = await a11y.scan(page);`, filename: ACTION },
+    ],
+    invalid: [
+      {
+        code: `test('x', ${CASE_ID}, async ({ page, a11y }) => {
+          const scan = await a11y.scan(page);
+          expect(scan.violations).toEqual([]);
+          expect(scan.incomplete).toBe(0);
+        });`,
+        filename: SPEC,
+        errors: [{ messageId: 'unchecked' }],
+      },
+      {
+        // `settled` is the older, weaker claim and is not a substitute: it was
+        // `true` in exactly the early-firing runs item 64 was raised about.
+        code: `test('x', ${CASE_ID}, async ({ page, a11y }) => {
+          const scan = await a11y.scan(page);
+          expect(scan.settled).toBe(true);
+        });`,
+        filename: SPEC,
+        errors: [{ messageId: 'unchecked' }],
+      },
+      {
+        // One of two scans read is one too few — the unread one still reports
+        // findings from a page that may have been moving.
+        code: `test('x', ${CASE_ID}, async ({ page, a11y }) => {
+          const first = await a11y.scan(page);
+          const second = await a11y.scan(page);
+          expect(first.stable).toBe(true);
+          expect(second.violations).toEqual([]);
+        });`,
+        filename: SPEC,
+        errors: [{ messageId: 'unchecked' }],
+      },
+    ],
+  });
+});
+
 /**
  * The one target-dependent rule: it fires only where a profile declares the
  * deployment shared, so the test needs a target that does.

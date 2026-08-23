@@ -19,6 +19,7 @@ const rules = {
   'require-case-id': require('./require-case-id'),
   'known-failures-declared': require('./known-failures-declared'),
   'no-lockout-on-shared': require('./no-lockout-on-shared'),
+  'a11y-scan-stability': require('./a11y-scan-stability'),
   'step-naming': require('./step-naming'),
   'auth-project-boundary': require('./auth-project-boundary'),
   'no-target-coupling': require('./no-target-coupling'),

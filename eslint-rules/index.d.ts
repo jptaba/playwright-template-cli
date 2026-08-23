@@ -16,6 +16,7 @@ export type FrameworkRuleName =
   | 'require-case-id'
   | 'known-failures-declared'
   | 'no-lockout-on-shared'
+  | 'a11y-scan-stability'
   | 'step-naming'
   | 'auth-project-boundary'
   | 'no-target-coupling';

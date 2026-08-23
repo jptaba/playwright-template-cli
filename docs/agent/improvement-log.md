@@ -5860,3 +5860,105 @@ already reports a pack missing something it should have. Fix the mechanism.
 the accessibility violations on three applications), 56 (drop toolshop's pool
 or correct its stated reason), 52 (follows from 56), 49 (a real Teams webhook
 and SMTP relay).
+
+## 2026-08-23 · run 83 · The stability guarantee reaches the packs that predate it
+
+**Picked:** item 65, the only `ready` item — item 64's own loose end. The owner
+also answered the four blocked items in the same message, so this run records
+those decisions and acts on the one that needed code.
+
+**Did:** a lint rule, `a11y-scan-stability`. A spec that calls `a11y.scan()`
+and never reads `.stable` is refused. It caught exactly the four packs on disk
+and nothing else, and each now asserts it. Reasoning in item 65 in
+`backlog.md`.
+
+**The mechanism question was the work, and the item guessed wrong.** Item 65
+proposed `upgrade.ts` — which exists precisely for pushing a corrected template
+line into packs that already exist (run 70) — plus `target:doctor` as a
+backstop. Reading `upgrade.ts` says it cannot do this and should not be made
+to: `staleManagedLines` moves a marked line the template has *changed*, and
+deliberately **skips a key the pack does not have**, because a deleted marker
+is the documented way to keep a local change. It cannot tell "never had this
+line" from "removed it on purpose", and guessing would overwrite somebody's
+work. Adding a line is not what that mechanism does.
+
+So the requirement went where every file is checked on every run instead, which
+is also what the conventions ask for first: "every convention worth having
+should be expressible as a lint rule, a type, or a failing test."
+
+**The rule is deliberately not prescriptive.** Any reference to `.stable`
+satisfies it — an assertion, a branch that annotates, a filter. A spec may
+legitimately report on an unstable page so long as it says that is what it is
+doing; what is refused is silence. Same reasoning the scanner already follows
+by asserting nothing itself.
+
+**Editing four packs' specs is not a rule-zero breach and it is worth saying
+why.** Nothing was failing. The framework grew a guarantee, a framework
+mechanism now requires it, and the packs gained an assertion they should always
+have had — that is authoring coverage, which is the rule's stated exception.
+Troubleshooting would have been editing a pack to make a red go away, and no
+red was involved.
+
+**The owner's four decisions are recorded in `open-items.md`.** 62 accepted as
+red on all three applications, 52 accepted at 4 of 5, 49's `TEAMS_ALWAYS` and
+`DIGEST_ALWAYS` staying off. The fourth is the entry below.
+
+**I recommended the wrong thing on item 56, applied it, measured it, and put it
+back.** The recommendation was "drop `poolSize` for `customer` and get a worker
+back". Applied, toolshop's worker ceiling went from 2 to **1**.
+
+`workerCeiling` derives the cap from `serverState` *and* the pool: with
+`serverState: true` and no pool it is 1; three accounts with the third reserved
+for `auth-flows` gives 2. **The pool is the only parallelism that suite has.**
+
+Run 77's measurement was read as "the pool buys nothing", and its own caveat
+says why that was too strong — both arms ran at three workers, above this
+target's normal ceiling, and **at the normal ceiling of 2 the same suite went
+22/22 in the same session**. What was actually disproved was the pool's *stated
+reason*: the cart is per-tab `sessionStorage`, so two workers never shared one.
+
+So option 2 was taken instead — the pool stays and its reason is corrected, in
+the profile and in the `serverState` comment beside it. The ceiling is 2 again
+and toolshop runs 21/22. **Raised item 66** for the real question underneath:
+`serverState` decides both "does this need cleanup" and "can two workers share
+an identity", those came apart on toolshop, and four of five profiles still
+carry the scaffolder's `// does state need cross-test cleanup?` verbatim.
+
+**Verify:** `npm run verify` passes, exit 0 — **1145 tests**, up from 1144.
+
+**Live suites: 1 passing, 3 failing, 1 parked**, unchanged from run 82 and
+every failure now an accepted decision. saucedemo 6/6; orangehrm 6/7,
+restful-booker 12/13, toolshop 21/22, all three on accessibility and all filed
+`application-defect (rule: accessibility-violation)`; parabank parked. **The
+three specs now assert `stable` and still fail on the violations rather than on
+stability**, which is the useful confirmation: those pages do settle, and the
+reds are real findings rather than early scans.
+
+**Triage agreement, unchanged on all four:** toolshop **4 · 0 · 0**, orangehrm
+**4 · 0 · 0**, restful-booker **3 · 0 · 1**, saucedemo **1 · 0 · 3**.
+
+**Learned:**
+
+- **Check which knob the ceiling actually reads before recommending turning
+  it.** I recommended dropping a pool on a measurement about *contention* when
+  the pool's real job was *worker count*, and the two are set by different
+  fields. One `workerCeiling` call would have caught it; instead the owner
+  agreed to something wrong and it took applying the change to find out.
+- **A measurement's caveats are load-bearing.** Run 77 wrote down that both
+  arms ran above the normal ceiling and that the suite was 22/22 at the normal
+  one. That caveat contained the whole correction and I read past it twice —
+  once writing the recommendation, once accepting it.
+- **An item's proposed mechanism is a hypothesis.** Item 65 named `upgrade.ts`
+  first and it was the wrong tool for a reason its own source comments state
+  plainly. Reading the mechanism before extending it cost ten minutes and
+  saved building an "add missing marked line" feature that would have
+  overwritten deliberate deletions.
+- **Cutting four adjacent sections at once needs the same guard as one.** The
+  span was asserted to contain the four wanted headings and none of the three
+  that had to survive, and the heading list was printed before and after — the
+  file has lost content to this twice.
+
+**Next:** nothing is `ready`. 66 needs a measurement, 49 needs credentials only
+the owner has, 11 is standing. **The next run is a scan run** — drive the
+dashboard and the onboarding journey and raise what is found, with item 66 as
+the fallback if the scan turns up nothing better.

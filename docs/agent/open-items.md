@@ -15,12 +15,15 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 62 | Three applications have real accessibility violations, newly visible | `blocked` |
-| 52 | One coverage cell is left, and it is blocked | `blocked` |
-| 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `blocked` |
-| 65 | The packs already on disk do not assert the stability guarantee | `ready` |
+| 66 | `serverState` is a scaffold default that costs every application a worker | `hypothesis` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
+
+**Items 62, 52, 56 and 65 all closed on 2026-08-23.** The first three were the
+owner's to decide and they decided them; 65 was work. See *The owner's
+decisions* below — and read 56's entry there before touching a worker
+ceiling, because the recommendation it was decided on was wrong and the
+correction is what raised item 66.
 
 **Items 46, 48, 51, 53, 55, 58, 59, 60, 61, 63 and 64 are `done`** and archived in
 `backlog.md`. **64 closed in run 82**: a scan is a result when scanning again
@@ -57,39 +60,37 @@ lint rule refuses `test.fail()`, which is the mechanism that could not tell
 "the defect is still there" from "this stopped testing anything". **Item 53
 closed in run 74**: a step the preview has an answer for folds to one line, and
 the finished wizard went from 5.68 screens to 3.03 measured on the running
-page. **Item 52 is
-under way** — `toolshop` went from one coverage kind to four in run 68, and
-`target:doctor` now names the missing ones itself rather than leaving it to a
-six-stage journey. **52 is finished** apart from `toolshop`'s `@audit`, which is blocked on item
-56: that application has no second surface to ask whether a change was
-recorded, and the profile claim underneath it wants a measurement rather than
-an edit. `parabank` is **parked** as of run 72 — its
+page. **Item 52 closed on 2026-08-23** at 4 of 5 for `toolshop`, by the owner's
+decision: that application has no second surface to ask whether a change was
+recorded, so an `@audit` cell there would prove nothing. `parabank` is
+**parked** as of run 72 — its
 five specs stay, two of them reporting real defects, and `suites:live` reports
 it as parked rather than running it until ParaBank's own 500s clear. Its review
 date is 2026-09-19 and `target:doctor` says so on every check. Run 69 gave `saucedemo` all five kinds and turned up items 57
 and 58 doing it; **57 shipped in run 70**, so a corrected template line now
 reaches the packs that already exist.
 
-**Item 56's measurement was run in run 77 and it is answered** — see the item.
-What is left of it is a decision only the owner can take, so it is `blocked`
-rather than ready.
-
-**Take item 65 next.** It is the only `ready` item, and it is item 64's own
-loose end: the guarantee exists and the four packs already on disk do not ask
-for it. 62, 56, 52 and 49 are all waiting on the owner rather than on work.
+**Nothing here is `ready`.** 66 is a hypothesis needing a measurement, 49 needs
+credentials only the owner can supply, and 11 is a standing objective. **So the
+next run is a scan run**, and the file's own rule for one applies: drive the
+dashboard and the onboarding journey, record what actually happens, and raise
+what is found with evidence. Item 66 is the obvious thing to measure if a scan
+turns up nothing better.
 
 **Where the journey stands, run 80, every application:**
 
 | application | stages | what is left |
 |---|---|---|
 | **saucedemo** | **6 of 6** | — |
-| orangehrm | 5 of 6 | run — the a11y violations, item 62 |
-| restful-booker | 5 of 6 | run — 12/13, one flake |
-| parabank | 5 of 6 | run — parked, and the line now says so |
-| toolshop | 4 of 6 | coverage (`@audit`, item 52) and run (item 62) |
+| orangehrm | 5 of 6 | run — a11y, accepted as red |
+| restful-booker | 5 of 6 | run — a11y, accepted as red (no longer a flake: run 82) |
+| parabank | 5 of 6 | run — parked, and the line says so |
+| toolshop | 4 of 6 | coverage accepted at 4 of 5; run — a11y, accepted as red |
 
-Every application reaches stages 1, 2, 5 and 6. Every remaining failure is a
-known item, and three of the four are the owner's call.
+Every application reaches stages 1, 2, 5 and 6. **Every remaining stage failure
+is now a decision somebody has taken rather than an open question** — the three
+accessibility reds are accepted (see *The owner's decisions*), toolshop's
+missing `@audit` is accepted, and parabank is parked with a review date.
 
 **Toolshop's live suite failed on a different spec in each of runs 75 and 76** —
 `TOOL-3-03` in the cart's cleanup, then `TOOL-1-02` settled as
@@ -103,178 +104,117 @@ accident while archiving item 51 — the two were adjacent, and the row in the
 table above survived while its body did not. Worth a glance whenever a section
 is cut from this file.)*
 
-### 62. Three applications have real accessibility violations, newly visible — `blocked`
+## The owner's decisions, 2026-08-23
 
-**Not a regression. These were always there** — item 61's fix is what made them
-visible, by stopping the scan answering for a page that had not finished
-rendering. Both were reported green until run 79.
+Taken after run 82 put the four blocked items in front of them with a
+recommendation each. Recorded here so no later run re-asks.
 
-| application | spec | findings |
-|---|---|---|
-| **orangehrm** | `A11Y-001`, the dashboard | **critical** `button-name` ×4 · serious `color-contrast` ×11 · `list` ×1 · `scrollable-region-focusable` ×1 |
-| **toolshop** | `TOOL-5-01`, the sign-in form | **critical** `button-name`, plus two more |
-| **restful-booker** | `A11Y-001`, the landing page | **critical** `label` ×3 · serious `color-contrast` ×4 · `link-name` ×3 |
+| # | Decision |
+|---|---|
+| **62** | **Accept as red, all three applications.** No waivers. |
+| **56** | Drop `poolSize` for `customer` — **and the recommendation was wrong; see below.** |
+| **52** | **Accept toolshop at 4 of 5 coverage kinds.** |
+| **49** | The owner sets `TEAMS_WEBHOOK_URL` and the SMTP relay themselves. `TEAMS_ALWAYS` and `DIGEST_ALWAYS` stay **off**. |
 
-**`restful-booker` was recorded here as clean and that was wrong** — run 81
-found it fails under full-suite load and passes alone, because the settle could
-fire early when the machine was busy. Item 64 fixed that in run 82, and its
-findings are now **reproducible run alone, three times out of three** — which
-also turned up `link-name` ×3 that the load-only sighting had missed. Its
-violations are real and there is no longer any doubt about the number.
-`saucedemo` declares no accessibility capability, so it is unaffected.
+**62 — accepted as red.** These are vendor defects on demos this repository
+does not own, so §10's default applies and there is nothing to wait for. A
+waiver's review date is a promise somebody will revisit it, and against a
+third-party demo nobody can — so the waiver would become permanent silently,
+which is the blindfold the mechanism exists to prevent. Three permanently red
+accessibility specs is the accurate signal, and `orangehrm`, `restful-booker`
+and `toolshop` stay that way until the vendors fix them.
 
-Triage now files both as `application-defect` via the `accessibility-violation`
-rule rather than leaving them as "needs judgement", so the report says where
-they go. What it cannot say is what to *do*, and that is the blocker.
+**56 — the decision was taken on a recommendation that turned out to be
+wrong, and the correction is the entry.** Run 82 recommended dropping
+`poolSize` for `customer` "and get a worker back". It was applied, and the
+worker ceiling went from 2 to **1**, not to 3.
 
-**Three options per application, and all three are the owner's:**
+`workerCeiling` derives the cap from `serverState` and the pool: with
+`serverState: true` and no pool it is 1, and three accounts with the third
+reserved for `auth-flows` gives 2. **The pool is the only parallelism this
+suite has.** Dropping it costs a worker rather than returning one.
 
-1. **Accept them as red.** They are the vendor's defects on demos this
-   repository does not own, and §10 says a defect in the application is a
-   failure that stays one. The cost is two permanently red suites.
-2. **Waive with a reason and a review date**, scoped by `urlPattern` to the
-   page they were granted for — the shape ParaBank and OrangeHRM already use
-   for `html-has-lang`. The scan keeps counting waived nodes, so an exception
-   accepted for four cannot quietly become forty.
-3. **Park**, as ParaBank is parked, if an application stops being testable.
-   Almost certainly wrong here: the rest of both suites passes.
+Run 77's measurement was read as "the pool buys nothing", and its own caveat
+says why that reading was too strong: both arms ran at three workers, *above*
+this target's normal ceiling, and **at the normal ceiling of 2 the same suite
+went 22/22 in the same session**. What the measurement actually disproved was
+the pool's *stated reason* — the cart is per-tab `sessionStorage`, so two
+workers never shared one — not the pool itself.
 
-**Do not silence these by widening a waiver to make the red go away.** That is
-the move rule zero and §10 both forbid, and `button-name` at critical is a real
-barrier — a button no screen reader can announce — rather than a cosmetic one.
+**So option 2 was taken instead: the pool is kept and its reason is
+corrected.** The profile now says the pool is load-bearing for speed and not
+for cart isolation, and `authFlowAccount` keeps its own justification, which
+was always about the session rather than the cart. The change was reverted
+before it shipped; toolshop's ceiling is 2 again and its suite runs 21/22, the
+one failure being 62's accepted red.
 
-**Worth stating plainly, because it is the argument for having done this at
-all:** four applications' accessibility specs had been green for weeks, and the
-green was worth nothing on two of them.
+**The real question this leaves is `serverState`, and it is item 66.**
+
+**52 — accepted at 4 of 5.** `@audit` asks whether a change was recorded on a
+second surface, and toolshop has none: a read-only catalogue API and a cart
+that does not outlive a tab. Tagging a reload as an audit would go green having
+proved nothing, which is worse than the gap.
+
+**49 — the owner holds the credentials, which is right.** Both notification
+paths are built and proven against local fakes. `TEAMS_ALWAYS` and
+`DIGEST_ALWAYS` stay off: a nightly mail that is green 90% of the time trains
+its recipients to filter it, which is the tools' own argument and it is a good
+one. The fakes set both so a demo shows something; a real channel should not.
 
 ---
 
-### 52. One coverage cell is left, and it is blocked — `blocked`
+### 66. `serverState` is a scaffold default that costs every application a worker — `hypothesis`
 
-Read off the tags in each pack, and **`target:doctor` now reports it directly**
-(`coverage-incomplete`, added in run 68) rather than leaving it to
-`npm run app:journey`:
+**Raised in run 83**, by trying to act on item 56 and finding the wrong knob
+under it.
 
-| application | has | missing |
-|---|---|---|
-| toolshop | `@smoke` `@negative` `@idempotency` `@boundary` | audit — **blocked**, see item 56 |
-| saucedemo | all five | — |
-| parabank | all five | — **parked** (run 72): the application answers HTTP 500 |
-| orangehrm | all five | — (run 73) |
+`workerCeiling` caps a target's workers at what its account pool can give,
+*because* `serverState` is true. So `serverState` is not only a claim about
+cleanup — it is what decides whether a suite runs in parallel at all:
 
-`restful-booker` and `saucedemo` have all five. **saucedemo is the better
-worked example of the four beyond the happy path**, because each one is a
-claim about a UI-only application with no service to ask — which is the harder
-case and the one the other two are in.
-
-**Look for cells that already exist before writing any.** Two of toolshop's
-four were present and merely untagged — genuinely negative specs that
-`--grep @negative` did not run and no measure could see. That is the cheapest
-coverage there is, and an untagged negative spec is itself a defect in the
-suite's own selectors.
-
-**Toolshop's `@audit` is blocked rather than unwritten**, and item 56 is why:
-its cart lives in per-tab `sessionStorage` and its API layer is a read-only
-catalogue, so there is no second surface to ask whether a change was recorded.
-Do not tag a reload as an audit — the measure would go green having proved
-nothing.
-
-**OrangeHRM's two landed in run 73**, and they are the first specs in that
-pack to create data — adding a system user, and removing it in a `finally`.
-Writing them surfaced three latent races in its verbs, including one in
-`searchByUsername` that had been waiting for a fact that was already true.
-
-**What is left is `toolshop`'s `@audit` only, and it is blocked on item 56.**
-
-### 56. Toolshop's cart is per-tab, and its profile says it is per-account — `blocked`
-
-**The measurement the item asked for was run in run 77, and the framework half
-shipped with it**: `npm run pool:measure` and the `POOL_SIZE_OVERRIDE` that
-lets a pool be collapsed without editing the profile of the application under
-test.
-
-**The answer, measured rather than argued.** Both arms at three workers, so the
-only difference between them is how many identities they share:
-
-| arm | result |
+| profile says | ceiling |
 |---|---|
-| the declared pool of 3 | **0 of 2 runs green** — failures on cart *and* catalogue specs |
-| every worker on one account | **2 of 2 runs green** |
+| `serverState: true`, no pool | **1** |
+| `serverState: true`, pool of 3, one reserved | 2 |
+| `serverState: false` | unbounded by this rule |
 
-The collapsed arm was *cleaner than the control*. Sharing one account produced
-**fewer** failures than spreading across three, so the pool is not preventing
-the interference its profile says it prevents. Three separate hand
-measurements agree: the cart specs alone, on one account at three workers,
-passed 4 of 4.
+**All five profiles declare `serverState: true`, and four still carry the
+scaffolder's comment verbatim — `// does state need cross-test cleanup?`**
+That is the question, not an answer, and it is now known to cost something: an
+application that answers it wrongly runs at one worker forever and nobody
+connects the two.
 
-**Two caveats, both worth keeping.**
+**It is the wrong question as well as an unanswered one.** `serverState`
+conflates two things that came apart on toolshop:
 
-- The control runs at the pool's own worker count (3), which is *above*
-  toolshop's normal ceiling of 2. Both arms share it so the comparison is
-  sound, but neither arm is a normal run — and at the normal ceiling the same
-  suite went 22/22 in the same session.
-- With `poolSize: 3` and `authFlowAccount: 3`, the usable accounts are
-  `[1, 2]`, so a third worker already shares account 1 with the first. The
-  declared pool was never giving three workers three identities.
+- **Does data this suite creates need cleaning up?** Toolshop: yes — registered
+  users, invoices, anything written through the API.
+- **Can two workers safely hold the same identity at once?** Toolshop: for the
+  cart, yes, because it is per-tab `sessionStorage`. That is what run 77
+  measured and what item 56's stated reason got wrong.
 
-**What is left is a decision, and it is the owner's.** Rule zero forbids
-troubleshooting by editing the profile, and the item already said this half
-"needs a person rather than another probe". The options:
+One flag answers both, so an application that needs cleanup is forced to buy
+serialisation it may not need, and the only escape is to declare an account
+pool — which is what toolshop did, for a reason that turned out to be false.
 
-1. Drop `poolSize` for `customer` and let `e2e` run at its natural width. The
-   measurement says nothing is lost. A pool also guards collisions no spec
-   currently exercises, which is the argument for keeping it.
-2. Keep it, and correct the *stated reason* in the profile, which is currently
-   a claim about server-side carts that the application does not support.
+**What to measure before changing anything**, and this is deliberately not a
+proposal yet:
 
-**The wider finding, which outlives toolshop.** All five profiles declare
-`serverState: true`, and four still carry the scaffolder's comment verbatim —
-`// does state need cross-test cleanup?`. That is the question, not an answer,
-and it is a scaffold default nobody revisits. Only toolshop pays for it today
-because only toolshop declares a `poolSize`; the next application to declare
-one inherits the same unexamined claim. `pool:measure` is what that application
-now has and toolshop did not.
+1. Whether toolshop passes at its natural width with `serverState: false` and
+   no pool. `pool:measure` is the instrument and it already exists.
+2. Whether the four verbatim comments are four unexamined defaults or four
+   correct answers nobody wrote down. Cheapest first: grep for the comment,
+   then ask each application the second question above.
+3. Whether splitting the flag is worth it, or whether the ceiling should read
+   a separate `sharedIdentitySafe` and leave `serverState` about cleanup.
 
-### 65. The packs already on disk do not assert the stability guarantee — `ready`
+**Do not split the type on reasoning alone.** Three of item 20's four polish
+claims were written that way and all three were mis-shaped when driven; item
+56's own stated reason is a fourth example. Measure one application first.
 
-**Raised in run 82**, by shipping item 64. `A11yScan` now carries `stable`, and
-the scaffolded a11y spec asserts it — so every application onboarded from now
-on is held to it. The four packs that already exist were written before it and
-assert `violations` and `incomplete` only.
-
-**What that costs.** A scan that never stabilised still returns findings, and a
-spec that does not ask can pass on them. The findings are the last of three
-attempts on a page that was still moving, so they may be a subset — which is a
-weaker version of the same false green item 64 was raised about. `describe()`
-prints an `UNSTABLE` caveat, and that reaches the failure message only when
-something else has already failed; a spec that passes prints nothing.
-
-**Adding the assertion to four packs by hand is the wrong fix and is the point
-of the item.** It is four edits that leave the mechanism as it was, so the
-fifth pack written by somebody who copies an existing one meets the same gap.
-Rule zero's question applies: which mechanism should have caught this?
-
-**Candidates, in the order they seem worth trying:**
-
-1. **`target:doctor`** — it already reports `coverage-incomplete` by reading
-   the tags in a pack. Reading a pack's a11y specs for an assertion on
-   `scan.stable` is the same shape of check, and it names the file to fix.
-2. **A lint rule** — `a11y-asserts-stability`, alongside the rules that already
-   govern what a spec may do. Stronger, and it fails at author time rather than
-   at preflight; the risk is that a legitimate spec deliberately reporting on
-   an unstable page has to disable it.
-3. **`upgrade.ts`** — there is already a mechanism for pushing a corrected
-   template line into packs that exist (run 70, item 57). If it can carry this
-   one, the four packs are fixed by the tool that exists for it rather than by
-   hand, which is the distinction rule zero actually draws.
-
-Option 3 plus option 1 is probably the answer: upgrade the packs with the tool,
-and have the doctor keep saying so. Worth checking what `upgrade.ts` can
-already express before assuming it needs extending.
-
-**Not urgent.** The three applications with accessibility capability are all
-red for real violations right now (item 62), so none of them is currently
-resting on a false green. It becomes urgent the moment item 62 is decided.
+**Not urgent.** Every suite currently passes at the ceiling it has, so this is
+a cost rather than a defect — one worker on four applications that may not need
+to pay it.
 
 ---
 

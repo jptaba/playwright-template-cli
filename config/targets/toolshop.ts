@@ -31,13 +31,27 @@ export const toolshop: TargetProfile = {
     accountType: 'workforce',
 
     /*
-       Three customer accounts, so three workers get a cart each.
+       Three customer accounts. **Kept, with the stated reason corrected** —
+       item 56, decided 2026-08-23.
 
-       Toolshop's cart is server-side against the signed-in account. With one
-       account the cart specs had to run serially or empty each other's carts
-       mid-assertion; with a pool they are partitioned by worker and run in
-       parallel again. The admin role has one account and does not need more —
-       nothing here writes as the admin.
+       This used to say "the cart lives on the server against the signed-in
+       account, so two workers signing in as `customer` share one cart".
+       **That was false**: toolshop's cart is per-tab `sessionStorage` and does
+       not outlive a browser context. Run 77 measured it, and the pool was not
+       preventing the interference it claimed to prevent.
+
+       What the pool *actually* buys is the only parallelism this suite has.
+       With `serverState: true` and no pool the worker ceiling is **1**;
+       with three accounts and the third reserved below it is **2**. Dropping
+       it therefore costs a worker rather than returning one — which is the
+       opposite of what the measurement was first read to say, because both of
+       its arms ran at three workers, *above* this target's normal ceiling. At
+       the normal ceiling of 2 the same suite went 22/22 in the same session.
+
+       So the honest summary: the pool is load-bearing for speed and not for
+       cart isolation. If `serverState` is ever revisited here — the cart does
+       not need it, though API-created data does — this should be revisited
+       with it, and `npm run pool:measure` is how to ask.
 
        Taken from the vendor's published account table and checked against the
        live login endpoint before being written down. `customer3` has a
@@ -48,19 +62,16 @@ export const toolshop: TargetProfile = {
 
     /*
        `customer3` is reserved for the signed-out `auth-flows` project, so the
-       specs that drive the login form never share an identity with the cart
+       specs that drive the login form never share an identity with the e2e
        specs running beside them.
 
-       They did, deterministically, and it is what made this suite
-       intermittently red: `auth-flows` has no `dependencies` so it runs
-       alongside `e2e`, and `secrets.account('customer')` defaults to index 1
-       — the same account `e2e`'s slot-0 worker holds while it is adding and
-       removing products. Observed as a search whose listing never changed and
-       a cart row that would not detach, both passing in isolation.
-
-       This costs a worker: `e2e` now runs at two rather than three, because
-       the ceiling is what the pool has left. Three workers with a guaranteed
-       collision is worse than two without one.
+       They did, deterministically: `auth-flows` has no `dependencies` so it
+       runs alongside `e2e`, and `secrets.account('customer')` defaults to
+       index 1 — the same account `e2e`'s slot-0 worker holds. Observed as a
+       search whose listing never changed and a cart row that would not
+       detach, both passing in isolation. That collision is about the *session*
+       and the account's server-side data, not about the cart, so correcting
+       the cart claim above does not retire this.
     */
     authFlowAccount: 3,
   },
@@ -78,10 +89,20 @@ export const toolshop: TargetProfile = {
     mfa: 'none', // 'none' | 'totp' | 'email'
     accountPool: 'static', // 'static' | 'leased'
     /*
-       True, and it is the fact that shapes every spec here. The cart lives on
-       the server against the signed-in account, and the account pool is
-       static — so two workers signing in as `customer` share one cart. Every
-       cart spec empties what it added rather than assuming it owns the account.
+       True — but **not for the cart**, and that correction is item 56.
+
+       This said "the cart lives on the server against the signed-in account,
+       so two workers signing in as `customer` share one cart". Measured in run
+       77: they do not. The cart is per-tab `sessionStorage` and does not
+       outlive a browser context, which is also why this application has no
+       `@audit` coverage — there is no second surface to ask whether a change
+       was recorded.
+
+       What is genuinely server-side is what the account itself accumulates:
+       registered users, invoices, anything a spec creates through the API. So
+       the flag stays true and cleanup still matters; the cart specs empty what
+       they added because that is good practice, not because they are racing
+       another worker.
     */
     serverState: true,
     api: {

@@ -29,6 +29,13 @@ test(
     // Checks axe could not decide are not passes. Somebody has to look at
     // them, and a spec that stays silent about them overstates its result.
     expect(scan.incomplete, 'checks needing a human review').toBe(0);
+
+    // Two scans of this page had to agree before the findings above counted.
+    // Under load a page can hold still for the quiet period because it is
+    // starved rather than finished, and a scan that fires then answers for a
+    // shell. `false` here means the page was still moving, so the findings
+    // are a snapshot of something in flight rather than a verdict.
+    expect(scan.stable, describeFindings(scan)).toBe(true);
   },
 );
 
