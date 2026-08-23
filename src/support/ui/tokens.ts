@@ -1,11 +1,19 @@
 /**
  * The dashboard's shared stylesheet — §08.
  *
- * One copy of the design system, served to every page. These are
- * `docs/handbook.html`'s tokens: the same palette, the same warm accent, the
- * same three-state theme handling. The handbook, the plan and this tool are the
- * three things a person meets, and a tool that looks like a different product
- * from its own documentation reads as a bolt-on.
+ * One copy of the design system, served to every page — and shared token for
+ * token with `docs/handbook.html`, `docs/plan.html` and
+ * `docs/dashboard-plan.html`. Those and this tool are what a person meets, and
+ * a tool that looks like a different product from its own documentation reads
+ * as a bolt-on. Change a colour here and change it there in the same commit.
+ *
+ * **The direction is instrumentation.** The accent is a petrol blue-green, and
+ * the reason it is not a warmer or brighter hue is the subject: this framework
+ * argues throughout that a green must be worth believing, so `--pass`,
+ * `--fail` and `--warn` have to be the most legible things on any screen. An
+ * accent sitting far from all three in hue means a verdict never competes with
+ * the brand for a reader's eye. The neutrals carry the same faint cyan bias, so
+ * the grey reads as chosen rather than inherited.
  *
  * Everything here is page-agnostic. Anything a single page needs goes in that
  * page's own block, so this file never grows a rule that only one screen uses.
@@ -35,25 +43,41 @@ export const DASHBOARD_STYLES = `
      borders it holds to 3:1 and why.
   */
   :root {
-    --bg: #EAEDF1;
-    --surface: #FBFCFD;
-    --surface-2: #F1F4F7;
-    --ink: #151A21;
-    --ink-2: #39424F;
-    --muted: #596474;
-    --rule: #CFD6DF;
-    --rule-strong: #7C8794;
-    --accent: #8A5E12;
-    --accent-ink: #6E4A0C;
-    --accent-soft: #EFE4CC;
-    --pass: #1C6B4F;
-    --pass-soft: #DCEBE3;
-    --fail: #9F2B37;
-    --fail-soft: #F3DDDF;
-    --warn: #855F0F;
-    --warn-soft: #F1E6CC;
-    --code-bg: #EEF2F6;
-    --shadow: 0 1px 2px rgba(21, 26, 33, .06), 0 8px 24px -16px rgba(21, 26, 33, .3);
+    --bg: #E7ECEF;
+    --surface: #FAFCFD;
+    --surface-2: #EFF4F6;
+    --ink: #101619;
+    --ink-2: #33414A;
+    --muted: #53626C;
+    --rule: #C9D4DA;
+    --rule-strong: #74838C;
+    --accent: #0B5F70;
+    --accent-ink: #084C5A;
+    --accent-soft: #D4E8ED;
+    --pass: #16684B;
+    --pass-soft: #D7E9E0;
+    --fail: #9C2732;
+    --fail-soft: #F4DBDD;
+    --warn: #7C5809;
+    --warn-soft: #F0E4C6;
+    --code-bg: #EAF0F3;
+
+    /*
+       The stacks, as tokens. They were written out inline in eight places
+       and three of those had already drifted — two listed "Cascadia Code"
+       and the rest did not. A face is a design decision, so it belongs
+       beside the colours rather than copied into every rule that needs it.
+
+       System faces, deliberately: this is a tool somebody runs locally,
+       often with no network, and a webfont that silently falls back is a
+       worse outcome than one that was never asked for. docs/handbook.html
+       is a document rather than a tool and does take a webfont, with this
+       same stack as its fallback.
+    */
+    --sans: ui-sans-serif, "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", monospace;
+
+    --shadow: 0 1px 2px rgba(16, 22, 25, .06), 0 8px 24px -16px rgba(16, 22, 25, .3);
   }
 
   /*
@@ -65,27 +89,27 @@ export const DASHBOARD_STYLES = `
   */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #10131A; --surface: #171B23; --surface-2: #1C212A;
-      --ink: #E6E9EE; --ink-2: #C2C9D4; --muted: #929CAB;
-      --rule: #272D38; --rule-strong: #6B727E;
-      --accent: #D9AC57; --accent-ink: #E8C382; --accent-soft: #2B2417;
-      --pass: #4FB88C; --pass-soft: #16281F;
-      --fail: #E4757F; --fail-soft: #2C1A1D;
-      --warn: #D2A03F; --warn-soft: #2A2214;
-      --code-bg: #1A1F28;
+      --bg: #0C1116; --surface: #131B21; --surface-2: #19232A;
+      --ink: #E3EAEE; --ink-2: #BEC9D1; --muted: #8D9AA4;
+      --rule: #222E35; --rule-strong: #66737C;
+      --accent: #4FBFD6; --accent-ink: #79D2E5; --accent-soft: #0E2C35;
+      --pass: #4FB88C; --pass-soft: #12261D;
+      --fail: #E4757F; --fail-soft: #2B181B;
+      --warn: #D2A03F; --warn-soft: #2A2113;
+      --code-bg: #151E24;
       --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
     }
   }
 
   :root[data-theme="dark"] {
-    --bg: #10131A; --surface: #171B23; --surface-2: #1C212A;
-    --ink: #E6E9EE; --ink-2: #C2C9D4; --muted: #929CAB;
-    --rule: #272D38; --rule-strong: #6B727E;
-    --accent: #D9AC57; --accent-ink: #E8C382; --accent-soft: #2B2417;
-    --pass: #4FB88C; --pass-soft: #16281F;
-    --fail: #E4757F; --fail-soft: #2C1A1D;
-    --warn: #D2A03F; --warn-soft: #2A2214;
-    --code-bg: #1A1F28;
+    --bg: #0C1116; --surface: #131B21; --surface-2: #19232A;
+    --ink: #E3EAEE; --ink-2: #BEC9D1; --muted: #8D9AA4;
+    --rule: #222E35; --rule-strong: #66737C;
+    --accent: #4FBFD6; --accent-ink: #79D2E5; --accent-soft: #0E2C35;
+    --pass: #4FB88C; --pass-soft: #12261D;
+    --fail: #E4757F; --fail-soft: #2B181B;
+    --warn: #D2A03F; --warn-soft: #2A2113;
+    --code-bg: #151E24;
     --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
   }
 
@@ -107,15 +131,24 @@ export const DASHBOARD_STYLES = `
     margin: 0;
     background: var(--bg);
     color: var(--ink);
-    font-family: ui-sans-serif, "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-family: var(--sans);
     font-size: 16.5px;
     line-height: 1.65;
     -webkit-font-smoothing: antialiased;
   }
 
   code, pre, .mono {
-    font-family: ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", monospace;
+    font-family: var(--mono);
   }
+
+  /*
+     Digits that line up in a column are read as a column, so they get
+     tabular figures. Proportional numerals make a run of counts look
+     ragged and make two numbers of the same magnitude look different
+     lengths, which is exactly the wrong signal on a page whose whole job
+     is reporting how many of something failed.
+  */
+  table td, table th, .mono, code, .num { font-variant-numeric: tabular-nums; }
   code { background: var(--code-bg); padding: .05em .35em; border-radius: 3px; font-size: .86em; }
 
   /* ---------- the app shell ---------- */
@@ -161,7 +194,7 @@ export const DASHBOARD_STYLES = `
     border-radius: 1px;
   }
   .eyebrow {
-    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-family: var(--mono);
     font-size: .68rem;
     letter-spacing: .12em;
     text-transform: uppercase;
@@ -190,7 +223,7 @@ export const DASHBOARD_STYLES = `
   }
   .fact { display: flex; flex-direction: column; gap: .1rem; }
   .fact dt {
-    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-family: var(--mono);
     font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
   }
   .fact dd { margin: 0; font-size: .95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -214,7 +247,7 @@ export const DASHBOARD_STYLES = `
   .wordmark {
     display: block; margin: 0 1.15rem 1.4rem; padding-bottom: 1rem;
     border-bottom: 1px solid var(--rule);
-    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-family: var(--mono);
     font-size: .74rem; letter-spacing: .13em; text-transform: uppercase;
     color: var(--muted); text-decoration: none; font-weight: 600;
   }
@@ -289,7 +322,7 @@ export const DASHBOARD_STYLES = `
   .nav-badge {
     justify-self: end; align-self: center;
     min-width: 1.45rem; padding: .05rem .4rem; border-radius: 999px;
-    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-family: var(--mono);
     font-size: .72rem; font-weight: 700; text-align: center;
   }
   .nav-badge.attention { background: var(--fail-soft); color: var(--fail); }
@@ -310,7 +343,7 @@ export const DASHBOARD_STYLES = `
     border-bottom: 1px solid var(--rule);
   }
   .crumb {
-    margin: 0; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    margin: 0; font-family: var(--mono);
     font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
   }
   .topbar-end { display: flex; align-items: center; gap: 1rem; }
@@ -526,13 +559,13 @@ export const DASHBOARD_STYLES = `
   section[data-state="done"] { box-shadow: none; }
   .head { display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap; }
   .step {
-    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-family: var(--mono);
     font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
   }
   h2 { font-size: 1.12rem; letter-spacing: -.012em; margin: 0; font-weight: 640; }
 
   .badge {
-    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-family: var(--mono);
     font-size: .66rem; letter-spacing: .08em; text-transform: uppercase;
     padding: .15rem .5rem; border-radius: 999px; border: 1px solid transparent; font-weight: 600;
   }
