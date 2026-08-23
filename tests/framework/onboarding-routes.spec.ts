@@ -545,6 +545,62 @@ test.describe('boundaries on what a plan may set', () => {
     expect(response.status).toBe(200);
   });
 
+  test('creating with a credential does not then tell you to add one', async () => {
+    /*
+       Item 60, at the route where it was actually seen. The credential goes
+       to the gitignored file — the default — and the panel afterwards used to
+       say "Add credentials for standard to config/secrets.local.json", naming
+       the tracked file about a value it had just written somewhere else.
+    */
+    const response = await send({
+      path: '/api/create',
+      body: {
+        name: 'acme-shop',
+        baseURL: 'https://staging.acme.example',
+        secretSource: 'local',
+        credentials: { standard: { username: 'someone', password: 'a-password' } },
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).not.toContain('Add credentials');
+    expect(response.body).not.toContain('secrets.local.json');
+  });
+
+  test('previewing before anything is typed names the file the page is offering', async () => {
+    // The preview has no credential yet, so the instruction stands — it just
+    // has to name where the page would put one.
+    const response = await send({
+      path: '/api/plan',
+      body: {
+        name: 'acme-shop',
+        baseURL: 'https://staging.acme.example',
+        secretSource: 'local',
+        credentialLocation: 'private-file',
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toContain('secrets.private.json');
+  });
+
+  test('a credential location the page cannot write to does not break the preview', async () => {
+    // An unrecognised id would reach `describeLocation`, which throws. A
+    // mistyped radio value must not turn a preview into a 500.
+    const response = await send({
+      path: '/api/plan',
+      body: {
+        name: 'acme-shop',
+        baseURL: 'https://staging.acme.example',
+        secretSource: 'local',
+        credentialLocation: 'somewhere-else',
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toContain('secrets.private.json');
+  });
+
   test('an empty role list falls back rather than writing a profile with none', async () => {
     const response = await send({
       path: '/api/plan',

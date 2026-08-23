@@ -5500,3 +5500,64 @@ than a spec defect.
   of trap as the backtick-in-template-literal one recorded in runs 67 and 74.
 
 **Next:** item 60, then 46 and 48 together — one command per application.
+
+## 2026-08-23 · run 78 · The next step stops naming the file onboarding refuses to use
+
+**Picked:** item 60, the only small `ready` item. Checked `git log origin/main`
+first — no runs had landed in the four days since run 77, so the worklist was
+where run 77 left it.
+
+**Did:** the credential step in `planScaffold` varies instead of being a
+constant. It says nothing when the caller has already written the credential,
+and names the gitignored file rather than the tracked one when it does speak.
+Full table in item 60 in `backlog.md`.
+
+**Saying nothing is the half worth recording.** The obvious fix is to correct
+the filename, and that would have left a numbered instruction telling somebody
+to do what they did four seconds earlier — items 14 and 17 in a third costume.
+`target:doctor` is already in the list and already confirms the credentials
+resolve, so the step had nothing left to contribute.
+
+**Proven by driving the running dashboard**, because that is where run 74 found
+it and 1085 tests did not. Onboarded a scratch target against the real
+application through the live server: the page's `options()` carried
+`credentialLocation: 'private-file'`, the preview named
+`config/secrets.private.json`, and **Create returned a next-steps list with no
+"Add credentials" line and no mention of `secrets.local.json`**. The credential
+was in the private file and absent from the tracked one. Removed with
+`target:remove`; both secret files ended byte-identical to their pre-run
+checksums.
+
+**Verify:** `npm run verify` passes, exit 0 — **1110 tests**, up from 1102.
+
+**Live suites: 3 passing, 1 failing, 1 parked — and the failure is new and
+real.** restful-booker 13/13, saucedemo 6/6, toolshop 22/22, parabank parked.
+**orangehrm 6/7**: `A11Y-001 · The landing page meets the declared standard`
+now reports **critical `button-name` on 1 node**, plus serious
+`color-contrast` on 3 and `list` on 1, scanning
+`/web/index.php/dashboard/index`. Only `html-has-lang` is waived and it still
+is. That pack was 7/7 in run 77 four days ago and nothing here changed for it,
+so this is the vendor's regression. **Left failing**, per §10, and raised as
+item 61 — the decision between waiving, parking and living with it is the
+owner's, and silencing it with a waiver is the move rule zero forbids.
+
+**Triage agreement, unchanged on all four:** toolshop **4 · 0 · 0**, orangehrm
+**4 · 0 · 0**, restful-booker **3 · 0 · 1**, saucedemo **1 · 0 · 3**.
+
+**Learned:**
+
+- **A wrong instruction and a redundant one are the same bug.** Item 60 was
+  filed as "names the wrong file", and half the fix turned out to be deleting
+  the step. Fixing only the filename would have closed the item and left the
+  contradiction — worth asking, of any message that is wrong, whether it should
+  exist at all.
+- **The a11y suite paid for itself today.** Four applications' accessibility
+  specs have been green for weeks and it was fair to wonder what they were for.
+  The first vendor-side regression they caught is a critical one, on a page
+  every user of that demo lands on, four days after the same spec was green.
+- **`triage:measure` across four targets exceeds a ten-minute command budget.**
+  It timed out at the third target and had to be finished in a second call.
+  Worth knowing before somebody puts it in a script that assumes one invocation.
+
+**Next:** item 61 — a live red outranks the rollout work. Then 46 and 48
+together, one command per application.

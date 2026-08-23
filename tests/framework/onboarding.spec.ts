@@ -808,6 +808,71 @@ test.describe('the target scaffolder', () => {
     expect(explore).toBeLessThan(write);
   });
 
+  test.describe('what the next steps say about credentials', () => {
+    /*
+       Item 60, found by onboarding a scratch target through the running
+       dashboard and reading the panel afterwards. The credential had just
+       been written to the gitignored file — the default step 4 offers — and
+       the panel said "Add credentials for standard to
+       config/secrets.local.json". Both halves wrong: nothing to add, and the
+       tracked file named as the place to add it.
+    */
+    const local = { ...options, secretSource: 'local' as const, roles: ['standard'] };
+
+    test('a credential the caller has already written earns no instruction', () => {
+      const steps = planScaffold({
+        ...local,
+        credentialsWritten: true,
+        credentialLocation: 'private-file' as const,
+      }).nextSteps;
+
+      expect(steps.some((step) => step.includes('Add credentials'))).toBe(false);
+      // And nothing else went missing with it.
+      expect(steps.some((step) => step.includes('explore'))).toBe(true);
+    });
+
+    test('the tracked file is not named anywhere after writing to the private one', () => {
+      // The other half of the regression, asserted across the whole list
+      // rather than the first step: `secrets.local.json` is tracked, and
+      // `.gitignore`, the Test users page and item 15 all agree that a real
+      // value does not belong in it.
+      const steps = planScaffold({
+        ...local,
+        credentialsWritten: true,
+        credentialLocation: 'private-file' as const,
+      }).nextSteps;
+
+      expect(steps.join('\n')).not.toContain('secrets.local.json');
+    });
+
+    test('with nothing written it names the gitignored file, not the tracked one', () => {
+      // The CLI path: `target:new` writes no credential, so the instruction is
+      // still needed — it just has to name where a real value belongs.
+      const steps = planScaffold(local).nextSteps;
+
+      expect(steps[0]).toContain('config/secrets.private.json');
+      expect(steps[0]).not.toContain('config/secrets.local.json');
+    });
+
+    test('choosing the committed file is taken at its word', () => {
+      // A vendor demo that prints its own logins is exactly what the tracked
+      // file is for, so naming it is right when somebody asked for it.
+      const steps = planScaffold({ ...local, credentialLocation: 'shared-file' as const }).nextSteps;
+
+      expect(steps[0]).toContain('config/secrets.local.json');
+    });
+
+    test('a Vault target is told to write the path, whatever the local choice was', () => {
+      const steps = planScaffold({
+        ...options,
+        secretSource: 'vault' as const,
+        credentialLocation: 'private-file' as const,
+      }).nextSteps;
+
+      expect(steps[0]).toContain('in Vault');
+    });
+  });
+
   test('exploration cannot be argued into a host the profile never allowed', () => {
     // The host comes from the profile so that exploring runs through the same
     // non-production guard as a test run. An argument that parses as an

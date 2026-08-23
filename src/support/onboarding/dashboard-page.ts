@@ -1453,6 +1453,7 @@ function options() {
     secretSource: $('secrets').value,
     credentialRoot: credentialRoot(),
     accountType: $('accountType').value.trim(),
+    credentialLocation: $('credentialLocation').value,
     a11yStandard: $('a11y').value.trim(),
     include: {
       api: $('lApi').checked, db: $('lDb').checked,

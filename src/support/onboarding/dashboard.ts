@@ -681,7 +681,17 @@ async function onboardingApi(
       }
 
       case '/api/create': {
-        const scaffoldOptions = readScaffoldOptions(body);
+        const credentialsToWrite = readCredentials(body.credentials);
+        /*
+           Read before the plan is built, because the plan's own "next steps"
+           depend on whether a credential is being written and where — item 60.
+           The list used to tell somebody to add a credential to the tracked
+           file moments after this route had written it to the gitignored one.
+        */
+        const scaffoldOptions = {
+          ...readScaffoldOptions(body),
+          credentialsWritten: Object.keys(credentialsToWrite).length > 0,
+        };
         const plan = planScaffold(scaffoldOptions);
 
         const conflicts = service.existing(plan.files.map((file) => file.path));
@@ -697,7 +707,7 @@ async function onboardingApi(
           );
         }
 
-        const credentials = readCredentials(body.credentials);
+        const credentials = credentialsToWrite;
         /*
            Defaulted to the gitignored file, and validated against the list of
            locations this page may write to rather than taken on trust.
@@ -772,6 +782,16 @@ function readScaffoldOptions(body: Record<string, unknown>): ScaffoldOptions {
     // gets written are the same two values rather than two guesses that agree.
     ...(body.credentialRoot ? { credentialRoot: String(body.credentialRoot).trim() } : {}),
     ...(body.accountType ? { accountType: String(body.accountType).trim() } : {}),
+    /*
+       Where a credential would go, so the preview's own next-steps name the
+       file the page is actually offering rather than a constant. Narrowed
+       against the writable list here as well as at the write: an unrecognised
+       id would reach `describeLocation`, which throws, and a mistyped radio
+       value must not turn a preview into a 500.
+    */
+    ...((WRITABLE_LOCATIONS as readonly string[]).includes(String(body.credentialLocation))
+      ? { credentialLocation: body.credentialLocation as CredentialLocation }
+      : {}),
     include: {
       api: include.api === true,
       db: include.db === true,

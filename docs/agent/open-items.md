@@ -15,7 +15,7 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 60 | The scaffold's next step names the file onboarding refuses to write to | `ready` |
+| 61 | OrangeHRM's landing page broke its accessibility standard | `ready` |
 | 52 | One coverage cell is left, and it is blocked | `blocked` |
 | 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `blocked` |
 | 46 | The journey has been run for one application, not five | `ready` |
@@ -23,7 +23,11 @@ decide what to do.
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Items 51, 53, 55, 58 and 59 are `done`** and archived in `backlog.md`.
+**Items 51, 53, 55, 58, 59 and 60 are `done`** and archived in `backlog.md`.
+**Item 60 closed in run 78**: the next-steps list says nothing about a
+credential the caller has already written, and names the gitignored file rather
+than the tracked one when it does speak. Proven by driving the running
+dashboard, which is where it was found.
 **Item 58 closed in run 76**: `sharedEnvironment` is read by
 `no-lockout-on-shared`, which refuses a real account's username paired with a
 made-up password — the shape that actually spends a lockout budget. It is
@@ -48,16 +52,13 @@ date is 2026-09-19 and `target:doctor` says so on every check. Run 69 gave `sauc
 and 58 doing it; **57 shipped in run 70**, so a corrected template line now
 reaches the packs that already exist.
 
-**Item 60 was found in run 74's live validation** — onboarding a scratch target
-through the running dashboard, against the real application, and reading what
-the page said afterwards. It is small and well-evidenced; take it or 59 first.
-
 **Item 56's measurement was run in run 77 and it is answered** — see the item.
 What is left of it is a decision only the owner can take, so it is `blocked`
 rather than ready.
 
-**Take item 60 next**, then 46 and 48, which are one command per application
-and should be done together.
+**Take item 61 next** — it is a live red on a running application, which
+outranks the rollout work. Then 46 and 48, which are one command per
+application and should be done together.
 
 **Toolshop's live suite failed on a different spec in each of runs 75 and 76** —
 `TOOL-3-03` in the cart's cleanup, then `TOOL-1-02` settled as
@@ -113,6 +114,46 @@ actually used over defaulting to either file.
 
 **Do not fix it by editing a pack.** The message is generated; the generator is
 the thing that is wrong.
+
+---
+
+### 61. OrangeHRM's landing page broke its accessibility standard — `ready`
+
+**Caught by `npm run suites:live` in run 78**, on an application that was 7/7
+in run 77 four days earlier. Nothing in this repository changed for that pack.
+
+`A11Y-001 · The landing page meets the declared standard @a11y`, scanning
+`/web/index.php/dashboard/index`:
+
+| impact | rule | nodes |
+|---|---|---|
+| **critical** | `button-name` | 1 |
+| serious | `color-contrast` | 3 |
+| serious | `list` | 1 |
+
+Only `html-has-lang` is waived on this profile, and it is still waived.
+
+**This is the suite doing its job and the spec stays red.** §10 is explicit: a
+defect in the application is a failure and it stays one, and an accessibility
+waiver is a recorded decision with a reason and a review date rather than an
+assertion somebody deleted. Do **not** silence this by adding waivers — that is
+the exact move rule zero and §10 both forbid, and `button-name` at critical is
+a real barrier rather than a cosmetic one.
+
+**What the item actually needs**, and it is a judgement rather than a fix:
+
+- Confirm it reproduces and is the vendor's, not ours — re-run the a11y project
+  alone, and check the same page by hand.
+- Decide whether OrangeHRM is heading the way ParaBank did. If a vendor demo
+  starts failing in ways nobody here can fix, `parked` exists for that and
+  carries a review date; a permanent red costs the signal on everything else.
+- If it is a narrow, genuinely accepted exception, it is a profile waiver with
+  a reason and a review date — the owner's call, not a troubleshooting edit.
+
+**It also re-opens a question worth asking once.** Four applications' a11y
+specs have been green for weeks; this is the first vendor-side accessibility
+regression the suite has caught. That is evidence the a11y coverage is worth
+what it costs, and worth saying so somewhere the next person sees it.
 
 ---
 

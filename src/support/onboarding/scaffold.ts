@@ -18,6 +18,7 @@ import {
   renderGauntletLocators,
   type GauntletStep,
 } from './gauntlet';
+import { describeLocation, type CredentialLocation } from '../secrets/locations';
 
 /**
  * Specs the scaffolder writes itself, pack-relative.
@@ -58,6 +59,25 @@ export interface ScaffoldOptions {
    */
   credentialRoot?: string;
   accountType?: string;
+  /**
+   * Where this caller puts a local credential, and whether it has already put
+   * one there — together, what the "next steps" list is allowed to say about
+   * credentials.
+   *
+   * **Both exist because the instruction used to be a constant, and it was
+   * wrong twice over.** Onboarding writes to the gitignored file by default
+   * (item 15), and the panel afterwards still said *"Add credentials … to
+   * `config/secrets.local.json`"* — naming the tracked file, about a
+   * credential it had just written. Nothing to add, and the wrong place to add
+   * it to.
+   *
+   * Left out, the message keeps its old shape for the CLI, which writes no
+   * credential and does still need telling — but names the private file, which
+   * is where item 15 says anything real belongs.
+   */
+  credentialLocation?: CredentialLocation;
+  /** True when the caller has written the credentials itself. */
+  credentialsWritten?: boolean;
   /** Base URL of the service API. Required when the api layer is included. */
   apiBaseURL?: string;
   /**
@@ -275,6 +295,39 @@ export function defaultAllowlist(baseURL: string): string[] {
   return [labels.slice(-2).join('.')];
 }
 
+/**
+ * What the next-steps list says about credentials — nothing, or the truth.
+ *
+ * An array rather than a string so that "nothing" is expressible: a caller
+ * that has already written the credential has no step to take, and a numbered
+ * instruction telling somebody to do what they have just done is the same
+ * defect as items 14 and 17 — the page contradicting what it did a second ago.
+ */
+function credentialStep(input: {
+  secretSource: 'vault' | 'local';
+  roles: string[];
+  firstPath: string;
+  location?: CredentialLocation;
+  written: boolean;
+}): string[] {
+  if (input.secretSource !== 'local') {
+    return [`Write username and password to ${input.firstPath} in Vault (one path per role).`];
+  }
+  if (input.written) return [];
+
+  /*
+     The gitignored file by default, not the tracked one. Before item 15 there
+     was only the tracked file and this line named it; the default moved and
+     the sentence did not. `describeLocation` owns the wording so the file a
+     step names and the file the page writes to cannot drift again.
+  */
+  const location = describeLocation(input.location ?? 'private-file');
+  return [
+    `Add credentials for ${input.roles.join(', ')} to ${location.where}. ` +
+      'The keys are listed above.',
+  ];
+}
+
 export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
   const name = options.name.trim();
   if (!NAME_PATTERN.test(name)) {
@@ -415,9 +468,13 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
   const credentialPaths = roles.map((role) => `${credentialRoot}/${accountType}/${role}/1`);
 
   const nextSteps = [
-    secretSource === 'local'
-      ? `Add credentials for ${roles.join(', ')} to config/secrets.local.json — the keys are listed above.`
-      : `Write username and password to ${credentialPaths[0]} in Vault (one path per role).`,
+    ...credentialStep({
+      secretSource,
+      roles,
+      firstPath: credentialPaths[0] ?? '',
+      location: options.credentialLocation,
+      written: options.credentialsWritten === true,
+    }),
     `TARGET=${name} npm run explore — open the running application and snapshot it.`,
     `Rewrite ${root}/locators/sign-in.ts from that snapshot, not from memory.`,
     `TARGET=${name} npm run target:doctor — confirms the profile, pack and credentials agree.`,

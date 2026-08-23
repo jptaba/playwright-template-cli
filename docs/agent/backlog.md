@@ -3237,3 +3237,61 @@ and `target:doctor` does not check it.** The harm is not hypothetical — run 63
 watched toolshop's shared customer account get locked (`423 Account locked, too
 many failed attempts`), taking its whole suite red until the vendor's counter
 cleared hours later.
+
+### 60. The scaffold's next step names the file onboarding refuses to write to — `done`
+
+Shipped on `agent/2026-08-23-credential-next-step` (run 78).
+
+`planScaffold` now takes two facts it was missing — `credentialLocation` and
+`credentialsWritten` — and the credential step varies instead of being a
+constant:
+
+| situation | what it says |
+|---|---|
+| the caller already wrote it | **nothing** |
+| local, nothing written yet | "Add credentials for … to `config/secrets.private.json` — gitignored." |
+| local, the committed file chosen | names `config/secrets.local.json`, because that is what was asked for |
+| Vault | unchanged — the path to write |
+
+**Saying nothing is the interesting half.** A numbered instruction telling
+somebody to do what they did four seconds ago is the same defect as items 14
+and 17: the page contradicting what it just did. The list still contains
+`target:doctor`, which confirms the credentials resolve, so nothing is lost by
+dropping the step.
+
+**`describeLocation` owns the wording**, so the file a step names and the file
+the page writes to come from one place. That is what stopped this the first
+time: item 15 moved the default to the gitignored file and the sentence naming
+the tracked one was a string literal three modules away.
+
+**The preview carries the choice too.** `options()` in the page now sends
+`credentialLocation`, so the plan's own next-steps name the file the page is
+actually offering. The id is narrowed against `WRITABLE_LOCATIONS` in
+`readScaffoldOptions` as well as at the write — an unrecognised value would
+reach `describeLocation`, which throws, and a mistyped radio must not turn a
+preview into a 500. There is a test for exactly that.
+
+**Proven by driving the running dashboard**, which is where run 74 found it and
+what this loop's own rule asks for. A scratch target was onboarded against the
+real application through the live server:
+
+- the page's `options()` carried `credentialLocation: 'private-file'`;
+- the preview's first step read *"Add credentials for standard to
+  `config/secrets.private.json` — gitignored"*;
+- **Create wrote 6 files and returned a next-steps list with no "Add
+  credentials" line and no mention of `secrets.local.json`** — the exact
+  regression, gone;
+- the credential was in `config/secrets.private.json` and absent from the
+  tracked file, whose checksum never moved.
+
+Removed afterwards with `target:remove`; both secret files ended byte-identical
+to their pre-run checksums.
+
+The original item follows.
+
+**Found in run 74**, by onboarding a scratch target end to end through the
+running dashboard and reading the result panel — not by reading source. The
+credential was written to the **gitignored** file, which is the default step 4
+offers and the correct one. The panel then said *"Add credentials for standard
+to `config/secrets.local.json`"* — nothing to add, and the tracked file named
+as the place to add it. `src/support/onboarding/scaffold.ts:419` hardcoded it.
