@@ -104,6 +104,49 @@ export function sanitiseDraft(candidate: unknown): OnboardingDraft {
   };
 }
 
+/**
+ * How old a draft may be before it stops being restored — item 69.
+ *
+ * **A day, because that is what "I was in the middle of this" means.** The
+ * draft exists so a reload, a crash or a wandering afternoon does not cost the
+ * 12-to-18 second probe; none of those take a day.
+ *
+ * Measured on a real machine before this existed: a draft written four days
+ * earlier, for a scratch target that had since been removed, was still
+ * pre-filling twelve fields and reopening two steps that progressive
+ * disclosure had put away. The onboarding page opened at 3173px instead of
+ * 1761px — 4.4 screens instead of 2.45 — and nothing on it said why.
+ *
+ * `savedAt` has carried the comment "ISO, so a stale draft can be recognised
+ * as one" since it was written. Nothing ever recognised one.
+ */
+export const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1_000;
+
+/**
+ * Whether this draft is too old to restore.
+ *
+ * `now` is a parameter rather than a call to `Date.now()` so the rule is
+ * testable without waiting a day, and so a single run cannot disagree with
+ * itself about what "now" is.
+ *
+ * A draft with no `savedAt` is **not** stale: it is either empty or was
+ * written by something that did not stamp it, and refusing to restore it would
+ * be inventing an age nobody recorded. `draftHasContent` is the guard for the
+ * empty case, and it is a separate question.
+ */
+export function draftIsStale(
+  draft: OnboardingDraft,
+  now: number,
+  maxAgeMs: number = DRAFT_MAX_AGE_MS,
+): boolean {
+  if (!draft.savedAt) return false;
+  const saved = Date.parse(draft.savedAt);
+  // Unparseable is not stale, for the same reason absent is not: the age is
+  // unknown, and discarding somebody's work on a guess is the worse error.
+  if (Number.isNaN(saved)) return false;
+  return now - saved > maxAgeMs;
+}
+
 /** Whether a draft holds anything worth restoring. */
 export function draftHasContent(draft: OnboardingDraft): boolean {
   return (

@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { REPO_ROOT } from '../src/support/paths';
+import { ONBOARDING_DRAFT_PATH, REPO_ROOT } from '../src/support/paths';
 import {
   PRIVATE_STORE_FILE,
   SHARED_STORE_FILE,
@@ -95,9 +95,31 @@ export function gatherFacts(target: string): OffboardFacts {
     secretKeys,
     storageStateFiles,
     caseFiles,
+    draftName: draftName(),
     pointsAtPlaceholderHost: pointsAtPlaceholderHost(target),
     untrackedPaths: untrackedPaths(),
   };
+}
+
+/**
+ * Which application the onboarding draft describes, if there is one.
+ *
+ * Read as text and tolerated when malformed, for the same reason
+ * `pointsAtPlaceholderHost` reads a profile with a regular expression: this
+ * tool runs against half-written state by definition, and a draft nobody can
+ * parse must not stop somebody removing a target.
+ */
+function draftName(): string | null {
+  if (!fs.existsSync(ONBOARDING_DRAFT_PATH)) return null;
+  try {
+    const draft = JSON.parse(fs.readFileSync(ONBOARDING_DRAFT_PATH, 'utf8')) as {
+      fields?: { name?: unknown };
+    };
+    const name = draft.fields?.name;
+    return typeof name === 'string' && name.trim() !== '' ? name.trim() : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -194,6 +216,18 @@ export function removeTarget(plan: OffboardPlan, options: { keepSecrets?: boolea
     if (!fs.existsSync(full)) continue;
     fs.rmSync(full);
     done.push(`shredded .auth/${file}`);
+  }
+
+  /*
+     The draft, when it described this target.
+
+     Last, and unconditionally safe: the plan only sets this when the draft's
+     own name matches, and a draft is regenerated the moment somebody types
+     into the onboarding page again.
+  */
+  if (plan.clearDraft && fs.existsSync(ONBOARDING_DRAFT_PATH)) {
+    fs.rmSync(ONBOARDING_DRAFT_PATH);
+    done.push('cleared the onboarding draft, which described this target');
   }
 
   return done;

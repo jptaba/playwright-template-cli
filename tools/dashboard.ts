@@ -8,6 +8,7 @@ import os from 'node:os';
 import {
   AUTH_DIR,
   CASES_DIR,
+  ONBOARDING_DRAFT_PATH,
   REPO_ROOT,
   RUN_RESULT_PATH,
   STORIES_DIR,
@@ -97,6 +98,7 @@ import { editProfileSource } from '../src/support/onboarding/edit-profile';
 import { closeOnFailure, launchBrowser } from '../src/support/ui/failures';
 import { shutdownHandler } from '../src/support/ui/shutdown';
 import {
+  draftIsStale,
   EMPTY_DRAFT,
   sanitiseDraft,
   type OnboardedApp,
@@ -578,7 +580,7 @@ async function create(
  * of this file — or by hand — must not be able to reintroduce a field the
  * allow-list now refuses.
  */
-const DRAFT_PATH = path.join(REPO_ROOT, '.onboarding-draft.json');
+const DRAFT_PATH = ONBOARDING_DRAFT_PATH;
 
 /**
  * Which application the bar was last switched to, on this machine.
@@ -611,7 +613,22 @@ function writeSelection(target: string | null): void {
 function readDraft(): OnboardingDraft {
   if (!fs.existsSync(DRAFT_PATH)) return { ...EMPTY_DRAFT };
   try {
-    return sanitiseDraft(JSON.parse(fs.readFileSync(DRAFT_PATH, 'utf8')));
+    const draft = sanitiseDraft(JSON.parse(fs.readFileSync(DRAFT_PATH, 'utf8')));
+
+    /*
+       A draft older than a day is not restored, and the file goes with it —
+       item 69.
+
+       Removing it rather than merely ignoring it, because a draft that is
+       read, refused and left on disk is refused again on every visit forever,
+       and `target:remove` would keep reporting it as something it will clear.
+       The state a person can see and the state on disk have to agree.
+    */
+    if (draftIsStale(draft, Date.now())) {
+      fs.rmSync(DRAFT_PATH, { force: true });
+      return { ...EMPTY_DRAFT };
+    }
+    return draft;
   } catch {
     return { ...EMPTY_DRAFT };
   }
@@ -1633,6 +1650,19 @@ function streamRuns(request: http.IncomingMessage, response: http.ServerResponse
   request.on('close', () => clearInterval(timer));
 }
 
+/**
+ * The page an entrypoint asked to open on, or `/` for the adaptive root.
+ *
+ * Refused unless it is a page this dashboard actually serves: this only ever
+ * decides what to print and hand to a browser, but a value read from the
+ * environment that is echoed into a URL should still be checked against a
+ * list rather than trusted.
+ */
+function openPath(): string {
+  const wanted = process.env.DASHBOARD_OPEN_PATH ?? '/';
+  return DASHBOARD_PAGES.some((page) => page.href === wanted) || wanted === '/' ? wanted : '/';
+}
+
 function main(): void {
   const server = http.createServer((request, response) => {
     void (async () => {
@@ -1705,7 +1735,25 @@ function main(): void {
   server.listen(0, HOST, () => {
     const address = server.address();
     const port = typeof address === 'object' && address ? address.port : 0;
-    const url = `http://${HOST}:${port}/`;
+    /*
+       Which page to open on — item 70.
+
+       `/` is adaptive by design: `landingPath()` sends you to onboarding when
+       nothing is configured and to runs when something is, because the steady
+       state of this tool is run, triage, publish. That decision is not
+       relitigated here.
+
+       But `npm run onboard` is a different command with a different intent,
+       and it has claimed since it was written to open "the onboarding page".
+       Driven with five applications configured, it opened Runs. Now it asks
+       for the page it names, and `npm run dashboard` still gets the adaptive
+       root.
+
+       A path rather than a boolean so the next entrypoint that wants a
+       specific page does not need another flag; sanitised to a known page so
+       an environment variable cannot aim this anywhere it likes.
+    */
+    const url = `http://${HOST}:${port}${openPath()}`;
     // Runs need this to post frames back, and it is only knowable now.
     runManager.setEndpoint(url, TOKEN);
     console.log(`\nOnboarding dashboard: ${url}`);

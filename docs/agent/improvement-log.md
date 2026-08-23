@@ -6216,3 +6216,97 @@ or a rule, and run 85 ended with two clean passes an hour earlier.
 
 **Next:** item 69 — start with clearing the draft in `target:remove`, which is
 the unambiguous bug and the case that actually happened.
+
+## 2026-08-23 · run 87 · The draft was the fifth thing a target owns, and two predicates only knew about four
+
+**Picked:** items 69 and 70, at the owner's direction, with the standing note
+that a fix is framework-level or it is not a fix. Nothing here names an
+application.
+
+**Item 69 — a draft that outlives the visit it belongs to.** Three parts, and
+driving the dashboard found two more defects on the way.
+
+1. **`target:remove` clears it.** `OffboardFacts` grows `draftName`,
+   `OffboardPlan` grows `clearDraft`, and the match is **exact** — a draft for
+   `acme-shop-staging` is not `acme-shop`'s to delete, the same rule credential
+   keys already follow. `ONBOARDING_DRAFT_PATH` moved to `src/support/paths.ts`
+   because two tools now need it and a second hand-written copy of a path is
+   how the two come to disagree.
+2. **It expires.** `draftIsStale(draft, now, maxAgeMs)` in `draft.ts`, one day
+   by default, `now` injected so the rule is testable without waiting one.
+   `savedAt` has carried the comment *"ISO, so a stale draft can be recognised
+   as one"* since it was written; nothing ever recognised one. A stale draft is
+   not restored **and the file goes**, because one that is read, refused and
+   left behind is refused again forever while `target:remove` keeps offering to
+   clear it.
+3. **It says where it came from.** The draft-state line reads *"kept as you
+   type · saved today"*. Runtime-filled, so it costs nothing against the page's
+   copy budget.
+
+**Item 70 — `npm run onboard` opens the onboarding page.** It claimed to and
+did not: the body was `import './dashboard'` and the server always opened `/`,
+which `landingPath()` sends to Runs as soon as one application exists.
+`landingPath` is a deliberate product decision and is untouched — `/` stays
+adaptive for `npm run dashboard`. The entrypoint asks for a specific page
+instead, via `DASHBOARD_OPEN_PATH`, sanitised against `DASHBOARD_PAGES` so an
+environment variable cannot aim it anywhere it likes. `require` rather than a
+static import, because an `import` is hoisted above the assignment and the
+ordering would have been a timing accident.
+
+**Two defects found by driving the dashboard, and both are item 16's, alive
+where nobody had looked.**
+
+- **The page threw the plan away.** `dashboard-page.ts` printed *"Nothing named
+  X is onboarded"* and returned the moment `alreadyGone` was true — discarding
+  the credential entries, the stored sessions and the warnings the plan had
+  already collected. That is the exact wording item 16 was raised to remove,
+  and the CLI has been right about it since. Somebody who removed a pack by
+  hand, or offboarded twice, was told there was nothing to do while a real
+  password sat in `config/secrets.private.json`.
+- **`hasAnythingToRemove` counted four things.** With the draft as a fifth, a
+  plan whose *only* leftover was the draft answered "nothing to remove", so
+  `isRemovable` refused and the route replied *"nothing it owned is left"*
+  while the file was on disk. Caught by clicking **Remove it** and watching the
+  file survive.
+
+**Proven through the dashboard UI, end to end**, which is the owner's standing
+instruction for this kind of work:
+
+| driven | result |
+|---|---|
+| a four-day-old draft | ignored, 0 of 5 steps revealed, fields empty, "nothing in progress", **and the file deleted** |
+| a draft saved today | restored, 3 steps revealed, **"kept as you type · saved today"** |
+| `npm run onboard` | opens `…/onboard`; `npm run dashboard` still opens `/` |
+| Remove an application → `fold-scratch` | *"Would remove the onboarding draft"* + a confirmation, where it used to say *"Nothing named fold-scratch is onboarded"* and offer nothing |
+| typing the name → **Remove it** | *"Removed 1 item(s)"*, and the draft gone from disk |
+
+**Verify:** `npm run verify` passes, exit 0 — **1161 tests**, up from 1148.
+
+**Two existing tests were rewritten to the new guarantee.** One declared a plan
+that was `alreadyGone` yet still carried a credential and a session, and
+asserted the page said "nothing is onboarded" — the precise case item 16 says
+must not say that. It is now two tests: one for genuinely nothing left, one for
+a pack that is gone while its credentials are not.
+
+**Live suites:** not re-run — nothing here touches a target, a fixture or a
+rule, and run 85 ended with two clean passes.
+
+**Learned:**
+
+- **A list of what a thing owns lives in more than one place, and somebody will
+  extend one of them.** The draft had to be added to `OffboardFacts`, the plan,
+  the tool's removal loop, `hasAnythingToRemove`, `describeOffboard`, the
+  page's renderer and the panel's copy. The type system caught four of those
+  and the last three needed a person clicking the button.
+- **The backtick trap, twice in one run.** A comment containing backticks
+  inside `dashboard-page.ts` closes its template literal; so does a nested
+  template literal, which would also have interpolated at render time instead
+  of in the browser. Both are documented in the working notes and both were
+  walked into anyway.
+- **The CLI being right is not evidence the dashboard is.** Item 16 fixed
+  `planOffboard` and its tests, and two consumers kept the old behaviour for
+  months because nothing drove them. That is the argument for the owner's
+  instruction to interact through the UI.
+
+**Next:** items 69 and 70 are closed. Nothing is `ready`; 68 is a hypothesis,
+49 needs credentials only the owner has, 11 is standing.

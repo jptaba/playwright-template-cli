@@ -141,6 +141,19 @@ export const resolveWorkers = (ceiling: number | null, isCI: boolean): number | 
  * own directory and points this at it; on the command line it stays where it
  * has always been.
  */
+/**
+ * The onboarding wizard's in-progress draft.
+ *
+ * Here rather than in `tools/dashboard.ts`, which is where it used to live,
+ * because two tools need it and a second hand-written copy of a path is how
+ * the two come to disagree. The dashboard writes it; `target:remove` clears it
+ * when it describes the target being removed.
+ *
+ * Gitignored: it holds whatever somebody typed into a half-finished
+ * onboarding, including a base URL that may not be public.
+ */
+export const ONBOARDING_DRAFT_PATH = repoPath('.onboarding-draft.json');
+
 export const RUN_RESULT_PATH = process.env.RUN_RESULT_PATH ?? repoPath('run-result.json');
 
 /**

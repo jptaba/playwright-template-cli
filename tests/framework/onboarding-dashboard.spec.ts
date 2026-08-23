@@ -21,9 +21,12 @@ import { dashboardPage } from '../../src/support/onboarding/dashboard-page';
 import { planScaffold } from '../../src/support/onboarding/scaffold';
 import {
   DRAFT_FIELDS,
+  DRAFT_MAX_AGE_MS,
   EMPTY_DRAFT,
   draftHasContent,
+  draftIsStale,
   sanitiseDraft,
+  type OnboardingDraft,
 } from '../../src/support/onboarding/draft';
 
 /**
@@ -618,6 +621,7 @@ function service(overrides: Partial<DashboardService> = {}): DashboardService {
       removeDirectories: ['src/targets/' + target],
       removeSecretKeys: [],
       removeStorageStates: [],
+      clearDraft: false,
       warnings: [],
       refusals: [],
       alreadyGone: false,
@@ -825,6 +829,7 @@ test('a plan that refuses cannot be executed however it is confirmed', async () 
           removeDirectories: [],
           removeSecretKeys: [],
           removeStorageStates: [],
+      clearDraft: false,
           warnings: [],
           refusals: ['something is in the way'],
           alreadyGone: false,
@@ -1049,5 +1054,62 @@ test.describe('trapping a base URL that is not one', () => {
 
     const body = JSON.parse(response.body) as { warnings: string[] };
     expect(body.warnings.join(' ')).toContain('query string');
+  });
+});
+
+/**
+ * Item 69 — a draft that outlives the visit it belongs to.
+ *
+ * Found by driving the dashboard: a draft written four days earlier, naming a
+ * scratch target that had since been removed, was still pre-filling twelve
+ * fields and reopening two steps progressive disclosure had put away. The
+ * onboarding page opened at 3173px instead of 1761px — 4.4 screens instead of
+ * 2.45 — and nothing on it said why.
+ *
+ * `savedAt` had carried the comment "ISO, so a stale draft can be recognised
+ * as one" since it was written. Nothing ever recognised one.
+ */
+test.describe('how old a draft may be', () => {
+  const at = (iso: string): OnboardingDraft => ({ ...EMPTY_DRAFT, savedAt: iso });
+  const NOW = Date.parse('2026-08-23T12:00:00.000Z');
+
+  test('a draft from this morning is restored', () => {
+    expect(draftIsStale(at('2026-08-23T08:00:00.000Z'), NOW)).toBe(false);
+  });
+
+  test('a draft from four days ago is not', () => {
+    // The one that actually happened.
+    expect(draftIsStale(at('2026-08-19T20:15:55.050Z'), NOW)).toBe(true);
+  });
+
+  test('the boundary is a day, and it is inclusive of exactly a day', () => {
+    expect(draftIsStale(at(new Date(NOW - DRAFT_MAX_AGE_MS).toISOString()), NOW)).toBe(false);
+    expect(draftIsStale(at(new Date(NOW - DRAFT_MAX_AGE_MS - 1).toISOString()), NOW)).toBe(true);
+  });
+
+  test('a draft with no timestamp is not stale, because its age is unknown', () => {
+    /*
+       Discarding somebody's work on a guess is the worse error. An untimed
+       draft is either empty — which `draftHasContent` answers separately — or
+       was written by something that did not stamp it.
+    */
+    expect(draftIsStale(EMPTY_DRAFT, NOW)).toBe(false);
+    expect(draftIsStale(at(''), NOW)).toBe(false);
+  });
+
+  test('an unparseable timestamp is not stale either', () => {
+    expect(draftIsStale(at('the day before yesterday'), NOW)).toBe(false);
+  });
+
+  test('a clock that disagrees with itself does not discard the draft', () => {
+    // A draft stamped in the future is not old. Reading it as stale would
+    // delete the work of anybody whose machine clock drifts forward.
+    expect(draftIsStale(at('2026-08-24T12:00:00.000Z'), NOW)).toBe(false);
+  });
+
+  test('the age is a parameter, so the rule is testable without waiting a day', () => {
+    const draft = at('2026-08-23T11:59:00.000Z');
+    expect(draftIsStale(draft, NOW, 30_000)).toBe(true);
+    expect(draftIsStale(draft, NOW, 120_000)).toBe(false);
   });
 });

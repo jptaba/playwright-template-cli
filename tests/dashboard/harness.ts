@@ -168,6 +168,7 @@ export const test = base.extend<{ dashboard: Harness }>({
         removeDirectories: ['src/targets/shop-one'],
         removeSecretKeys: [],
         removeStorageStates: [],
+        clearDraft: false,
         warnings: [],
         refusals: [],
         alreadyGone: false,

@@ -15,8 +15,6 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 69 | A stale onboarding draft never expires, and nearly doubles the page it opens | `ready` |
-| 70 | `npm run onboard` says it opens the onboarding page, and does so only sometimes | `ready` |
 | 68 | Two applications keep a worker cap that costs them, for a reason worth removing | `hypothesis` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
@@ -85,18 +83,20 @@ audit spec. The instrument was asking "may two workers share this identity" and
 being read as "may this suite run uncapped". It now runs the experiment arm
 uncapped, and the verdict says what a clean result does not prove.
 
-**Run 86 was that scan run**, and it found two things by driving the dashboard
-rather than reading it. **Take item 69 next** — a stale draft nobody clears
-takes the onboarding page from 1761px to 3173px and reopens two extra steps,
-pre-filled for an application that was removed four days earlier. It is the
-standing priority exactly: the crowding an operator meets before they have
-typed anything. Item 70 is small and sits beside it.
+**Run 86 was a scan run and run 87 closed what it found.** The draft is now the
+fifth thing `target:remove` clears, it expires after a day, and the page says
+when a restored one was saved. `npm run onboard` opens the onboarding page.
 
-**Both nearly went in wrong**, which is the scan run's own lesson repeating: a
-copy bug and a truncated sentence turned out to be artifacts of how the
-accessibility tree flattens, and item 70 was first written as a much larger
-finding until the zero-application case was driven. Nothing here was filed
-until it had been reproduced on a rendered page.
+**Driving the dashboard to prove it turned up two more, both item 16's.** The
+page discarded the whole plan the moment `alreadyGone` was true — printing the
+exact "Nothing named X is onboarded" wording item 16 removed, while credentials
+and sessions were still listed in the plan it threw away. And
+`hasAnythingToRemove` counted four things, so a plan whose only leftover was
+the draft refused to execute. **The CLI had been right about both since item
+16; two consumers had not, and nothing drove them until now.**
+
+**Nothing here is `ready`.** 68 is a hypothesis needing a measurement, 49 needs
+credentials only the owner can supply, and 11 is a standing objective.
 
 **Where the journey stands, run 80, every application:**
 
@@ -181,121 +181,6 @@ paths are built and proven against local fakes. `TEAMS_ALWAYS` and
 `DIGEST_ALWAYS` stay off: a nightly mail that is green 90% of the time trains
 its recipients to filter it, which is the tools' own argument and it is a good
 one. The fakes set both so a demo shows something; a real channel should not.
-
----
-
-### 69. A stale onboarding draft never expires, and nearly doubles the page it opens — `ready`
-
-**Found in run 86 by driving the dashboard**, and it was found by accident while
-checking something else — which is the argument for scan runs.
-
-**The evidence, measured on the running page at 1280×720:**
-
-| state | height | screens | steps revealed | name field |
-|---|---|---|---|---|
-| no draft on disk | **1761px** | 2.45 | 1 of 5 | empty |
-| the draft this machine had | **3173px** | **4.41** | **3 of 5** | `fold-scratch` |
-
-**+80% height and two extra steps, from a file written on 2026-08-19** — four
-days before, by a run that was testing something else. It names `fold-scratch`,
-a scratch target that no longer exists, and pre-fills **twelve** fields with
-that application's readings: `baseURL`, `testId`, `signInPath`, `uName`,
-`pName`, `sName`, `roles`, `secrets`, `a11y`, `accountType`, `vaultMount`,
-`credentialLocation`.
-
-The 1761px figure matches the 1714px item 23 recorded when it shipped
-progressive disclosure, so **the disclosure mechanism is working perfectly**.
-What defeats it is state nobody clears.
-
-**The mechanism, precisely:**
-
-- `dashboard-page.ts:917` — `if (draft.savedAt || applications.length === 0) startAdding();`
-  The *presence* of a `savedAt` opens the adding flow, however old it is.
-- `savedAt` is written (`dashboard-page.ts:607`) and read in exactly two places
-  (`:904`, `:917`), both of which only ask **whether it is non-empty**. The
-  timestamp's value is never compared to anything. **There is no expiry.**
-- `tools/dashboard.ts` reads the draft at `:612` and writes it at `:720`.
-  Nothing deletes it — there is no clear path in that file at all.
-- `src/support/onboarding/offboard.ts` and `tools/offboard.ts` contain the
-  string `draft` **zero** times. So `target:remove` takes the profile, the
-  pack, the credentials and the sessions, and leaves the draft describing the
-  application it just removed.
-
-**Why this is worse than it looks.** Item 9 deliberately made a draft carrying
-step 1's read reopen steps 2 and 3, and that was right — losing a 12-to-18
-second probe to a reload was the defect it fixed. But it was scoped to *this
-visit*, and nothing bounds it. Four days later the same mechanism hands a user
-a form full of a deleted application's settings, on the most crowded version of
-the page, with **nothing on screen saying where the values came from or how old
-they are** — the only related copy is "KEPT AS YOU TYPE" and a disclosure
-titled "What is kept when you leave this page".
-
-The likely first move for anybody meeting this is "Skip and fill in by hand",
-which item 9 already established is the destructive exit: it calls
-`clearWhatWasRead()`.
-
-**Shape of the fix — framework, and there are three parts worth taking
-together:**
-
-1. **`target:remove` clears the draft when the draft names the target being
-   removed.** This is the clean bug: offboarding already knows the four places
-   a target leaves something, and the draft is a fifth.
-2. **Expire it.** `savedAt` is already written and already ignored. A draft
-   older than some stated period should be treated as absent — the number is a
-   judgement, but a day or two matches "I was in the middle of this".
-3. **Say where it came from.** If a draft *is* restored, the page should name
-   it and offer to discard: "Restored from a draft saved on 19 August" beside a
-   control that clears it. Restoring silently is what makes the crowded page
-   look like the normal one.
-
-Take 1 first — it is small, it is unambiguously a bug, and it removes the case
-that actually happened here.
-
-**Do not fix this by disabling draft restore.** Item 9 is right and the reload
-case it fixed is real.
-
----
-
-### 70. `npm run onboard` says it opens the onboarding page, and does so only sometimes — `ready`
-
-**Found in run 86**, and it is a two-line fix with a one-line caveat.
-
-`tools/onboard.ts` is nine lines whose docstring reads *"`npm run onboard` —
-the dashboard, **opened on the onboarding page**"*, and whose body is
-`import './dashboard'` and nothing else. `tools/dashboard.ts:116` repeats the
-claim: *"`npm run onboard`, which is the same server opened on the onboarding
-page."*
-
-The server always opens `/` (`tools/dashboard.ts:1708`). Driven:
-
-| applications on disk | `npm run onboard` lands on |
-|---|---|
-| none | **Onboard an application** — the claim holds |
-| five | **Runs** — "Start a run" |
-
-So the root *adapts*, which is good behaviour and is why this is minor rather
-than broken: a genuine first-time user does land where the command promises.
-But somebody adding their sixth application types the command named `onboard`
-and gets the run launcher.
-
-**Worth noting how nearly this was filed as a much bigger finding.** It was
-first observed with five applications present, written up as "the onboarding
-command does not open onboarding", and only checking the zero-application case
-showed the root adapts. Reading `onboard.ts` — nine lines, no routing — would
-have confirmed the wrong conclusion, because the routing is not in that file.
-
-**Two honest options, and they are different products:**
-
-1. **Make it true.** `onboard.ts` passes something the server reads to open
-   `/onboard` regardless of how many applications exist. It is the command
-   every piece of documentation names for adding an application.
-2. **Make the comment true.** Say the root adapts: onboarding when there is
-   nothing yet, runs once there is. Then the behaviour is deliberate rather
-   than an unkept promise.
-
-Option 1 costs one parameter and matches the command's name. Prefer it unless
-somebody argues that a returning user is better served by Runs — in which case
-the command should probably not be called `onboard`.
 
 ---
 

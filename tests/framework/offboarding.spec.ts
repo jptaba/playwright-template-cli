@@ -25,6 +25,8 @@ function facts(overrides: Partial<OffboardFacts> = {}): OffboardFacts {
       'qa/example-app/pools/workforce/standard/1',
     ],
     caseFiles: [],
+    // No draft by default — the presence of one is what each draft test states.
+    draftName: null,
     storageStateFiles: ['acme-shop.standard.json', 'example-app.standard.json'],
     pointsAtPlaceholderHost: false,
     untrackedPaths: [],
@@ -228,5 +230,77 @@ test.describe('the cases a target owns', () => {
     expect(plan.removeFiles.filter((file) => file.startsWith('cases/'))).toEqual([
       'cases/acme-shop/AC-1.yaml',
     ]);
+  });
+});
+
+/**
+ * Item 69 — the fifth place a target leaves something.
+ *
+ * Offboarding knew about four: the profile, the pack, the credential entries
+ * and the stored sessions. The onboarding draft is the fifth, and it was
+ * missed because it is the only one not *named* after the target — it is a
+ * single file whose `name` field happens to say which application it
+ * describes.
+ *
+ * Found by driving the dashboard: a draft for `fold-scratch`, a target removed
+ * four days earlier, was still pre-filling twelve fields of the onboarding
+ * page and reopening two steps.
+ */
+test.describe('the onboarding draft, when a target goes', () => {
+  test('a draft describing this target goes with it', () => {
+    const plan = planOffboard('acme-shop', facts({ draftName: 'acme-shop' }));
+
+    expect(plan.clearDraft).toBe(true);
+    expect(plan.warnings.join(' ')).toContain('onboarding draft describes this target');
+  });
+
+  test('a draft describing something else is left alone', () => {
+    // Somebody's half-finished onboarding is not this removal's to delete.
+    const plan = planOffboard('acme-shop', facts({ draftName: 'other-app' }));
+
+    expect(plan.clearDraft).toBe(false);
+    expect(plan.warnings.join(' ')).not.toContain('onboarding draft');
+  });
+
+  test('no draft at all is not a draft to clear', () => {
+    expect(planOffboard('acme-shop', facts({ draftName: null })).clearDraft).toBe(false);
+  });
+
+  test('the match is exact, never a prefix', () => {
+    /*
+       The same rule credential keys follow, and for the same reason: a draft
+       for `acme-shop-staging` is not `acme-shop`'s to delete. Matching loosely
+       here would throw away work that names a different application.
+    */
+    expect(planOffboard('acme-shop', facts({ draftName: 'acme-shop-staging' })).clearDraft).toBe(
+      false,
+    );
+    expect(planOffboard('acme-shop-staging', facts({ draftName: 'acme-shop' })).clearDraft).toBe(
+      false,
+    );
+  });
+
+  test('a draft outlives the pack, so it counts as something left to remove', () => {
+    /*
+       The `alreadyGone` path used to report "Nothing to remove" the moment the
+       profile and pack were absent, and item 16 fixed that for credentials and
+       sessions. A draft is the same shape of leftover: remove the pack by
+       hand, or offboard twice, and the draft describing it is still there.
+    */
+    const plan = planOffboard(
+      'acme-shop',
+      facts({
+        knownTargets: ['example-app'],
+        packExists: false,
+        packFiles: [],
+        secretKeys: [],
+        storageStateFiles: [],
+        draftName: 'acme-shop',
+      }),
+    );
+
+    expect(plan.alreadyGone).toBe(true);
+    expect(plan.clearDraft).toBe(true);
+    expect(plan.warnings.join(' ')).not.toContain('Nothing named');
   });
 });

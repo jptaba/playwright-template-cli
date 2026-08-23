@@ -494,8 +494,8 @@ ${overview([
   <details class="danger">
     <summary>Remove an application</summary>
     <p class="explain">
-      Removes the profile, the pack, the credential entries, the stored sessions and the cases.
-      Nothing else.
+      Removes the profile, the pack, the credential entries, the stored sessions, the cases
+      and the onboarding draft. Nothing else.
     </p>
     <details class="more">
       <summary>Why removing one is a normal thing to do</summary>
@@ -620,6 +620,24 @@ function saveDraft() {
       () => setDraftState('not kept'),
     );
   }, 400);
+}
+
+/**
+ * When a restored draft was saved, in words a person reads — item 69.
+ *
+ * Today and yesterday by name because those are the only two a restored draft
+ * can be: anything older is no longer restored. The date is the fallback for a
+ * clock that disagrees with itself.
+ */
+function savedWhen(iso) {
+  var saved = new Date(iso);
+  if (isNaN(saved.getTime())) return 'earlier';
+  var startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  if (saved >= startOfToday) return 'today';
+  var startOfYesterday = new Date(startOfToday.getTime() - 86400000);
+  if (saved >= startOfYesterday) return 'yesterday';
+  return saved.toLocaleDateString();
 }
 
 function setDraftState(what) {
@@ -901,7 +919,23 @@ function pickChanged() {
     $('pickStatus').replaceChildren();
     $('create').disabled = false;
     applyDraft(draft);
-    setDraftState(draft.savedAt ? 'kept as you type' : 'nothing in progress');
+    /*
+       Say *when*, not just that — item 69.
+
+       The wizard reopens pre-filled from a draft, which is right for somebody
+       who reloaded and baffling for somebody who did not. Naming the day it
+       was saved is the difference between "this is your form" and "why is this
+       full of an application I do not recognise". Drafts older than a day are
+       no longer restored at all, so this only ever reports today or yesterday.
+
+       Runtime-filled, so it costs nothing against the page's copy budget —
+       that budget counts the pre-rendered body.
+    */
+    setDraftState(
+      draft.savedAt
+        ? 'kept as you type · saved ' + savedWhen(draft.savedAt)
+        : 'nothing in progress',
+    );
     /*
        Two reasons the wizard opens without being asked.
 
@@ -2105,14 +2139,32 @@ $('offPlan').onclick = async () => {
     offPlanned = plan;
     out.replaceChildren();
 
-    if (plan.alreadyGone) {
-      out.append(el('div', '', 'Nothing named "' + plan.target + '" is onboarded.'));
+    /*
+       "alreadyGone" means the profile and the pack are gone. It does **not**
+       mean nothing is left, and this used to print "Nothing named X is
+       onboarded" and return — throwing away the credential entries, the
+       stored sessions and the warnings the plan had already collected.
+
+       That is exactly the defect item 16 removed from "planOffboard", still
+       alive one layer up: remove a pack by hand, or offboard twice, and the
+       page reported nothing to do while a real password sat in
+       config/secrets.private.json. The CLI has been right about this since
+       item 16; the dashboard was not, and it was found by driving it.
+
+       So the plan is rendered whatever "alreadyGone" says, and the only thing
+       that word changes is the sentence at the top.
+    */
+    const leftovers =
+      plan.removeSecretKeys.length + plan.removeStorageStates.length + (plan.clearDraft ? 1 : 0);
+    if (plan.alreadyGone && leftovers === 0) {
+      out.append(el('div', '', 'Nothing named "' + plan.target + '" is onboarded, and nothing it owned is left.'));
       return;
     }
 
-    const counts = [plan.removeFiles.length + ' file(s)'];
+    const counts = plan.alreadyGone ? [] : [plan.removeFiles.length + ' file(s)'];
     if (plan.removeSecretKeys.length) counts.push(plan.removeSecretKeys.length + ' credential entr(ies)');
     if (plan.removeStorageStates.length) counts.push(plan.removeStorageStates.length + ' stored session(s)');
+    if (plan.clearDraft) counts.push('the onboarding draft');
     out.append(el('div', '', 'Would remove ' + counts.join(', ') + ':'));
 
     const list = el('ul', 'files');

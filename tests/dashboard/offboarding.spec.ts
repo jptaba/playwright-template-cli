@@ -22,6 +22,7 @@ function plan(dashboard: Parameters<Parameters<typeof test>[2]>[0]['dashboard'],
     removeDirectories: ['src/targets/shop-one'],
     removeSecretKeys: ['shop-one/standard/1'],
     removeStorageStates: ['.auth/shop-one.standard.json'],
+    clearDraft: false,
     warnings: [],
     refusals: [],
     alreadyGone: false,
@@ -53,15 +54,59 @@ test.describe('planning a removal', () => {
     await expect(page.locator('#offPlanOut')).toContainText('never been committed');
   });
 
-  test('a target that is not there says so, and offers no confirmation', async ({ dashboard }) => {
+  test('a target with nothing left at all says so, and offers no confirmation', async ({
+    dashboard,
+  }) => {
     const { page } = dashboard;
-    plan(dashboard, { target: 'ghost', alreadyGone: true, removeFiles: [] });
+    plan(dashboard, {
+      target: 'ghost',
+      alreadyGone: true,
+      removeFiles: [],
+      // Genuinely nothing: no credential, no session, no draft.
+      removeSecretKeys: [],
+      removeStorageStates: [],
+      clearDraft: false,
+    });
     await openThePanel(dashboard);
     await page.fill('#offTarget', 'ghost');
     await page.click('#offPlan');
 
     await expect(page.locator('#offPlanOut')).toContainText('Nothing named "ghost" is onboarded');
     await expect(page.locator('#offConfirmBox')).toBeHidden();
+  });
+
+  test('a pack that is gone does not mean the credentials are', async ({ dashboard }) => {
+    /*
+       Item 16's rule, which the page did not follow. `alreadyGone` means the
+       profile and the pack are gone; credentials, sessions and the onboarding
+       draft outlive both. The page used to print "Nothing named X is
+       onboarded" and return, discarding all three — so somebody who removed a
+       pack by hand, or offboarded twice, was told there was nothing to do
+       while a real password sat in config/secrets.private.json.
+
+       Found by driving the dashboard, which is the only place it was visible:
+       the CLI has been right about this since item 16.
+    */
+    const { page } = dashboard;
+    plan(dashboard, {
+      target: 'ghost',
+      alreadyGone: true,
+      removeFiles: [],
+      removeSecretKeys: ['qa/ghost/pools/workforce/standard/1'],
+      removeStorageStates: ['.auth/ghost.standard.json'],
+      clearDraft: true,
+    });
+    await openThePanel(dashboard);
+    await page.fill('#offTarget', 'ghost');
+    await page.click('#offPlan');
+
+    const out = page.locator('#offPlanOut');
+    await expect(out).toContainText('credential entr(ies)');
+    await expect(out).toContainText('stored session(s)');
+    await expect(out).toContainText('the onboarding draft');
+    await expect(out).not.toContainText('nothing it owned is left');
+    // And it must be possible to actually remove them.
+    await expect(page.locator('#offConfirmBox')).toBeVisible();
   });
 
   test('a refusal offers no confirmation either', async ({ dashboard }) => {

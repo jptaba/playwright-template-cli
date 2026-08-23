@@ -52,6 +52,23 @@ export interface OffboardFacts {
    */
   caseFiles: string[];
   /**
+   * The target name the onboarding draft carries, or `null` when there is no
+   * draft on disk.
+   *
+   * **The fifth place a target leaves something**, and it was missed because
+   * it is the only one that is not a file *named* after the target. The draft
+   * is a single `.onboarding-draft.json` whose `name` field happens to say
+   * which application it describes.
+   *
+   * Found by driving the dashboard: a draft written four days earlier for a
+   * scratch target that had since been removed was still pre-filling twelve
+   * fields of the onboarding page, and reopening two steps that progressive
+   * disclosure had put away — 1761px against 3173px, measured. Offboarding had
+   * taken the profile, the pack, the credentials and the sessions, and left
+   * the thing that describes them.
+   */
+  draftName: string | null;
+  /**
    * Whether this target's base URL is a reserved placeholder host — `.invalid`,
    * `.test`, `example.*`.
    *
@@ -84,6 +101,14 @@ export interface OffboardPlan {
   removeSecretKeys: string[];
   /** Session files to shred. Gitignored, so git cannot bring these back. */
   removeStorageStates: string[];
+  /**
+   * Whether the onboarding draft describes *this* target and should go with it.
+   *
+   * Only when it names this target. A draft for something else is somebody's
+   * work in progress and removing it would be the same class of mistake as
+   * sweeping a credential by substring match.
+   */
+  clearDraft: boolean;
   /** Things worth saying out loud, which do not stop the removal. */
   warnings: string[];
   /**
@@ -119,6 +144,16 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
   const packRoot = `src/targets/${target}`;
 
   /*
+     The draft goes only when it describes *this* target.
+
+     Exact match on the name it carries, for the same reason credential keys
+     are matched on `qa/<target>/` rather than by substring: a draft for
+     `acme-shop-staging` is not `acme-shop`'s to delete, and a half-finished
+     onboarding is somebody's work.
+  */
+  const clearDraft = facts.draftName !== null && facts.draftName === target;
+
+  /*
      Credential entries are matched on the profile's own root shape,
      `qa/<target>/…`, rather than on the target name appearing anywhere in the
      key. A substring match would take `qa/acme-shop-staging/...` with
@@ -147,13 +182,15 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
   */
   const packGone = !facts.knownTargets.includes(target) && !facts.packExists;
   if (packGone) {
-    const leftovers = removeSecretKeys.length + removeStorageStates.length;
+    const leftovers =
+      removeSecretKeys.length + removeStorageStates.length + (clearDraft ? 1 : 0);
     return {
       target,
       removeFiles: [],
       removeDirectories: [],
       removeSecretKeys,
       removeStorageStates,
+      clearDraft,
       warnings: [
         leftovers === 0
           ? `Nothing named '${target}' is onboarded. Known: ${facts.knownTargets.join(', ') || '(none)'}.`
@@ -221,6 +258,14 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
     );
   }
 
+  if (clearDraft) {
+    warnings.push(
+      'The onboarding draft describes this target, so it will be cleared too. Without that, ' +
+        'the next visit to the onboarding page reopens pre-filled for an application this ' +
+        'repository no longer has.',
+    );
+  }
+
   if (removeSecretKeys.length > 0) {
     warnings.push(
       `${removeSecretKeys.length} credential entr(ies) will be removed from the local secret ` +
@@ -264,6 +309,7 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
     ],
     removeSecretKeys,
     removeStorageStates,
+    clearDraft,
     warnings,
     refusals,
     alreadyGone: false,
@@ -283,13 +329,23 @@ export function confirmationMatches(target: string, typed: string | null | undef
   return typeof typed === 'string' && typed.trim() === target.trim() && target.trim() !== '';
 }
 
-/** Whether anything at all would be removed. */
+/**
+ * Whether anything at all would be removed.
+ *
+ * The onboarding draft counts. It was left out when the draft became the fifth
+ * thing a target owns, and the omission was invisible until a plan whose
+ * *only* leftover was the draft reached this: `isRemovable` said no, and the
+ * route answered "nothing it owned is left" while the file sat on disk. The
+ * same shape as item 16, one predicate down — a list of what a target owns
+ * that somebody extended in one place and not the other.
+ */
 export function hasAnythingToRemove(plan: OffboardPlan): boolean {
   return (
     plan.removeFiles.length +
       plan.removeDirectories.length +
       plan.removeSecretKeys.length +
-      plan.removeStorageStates.length >
+      plan.removeStorageStates.length +
+      (plan.clearDraft ? 1 : 0) >
     0
   );
 }
@@ -318,5 +374,6 @@ export function describeOffboard(plan: OffboardPlan): string[] {
   if (plan.removeStorageStates.length > 0) {
     lines.push(`${plan.removeStorageStates.length} stored session(s) from .auth/`);
   }
+  if (plan.clearDraft) lines.push('the onboarding draft, which describes this target');
   return lines;
 }
