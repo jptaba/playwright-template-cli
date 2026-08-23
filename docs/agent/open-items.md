@@ -18,12 +18,19 @@ decide what to do.
 | 62 | Three applications have real accessibility violations, newly visible | `blocked` |
 | 52 | One coverage cell is left, and it is blocked | `blocked` |
 | 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `blocked` |
-| 64 | The a11y settle can fire early under load | `ready` |
+| 65 | The packs already on disk do not assert the stability guarantee | `ready` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Items 46, 48, 51, 53, 55, 58, 59, 60, 61 and 63 are `done`** and archived in
-`backlog.md`. **63 closed in run 81**: a PractiTest **set per application**,
+**Items 46, 48, 51, 53, 55, 58, 59, 60, 61, 63 and 64 are `done`** and archived in
+`backlog.md`. **64 closed in run 82**: a scan is a result when scanning again
+says the same thing. The quiet period is wall-clock and wall-clock is a proxy;
+under load a starved page holds still and the scan answers for a shell with
+`settled: true`. The scanner now settles, scans, settles and scans again, and
+accepts the findings only when two consecutive scans agree. `restful-booker`
+went from green-alone-red-under-load to **red alone, three times out of three,
+with identical findings** — and the confirmation reported `link-name` ×3 that
+even the loaded run had missed. **63 closed in run 81**: a PractiTest **set per application**,
 looked up by the application's own name rather than an id written into a
 profile, so `pull-cases` returns this suite's cases and not the project's. The
 case half of stage 2 is exercised for the first time. **46 and 48 closed together in run 80**: the fakes seed from the
@@ -67,8 +74,9 @@ reaches the packs that already exist.
 What is left of it is a decision only the owner can take, so it is `blocked`
 rather than ready.
 
-**Take item 64 next.** It is the only `ready` item; 62, 56, 52 and 49 are all
-waiting on the owner rather than on work.
+**Take item 65 next.** It is the only `ready` item, and it is item 64's own
+loose end: the guarantee exists and the four packs already on disk do not ask
+for it. 62, 56, 52 and 49 are all waiting on the owner rather than on work.
 
 **Where the journey stands, run 80, every application:**
 
@@ -105,11 +113,14 @@ rendering. Both were reported green until run 79.
 |---|---|---|
 | **orangehrm** | `A11Y-001`, the dashboard | **critical** `button-name` ×4 · serious `color-contrast` ×11 · `list` ×1 · `scrollable-region-focusable` ×1 |
 | **toolshop** | `TOOL-5-01`, the sign-in form | **critical** `button-name`, plus two more |
-| **restful-booker** | `A11Y-001`, the landing page | **critical** `label` ×3 · serious `color-contrast` ×4 — **seen only under load**, see item 64 |
+| **restful-booker** | `A11Y-001`, the landing page | **critical** `label` ×3 · serious `color-contrast` ×4 · `link-name` ×3 |
 
 **`restful-booker` was recorded here as clean and that was wrong** — run 81
-found it fails under full-suite load and passes alone, because the settle can
-fire early when the machine is busy (item 64). Its violations are real.
+found it fails under full-suite load and passes alone, because the settle could
+fire early when the machine was busy. Item 64 fixed that in run 82, and its
+findings are now **reproducible run alone, three times out of three** — which
+also turned up `link-name` ×3 that the load-only sighting had missed. Its
+violations are real and there is no longer any doubt about the number.
 `saucedemo` declares no accessibility capability, so it is unaffected.
 
 Triage now files both as `application-defect` via the `accessibility-violation`
@@ -224,50 +235,46 @@ because only toolshop declares a `poolSize`; the next application to declare
 one inherits the same unexamined claim. `pool:measure` is what that application
 now has and toolshop did not.
 
-### 64. The a11y settle can fire early under load — `ready`
+### 65. The packs already on disk do not assert the stability guarantee — `ready`
 
-**Found in run 81**, and it is a weakness in run 79's own fix rather than a new
-application defect.
+**Raised in run 82**, by shipping item 64. `A11yScan` now carries `stable`, and
+the scaffolded a11y spec asserts it — so every application onboarded from now
+on is held to it. The four packs that already exist were written before it and
+assert `violations` and `incomplete` only.
 
-`restful-booker`'s accessibility spec is **intermittent, and only under
-load**:
+**What that costs.** A scan that never stabilised still returns findings, and a
+spec that does not ask can pass on them. The findings are the last of three
+attempts on a page that was still moving, so they may be a subset — which is a
+weaker version of the same false green item 64 was raised about. `describe()`
+prints an `UNSTABLE` caveat, and that reaches the failure message only when
+something else has already failed; a spec that passes prints nothing.
 
-| how it was run | result |
-|---|---|
-| the `a11y` project alone, 3 times | green, 3 of 3 |
-| the full live suite, 2 times | **1 red**, `[critical] label` ×3 and `[serious] color-contrast` ×4 |
+**Adding the assertion to four packs by hand is the wrong fix and is the point
+of the item.** It is four edits that leave the mechanism as it was, so the
+fifth pack written by somebody who copies an existing one meets the same gap.
+Rule zero's question applies: which mechanism should have caught this?
 
-**Why, and it is the heuristic's own shape.** The settle waits for the DOM to
-be still for a quiet period measured in *wall-clock* time. Under CPU
-contention — four projects and several workers on one machine — a page that is
-mid-render can easily be still for 500ms because the application is starved,
-not because it has finished. The scan then fires early and reports the shell
-clean, which is exactly the false pass run 79 removed, arriving less often
-through the same door.
+**Candidates, in the order they seem worth trying:**
 
-So the red run is the honest one again, and `restful-booker` has real
-violations to add to item 62 — `label` on 3 nodes is critical, and unlabelled
-inputs are a genuine barrier.
+1. **`target:doctor`** — it already reports `coverage-incomplete` by reading
+   the tags in a pack. Reading a pack's a11y specs for an assertion on
+   `scan.stable` is the same shape of check, and it names the file to fix.
+2. **A lint rule** — `a11y-asserts-stability`, alongside the rules that already
+   govern what a spec may do. Stronger, and it fails at author time rather than
+   at preflight; the risk is that a legitimate spec deliberately reporting on
+   an unstable page has to disable it.
+3. **`upgrade.ts`** — there is already a mechanism for pushing a corrected
+   template line into packs that exist (run 70, item 57). If it can carry this
+   one, the four packs are fixed by the tool that exists for it rather than by
+   hand, which is the distinction rule zero actually draws.
 
-**Directions worth weighing before building anything**, and this is the item's
-open question:
+Option 3 plus option 1 is probably the answer: upgrade the packs with the tool,
+and have the doctor keep saying so. Worth checking what `upgrade.ts` can
+already express before assuming it needs extending.
 
-1. **Quiet *and* agreement**: settle, scan, settle, scan, and only accept a
-   result when two consecutive scans agree. Costs a second scan; catches the
-   starved-page case, because a page still rendering produces different
-   findings each time.
-2. **Anchor on readiness first** — `document.readyState === 'complete'` plus
-   quiet — which helps a slow load but not a slow SPA render.
-3. **Scale the quiet period** by observed mutation cadence rather than fixing
-   it at 500ms.
-
-**Do not simply raise the quiet period.** It makes the window wider without
-making the signal better, slows every scan on every application, and still
-fails whenever contention is worse than the number somebody guessed.
-
-**Note for whoever takes it:** `scan.settled` already exists and is `true` in
-these early-firing runs, which is itself the finding — the scan believed it had
-settled. Whatever replaces the heuristic should be able to tell that story.
+**Not urgent.** The three applications with accessibility capability are all
+red for real violations right now (item 62), so none of them is currently
+resting on a false green. It becomes urgent the moment item 62 is decided.
 
 ---
 

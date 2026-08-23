@@ -445,6 +445,21 @@ standard must never require an edit to framework code.
   reads it as evidence. `scan.settled` is `false` when the page never went
   quiet — a clock or a carousel will do that forever — and a spec that cares
   should say so rather than treat the result as equivalent.
+- **A result is a result when scanning again says the same thing.** Waiting for
+  quiet is a proxy, and under load the proxy and the fact come apart: a page
+  between render phases is easily still for the quiet period because it is
+  starved or waiting, not because it has finished — and the scan then answers
+  for a shell **with `settled: true`**, because by its own definition it had
+  settled. Measured: one application's landing page green three times out of
+  three run alone, and red under full-suite load with `[critical] label` on
+  three nodes. So the fixture scans, settles and scans again, and accepts the
+  findings only when two consecutive scans agree. `scan.stable` is `false` when
+  they never did — the findings are still returned, because the last attempt is
+  the best answer available, but they describe a moving page and a spec should
+  assert `stable` rather than treat the two as the same result. Raising the
+  quiet period is **not** the fix: it widens the window without improving the
+  signal, slows every scan on every application, and still loses whenever
+  contention is worse than the number somebody guessed.
 - Scan a page a user actually reaches. Landing pages pass nearly everywhere;
   the dialogs, tables and multi-step forms are where the problems are.
 - A permanent exception is a **waiver in the profile**, with a reason and a

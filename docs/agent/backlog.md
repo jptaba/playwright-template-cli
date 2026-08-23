@@ -3487,3 +3487,66 @@ Stage 2 is satisfied by *either* cases out of PractiTest *or* a story out of
 Jira, and it has only ever been the story: `pull-cases` returned **0 for every
 target** against a fake holding 62 seeded cases, because the fake's
 `GET /tests.json` only matched an identity filter.
+
+### 64. The a11y settle could fire early under load — `done`
+
+Shipped on `agent/2026-08-23-scan-agreement` (run 82). **A scan is a result
+when scanning again says the same thing.**
+
+**The defect, and it was a weakness in run 79's own fix.** The settle waits for
+the DOM to be still for a quiet period measured in wall-clock, and wall-clock
+is a *proxy* for "the page has had enough opportunity to do more work". Under
+contention the two come apart: a page between render phases is easily still for
+500ms because it is starved or waiting on the network, not because it has
+finished. The scan then fires early and reports the shell clean — the same
+false pass run 79 removed, arriving less often through the same door.
+
+The tell was that `scan.settled` was **`true`** in exactly those early runs.
+The scan believed it had settled, because by its own definition it had.
+
+**What shipped.** `createScanner` now settles, scans, settles and scans again,
+and accepts the findings only when two consecutive scans agree on a fingerprint
+of what axe found. `A11yScan` carries `stable` and `scans`; `describe()` prints
+an `UNSTABLE` caveat when they never agreed — including on the
+no-violations-found path, which is the most misleading string this module can
+produce. The scaffolded a11y spec asserts `scan.stable`.
+
+**Why agreement rather than the two alternatives the item listed.** It needs no
+theory about *why* the page was slow, which is the property the other two lack.
+Anchoring on `readyState` helps a slow load and not a slow SPA render — the
+case actually being missed. Scaling the quiet period by mutation cadence still
+guesses, just with more arithmetic. Asking whether the answer repeats measures
+the thing the caller actually wants to know.
+
+**Two shapes were considered and rejected, and both look reasonable:**
+
+- **Raising the quiet period** — the item already forbade it, correctly. It
+  widens the window without improving the signal, slows every scan on every
+  application, and still loses whenever contention is worse than the number
+  somebody guessed.
+- **Settling twice** — arithmetically just a longer quiet period, because the
+  second observer resets on the same mutations the first one did. It looks like
+  a confirmation and is not one.
+
+**The fingerprint is taken from the raw axe result, before waivers**, and there
+is a test for it. Fingerprinting the summarised scan would let an accepted
+exception hide the very movement this looks for: a page whose only changing
+finding happened to be waived would read as stable while it was still
+rendering. `passes` is in the fingerprint and is its most sensitive part — a
+shell has far fewer passing checks than a rendered page, and the violations a
+half-rendered page reports can easily be a subset that looks the same twice.
+
+**Proven against the live application, and the proof is the interesting part.**
+`restful-booker` was the symptom: green 3 of 3 run alone, red under full-suite
+load. After the fix it is red **run alone, three times out of three, with
+identical findings** — `[critical] label` ×3, `[serious] color-contrast` ×4 and
+`[serious] link-name` ×3.
+
+**It found more than the loaded run had.** `link-name` ×3 is not in the
+findings item 62 recorded from the load-only sighting, because even that run
+caught the page mid-render. A mechanism built to stop early scans turned out to
+be reporting a fuller page than the accidental late one did.
+
+**Cost: one extra axe run per scan**, on suites that hold one to three
+accessibility specs each. `npm run verify` went from 1126 tests to 1144 and the
+live suites are unchanged in duration to the second.

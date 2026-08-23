@@ -102,6 +102,36 @@ export interface A11yScan {
    * error and the scan still happened — it is a caveat the reader is owed.
    */
   settled: boolean;
+  /**
+   * Whether two consecutive scans of this page produced the same findings.
+   *
+   * **`settled` was not enough, and the way it failed is the reason this
+   * exists.** The quiet period is wall-clock, and wall-clock is a proxy for
+   * "the page has had enough opportunity to do more work". Under contention —
+   * four projects and several workers on one machine — a page that is between
+   * render phases is easily still for 500ms because it is starved or waiting,
+   * not because it has finished. The scan then fires early and reports the
+   * shell clean, which is the false pass the settle was built to remove,
+   * arriving less often through the same door. Measured on one application's
+   * landing page: green three times out of three run alone, and red under full
+   * live-suite load with `[critical] label` on three nodes.
+   *
+   * The tell is that `settled` was **`true`** in exactly those early runs. The
+   * scan believed it had settled, because by its own definition it had.
+   *
+   * So this stops proxying and measures the thing itself: a result is a result
+   * when scanning again gives the same answer. A page still rendering does not
+   * — its findings move between attempts, which is precisely what makes it
+   * detectable without knowing *why* it was slow.
+   *
+   * `false` means the scans never agreed inside `scans` attempts. The findings
+   * are still returned, because the last attempt is the best answer available
+   * and refusing to report is worse — but they describe a moving page, and a
+   * spec that treats that as equivalent to a stable one overstates its result.
+   */
+  stable: boolean;
+  /** How many axe runs it took. Two when the first pair agreed. */
+  scans: number;
 }
 
 /** One axe finding, in the shape axe reports both violations and incompletes. */
@@ -201,6 +231,12 @@ export function summarise(
      passes the answer.
   */
   settled = true,
+  /*
+     Defaulted the same way and for the same reason: a caller feeding a fixture
+     to `summarise` is describing one result, not a confirmation round. The
+     scanner, which is the only caller that runs axe twice, passes what it saw.
+  */
+  stability: { stable: boolean; scans: number } = { stable: true, scans: 1 },
 ): A11yScan {
   const url = raw.url ?? '';
   const violations: A11yViolation[] = [];
@@ -272,7 +308,47 @@ export function summarise(
     incomplete: raw.incomplete.length,
     undecided: raw.incomplete.map(asFinding),
     settled,
+    stable: stability.stable,
+    scans: stability.scans,
   };
+}
+
+/**
+ * A fingerprint of what axe found, for deciding whether two scans agree.
+ *
+ * **Taken from the raw result, before waivers.** A waiver removes a violation
+ * from the reported list, so fingerprinting the summarised scan would let an
+ * accepted exception mask the very movement this is looking for — a page whose
+ * only changing finding happens to be waived would read as stable while it was
+ * still rendering.
+ *
+ * `passes` is in the fingerprint deliberately, and it is the most sensitive
+ * part of it. A shell has far fewer passing checks than a rendered page, so the
+ * count moves early and moves a lot, while the violations a half-rendered page
+ * reports can easily be a subset that looks the same twice.
+ *
+ * Node targets rather than node counts, because an element replaced by another
+ * is a page that is still changing even when the tally is unmoved. Sorted, so
+ * axe reporting the same findings in a different order is not mistaken for the
+ * page moving.
+ */
+export function findingsFingerprint(raw: RawAxeResult): string {
+  const of = (findings: RawAxeFinding[]): string[] =>
+    findings
+      .map(
+        (finding) =>
+          `${finding.id}(${finding.nodes
+            .map((node) => node.target.map((part) => String(part)).join(' '))
+            .sort()
+            .join('|')})`,
+      )
+      .sort();
+
+  return JSON.stringify({
+    passes: raw.passes.length,
+    violations: of(raw.violations),
+    incomplete: of(raw.incomplete),
+  });
 }
 
 /** An axe finding in this module's own shape. Shared by violations and incompletes. */
@@ -315,8 +391,22 @@ export function describeUndecided(scan: A11yScan): string {
 
 /** One line per violation, for a failure message somebody has to act on. */
 export function describe(scan: A11yScan): string {
+  /*
+     The caveat goes in the message rather than only on the object, because a
+     pack that does not yet assert `stable` still has to be told. "No
+     violations" from a page that never held still is the single most
+     misleading string this module can produce.
+  */
+  const caveat = scan.stable
+    ? ''
+    : `\n  UNSTABLE: ${scan.scans} scans of this page disagreed, so it was still changing. ` +
+      'These findings describe a moving page and may be a subset.';
+
   if (scan.violations.length === 0) {
-    return `no ${scan.standard} violations (${scan.passes} checks passed, ${scan.incomplete} need a human)`;
+    return (
+      `no ${scan.standard} violations (${scan.passes} checks passed, ${scan.incomplete} need a human)` +
+      caveat
+    );
   }
   const lines = scan.violations.map((violation) => {
     const where = violation.nodes
@@ -328,7 +418,7 @@ export function describe(scan: A11yScan): string {
       `      ${violation.nodes.length} node(s): ${where}${more}\n` +
       `      ${violation.helpUrl}`;
   });
-  return `${scan.violations.length} ${scan.standard} violation(s):\n${lines.join('\n')}`;
+  return `${scan.violations.length} ${scan.standard} violation(s):\n${lines.join('\n')}${caveat}`;
 }
 
 export interface ScanOptions {
@@ -343,7 +433,22 @@ export interface ScanOptions {
    * page that has not finished rendering.
    */
   settle?: SettleOptions;
+  /**
+   * How many axe runs to spend looking for two that agree, before giving up
+   * and reporting the last one with `stable: false`.
+   *
+   * Two is the floor and the normal cost: scan, settle, scan, and on a page
+   * that has genuinely finished the pair agrees and it stops. A third is spent
+   * only when the first two disagreed, which is the case this exists for.
+   *
+   * Raising it buys patience with a page that keeps moving. It does not buy
+   * accuracy on one that has stopped, so the default is deliberately small.
+   */
+  maxScans?: number;
 }
+
+/** Two agreeing scans is the answer; a third is for when the first pair did not. */
+export const DEFAULT_MAX_SCANS = 3;
 
 export interface A11yScanner {
   /**
@@ -375,8 +480,55 @@ export function createScanner(
          accessibility report for a page nobody checked. Nobody opts out of
          that trade correctly under deadline.
       */
-      const settled = await settle(page, options.settle);
-      return summarise(await run(page, tags, options), capability, tags, settled);
+      /*
+         Then scan until two consecutive runs agree.
+
+         **Settling is a proxy and this is the fact.** The quiet period asks
+         whether the DOM held still for 500ms of wall-clock, which stands in
+         for "the page has finished". Under contention the two come apart: a
+         page between render phases is still because it is starved or waiting,
+         and the scan fires early on a shell with `settled: true`. Asking
+         whether the *answer* repeats needs no theory about why the page was
+         slow — a page still rendering reports different findings each time,
+         and one that has stopped reports the same ones however busy the
+         machine is.
+
+         Rejected on the way here, and recorded because both look reasonable:
+         **raising the quiet period** widens the window without improving the
+         signal, slows every scan on every application, and still loses
+         whenever contention is worse than the number somebody guessed; and
+         **settling twice** is arithmetically just a longer quiet period,
+         because the second observer resets on the same mutations the first
+         one did.
+      */
+      const maxScans = Math.max(2, options.maxScans ?? DEFAULT_MAX_SCANS);
+
+      let settled = await settle(page, options.settle);
+      let latest = await run(page, tags, options);
+      let previous = findingsFingerprint(latest);
+      let scans = 1;
+      let stable = false;
+
+      while (scans < maxScans) {
+        settled = await settle(page, options.settle);
+        latest = await run(page, tags, options);
+        scans++;
+
+        const current = findingsFingerprint(latest);
+        if (current === previous) {
+          stable = true;
+          break;
+        }
+        previous = current;
+      }
+
+      /*
+         The last scan rather than the first, whichever way this ended. When
+         the pair agreed the two are equivalent; when they never did, the most
+         recent is the closest to a finished page, and reporting the earliest
+         would be reporting the emptiest.
+      */
+      return summarise(latest, capability, tags, settled, { stable, scans });
     },
   };
 }

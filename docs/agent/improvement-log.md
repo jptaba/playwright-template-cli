@@ -5769,3 +5769,94 @@ the same false pass run 79 removed, less often, through the same door.
   `git clean -fd` removed exactly those.
 
 **Next:** item 64. Everything else is waiting on the owner.
+
+## 2026-08-23 · run 82 · A scan is a result when scanning again says the same thing
+
+**Picked:** item 64, the only `ready` item. Re-read `git log origin/main` before
+starting and it had moved — run 81 landed item 63 (a PractiTest set per
+application, found by name) while this session was reading. Re-read the
+worklist rather than trusting the copy loaded at the start, which is what the
+file's own instruction says to do, and 64 was what it now pointed at.
+
+**Did:** `createScanner` settles, scans, settles and scans again, and accepts
+the findings only when two consecutive scans agree on a fingerprint of what axe
+found. `A11yScan` carries `stable` and `scans`; `describe()` prints an
+`UNSTABLE` caveat when they never agreed. The scaffolded a11y spec asserts
+`scan.stable`. Full reasoning in item 64 in `backlog.md`.
+
+**The choice worth recording: measure the fact, not a better proxy.** The item
+offered three directions and two of them were more arithmetic on the same
+proxy — anchor on `readyState`, or scale the quiet period by mutation cadence.
+Both still guess at "has this page finished" from the outside. Agreement asks
+the question the caller actually has: does the answer repeat? It needs no
+theory about *why* the page was slow, which is exactly why it survives a cause
+nobody predicted.
+
+**Settling twice is not a confirmation, and it took a minute to see why.** It
+was the obvious cheap version — settle, settle, then scan — and it is
+arithmetically just a longer quiet period, because the second observer resets
+on the same mutations the first one did. The item explicitly forbade raising
+the quiet period; settling twice is that, wearing a disguise. The confirmation
+has to be of the *answer*, which means paying for a second axe run.
+
+**Proven live, and the proof turned out to be better than the fix.**
+`restful-booker` was the symptom: green 3 of 3 alone, red only under full-suite
+load. After the change it is red **run alone, three times running, with
+identical findings** — `[critical] label` ×3, `[serious] color-contrast` ×4,
+`[serious] link-name` ×3.
+
+`link-name` ×3 is **not** in the findings run 81 recorded from the load-only
+sighting. Even that accidental late scan had caught the page mid-render. A
+mechanism built to stop early scans is reporting a fuller page than the
+accident was.
+
+**Verify:** `npm run verify` passes, exit 0 — **1144 tests**, up from 1126.
+
+**One existing test failed and was rewritten to the new guarantee**, which is
+the suite working as the loop's own notes predict. "The scan waits before it
+looks" asserted `['settled', 'scanned']` — it was relying on the single-scan
+default rather than asserting what it cared about. It now asserts the
+invariant: every scan is preceded by a settle, however many there are.
+
+**Live suites: 1 passing, 3 failing, 1 parked.** saucedemo 6/6; orangehrm 6/7,
+restful-booker 12/13 and toolshop 21/22, all three red on accessibility and all
+three filed as `application-defect (rule: accessibility-violation)`; parabank
+parked. **All three reds are item 62, which is the owner's decision.**
+restful-booker's line changed meaning rather than colour — it was "12/13, one
+flake" and is now 12/13 for a reason that reproduces.
+
+**Triage agreement, unchanged on all four:** toolshop **4 · 0 · 0**, orangehrm
+**4 · 0 · 0**, restful-booker **3 · 0 · 1**, saucedemo **1 · 0 · 3**. The
+change contradicted nothing.
+
+**Raised:** item 65, and it is this change's own loose end. The guarantee
+exists and the four packs already on disk do not ask for it — they were written
+before `stable` did. Adding the assertion to four packs by hand is the wrong
+fix and is the whole point of the item: `upgrade.ts` already exists for pushing
+a corrected template line into packs that exist (run 70), and `target:doctor`
+already reports a pack missing something it should have. Fix the mechanism.
+
+**Learned:**
+
+- **A proxy that is right most of the time is the hardest kind to replace,**
+  because every failure looks like tuning. Run 79's settle was correct and the
+  three obvious follow-ups were all "settle harder". The move was to stop
+  improving the proxy and measure the thing it stood for.
+- **The confirmation found more than the accident did.** The load-only sighting
+  was treated as the ground truth for what restful-booker's violations *are*,
+  and it was a subset. Worth distrusting any finding whose only evidence is one
+  unlucky run — including a finding that is real.
+- **Backslashes do not survive this shell's heredoc.** `\\n` in a quoted
+  heredoc reached Python as a real newline, so a replacement against a TS
+  template literal silently matched nothing. Building the escape with
+  `chr(92)` works. Same family as the trap runs 67, 74 and 77 all recorded;
+  this is the third costume.
+- **Cut a section by heading boundary and assert what survived.** The file
+  warns about this twice — runs 66 and 80 both lost content — so the cut
+  asserted that no other heading was inside the removed span, and the heading
+  list was printed before and after.
+
+**Next:** item 65. Everything else is the owner's: 62 (accept, waive or park
+the accessibility violations on three applications), 56 (drop toolshop's pool
+or correct its stated reason), 52 (follows from 56), 49 (a real Teams webhook
+and SMTP relay).
