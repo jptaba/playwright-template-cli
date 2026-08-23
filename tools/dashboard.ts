@@ -46,7 +46,8 @@ import {
 } from '../src/support/secrets/vault-config';
 import { casesPageContent } from '../src/support/ui/cases-page';
 import { storiesPageContent } from '../src/support/ui/stories-page';
-import { collectCoverage } from '../src/support/cases/collect';
+import { collectCoverage, readSpecs } from '../src/support/cases/collect';
+import { storyClaims } from '../src/support/cases/story-scope';
 import { CaseValidationError, loadCases, saveCase } from '../src/support/cases/store';
 import { authoringRoutes, type AuthoringService } from '../src/support/cases/authoring';
 import type { CaseAuthorModel, NormalisedStory } from '../src/support/cases/author';
@@ -1281,6 +1282,22 @@ const runRoutes: Route[] = [
 let lastAuthor: { usage: AuthoringUsage } | null = null;
 
 const authoring: AuthoringService = {
+  /*
+     Which stories belong to whom, read from the specs that cite them — item 73.
+
+     `readSpecs` parses with ts-morph, which is why `collect.ts` imports it
+     lazily: it costs a fifth of a second of startup, and the Stories page is
+     opened deliberately rather than polled. Paying it per request keeps the
+     answer current when somebody adds a spec while the server is up, which is
+     the normal way this repository is worked in.
+  */
+  storyScope: async () => ({
+    // The same answer the top bar was rendered from, so the page and the bar
+    // cannot disagree about which application the stories are for.
+    target: chrome().target.name,
+    claims: storyClaims(await readSpecs()),
+  }),
+
   storedStories: () => {
     if (!fs.existsSync(STORIES_DIR)) return [];
     return fs

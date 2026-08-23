@@ -53,6 +53,7 @@ function harness(overrides: Partial<AuthoringService> = {}, drafts: DraftedCase[
   const saved: NormalisedStory[] = [];
 
   const service: AuthoringService = {
+    storyScope: async () => ({ target: null, claims: new Map() }),
     storedStories: () => [STORY],
     jira: () => ({ configured: true }),
     fetchIssue: async () => ({

@@ -6522,3 +6522,55 @@ with.
   first run's own output. Leading with it would have made the method irrelevant.
 - **One application at a time is the method, and it is now in memory.** Run 90's
   sweep was faster and produced findings that then needed re-doing at full cost.
+
+## 2026-08-23 · run 92 · One item shipped, one withdrawn as never having been a defect
+
+**Picked:** items 73 and 74, at the owner's direction.
+
+**Item 73 shipped, and it is run 80's fix applied where it had been missed.**
+`stories/` is flat and a story file names no application, so every application
+was shown every story. `src/support/cases/story-scope.ts` reads the `jira`
+annotations the specs already carry — the same link `run-journey.ts` was taught
+to read when its stage 2 reported *"story TOOL-1 pulled from Jira"* for
+whichever application asked.
+
+The rule has three cases and the middle one is the one that matters: a story
+**nobody** cites is shown, because that is a story somebody has just pulled and
+not yet written a spec against, which is the workflow the page exists for.
+Hiding it would have fixed the reported defect and removed the reason to open
+the page. Proven both directions through the UI — `saucedemo` reads *"No stories
+pulled yet."*, one switch to `toolshop` shows its five.
+
+**Item 74 withdrawn. It was never a defect, and finding that out is the entry.**
+
+`/api/cases` already took a target, and `cases-page.ts:176` already sent one.
+Measured with `saucedemo` selected: the call the page makes returns 0 cases and
+9 orphans, all saucedemo's. The call *I* made — `{}` — returns 10 and 63,
+because an absent target legitimately means the whole repository, which is what
+`collectCoverage(undefined)` is for.
+
+**It survived a re-verification, which is the part I got most wrong.** When the
+owner challenged run 90's method, I re-ran the probe. The *same* probe, with the
+same empty body, and recorded that the finding "held". Re-running a flawed
+measurement is not verifying it — and I had already been told the method was the
+problem.
+
+Item 73 was real and survived because it was checked on the rendered page. Item
+74 was never anything but an API probe. That is the entire difference between
+them, and it is now in the scan-run memory.
+
+**Verify:** `npm run verify` passes, exit 0 — **1180 tests**, up from 1169.
+Eleven new tests for the scoping rule.
+
+**Learned:**
+
+- **Re-running a flawed measurement is not verification.** The correction to
+  ask for is not "does it reproduce" but "what would show this is wrong" — and
+  for item 74 that was one line of the page's own source, which sends the
+  argument I claimed it did not.
+- **A route's answer is not the page's behaviour.** Two of three findings from
+  the last two scans came from calling routes directly; the one that was real
+  came from reading a rendered page. The routes were doing their jobs.
+- **A fix that hides everything passes the first check.** The counter-check —
+  switch to the application that *should* see the data and confirm it still does
+  — is what makes the first result mean anything, and it took one switch.

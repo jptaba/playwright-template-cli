@@ -283,6 +283,9 @@ function liveRuns(count: number, failuresEach: number): LiveRun[] {
  */
 function authoringService(stories: number, criteriaEach: number, draftsEach: number): AuthoringService {
   return {
+    // Nothing claimed by anybody, so every story is visible — this harness is
+    // about how many rows a page renders, not about whose they are.
+    storyScope: async () => ({ target: 'demo', claims: new Map() }),
     storedStories: () =>
       Array.from({ length: stories }, (_, index) => ({
         key: `SHOP-${1000 + index}`,

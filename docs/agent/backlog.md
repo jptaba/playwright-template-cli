@@ -4041,3 +4041,69 @@ Nothing is rendered when there are no runs — an empty box explaining that it i
 empty is worse than no box.
 
 ---
+
+### 73. The Stories page showed another application's stories — `done`
+
+Shipped on `agent/2026-08-23-story-scope` (run 92). **Run 80's defect, fixed the
+way run 80 fixed it.**
+
+`stories/` is a flat directory of `<KEY>.json` and a story file names no
+application, so "the stories" meant "every story on disk" — which, with one
+application's committed, is what every application was shown. Driven with the
+bar reading `orangehrm`: *"Search the catalogue for a tool by name"*, *"Put a
+tool in the cart"*.
+
+**The link already existed in every spec that cites a story.**
+`src/support/cases/story-scope.ts` reads the `jira` annotations, and
+`/api/stories` returns what the selected application's specs actually cite.
+Nothing new to record, no migration, no field anybody has to remember to set.
+
+**Three cases, and the middle one is why this is not just "cited by this
+target":**
+
+| the story is | shown |
+|---|---|
+| cited by this application | yes — its own requirement |
+| cited by **nobody** | **yes** — just pulled from Jira, no spec yet |
+| cited only by others | no — this is the finding |
+
+Hiding the unclaimed one would have fixed the reported defect and broken the
+feature: pulling a story and then drafting cases from it is what the page is
+for, and at the moment it is pulled nothing cites it.
+
+**Proven both directions through the UI**, one application at a time:
+`saucedemo` reads *"No stories pulled yet."*, and one switch through the control
+to `toolshop` shows its five. A fix that hid everything would have passed the
+first check.
+
+---
+
+### 74. `/api/cases` hands every page the whole repository — `withdrawn, not a defect`
+
+**Withdrawn in run 92. There was nothing wrong.**
+
+The route already takes a target — `collectCoverage(target || undefined)` — and
+`cases-page.ts:176` sends one: `post('/api/cases', { target: TARGET_NAME })`.
+Measured on the running server with `saucedemo` selected:
+
+| the call | cases | orphans | whose |
+|---|---|---|---|
+| what the page sends, `{ target: 'saucedemo' }` | 0 | 9 | saucedemo's |
+| what I sent, `{}` | 10 | 63 | all five |
+
+An absent target legitimately means *the whole repository* — that is what
+`collectCoverage(undefined)` is for, and what `npm run cases:gate` wants. **I
+called the route with an empty body and reported its correct answer to a
+different question as a defect.**
+
+**It survived a re-verification**, which is the part worth keeping. When the
+method was challenged, I re-ran the probe — the *same* probe, with the same
+empty body — and recorded that the finding "held". Re-running a flawed
+measurement is not verifying it.
+
+Item 73 was real and survived because it was checked on the **rendered page**;
+this one was never anything but an API probe. That is the whole difference, and
+it is now in the scan-run memory: read what the page shows, not what a route
+returns to a question the page never asks.
+
+---

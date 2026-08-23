@@ -1,6 +1,7 @@
 import { authorCases, criterionId, normaliseStory, type CaseAuthorModel, type CoverageMatrix, type NormalisedStory } from './author';
 import { gateCase, type GateFinding } from './gate';
 import { slugify } from './store';
+import { storiesVisibleTo } from './story-scope';
 import type { CasePriority, CaseType, TestCase } from './schema';
 import { failure, json, type Route, type UiRequest, type UiResponse } from '../ui/router';
 
@@ -25,6 +26,17 @@ import { failure, json, type Route, type UiRequest, type UiResponse } from '../u
 export interface AuthoringService {
   /** Stories already pulled and sitting in `stories/`. */
   storedStories(): NormalisedStory[];
+  /**
+   * Which application is selected, and which applications' specs cite each
+   * story — the two facts `storyVisibleTo` needs. Item 73.
+   *
+   * Supplied rather than computed here so this module stays free of the
+   * filesystem, and required rather than optional so a new implementation has
+   * to answer it: an implementation that quietly returned "no claims" would
+   * show every application every story, which is the defect this exists to
+   * remove.
+   */
+  storyScope(): Promise<{ target: string | null; claims: Map<string, string[]> }>;
   /** Whether a Jira client can be built, and if not, what is missing. */
   jira(): { configured: boolean; reason?: string };
   /** One issue, as the client normalises it. */
@@ -182,13 +194,24 @@ async function authoringApi(request: UiRequest, service: AuthoringService): Prom
   const body = (request.body ?? {}) as Record<string, unknown>;
 
   switch (request.path) {
-    case '/api/stories':
+    case '/api/stories': {
+      /*
+         Scoped to the selected application — item 73.
+
+         `stories/` is flat and a story names no application, so this used to
+         answer with every story on disk: the page offered toolshop's catalogue
+         and cart to `orangehrm`. The link already exists in every spec that
+         cites a story, which is what `storyClaims` reads.
+      */
+      const scope = await service.storyScope();
+      const visible = storiesVisibleTo(service.storedStories(), scope.target, scope.claims);
       return json(200, {
-        stories: service.storedStories().map((story) => storyView(story, service)),
+        stories: visible.map((story) => storyView(story, service)),
         jira: service.jira(),
         targets: service.targets(),
         model: service.modelStatus(),
       });
+    }
 
     case '/api/stories/pull':
       return pull(String(body.key ?? '').trim(), service);
