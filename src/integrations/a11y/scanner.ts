@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import type { A11yCapability, A11yStandard, A11yWaiver } from '../../../config/targets/types';
+import { waitForSettled, type SettleOptions } from './settle';
 
 /**
  * Accessibility scanning — the framework's engine, the target's standard.
@@ -85,6 +86,22 @@ export interface A11yScan {
    * one would be accepting an answer nobody has.
    */
   undecided: A11yViolation[];
+  /**
+   * Whether the page had stopped changing when axe ran.
+   *
+   * **A scan of a page still rendering is not a result**, and until this
+   * existed the suite could not tell the difference. On a single-page
+   * application the document `load`s long before the application renders, so
+   * axe was inspecting a shell and reporting it clean — measured on one
+   * dashboard as *one waived violation* immediately after `goto` against
+   * *seventeen across four rules* once the tree went quiet, four times out of
+   * four.
+   *
+   * `false` means the tree never went quiet inside the deadline, which a
+   * clock, a carousel or a polling widget will do forever. That is not an
+   * error and the scan still happened — it is a caveat the reader is owed.
+   */
+  settled: boolean;
 }
 
 /** One axe finding, in the shape axe reports both violations and incompletes. */
@@ -177,6 +194,13 @@ export function summarise(
   raw: RawAxeResult,
   capability: Pick<A11yCapability, 'standard' | 'waived'>,
   tags: string[],
+  /*
+     Defaulted to true so that every existing caller — the tests that feed
+     `summarise` a fixture, and anything reading a stored result — keeps its
+     meaning. The scanner, which is the only caller that can actually know,
+     passes the answer.
+  */
+  settled = true,
 ): A11yScan {
   const url = raw.url ?? '';
   const violations: A11yViolation[] = [];
@@ -247,6 +271,7 @@ export function summarise(
     passes: raw.passes.length,
     incomplete: raw.incomplete.length,
     undecided: raw.incomplete.map(asFinding),
+    settled,
   };
 }
 
@@ -312,6 +337,12 @@ export interface ScanOptions {
   exclude?: string;
   /** Rules to skip for this call only. A permanent exception is a waiver. */
   disableRules?: string[];
+  /**
+   * How long the DOM must be still before scanning, and how long to wait for
+   * that. See `settle.ts` — the defaults are what stop a scan answering for a
+   * page that has not finished rendering.
+   */
+  settle?: SettleOptions;
 }
 
 export interface A11yScanner {
@@ -325,14 +356,27 @@ export interface A11yScanner {
 /** Runs axe in the page. Injected so `summarise` can be tested without one. */
 export type AxeRunner = (page: Page, tags: string[], options: ScanOptions) => Promise<RawAxeResult>;
 
+/** Waits for the page to stop changing. Injected for the same reason as the runner. */
+export type Settler = (page: Page, options?: SettleOptions) => Promise<boolean>;
+
 export function createScanner(
   capability: Pick<A11yCapability, 'standard' | 'waived'>,
   run: AxeRunner,
+  settle: Settler = waitForSettled,
 ): A11yScanner {
   const tags = tagsForStandard(capability.standard);
   return {
     async scan(page, options = {}) {
-      return summarise(await run(page, tags, options), capability, tags);
+      /*
+         Settle first, always. The alternative considered was a `settle: false`
+         escape hatch for callers who know their page is static — and it was
+         rejected: the cost of settling a page that is already still is one
+         quiet period, and the cost of getting it wrong is a green
+         accessibility report for a page nobody checked. Nobody opts out of
+         that trade correctly under deadline.
+      */
+      const settled = await settle(page, options.settle);
+      return summarise(await run(page, tags, options), capability, tags, settled);
     },
   };
 }

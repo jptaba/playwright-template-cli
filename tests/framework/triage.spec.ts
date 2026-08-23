@@ -378,6 +378,50 @@ test.describe('rule classification', () => {
     return classifyByRule(cluster, { run, tests });
   };
 
+  test.describe('an accessibility violation', () => {
+    /*
+       Both of the real ones arrived as "no rule matched — needs judgement",
+       which is wrong twice: an axe violation is a measured fact rather than a
+       judgement call, and it routes somewhere specific.
+    */
+    const a11yFailure = (message: string) =>
+      failing('a', message, { kind: 'a11y' as const, project: 'a11y' });
+
+    test('is the application’s defect, and is filed rather than declined', () => {
+      const verdict = classify([
+        a11yFailure('scanned https://app.test/dashboard\n  [critical] button-name on 4 node(s)'),
+      ]);
+
+      expect(verdict).toMatchObject({
+        category: 'application-defect',
+        rule: 'accessibility-violation',
+        recommendedAction: 'file-defect',
+      });
+      // The category is not in doubt; fix, waive with a review date, or
+      // accept is a person's call, and §10 rules out loosening the assertion.
+      expect(verdict!.needsHumanReview).toBe(true);
+    });
+
+    test('does not claim an accessibility spec that failed for an ordinary reason', () => {
+      // The `a11y` kind is the framework-defined half; a `goto` that simply
+      // timed out inside that project is not an accessibility defect.
+      const verdict = classify([a11yFailure('page.goto: Timeout 30000ms exceeded')]);
+
+      expect(verdict?.rule).not.toBe('accessibility-violation');
+    });
+
+    test('stands aside for a cause that explains the whole run', () => {
+      // Ordered after transport: an environment that is down takes the a11y
+      // project with it, and blaming the application would send the night's
+      // triage to the wrong team.
+      const verdict = classify([
+        a11yFailure('page.goto: net::ERR_CONNECTION_REFUSED at https://app.test/'),
+      ]);
+
+      expect(verdict).toMatchObject({ category: 'network-infrastructure' });
+    });
+  });
+
   test('a connection failure is network, never a locator', () => {
     const verdict = classify([failing('a', 'connect ECONNREFUSED 10.0.0.5:443')]);
     expect(verdict).toMatchObject({ category: 'network-infrastructure', source: 'rule' });

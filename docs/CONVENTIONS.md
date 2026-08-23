@@ -434,6 +434,17 @@ standard must never require an edit to framework code.
   criteria 2.2 added would be a much smaller claim wearing the same name.
 - `scan.incomplete` is not a pass. Those are checks axe could not decide, and
   a spec that ignores them overstates its result.
+- **A scan waits for the page to stop changing, and a green scan of a page that
+  had not finished rendering is the worst result this suite can produce.** The
+  fixture does the waiting — it watches the DOM and scans once it has been
+  still, rather than trusting `load`, which on a single-page application fires
+  long before the application renders. Measured before it did: one dashboard
+  reported a single waived violation immediately after `goto` and **seventeen
+  across four rules, four of them critical**, once the tree went quiet. A false
+  green here is worse than no accessibility suite at all, because somebody
+  reads it as evidence. `scan.settled` is `false` when the page never went
+  quiet — a clock or a carousel will do that forever — and a spec that cares
+  should say so rather than treat the result as equivalent.
 - Scan a page a user actually reaches. Landing pages pass nearly everywhere;
   the dialogs, tables and multi-step forms are where the problems are.
 - A permanent exception is a **waiver in the profile**, with a reason and a

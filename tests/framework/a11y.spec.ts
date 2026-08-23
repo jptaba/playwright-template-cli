@@ -10,6 +10,7 @@ import {
   UnknownStandardError,
   type RawAxeResult,
 } from '../../src/integrations/a11y/scanner';
+import { settleSource } from '../../src/integrations/a11y/settle';
 
 /**
  * The accessibility engine belongs to the framework for the same reason Ajv
@@ -269,5 +270,97 @@ test.describe('the scanner', () => {
     expect(() => createScanner({ standard: 'iso-9001' }, async () => raw())).toThrow(
       UnknownStandardError,
     );
+  });
+});
+
+test.describe('waiting for the page to stop changing', () => {
+  /*
+     The accessibility suite was reporting false passes, and had been since it
+     was written. `scan()` ran axe the instant it was called; on a single-page
+     application the document `load`s long before the application renders, so
+     axe inspected a shell and called it clean.
+
+     Measured on a real dashboard, four attempts out of four: one waived
+     violation immediately after `goto`, against `button-name` x4,
+     `color-contrast` x11, `list` x1 and `scrollable-region-focusable` x1 once
+     the tree went quiet. Seventeen real violations, four of them critical, on
+     a page the suite had been reporting green — which is worse than having no
+     accessibility suite at all, because a green one is evidence to whoever
+     reads the report.
+  */
+  test('the scan waits before it looks, and says that it did', async () => {
+    const order: string[] = [];
+    const scanner = createScanner(
+      { standard: 'wcag22aa' },
+      async () => {
+        order.push('scanned');
+        return raw();
+      },
+      async () => {
+        order.push('settled');
+        return true;
+      },
+    );
+
+    const scan = await scanner.scan({} as Page);
+
+    expect(order).toEqual(['settled', 'scanned']);
+    expect(scan.settled).toBe(true);
+  });
+
+  test('a page that never goes quiet is still scanned, and the caveat is carried', async () => {
+    /*
+       A clock, a carousel or a polling widget mutates forever. Refusing to
+       scan those would be worse than scanning them late — so the scan happens
+       and `settled: false` tells the reader which kind of result they have.
+    */
+    const scanner = createScanner(
+      { standard: 'wcag22aa' },
+      async () => raw({ violations: [violation('label', 'critical')] }),
+      async () => false,
+    );
+
+    const scan = await scanner.scan({} as Page);
+
+    expect(scan.settled).toBe(false);
+    expect(scan.violations).toHaveLength(1);
+  });
+
+  test('the quiet period and deadline reach the settler', async () => {
+    let saw: unknown = null;
+    const scanner = createScanner(
+      { standard: 'wcag22aa' },
+      async () => raw(),
+      async (_page, options) => {
+        saw = options;
+        return true;
+      },
+    );
+
+    await scanner.scan({} as Page, { settle: { quietMs: 50, timeoutMs: 900 } });
+
+    expect(saw).toEqual({ quietMs: 50, timeoutMs: 900 });
+  });
+
+  test('the observer is emitted as source, with its numbers as numbers', () => {
+    /*
+       `page.evaluate(fn)` is the obvious form and does not survive this
+       repository's build: esbuild rewrites named inner functions with a
+       `__name` helper that exists in Node and not in a browser, and the call
+       dies with `ReferenceError: __name is not defined`. A string is
+       evaluated as written — and because Playwright passes no arguments to
+       the string form, the two numbers are interpolated, so they have to be
+       numbers rather than whatever a caller handed over.
+     */
+    const source = settleSource(250, 4000);
+
+    expect(source).toContain('MutationObserver');
+    expect(source).toContain('setTimeout(done, 250)');
+    expect(source).toContain('}, 4000)');
+    expect(source).not.toContain('__name');
+
+    const injected = settleSource('1); alert(1' as unknown as number, 10);
+    expect(injected).not.toContain('alert');
+    expect(injected).toContain('NaN');
   });
 });

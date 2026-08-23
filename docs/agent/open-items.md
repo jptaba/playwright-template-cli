@@ -15,7 +15,7 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 61 | OrangeHRM's landing page broke its accessibility standard | `ready` |
+| 62 | Two applications have real accessibility violations, newly visible | `blocked` |
 | 52 | One coverage cell is left, and it is blocked | `blocked` |
 | 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `blocked` |
 | 46 | The journey has been run for one application, not five | `ready` |
@@ -23,7 +23,12 @@ decide what to do.
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Items 51, 53, 55, 58, 59 and 60 are `done`** and archived in `backlog.md`.
+**Items 51, 53, 55, 58, 59, 60 and 61 are `done`** and archived in
+`backlog.md`. **Item 61 closed in run 79, and it was not what it said it
+was** — not a vendor regression but a framework defect: the accessibility scan
+ran before single-page applications had rendered, so it had been reporting
+false passes for as long as it existed. The scan now waits for the DOM to stop
+changing, and what that revealed is item 62.
 **Item 60 closed in run 78**: the next-steps list says nothing about a
 credential the caller has already written, and names the gitignored file rather
 than the tracked one when it does speak. Proven by driving the running
@@ -56,9 +61,8 @@ reaches the packs that already exist.
 What is left of it is a decision only the owner can take, so it is `blocked`
 rather than ready.
 
-**Take item 61 next** — it is a live red on a running application, which
-outranks the rollout work. Then 46 and 48, which are one command per
-application and should be done together.
+**Take 46 and 48 next**, together — one command per application. Item 62 is
+`blocked` on an owner decision rather than on work.
 
 **Toolshop's live suite failed on a different spec in each of runs 75 and 76** —
 `TOOL-3-03` in the cart's cleanup, then `TOOL-1-02` settled as
@@ -117,43 +121,43 @@ the thing that is wrong.
 
 ---
 
-### 61. OrangeHRM's landing page broke its accessibility standard — `ready`
+### 62. Two applications have real accessibility violations, newly visible — `blocked`
 
-**Caught by `npm run suites:live` in run 78**, on an application that was 7/7
-in run 77 four days earlier. Nothing in this repository changed for that pack.
+**Not a regression. These were always there** — item 61's fix is what made them
+visible, by stopping the scan answering for a page that had not finished
+rendering. Both were reported green until run 79.
 
-`A11Y-001 · The landing page meets the declared standard @a11y`, scanning
-`/web/index.php/dashboard/index`:
-
-| impact | rule | nodes |
+| application | spec | findings |
 |---|---|---|
-| **critical** | `button-name` | 1 |
-| serious | `color-contrast` | 3 |
-| serious | `list` | 1 |
+| **orangehrm** | `A11Y-001`, the dashboard | **critical** `button-name` ×4 · serious `color-contrast` ×11 · `list` ×1 · `scrollable-region-focusable` ×1 |
+| **toolshop** | `TOOL-5-01`, the sign-in form | **critical** `button-name`, plus two more |
 
-Only `html-has-lang` is waived on this profile, and it is still waived.
+`restful-booker` is genuinely clean — 13/13 — and `saucedemo` declares no
+accessibility capability, so neither changed.
 
-**This is the suite doing its job and the spec stays red.** §10 is explicit: a
-defect in the application is a failure and it stays one, and an accessibility
-waiver is a recorded decision with a reason and a review date rather than an
-assertion somebody deleted. Do **not** silence this by adding waivers — that is
-the exact move rule zero and §10 both forbid, and `button-name` at critical is
-a real barrier rather than a cosmetic one.
+Triage now files both as `application-defect` via the `accessibility-violation`
+rule rather than leaving them as "needs judgement", so the report says where
+they go. What it cannot say is what to *do*, and that is the blocker.
 
-**What the item actually needs**, and it is a judgement rather than a fix:
+**Three options per application, and all three are the owner's:**
 
-- Confirm it reproduces and is the vendor's, not ours — re-run the a11y project
-  alone, and check the same page by hand.
-- Decide whether OrangeHRM is heading the way ParaBank did. If a vendor demo
-  starts failing in ways nobody here can fix, `parked` exists for that and
-  carries a review date; a permanent red costs the signal on everything else.
-- If it is a narrow, genuinely accepted exception, it is a profile waiver with
-  a reason and a review date — the owner's call, not a troubleshooting edit.
+1. **Accept them as red.** They are the vendor's defects on demos this
+   repository does not own, and §10 says a defect in the application is a
+   failure that stays one. The cost is two permanently red suites.
+2. **Waive with a reason and a review date**, scoped by `urlPattern` to the
+   page they were granted for — the shape ParaBank and OrangeHRM already use
+   for `html-has-lang`. The scan keeps counting waived nodes, so an exception
+   accepted for four cannot quietly become forty.
+3. **Park**, as ParaBank is parked, if an application stops being testable.
+   Almost certainly wrong here: the rest of both suites passes.
 
-**It also re-opens a question worth asking once.** Four applications' a11y
-specs have been green for weeks; this is the first vendor-side accessibility
-regression the suite has caught. That is evidence the a11y coverage is worth
-what it costs, and worth saying so somewhere the next person sees it.
+**Do not silence these by widening a waiver to make the red go away.** That is
+the move rule zero and §10 both forbid, and `button-name` at critical is a real
+barrier — a button no screen reader can announce — rather than a cosmetic one.
+
+**Worth stating plainly, because it is the argument for having done this at
+all:** four applications' accessibility specs had been green for weeks, and the
+green was worth nothing on two of them.
 
 ---
 

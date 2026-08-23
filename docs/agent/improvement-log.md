@@ -5561,3 +5561,71 @@ owner's, and silencing it with a waiver is the move rule zero forbids.
 
 **Next:** item 61 — a live red outranks the rollout work. Then 46 and 48
 together, one command per application.
+
+## 2026-08-23 · run 79 · The accessibility suite had been reporting false passes
+
+**Picked:** item 61, the top-ranked `ready` item — a live red, which outranks
+rollout work.
+
+**It was not what I filed it as, and that is the entry.** Run 78 saw one red
+a11y spec on an application green four days earlier and I wrote it up as a
+vendor regression. On a single sighting. One run after recording that
+"singletons are not a rate" and building a control arm for exactly this reason.
+
+**It did not reproduce.** Three runs of the a11y project alone: green. Two full
+live runs: 7/7. Then, scanning the dashboard repeatedly straight after `goto`,
+the transient showed itself — and pointed the other way:
+
+| scan | findings |
+|---|---|
+| 1–3 | `html-has-lang` only — waived, a clean pass |
+| 4–5 | `button-name`, `color-contrast` ×3, `list` |
+
+**The violations appear later, not earlier.** The suite scans a shell and calls
+it clean. Run 78's red was the honest result and every green before it was not.
+With a proper wait, four attempts out of four: **one waived violation
+immediately after `goto`, against seventeen across four rules once the tree
+went quiet** — four of them critical.
+
+**Did:** `settle.ts` — a `MutationObserver` that resolves once the DOM has been
+still for a quiet period, bounded by a deadline — and `createScanner` settles
+before every scan, carrying `scan.settled`. Plus an `accessibility-violation`
+triage rule, because both newly-visible failures arrived as "no rule matched"
+and an axe violation is a measured fact that routes somewhere specific.
+Reasoning in item 61 in `backlog.md`.
+
+**Verify:** `npm run verify` passes, exit 0 — **1117 tests**, up from 1110.
+
+**Live suites: 2 passing, 2 failing, 1 parked — and the two reds are the point
+of the change.** restful-booker 13/13, saucedemo 6/6, parabank parked.
+**orangehrm 6/7** and **toolshop 21/22**, both on accessibility, both now filed
+as `application-defect (rule: accessibility-violation)` rather than left as a
+judgement call. These are real violations that were always there. Raised as
+item 62, `blocked` on the owner: accept, waive with a review date, or park.
+
+**Triage agreement, unchanged on all four:** toolshop **4 · 0 · 0**, orangehrm
+**4 · 0 · 0**, restful-booker **3 · 0 · 1**, saucedemo **1 · 0 · 3**. The new
+rule contradicted nothing.
+
+**Learned:**
+
+- **I filed a vendor regression from one sighting, having just built a control
+  arm to stop exactly that.** Writing the rule down does not install it. The
+  thing that saved it was the item's own first instruction — "confirm it
+  reproduces" — which is worth keeping at the top of any item raised from a
+  single red.
+- **A flaky failure can mean the passes are wrong.** The instinct with an
+  intermittent red is to find what makes it fail. Here the failure was correct
+  and the *passes* were the defect, and the fix roughly doubles the number of
+  red specs. Worth asking, of any intermittent failure: which of the two
+  outcomes is the honest one?
+- **A green suite is evidence to whoever reads it.** Four applications' a11y
+  specs had been green for weeks; on two of them the green was worth nothing.
+  That is worse than having no accessibility suite, and it is the same silent
+  zero this repository refuses everywhere else.
+- **`page.evaluate(fn)` does not survive this build.** esbuild's `__name`
+  helper does not exist in a browser. The string form works and takes no
+  arguments, so values must be interpolated — and therefore coerced.
+
+**Next:** items 46 and 48 together — one command per application. Item 62 is
+blocked on an owner decision, not on work.

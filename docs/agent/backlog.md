@@ -3295,3 +3295,74 @@ credential was written to the **gitignored** file, which is the default step 4
 offers and the correct one. The panel then said *"Add credentials for standard
 to `config/secrets.local.json`"* — nothing to add, and the tracked file named
 as the place to add it. `src/support/onboarding/scaffold.ts:419` hardcoded it.
+
+### 61. The accessibility scan answered for a page that had not rendered — `done`
+
+Shipped on `agent/2026-08-23-a11y-settle` (run 79). **Filed as "OrangeHRM's
+landing page broke its accessibility standard" and that was wrong** — the
+correction is the valuable part, and it is recorded in full because I made the
+mistake this loop exists to prevent, one run after writing about it.
+
+**What run 78 saw.** One red a11y spec on an application that had been 7/7 four
+days earlier, with nothing changed in its pack. I filed it as a vendor
+regression on a single sighting.
+
+**What it actually was.** It did not reproduce: three runs of the a11y project
+alone passed, and two full live runs went 7/7. Then, scanning the dashboard
+repeatedly straight after `goto`:
+
+| scan | findings |
+|---|---|
+| 1–3 | `html-has-lang` only — waived, a clean pass |
+| 4–5 | `button-name` ×1, `color-contrast` ×3, `list` ×1 |
+
+**The violations appear *later*, not earlier.** The suite was scanning a shell
+and calling it clean, and run 78's red was the one honest result. With a proper
+wait for the DOM to stop changing, four attempts out of four:
+
+| when | what axe found |
+|---|---|
+| immediately after `goto` | one waived violation — green |
+| once the tree went quiet | `button-name` ×4, `color-contrast` ×11, `list` ×1, `scrollable-region-focusable` ×1 |
+
+Seventeen real violations, four critical, on a page reported green for weeks.
+
+**The fix.** `src/integrations/a11y/settle.ts` watches the DOM with a
+`MutationObserver` and resolves once it has been still for a quiet period,
+bounded by a deadline; `createScanner` settles before every scan and carries
+the answer as `scan.settled`.
+
+- **The fact is "the DOM stopped changing", not a duration and not the
+  network.** `networkidle` is the instrument the conventions already reject —
+  it answered while a removed cart row was still in the table. The quiet period
+  is a parameter of the fact rather than a sleep: a static page costs exactly
+  one quiet period.
+- **A page that never settles is still scanned**, with `settled: false`. A
+  clock or a carousel mutates forever, and refusing to scan those would be
+  worse than scanning them late.
+- **No opt-out.** A `settle: false` escape hatch was considered and rejected:
+  the cost of settling a still page is one quiet period, and the cost of
+  getting it wrong is a green accessibility report for a page nobody checked.
+- **`page.evaluate(fn)` does not survive this repository's build.** esbuild
+  rewrites named inner functions with a `__name` helper that exists in Node and
+  not in a browser, and the call dies with `ReferenceError: __name is not
+  defined`. The observer is emitted as source, with its two numbers coerced
+  through `Number()` because the string form takes no arguments.
+
+**Also here, because the fix exposed it.** Both newly-visible failures arrived
+as *"no rule matched — needs judgement"*. An axe violation is a measured fact
+that routes somewhere specific, so `accessibility-violation` files it as
+`application-defect` for the dev team — ordered after transport, 5xx,
+short-wait and strict-mode so a genuine infrastructure or timing cause still
+wins, and keyed on the framework-defined `a11y` kind rather than a pack's
+wording. `needsHumanReview` stays true: the category is not in doubt, the
+response is.
+
+**What it revealed is item 62**, and it is the owner's call rather than a fix.
+
+The original item follows.
+
+**Caught by `npm run suites:live` in run 78**, on an application that was 7/7
+in run 77 four days earlier. Nothing in this repository changed for that pack.
+`A11Y-001`, scanning the dashboard: critical `button-name` on 1 node, serious
+`color-contrast` on 3, `list` on 1.

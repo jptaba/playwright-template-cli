@@ -65,6 +65,15 @@ const AUTH_ERROR =
 /** The project that establishes a session. Framework-defined, not a pack's. */
 const AUTH_SETUP_PROJECT = 'setup:auth';
 
+/**
+ * Words an accessibility failure carries, whoever wrote the message.
+ *
+ * Corroboration for the `a11y` kind rather than the signal itself — a spec in
+ * that project can still fail for an ordinary reason, and a `goto` that timed
+ * out is not an accessibility defect.
+ */
+const ACCESSIBILITY_FINDING = /(violation|\baxe\b|wcag|\bcritical\b|\bserious\b)/i;
+
 const errorText = (tests: TestRecord[]): string =>
   tests.map((test) => `${test.error?.message ?? ''} ${test.error?.stack ?? ''}`).join('\n');
 
@@ -325,6 +334,53 @@ export const RULES: TriageRule[] = [
       recommendedAction: 'heal',
       suggestedOwner: 'qa',
       needsHumanReview: false,
+    });
+  }),
+
+  /**
+   * An accessibility violation → the application's defect, and a real one.
+   *
+   * **Ordered after the causes that can make an a11y spec fail for reasons
+   * that are not accessibility at all** — a transport error, a 5xx, a short
+   * wait, a strict-mode violation. Those win, and this claims what is left.
+   *
+   * Added when the scan stopped answering for a half-rendered page and two
+   * applications' real violations became visible. Both arrived as *"no rule
+   * matched — needs judgement"*, which is the wrong answer twice over: an axe
+   * violation is a measured fact rather than a judgement call, and it routes
+   * somewhere specific. `needsHumanReview` is still true, because *which* of
+   * these to fix, waive with a review date, or accept is exactly the call a
+   * person has to make — but nobody should have to work out the category
+   * first.
+   *
+   * The **kind** is the framework-defined half: the `a11y` project is this
+   * repository's, not a pack's. The text is corroboration only, so that a
+   * `goto` that simply timed out inside an accessibility spec is not filed as
+   * an accessibility defect.
+   */
+  rule('accessibility-violation', (cluster, { tests }) => {
+    if (tests.length === 0 || !tests.every((test) => test.kind === 'a11y')) return null;
+    const text = errorText(tests);
+    if (!ACCESSIBILITY_FINDING.test(text)) return null;
+
+    return verdict(cluster, 'accessibility-violation', {
+      category: 'application-defect',
+      confidence: 'high',
+      summary: 'The application failed the accessibility standard its profile declares',
+      evidence: [
+        matched(text, ACCESSIBILITY_FINDING),
+        `${cluster.size} accessibility spec(s) reported findings`,
+        'a waiver is a recorded decision with a review date, never a deleted assertion',
+      ],
+      recommendedAction: 'file-defect',
+      suggestedOwner: 'dev-team',
+      /*
+         The category is not in doubt; the response is. Fix, waive with a
+         reason and a review date, or accept — that is a person's call, and
+         §10 is explicit that quietly loosening the assertion is not one of
+         the options.
+      */
+      needsHumanReview: true,
     });
   }),
 
