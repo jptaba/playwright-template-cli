@@ -60,10 +60,38 @@ export function poolCost(profile: TargetProfile): PoolCost {
  * running a suite to prove a foregone conclusion.
  */
 export function whatThereIsToMeasure(cost: PoolCost): string | null {
-  if (!cost.serverState) {
-    return null;
+  /*
+     `serverState: false` is the only free claim. It caps no workers, so there
+     is no cost to weigh and the suite already runs at whatever width the
+     machine allows.
+  */
+  if (!cost.serverState) return null;
+
+  /*
+     **A pool of one was reported as costing nothing, and it is the most
+     expensive shape there is** — item 66.
+
+     The reasoning was that a pool of one buys no partitioning, which is true
+     and is not the question. `workerCeiling` caps at the *usable accounts*,
+     so one account with `serverState: true` caps the suite at **one worker**:
+     the whole thing runs serially. Declaring a pool of three is what buys the
+     parallelism back, which is exactly backwards from how it reads.
+
+     Measured across this repository the day the blind spot was found: four of
+     five applications declare `serverState: true` with no pool and therefore
+     run at one worker, and all four still carry the scaffolder's
+     `// does state need cross-test cleanup?` verbatim. So the command that
+     exists to ask whether the claim is earned was declining to ask it of
+     every application paying the most for it.
+  */
+  if (cost.poolSize <= 1) {
+    return (
+      `serverState: true with a single account for '${cost.role}' caps this target at ` +
+      '1 worker — the whole suite runs serially, and nothing has ever checked that the ' +
+      'claim underneath it is true.'
+    );
   }
-  if (cost.poolSize <= 1) return null;
+
   return (
     `serverState: true with a pool of ${cost.poolSize} for '${cost.role}' caps this ` +
     `target at ${cost.usable} worker(s)` +
@@ -136,11 +164,11 @@ export function formatPoolMeasurement(measurement: PoolMeasurement): string[] {
   lines.push('');
 
   const control = arm(
-    `at the declared pool of ${cost.poolSize} (control)`,
+    `at the ceiling this profile imposes: ${cost.usable} worker(s) (control)`,
     measurement.baseline,
     lines,
   );
-  const collapsed = arm('with every worker on one account', measurement.collapsed, lines);
+  const collapsed = arm('above it, every worker on one account', measurement.collapsed, lines);
 
   if (control.executed === 0 || collapsed.executed === 0) {
     lines.push('  One arm did not run, so there is nothing to compare.');
@@ -148,7 +176,7 @@ export function formatPoolMeasurement(measurement: PoolMeasurement): string[] {
   }
 
   lines.push(
-    `  ${control.green}/${control.executed} green at the declared pool · ` +
+    `  ${control.green}/${control.executed} green at the ceiling · ` +
       `${collapsed.green}/${collapsed.executed} green on one account.`,
   );
   lines.push('');
@@ -164,9 +192,9 @@ export function formatPoolMeasurement(measurement: PoolMeasurement): string[] {
   const verdict =
     collapsedClean && controlClean
       ? [
-          'Nothing collided, and the control was clean too. On this evidence the pool is',
-          'buying no protection — but the decision is a person’s: a pool also protects',
-          'against collisions no spec currently exercises.',
+          'Nothing collided, and the control was clean too. On this evidence the worker',
+          'cap is buying no protection — but the decision is a person’s: it also guards',
+          'collisions no spec currently exercises, and a suite proves only what it runs.',
         ]
       : collapsedClean
         ? [

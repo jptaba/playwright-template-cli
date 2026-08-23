@@ -230,6 +230,24 @@ test.describe('capping workers at the pool that would collide', () => {
     // saucedemo's shape: serverState true, no poolSize declared.
     expect(workerCeiling(['standard'], undefined, true)).toBe(1);
   });
+
+  test('a profile that says its identity is safe to share is not capped at all', () => {
+    /*
+       Item 66. `serverState` was answering two questions — "does this need
+       cleanup" and "may two workers share an account" — and they came apart
+       the moment anybody measured. orangehrm creates and deletes real system
+       users, so it genuinely needs the first, and it ran 2/2 green at three
+       workers on one identity while capped at one.
+
+       Undefined keeps the old cap, deliberately: a profile that says nothing
+       must not silently speed up and start flaking.
+    */
+    expect(workerCeiling(['standard'], undefined, true, undefined, true)).toBeNull();
+    expect(workerCeiling(['standard'], undefined, true, undefined, undefined)).toBe(1);
+    // It outranks a pool as well: the pool exists to keep workers apart, and
+    // this says they need not be kept apart.
+    expect(workerCeiling(['customer'], { customer: 3 }, true, 3, true)).toBeNull();
+  });
 });
 
 test.describe('turning a ceiling into a worker count', () => {

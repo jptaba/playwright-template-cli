@@ -3725,3 +3725,71 @@ red for real violations right now (item 62), so none of them is currently
 resting on a false green. It becomes urgent the moment item 62 is decided.
 
 ---
+
+### 66. `serverState` was a scaffold default that cost every application a worker — `done`
+
+Shipped on `agent/2026-08-23-shared-identity` (run 84). **The flag answered two
+questions and they came apart the moment anybody measured.**
+
+**The cost, computed across the repository rather than estimated:**
+
+| application | serverState | pool | ceiling | local workers |
+|---|---|---|---|---|
+| orangehrm | true | — | **1** | 1 |
+| parabank | true | — | **1** | 1 |
+| restful-booker | true | — | **1** | 1 |
+| saucedemo | true | — | **1** | 1 |
+| toolshop | true | `{customer: 3, admin: 1}` | 2 | 2 |
+
+Four of five ran **serially**, and all four still carried the scaffolder's
+`// does state need cross-test cleanup?` verbatim. `workerCeiling` caps at the
+usable accounts, so one account plus `serverState: true` is one worker —
+declaring a pool of three is what buys parallelism *back*, which is backwards
+from how the field reads.
+
+**The instrument could not see it, which is why nobody had.**
+`whatThereIsToMeasure` returned `null` for a pool of one, on the reasoning that
+a pool of one buys no partitioning. True, and not the question: `pool:measure`
+was declining to measure the four applications paying the most for the claim.
+Fixed first, because the measurement had to be possible before it could be run.
+
+**Measured**, control at the ceiling the profile imposes and experiment above
+it with every worker on one identity:
+
+| application | at its ceiling | above it, one account |
+|---|---|---|
+| saucedemo | 2/2 green at 1 | **2/2 green at 6** |
+| restful-booker | 2/2 green at 1 | **2/2 green at 4** |
+| orangehrm | 2/2 green at 1 | **2/2 green at 3** |
+
+**`orangehrm` is the one that decides it.** Its specs create and delete real
+system users, so it genuinely needs `serverState: true` for cleanup — and it
+tolerated three workers on one identity anyway. That is the two claims coming
+apart in a single application, which is what the item asked for before letting
+anybody split the type.
+
+**What shipped:**
+
+- `sharedIdentitySafe?: boolean` on `TargetCapabilities`. `workerCeiling`
+  returns no cap when it is true. **Undefined keeps the old cap**, so nothing
+  silently speeds up and starts flaking.
+- `whatThereIsToMeasure` reports the pool-of-one case instead of calling it
+  free.
+- `pool:measure`'s arms are reframed: **control at the ceiling, experiment
+  above it.** Both arms used to run at `cost.poolSize`, which for toolshop was
+  3 against a real ceiling of 2 — an over-subscribed control, and the reason
+  run 77's conclusion had to be corrected in run 83. It also could not express
+  the pool-of-one case at all, where collapsing is a no-op.
+- `target:doctor` warns `worker-cap-unmeasured` when a profile pays the cap
+  without having answered, and names the command rather than the answer.
+- The scaffolder writes both questions, with the cost stated and
+  `sharedIdentitySafe` commented out — the answer is a measurement, so the
+  template refuses to guess it.
+
+**The profiles were deliberately left unset**, and that is item 67. Two runs
+per application is thinner than this repository's own `FLAKE_MINIMUM_RUNS` of
+5, and run 83's lesson was precisely about acting on a measurement whose
+framing had a hole in it. The capability exists, the doctor asks, and turning
+it on is one line with better evidence behind it.
+
+---

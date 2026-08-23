@@ -114,31 +114,49 @@ function main(): number {
   const worth = whatThereIsToMeasure(cost);
   if (worth === null) {
     console.log(
-      `\n${target} spends nothing on its account pool` +
-        (cost.serverState ? ` — '${cost.role}' has a single account.` : ' — serverState is false.') +
-        '\nThere is nothing to measure.',
+      `\n${target} spends nothing on its account pool — serverState is false, so no worker ` +
+        'ceiling is derived.\nThere is nothing to measure.',
     );
     return 0;
   }
 
   const runs = Math.max(1, Number(arg('runs') ?? 2));
-  console.log(`\n${worth}`);
-  console.log(
-    `\nRunning ${target}'s e2e suite ${runs} time(s) at the declared pool, then ${runs} time(s)\n` +
-      `with every worker on one account — both at ${cost.poolSize} workers, so the only thing\n` +
-      'that differs between the arms is how many identities they share.',
-  );
 
   /*
-     Both arms run at the same worker count, which is the collapsed pool's
-     natural one. A control at a different concurrency would be measuring
-     load as well as sharing, and then neither number means anything.
+     **The control runs at the ceiling the profile actually imposes, and the
+     experiment runs above it** — item 66.
+
+     Both arms used to run at `cost.poolSize`, which for toolshop was 3 while
+     its real ceiling was 2. That made the control an abnormal run, and run
+     77's conclusion had to be corrected in run 83 because of it: the collapsed
+     arm looked cleaner than a control that was itself over-subscribed.
+
+     It also could not express the case that matters most. An application with
+     one account is capped at one worker, so "collapse the pool" is a no-op
+     there and both arms would have been identical — which is why this command
+     used to decline the four applications paying the most for the claim.
+
+     Framed this way the question is the same for both shapes: **is the cap
+     earned?** Control at the cap, experiment above it with every worker on one
+     identity. A target with a pool has its pool collapsed in the experiment
+     too, so what is being tried is the honest worst case rather than a wider
+     pool.
   */
+  const ceiling = Math.max(1, cost.usable);
+  const above = Math.max(ceiling + 1, Number(arg('workers') ?? ceiling + 1));
+
+  console.log(`\n${worth}`);
+  console.log(
+    `\nRunning ${target}'s e2e suite ${runs} time(s) at its ceiling of ${ceiling} worker(s),\n` +
+      `then ${runs} time(s) at ${above} with every worker on one account. The question is\n` +
+      'whether the cap is earned, so the arms differ in exactly that.',
+  );
+
   const baseline = Array.from({ length: runs }, (_, index) =>
-    runOnce(target, cost.poolSize, 'control', index, false),
+    runOnce(target, ceiling, 'control', index, false),
   );
   const collapsed = Array.from({ length: runs }, (_, index) =>
-    runOnce(target, cost.poolSize, 'one-account', index, true),
+    runOnce(target, above, 'one-account', index, true),
   );
   const measurement = { target, cost, baseline, collapsed };
 

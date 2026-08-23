@@ -46,6 +46,7 @@ const ceiling = target
       target.capabilities.serverState,
       // An account reserved for auth-flows is not one a worker can be given.
       target.credentials.authFlowAccount,
+      target.capabilities.sharedIdentitySafe,
     )
   : null;
 

@@ -15,7 +15,7 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 66 | `serverState` is a scaffold default that costs every application a worker | `hypothesis` |
+| 67 | Three applications have a measured answer and still pay the cap | `ready` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
@@ -70,12 +70,16 @@ date is 2026-09-19 and `target:doctor` says so on every check. Run 69 gave `sauc
 and 58 doing it; **57 shipped in run 70**, so a corrected template line now
 reaches the packs that already exist.
 
-**Nothing here is `ready`.** 66 is a hypothesis needing a measurement, 49 needs
-credentials only the owner can supply, and 11 is a standing objective. **So the
-next run is a scan run**, and the file's own rule for one applies: drive the
-dashboard and the onboarding journey, record what actually happens, and raise
-what is found with evidence. Item 66 is the obvious thing to measure if a scan
-turns up nothing better.
+**Item 66 closed in run 84** and its measurement is worth carrying: `serverState`
+was answering both "does this need cleanup" and "may two workers share an
+account", and four of five applications ran **serially** for a scaffold default
+nobody had answered. `sharedIdentitySafe` separates them, `target:doctor` asks,
+and `pool:measure` can finally see the case that costs the most.
+
+**Take item 67 next** — the three applications with a measured answer still pay
+the cap, and what they need is five runs each rather than two. After that, 49
+needs credentials only the owner can supply and 11 is a standing objective, so
+the run after is a scan run.
 
 **Where the journey stands, run 80, every application:**
 
@@ -163,58 +167,37 @@ one. The fakes set both so a demo shows something; a real channel should not.
 
 ---
 
-### 66. `serverState` is a scaffold default that costs every application a worker — `hypothesis`
+### 67. Three applications have a measured answer and still pay the cap — `ready`
 
-**Raised in run 83**, by trying to act on item 56 and finding the wrong knob
-under it.
+**Raised in run 84**, by shipping item 66. `sharedIdentitySafe` exists and no
+profile sets it, so `saucedemo`, `restful-booker` and `orangehrm` still run at
+one worker despite measuring green above it.
 
-`workerCeiling` caps a target's workers at what its account pool can give,
-*because* `serverState` is true. So `serverState` is not only a claim about
-cleanup — it is what decides whether a suite runs in parallel at all:
+**What is needed is more runs, not more thinking.** Item 66 measured 2 per
+application; `FLAKE_MINIMUM_RUNS` in `src/support/quarantine.ts` is **5**, and
+this repository has twice been bitten by treating singletons as rates — the
+a11y "vendor regression" of run 78, and the pool conclusion of run 77 that run
+83 had to correct.
 
-| profile says | ceiling |
-|---|---|
-| `serverState: true`, no pool | **1** |
-| `serverState: true`, pool of 3, one reserved | 2 |
-| `serverState: false` | unbounded by this rule |
+So: `npm run pool:measure --target=<app> --runs=5`, per application, and set
+`sharedIdentitySafe: true` only where all five agree. A profile edit recording
+a measured property is not troubleshooting, but the measurement has to be worth
+the name first.
 
-**All five profiles declare `serverState: true`, and four still carry the
-scaffolder's comment verbatim — `// does state need cross-test cleanup?`**
-That is the question, not an answer, and it is now known to cost something: an
-application that answers it wrongly runs at one worker forever and nobody
-connects the two.
+**`parabank` is the fourth and should wait.** It is parked with its own review
+date; measuring an application that answers HTTP 500 measures the outage.
 
-**It is the wrong question as well as an unanswered one.** `serverState`
-conflates two things that came apart on toolshop:
+**Do not set it for `toolshop` without thinking separately.** Its ceiling is 2
+rather than 1, its pool exists for reasons run 83 wrote down, and
+`authFlowAccount` guards a *measured, deterministic* collision between
+`auth-flows` and `e2e` that is about the session rather than the cart. Lifting
+the cap there is a different question with a different answer.
 
-- **Does data this suite creates need cleaning up?** Toolshop: yes — registered
-  users, invoices, anything written through the API.
-- **Can two workers safely hold the same identity at once?** Toolshop: for the
-  cart, yes, because it is per-tab `sessionStorage`. That is what run 77
-  measured and what item 56's stated reason got wrong.
-
-One flag answers both, so an application that needs cleanup is forced to buy
-serialisation it may not need, and the only escape is to declare an account
-pool — which is what toolshop did, for a reason that turned out to be false.
-
-**What to measure before changing anything**, and this is deliberately not a
-proposal yet:
-
-1. Whether toolshop passes at its natural width with `serverState: false` and
-   no pool. `pool:measure` is the instrument and it already exists.
-2. Whether the four verbatim comments are four unexamined defaults or four
-   correct answers nobody wrote down. Cheapest first: grep for the comment,
-   then ask each application the second question above.
-3. Whether splitting the flag is worth it, or whether the ceiling should read
-   a separate `sharedIdentitySafe` and leave `serverState` about cleanup.
-
-**Do not split the type on reasoning alone.** Three of item 20's four polish
-claims were written that way and all three were mis-shaped when driven; item
-56's own stated reason is a fourth example. Measure one application first.
-
-**Not urgent.** Every suite currently passes at the ceiling it has, so this is
-a cost rather than a defect — one worker on four applications that may not need
-to pay it.
+**Worth noting while in the area:** the doctor's warning is scoped to a pool of
+one, where the cost is total. A pooled target pays a smaller version of the
+same cap and gets no warning. That is deliberate for now — the message would
+have to stop saying "1 worker" — but it is the obvious generalisation if
+somebody wants it.
 
 ---
 

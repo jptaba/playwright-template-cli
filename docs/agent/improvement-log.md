@@ -5962,3 +5962,94 @@ reds are real findings rather than early scans.
 the owner has, 11 is standing. **The next run is a scan run** — drive the
 dashboard and the onboarding journey and raise what is found, with item 66 as
 the fallback if the scan turns up nothing better.
+
+## 2026-08-23 · run 84 · `serverState` was answering two questions, and four applications ran serially for it
+
+**Picked:** item 66, at the owner's direction.
+
+**The cheapest check came first and it was the whole finding.** Four of five
+profiles carry the scaffolder's `// does state need cross-test cleanup?`
+verbatim. Computing the ceiling each one actually gets:
+
+| application | pool | ceiling |
+|---|---|---|
+| orangehrm, parabank, restful-booker, saucedemo | — | **1** |
+| toolshop | `{customer: 3, admin: 1}` | 2 |
+
+**Four applications running serially**, because `workerCeiling` caps at the
+usable accounts and one account plus `serverState: true` is one worker. So
+declaring a pool of three buys parallelism *back* — backwards from how the
+field reads, and nobody had noticed because the field is called `serverState`
+and reads as a claim about cleanup.
+
+**The measurement instrument was blind exactly there.** `whatThereIsToMeasure`
+returned `null` for a pool of one — a pool of one buys no partitioning, which
+is true and is not the question. `pool:measure` was declining to measure the
+four applications paying the most for the claim. That had to be fixed before
+anything could be measured, which is itself the answer to "why did this sit for
+so long".
+
+**Measured**, control at the ceiling and experiment above it on one identity:
+
+| application | at its ceiling | above it, one account |
+|---|---|---|
+| saucedemo | 2/2 green at 1 | **2/2 green at 6** |
+| restful-booker | 2/2 green at 1 | **2/2 green at 4** |
+| orangehrm | 2/2 green at 1 | **2/2 green at 3** |
+
+**`orangehrm` is what settled it.** Its specs create and delete real system
+users, so it genuinely needs `serverState: true` for cleanup — and it tolerated
+three workers on one identity anyway. That is the two claims coming apart
+inside one application, which is the evidence item 66 demanded before letting
+anybody touch the type.
+
+**Did:** `sharedIdentitySafe?: boolean` on `TargetCapabilities`, honoured by
+`workerCeiling`, with **undefined keeping the old cap** so nothing silently
+speeds up. Plus the instrument fix, reframed `pool:measure` arms (control at
+the ceiling, experiment above — the old both-arms-at-`poolSize` is what made
+run 77's control over-subscribed), a `worker-cap-unmeasured` doctor warning,
+and a scaffold that writes both questions with the cost stated.
+
+**I did not set the flag on any profile, and that is item 67.** Two runs per
+application is thinner than this repository's own `FLAKE_MINIMUM_RUNS` of 5,
+and run 83's lesson was exactly about acting on a measurement with a hole in
+its framing. The capability exists and the doctor asks; turning it on wants
+five runs.
+
+**Verify:** `npm run verify` passes, exit 0 — **1148 tests**, up from 1145.
+
+**Three existing tests were rewritten to the new guarantee.** The doctor's
+"says nothing when everything agrees" fixture had to *answer* the new question,
+which is the right outcome: a profile leaving it open is not one that agrees,
+it is one nobody has finished.
+
+**Live suites: unchanged from run 83** — saucedemo 6/6; orangehrm 6/7,
+restful-booker 12/13, toolshop 21/22, all three on the accessibility violations
+the owner accepted as red; parabank parked.
+
+**Triage agreement, unchanged:** toolshop **4 · 0 · 0**, orangehrm **4 · 0 ·
+0**, restful-booker **3 · 0 · 1**, saucedemo **1 · 0 · 3**.
+
+**Learned:**
+
+- **A measurement command that declines to measure something is a finding
+  about the command.** `pool:measure` said "nothing to measure" for four of
+  five applications and everyone read that as "nothing is wrong". The blind
+  spot was in the instrument, and it was one boolean.
+- **A field name that reads as one claim will be answered as one claim.**
+  `serverState` sounds entirely like cleanup, so every author answered the
+  cleanup question and none of them knew they had also set the worker count.
+  A second field with an honest name fixes it in a way no comment on the first
+  one would have.
+- **Default to the old behaviour when adding a capability that changes
+  concurrency.** `sharedIdentitySafe === undefined` keeps the cap, so this
+  change is inert until somebody opts in with evidence. The alternative —
+  making the fast path the default — would have uncapped four suites on the
+  strength of two runs each.
+- **The cheapest check was a grep.** Four profiles carrying an unedited
+  scaffold comment took thirty seconds to confirm and was the entire shape of
+  the item. Item 56 flagged it as a "wider finding" three runs ago; nobody ran
+  the grep.
+
+**Next:** item 67 — five runs per application, then set the flag where they
+agree.

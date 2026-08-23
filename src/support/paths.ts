@@ -96,9 +96,23 @@ export const workerCeiling = (
   poolSize: number | Record<string, number> | undefined,
   serverState: boolean,
   reserved?: number,
+  /*
+     The profile saying two workers may hold its identity at once — item 66.
+
+     `serverState` was deciding both "does this need cleanup" and "may workers
+     share an account", and the two came apart the moment anybody measured.
+     An application that creates data it must tidy up can still tolerate three
+     workers on one identity; orangehrm does, and it was running at one.
+
+     Read here rather than folded into `serverState` so the older claim keeps
+     meaning what it meant. Undefined leaves the cap exactly where it was.
+  */
+  sharedIdentitySafe?: boolean,
 ): number | null => {
   const role = roles[0];
   if (!serverState || !role) return null;
+  // Nothing to collide on that this profile has not said is safe to share.
+  if (sharedIdentitySafe) return null;
   // An account reserved for auth-flows is not one a worker can be given, so
   // the ceiling is what is left rather than what the pool holds.
   return usableAccounts(poolSizeFor(poolSize, role), reserved).length;

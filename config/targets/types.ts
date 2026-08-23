@@ -202,6 +202,49 @@ export interface TargetCapabilities {
   accountPool: AccountPoolMode;
   /** False when all state is client-side, so no cross-test cleanup is needed. */
   serverState: boolean;
+  /**
+   * Two workers may hold this application's identity at the same time — item
+   * 66.
+   *
+   * **`serverState` was answering two questions and they came apart.** It
+   * says "data this suite creates needs cleaning up", and `workerCeiling`
+   * *also* reads it to decide whether two workers may share an account — so an
+   * application that needs cleanup is forced to buy serialisation it may not
+   * need. With `serverState: true` and no pool the ceiling is **one worker**:
+   * the whole suite runs serially, and declaring a pool of three is what buys
+   * the parallelism back, which is exactly backwards from how it reads.
+   *
+   * That was not a theoretical cost. Four of five applications here declared
+   * `serverState: true` with no pool, every one of them still carrying the
+   * scaffolder's `// does state need cross-test cleanup?` verbatim, and all
+   * four ran at one worker because nobody had answered a question the
+   * scaffold asked.
+   *
+   * **Measured before this existed**, with `npm run pool:measure`, control at
+   * the ceiling and experiment above it with every worker on one identity:
+   *
+   * | application | at its ceiling | above it, one account |
+   * |---|---|---|
+   * | saucedemo | 2/2 green at 1 | **2/2 green at 6** |
+   * | restful-booker | 2/2 green at 1 | **2/2 green at 4** |
+   * | orangehrm | 2/2 green at 1 | **2/2 green at 3** |
+   *
+   * `orangehrm` is the one that matters: its specs create and delete real
+   * system users, so it genuinely needs `serverState: true` for cleanup — and
+   * it tolerated three workers on one identity anyway. The two claims are
+   * different claims.
+   *
+   * **Undefined means the old behaviour**, deliberately. A profile that says
+   * nothing keeps its cap, so nothing silently speeds up and starts flaking;
+   * turning it on is a decision somebody takes with a measurement in hand.
+   * `target:doctor` reports an application paying the cap without having
+   * answered the question, and names the command that asks.
+   *
+   * Do not set this because a suite is slow. Set it because
+   * `npm run pool:measure` says the cap is not earned — and remember the
+   * command's own caveat, that a suite proves only what it runs.
+   */
+  sharedIdentitySafe?: boolean;
   api: ApiCapability;
   db: DbCapability;
   contracts: ContractsCapability;

@@ -273,6 +273,25 @@ deleted. Accessibility waivers work the same way and for the same reason.
   write the verb to tolerate contention rather than assume it owns the account.
   Note that worker indices repeat across *projects*: `api` worker 0 and
   `contract` worker 0 pick the same slot.
+- **`serverState` answers two questions, and they are not the same question.**
+  It says "data this suite creates needs cleaning up" — and `workerCeiling`
+  *also* reads it to decide whether two workers may share an account. So
+  `serverState: true` with no pool caps a target at **one worker**: the whole
+  suite runs serially, and declaring a pool of three is what buys the
+  parallelism back, which is backwards from how it reads. Four of the first
+  five applications onboarded here paid that, every one still carrying the
+  scaffolder's `// does state need cross-test cleanup?` verbatim.
+
+  Say which you mean. `sharedIdentitySafe: true` keeps `serverState` about
+  cleanup and lifts the cap; leaving it unset keeps the cap, which is the safe
+  default and stays the default. **Answer it with a measurement, never a
+  guess** — `npm run pool:measure` runs the suite at the cap and above it with
+  every worker on one identity, and reports both arms. Measured that way,
+  three applications ran green above their cap, including one whose specs
+  create and delete real user records. `target:doctor` reports an application
+  paying the cap without having answered, and stops once the profile says
+  either way — "yes, it is earned" is an answer worth recording, because it
+  stops the next person re-measuring it.
 - **Negative authentication specs spend the account's lockout budget.** Two
   specs asserting "a wrong password is refused" locked the shared account every
   other spec signed in as, and twenty-one unrelated tests failed. Declare

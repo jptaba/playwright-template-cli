@@ -33,8 +33,24 @@ function profile(overrides: Partial<TargetProfile> = {}): TargetProfile {
 }
 
 test.describe('what the profile is spending', () => {
-  test('a pool of one costs nothing, so there is nothing to measure', () => {
-    expect(whatThereIsToMeasure(poolCost(profile()))).toBeNull();
+  test('a single account is the most expensive shape, not the free one', () => {
+    /*
+       This asserted the opposite until item 66. The reasoning was that a pool
+       of one buys no partitioning, which is true and is not the question:
+       `workerCeiling` caps at the usable accounts, so one account with
+       `serverState: true` caps the suite at **one worker** and the whole thing
+       runs serially. Declaring a pool of three is what buys parallelism back.
+
+       Four of five applications in this repository are in exactly that state,
+       all four still carrying the scaffolder's `// does state need cross-test
+       cleanup?` verbatim — so the command that exists to ask whether the claim
+       is earned was declining to ask it of everyone paying most for it.
+    */
+    const worth = whatThereIsToMeasure(poolCost(profile()));
+
+    expect(worth).not.toBeNull();
+    expect(worth).toContain('1 worker');
+    expect(worth).toContain('serially');
   });
 
   test('serverState false caps no workers, whatever the pool holds', () => {
@@ -93,7 +109,7 @@ test.describe('reporting the measurement', () => {
     baseline: PoolMeasurement['baseline'] = [{ failures: [], passed: 8, error: null }],
   ): PoolMeasurement => ({ target: 'demo', cost, baseline, collapsed });
 
-  test('a clean control and a clean collapsed arm says the pool is buying nothing', () => {
+  test('a clean control and a clean experiment says the cap is buying nothing', () => {
     /*
        It stops short of "delete the pool" on purpose. A pool also protects
        against collisions no spec currently exercises, and a tool that
@@ -113,8 +129,11 @@ test.describe('reporting the measurement', () => {
       ),
     ).join('\n');
 
-    expect(report).toContain('2/2 green at the declared pool · 2/2 green on one account');
-    expect(report).toContain('buying no protection');
+    expect(report).toContain('2/2 green at the ceiling · 2/2 green on one account');
+    // 'cap' rather than 'pool': item 66 made this command able to measure a
+    // target with no pool at all, where what is being weighed is the
+    // serverState ceiling itself.
+    expect(report).toContain('cap is buying no protection');
     expect(report).toContain('the decision is a person’s');
   });
 
@@ -131,7 +150,7 @@ test.describe('reporting the measurement', () => {
       ]),
     ).join('\n');
 
-    expect(report).toContain('1/1 green at the declared pool · 0/1 green on one account');
+    expect(report).toContain('1/1 green at the ceiling · 0/1 green on one account');
     expect(report).toContain('share the pooled identity');
     expect(report).toContain('TOOL-3-02');
   });

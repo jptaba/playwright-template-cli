@@ -294,6 +294,37 @@ function checkPack(
     }
   }
 
+  /*
+     An application paying the worker cap without having answered the question
+     that imposes it — item 66.
+
+     `serverState: true` with no pool caps a target at **one worker**: the
+     whole suite runs serially. That is sometimes right and nothing here can
+     know — but it was reaching four of five applications as a scaffold
+     default nobody revisited, every one still carrying the generated
+     `// does state need cross-test cleanup?` comment verbatim.
+
+     A warning rather than an error, and it names the command rather than the
+     answer. Whether an application tolerates two workers on one identity is a
+     measurement, and inventing a verdict here is the defect `triage:measure`
+     exists to catch, one subject over.
+  */
+  if (
+    profile.capabilities.serverState &&
+    profile.capabilities.sharedIdentitySafe === undefined &&
+    poolSizeFor(profile.credentials.poolSize, profile.roles[0] ?? '') <= 1
+  ) {
+    warn(
+      'worker-cap-unmeasured',
+      `serverState: true with a single account for '${profile.roles[0] ?? '?'}' caps this ` +
+        'target at 1 worker, so the suite runs serially.',
+      'Run `npm run pool:measure` to find out whether that cap is earned. If it is not, ' +
+        'declare `sharedIdentitySafe: true` — it keeps serverState meaning cleanup and stops ' +
+        'it also meaning "one worker". If it is, say so there too, so the next person does ' +
+        'not re-measure it (§19).',
+    );
+  }
+
   if (startedWriting && !specsUnder('tests/triage-fixture')) {
     warn(
       'no-triage-fixture',

@@ -39,6 +39,13 @@ function profile(overrides: Partial<TargetProfile> = {}): TargetProfile {
       mfa: 'none',
       accountPool: 'static',
       serverState: true,
+      /*
+         Answered, so the fixture is a profile with nothing left to say about
+         it. Item 66 made an unanswered worker cap a warning, and a "says
+         nothing when everything agrees" fixture that leaves the question open
+         is not a profile that agrees — it is one nobody has finished.
+      */
+      sharedIdentitySafe: true,
       api: { enabled: false },
       db: { enabled: false },
       contracts: { enabled: false, spec: null },
@@ -87,6 +94,40 @@ const codes = (found: readonly Diagnostic[]): string[] => found.map((one) => one
 test.describe('the onboarding preflight', () => {
   test('says nothing when the profile, the pack and the credentials agree', () => {
     expect(diagnose(profile(), facts())).toEqual([]);
+  });
+
+  test('a worker cap nobody has measured is a smell, and names the command', () => {
+    /*
+       Item 66. `serverState: true` with no pool caps a target at one worker,
+       so the suite runs serially — and it reached four of the first five
+       applications as a scaffold default nobody revisited, every one still
+       carrying the generated comment verbatim.
+
+       A warning rather than an error, and it names the command rather than
+       the answer: whether an application tolerates two workers on one
+       identity is a measurement, and inventing a verdict here would be the
+       defect `triage:measure` exists to catch, one subject over.
+    */
+    const unanswered = profile({
+      capabilities: { ...profile().capabilities, sharedIdentitySafe: undefined },
+    });
+    const found = diagnose(unanswered, facts());
+
+    expect(codes(found)).toContain('worker-cap-unmeasured');
+    expect(found.find((one) => one.code === 'worker-cap-unmeasured')?.fix).toContain(
+      'pool:measure',
+    );
+  });
+
+  test('answering the question either way retires the smell', () => {
+    // "Yes it is earned" is an answer too, and the point of recording it is
+    // that the next person does not re-run the measurement.
+    for (const answer of [true, false]) {
+      const answered = profile({
+        capabilities: { ...profile().capabilities, sharedIdentitySafe: answer },
+      });
+      expect(codes(diagnose(answered, facts()))).not.toContain('worker-cap-unmeasured');
+    }
   });
 
   test('every diagnostic names what to do, not just what is wrong', () => {

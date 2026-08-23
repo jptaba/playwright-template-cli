@@ -589,7 +589,26 @@ export const ${input.camel}: TargetProfile = {
   capabilities: {
     mfa: 'none', // 'none' | 'totp' | 'email'
     accountPool: 'static', // 'static' | 'leased'
-    serverState: true, // does state need cross-test cleanup?
+    /*
+       Does data this suite creates need cleaning up? True is the safe guess
+       and this is a guess.
+
+       It also caps the suite at **one worker** until the line below is
+       answered, because \`workerCeiling\` reads it. That is the half nobody
+       noticed: four of the first five applications onboarded here shipped
+       with the old one-line version of this comment unedited, and all four
+       ran serially for it.
+    */
+    serverState: true,
+    /*
+       May two workers hold this application's identity at once? Left unset on
+       purpose — the honest answer is a measurement, not a default.
+
+       \`npm run pool:measure\` runs the suite at the cap and above it on one
+       account and reports both. \`target:doctor\` warns while this is unset,
+       and stops once it is either way.
+    */
+    // sharedIdentitySafe: true,
     api: ${apiLine},
     db: { enabled: false, vaultRole: 'qa-readonly', dialect: 'postgres' },
     ${
