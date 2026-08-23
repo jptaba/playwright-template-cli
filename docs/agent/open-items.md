@@ -15,6 +15,8 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
+| 73 | The Stories page shows another application's stories | `ready` |
+| 74 | `/api/cases` hands every page the whole repository | `ready` |
 | 68 | Two applications keep a worker cap that costs them, for a reason worth removing | `hypothesis` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
@@ -94,6 +96,13 @@ and sessions were still listed in the plan it threw away. And
 `hasAnythingToRemove` counted four things, so a plan whose only leftover was
 the draft refused to execute. **The CLI had been right about both since item
 16; two consumers had not, and nothing drove them until now.**
+
+**Run 90 swept the four live applications through the UI** — a per-application
+pass, where run 88's was per-page — and found the scoping is not uniform.
+**Take item 73 next:** the Stories page shows toolshop's catalogue-and-cart
+stories while the bar says `orangehrm`, which is run 80's journey defect
+unfixed in the dashboard, and the fix it needs already exists in
+`run-journey.ts`. Item 74 is the same shape one page over, still latent.
 
 **Run 88 scanned all seven pages and run 89 closed both findings.** The top bar
 carries the doctor's verdict on every page, `/runs` states when an application
@@ -190,6 +199,87 @@ paths are built and proven against local fakes. `TEAMS_ALWAYS` and
 `DIGEST_ALWAYS` stay off: a nightly mail that is green 90% of the time trains
 its recipients to filter it, which is the tools' own argument and it is a good
 one. The fakes set both so a demo shows something; a real channel should not.
+
+---
+
+### 73. The Stories page shows another application's stories — `ready`
+
+**Found in run 90**, sweeping the four live applications through the dashboard.
+**This is run 80's defect, unfixed in the dashboard.**
+
+Driven, with the bar reading **orangehrm**:
+
+> TOOL-1 Search the catalogue for a tool by name
+> TOOL-2 Sign in and out as a returning customer
+> TOOL-3 Put a tool in the cart and see what it comes to
+> TOOL-4 The catalogue API answers the same questions as the storefront
+> TOOL-5 A shopper using a screen reader can sign in and browse
+
+Those are **toolshop's** stories — a catalogue and a cart — on a page scoped to
+an HR application. `/api/stories` returns the identical five for `orangehrm`,
+`restful-booker`, `saucedemo` and `toolshop` alike.
+
+**The cause is the one run 80 already wrote down.** `stories/` is a flat
+directory of committed `TOOL-*.json`, and a story file carries `key`,
+`summary`, `description`, `acceptanceCriteria` and `contentHash` — **nothing
+saying which application it belongs to**. So "the stories" means "every story
+on disk", which today is one application's.
+
+Run 80 hit exactly this in `app:journey`:
+
+> Stage 2's story fallback took the first `stories/*.json` on disk — committed
+> files, so `TOOL-*.json` every time. The `orangehrm` journey reported *"story
+> TOOL-1 pulled from Jira"* and marked traceability **done**: a stage built to
+> catch "traced to nothing" was satisfiable by "traced to another
+> application's requirement".
+
+The journey was fixed by asking the target's own specs which story they cite —
+the `jira` annotation, which is the only statement in the repository of which
+story a spec is for. **The dashboard was never given the same fix.**
+
+**So the fix already exists and needs applying, not inventing.** `readSpecs(target)`
+yields `jiraKey` per spec; `/api/stories` should return the stories those keys
+name. A story on disk that no spec cites belongs to nobody and should say so
+rather than being attributed to whoever is selected.
+
+Worth stating because it is the sharper half: this is not cosmetic. The page's
+job is *what the work is meant to do*, and it is currently answering with a
+different product's requirements.
+
+---
+
+### 74. `/api/cases` hands every page the whole repository — `ready`
+
+**Found in run 90**, and it is latent rather than live — which is the reason to
+fix it now rather than after it bites.
+
+`/api/cases` returns an **identical payload whichever application is
+selected**, verified across three:
+
+| | orangehrm | saucedemo | toolshop |
+|---|---|---|---|
+| cases returned | 10 | 10 | 10 |
+| whose cases | toolshop | toolshop | toolshop |
+| orphan specs | 63 | 63 | 63 |
+| whose specs | all five | all five | all five |
+| `counts.cases` / `counts.specs` | 10 / 63 | 10 / 63 | 10 / 63 |
+
+The orphan list spans **all five applications, including parked `parabank`**.
+
+**The page is right today**, and that is the whole finding. It filters and
+recomputes, so `/cases` with `orangehrm` selected correctly reads *"0 cases · 10
+specs read"* rather than 10 and 63. But the payload carries a `counts` summary
+that is **true of the repository and false of the page it was sent to**, sitting
+directly beside the data the page does filter. The next person to render a
+number from `counts` — the obvious thing to do with a field called that — gets
+cross-application totals and no reason to suspect them.
+
+**Same family as item 73 and as the two item-16 defects run 87 found:** the
+scoping lives in one consumer rather than in the thing being consumed.
+
+**The fix is to scope the route**, not to add a warning to the field. The
+coverage collector already takes a target — `collectCoverage(target)` — and the
+route has the selection.
 
 ---
 

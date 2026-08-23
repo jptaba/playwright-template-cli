@@ -6421,3 +6421,64 @@ rule.
 
 **Next:** nothing is `ready`. 68 is a hypothesis, 49 needs credentials only the
 owner has, 11 is standing.
+
+## 2026-08-23 · run 90 · Four applications through the UI: the scoping is not uniform
+
+**Picked:** a scan, at the owner's direction — the four live applications
+(`orangehrm`, `restful-booker`, `saucedemo`, `toolshop`; `parabank` is parked),
+driven through the dashboard. A **per-application** pass, where run 88's was
+per-page, and that is what made the difference: everything below is invisible
+with one application selected.
+
+**Item 73 — the Stories page shows another application's stories, and it is
+live.** With the bar reading `orangehrm`, the page lists TOOL-1 to TOOL-5:
+*search the catalogue*, *put a tool in the cart*. `/api/stories` returns the
+identical five for all four applications.
+
+**This is run 80's defect, unfixed one layer over.** That run found
+`app:journey`'s stage 2 taking the first `stories/*.json` on disk — committed,
+so `TOOL-*.json` every time — and reporting *"story TOOL-1 pulled from Jira"*
+for `orangehrm`. It fixed the journey by asking the target's own specs which
+story they cite. Nobody gave the dashboard the same fix, and the cause is
+identical: `stories/` is flat and a story file names no application.
+
+**Item 74 — `/api/cases` is unscoped, and is right by accident.** Identical
+payload for every application: 10 toolshop cases, 63 orphan specs spanning all
+five including parked `parabank`, and a `counts` summary true of the repository
+and false of the page. The page filters and recomputes, so what renders is
+correct — *"0 cases · 10 specs read"* for `orangehrm`. The trap is the `counts`
+field sitting beside the data that does get filtered, waiting for somebody to
+render the obvious thing.
+
+**Verified correctly scoped**, so the finding is precise rather than a
+suspicion: `/users` (`orangehrm` → `qa/orangehrm/…`, 1 account, all resolving),
+the `/cases` page's own rendering, and the health chip, which matches
+`npm run target:doctor` per application.
+
+**Also seen, and it is the pack's data rather than the tool's:** toolshop's 10
+case files carry ids like `TOOL-1-search-matching-nothing` while its specs cite
+`TOOL-4-01`. So the coverage view reports 10 cases with no spec *and* 18 specs
+citing a case that is not there — two counts describing the same work from
+either end. The page is reporting that correctly; the ids never matched.
+
+**Verify:** `npm run verify` passes, exit 0 — **1169 tests**. No code changed.
+
+**Learned:**
+
+- **Sweep the applications, not just the pages.** Run 88 walked all seven pages
+  with one application selected and found two structural gaps. Switching
+  applications across the same pages found two scoping defects that one
+  application cannot expose — a page showing *somebody else's* data looks
+  perfectly correct until somebody else exists.
+- **A defect fixed in one consumer is not fixed.** Item 16 reached
+  `planOffboard` and not two callers (run 87). Run 80 reached `app:journey` and
+  not the dashboard. Three instances now of a rule landing in one place while
+  its siblings keep the old behaviour, and in every case the fix already
+  existed and needed applying rather than inventing.
+- **"Right today" is worth filing.** `/api/cases` renders correctly and is still
+  wrong; the payload disagrees with the page it was built for. Filing it while
+  it is latent costs one item, and the alternative is finding it as a wrong
+  number somebody trusted.
+
+**Next:** item 73 — the fix exists in `run-journey.ts` and needs applying to
+`/api/stories`.
