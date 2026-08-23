@@ -482,6 +482,12 @@ footer p { max-width: var(--measure); }
       <dd>9<small>framework, dashboard + 7 live</small></dd>
     </div>
   </dl>
+
+  <p class="standfirst" style="margin-top:2rem">
+    <a href="architecture.html"><strong>→ See how the pieces fit</strong></a> —
+    the boundary between framework and pack, how a spec gets its verbs, and what
+    happens end to end, in diagrams.
+  </p>
 </div>
 
 <section id="start" data-group="Orientation" data-title="Start here">
@@ -754,6 +760,47 @@ npm run suites:live                          <span class="c"># every onboarded a
     <li>Framework code (<code>src/fixtures/</code>, <code>src/integrations/</code>, <code>src/support/</code>, <code>tools/</code>) may not import a target pack, and may not name one.</li>
     <li>Specs call typed clients — no raw <code>request.*</code>, no <code>fetch</code>, no inline SQL.</li>
   </ul>
+
+  <h3>What L3 actually hands a spec</h3>
+  <p>
+    Fifteen framework fixtures, available in <strong>every</strong> spec
+    whichever application is under test, plus whatever the pack's own
+    <code>fixtures.ts</code> adds on top. A fixture for a disabled capability
+    skips the test with a stated reason rather than hanging until timeout.
+  </p>
+
+  <div class="scroller">
+    <table>
+      <thead><tr><th>Fixture</th><th>Type</th><th>What it gives you</th></tr></thead>
+      <tbody>
+        <tr><td><code>target</code></td><td><code>TargetProfile</code></td><td>Base URL, capabilities, environment, roles.</td></tr>
+        <tr><td><code>run</code></td><td><code>RunContext</code></td><td>Run identity and unique-value helpers, so created records are traceable and cleanable.</td></tr>
+        <tr><td><code>role</code></td><td><code>string</code></td><td>Which role's session <code>authedPage</code> uses.</td></tr>
+        <tr><td><code>secrets</code></td><td><code>SecretsFixture</code></td><td>Credential lookup by reference. The value never appears in a spec.</td></tr>
+        <tr><td><code>secretStore</code></td><td><code>SecretStore</code></td><td>The underlying store, for the rare case that needs it.</td></tr>
+        <tr><td><code>accounts</code></td><td><code>AccountsFixture</code></td><td>Leases an account for this worker — atomic and TTL'd on a pooled target.</td></tr>
+        <tr><td><code>accountSlot</code></td><td><code>number</code></td><td>Which account in the role's pool this test holds.</td></tr>
+        <tr><td><code>authedPage</code></td><td><code>Page</code></td><td>A page already carrying the role's session.</td></tr>
+        <tr><td><code>api</code></td><td><code>ApiClient</code></td><td>The shared HTTP client, with response-schema validation inside it — so every API call, including setup calls inside UI tests, is a contract check for free.</td></tr>
+        <tr><td><code>apis</code></td><td><code>Record&lt;string, ApiClient&gt;</code></td><td>The other services this application is made of, by name — <code>apis.billing</code>, <code>apis.search</code>.</td></tr>
+        <tr><td><code>db</code></td><td><code>DbReader</code></td><td>Read-only database access.</td></tr>
+        <tr><td><code>contracts</code></td><td><code>ContractRegistry | null</code></td><td>The vendored contract document, when the target publishes one.</td></tr>
+        <tr><td><code>a11y</code></td><td><code>A11yScanner</code></td><td>Accessibility scanning against the declared standard. Returns findings; asserts nothing.</td></tr>
+        <tr><td><code>otp</code></td><td><code>OtpProvider</code></td><td>Resolves an OTP however this target does MFA — or refuses, with a reason.</td></tr>
+        <tr><td><code>inbox</code></td><td><code>MailInbox | null</code></td><td>The mail sink, when one is configured.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <span class="note-label">This table is a copy; the generated one is the truth</span>
+    <p>
+      <code>docs/generated/catalog.md</code> lists these <em>and</em> every verb
+      each pack exposes, rebuilt by <code>npm run catalog:build</code> and
+      checked in CI by <code>catalog:check</code>. Read it before writing a spec
+      — it is the answer to “does the verb I need already exist?”
+    </p>
+  </div>
 
   <div class="note">
     <span class="note-label">Why not Page Object Model</span>

@@ -9,8 +9,13 @@ triaged automatically before a human reads them.
 > tested. What is *not* proven is anything that needs a system this repository
 > cannot reach — see [What is proven, and what is not](#what-is-proven-and-what-is-not).
 
-**→ [Read the handbook](docs/handbook.html)** — architecture, onboarding and how it
-works, in 19 sections. Start there if you are new; this README is the summary.
+**→ [Read the handbook](docs/handbook.html)** — onboarding, the layers, locators,
+secrets, accessibility, triage and every command, in 19 sections. Start there if
+you are new; this README is the summary.
+
+**→ [How the pieces fit](docs/architecture.html)** — the boundary between
+framework and target pack, how a spec gets its verbs, and the end-to-end flow
+from `npm run onboard` to a result back in PractiTest, in diagrams.
 
 **→ [What real testing taught the framework](docs/learnings.md)** — the defects and
 conventions that came out of pointing this at a live application, and where each
@@ -138,7 +143,8 @@ tests/framework/      the framework's own tests, incl. the lint rules
 src/targets/<app>/tests/{e2e,api,contract,a11y}/   tests of the application
 cases/                the intermediate case format both authoring tracks produce
 docs/CONVENTIONS.md   single source of truth → CLAUDE.md, AGENTS.md, copilot
-docs/handbook.html    architecture · onboarding · how it works
+docs/handbook.html    onboarding · the layers · running · triage · commands
+docs/architecture.html  how the pieces fit, and the end-to-end flow, in diagrams
 docs/learnings.md     what real testing taught the framework, and where fixes landed
 docs/plan.html        the original architecture plan and self-critique
 docs/generated/       capability catalog + run history (committed, checked in CI)

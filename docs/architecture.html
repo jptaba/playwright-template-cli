@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Framework Architecture</title>
+<meta name="description" content="How the pieces fit and what happens end to end — from onboarding an application to publishing a triaged result.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+/* ==========================================================================
+   Framework Architecture
+
+   Same design system as docs/handbook.html and src/support/ui/tokens.ts,
+   token for token. See tokens.ts for why the four surfaces must match, and
+   why the accent is a petrol that sits far from --pass, --fail and --warn.
+
+   Diagrams are hand-authored inline SVG: no library, no runtime, no external
+   image. They stroke in `currentColor` so they theme with the page, and the
+   one hue that carries meaning is var(--accent) rather than a literal — a
+   literal petrol is invisible on the dark ground, which is a bug this page
+   already had once.
+   ========================================================================== */
+
+:root {
+  --bg: #E7ECEF;
+  --surface: #FAFCFD;
+  --surface-2: #EFF4F6;
+  --ink: #101619;
+  --ink-2: #33414A;
+  --muted: #53626C;
+  --rule: #C9D4DA;
+  --rule-strong: #74838C;
+  --accent: #0B5F70;
+  --accent-ink: #084C5A;
+  --accent-soft: #D4E8ED;
+  --pass: #16684B;
+  --pass-soft: #D7E9E0;
+  --fail: #9C2732;
+  --fail-soft: #F4DBDD;
+  --warn: #7C5809;
+  --warn-soft: #F0E4C6;
+  --code-bg: #EAF0F3;
+  --shadow: 0 1px 2px rgba(16, 22, 25, .06), 0 8px 24px -16px rgba(16, 22, 25, .3);
+
+  --topbar: 3.5rem;
+  --measure: 70ch;
+
+  --sans: "IBM Plex Sans", ui-sans-serif, "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --serif: "IBM Plex Serif", ui-serif, Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C1116; --surface: #131B21; --surface-2: #19232A;
+    --ink: #E3EAEE; --ink-2: #BEC9D1; --muted: #8D9AA4;
+    --rule: #222E35; --rule-strong: #66737C;
+    --accent: #4FBFD6; --accent-ink: #79D2E5; --accent-soft: #0E2C35;
+    --pass: #4FB88C; --pass-soft: #12261D;
+    --fail: #E4757F; --fail-soft: #2B181B;
+    --warn: #D2A03F; --warn-soft: #2A2113;
+    --code-bg: #151E24;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0C1116; --surface: #131B21; --surface-2: #19232A;
+  --ink: #E3EAEE; --ink-2: #BEC9D1; --muted: #8D9AA4;
+  --rule: #222E35; --rule-strong: #66737C;
+  --accent: #4FBFD6; --accent-ink: #79D2E5; --accent-soft: #0E2C35;
+  --pass: #4FB88C; --pass-soft: #12261D;
+  --fail: #E4757F; --fail-soft: #2B181B;
+  --warn: #D2A03F; --warn-soft: #2A2113;
+  --code-bg: #151E24;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--topbar) + 1.5rem); }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16.5px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+:where(a):focus-visible, :where(button):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px;
+}
+
+/* --- Top bar -------------------------------------------------------------- */
+.topbar {
+  position: sticky; top: 0; z-index: 40; height: var(--topbar);
+  display: flex; align-items: center; gap: 1rem; padding: 0 1.25rem;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(12px); border-bottom: 1px solid var(--rule);
+}
+.brand {
+  display: flex; align-items: center; gap: .6rem; color: inherit;
+  text-decoration: none; font-weight: 600; letter-spacing: -.01em; white-space: nowrap;
+}
+.brand .mark { width: 1.6rem; height: 1.6rem; color: var(--ink-2); flex: none; }
+.badge {
+  font-family: var(--mono); font-size: .68rem; text-transform: uppercase;
+  letter-spacing: .1em; padding: .18em .5em; border-radius: 4px;
+  background: var(--accent-soft); color: var(--accent-ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.topbar-spacer { flex: 1; }
+.topnav { display: flex; gap: .25rem; }
+.topnav a {
+  font-size: .82rem; padding: .3rem .6rem; border-radius: 6px;
+  color: var(--ink-2); text-decoration: none;
+}
+.topnav a:hover { background: var(--surface-2); color: var(--ink); }
+.theme { display: flex; border: 1px solid var(--rule-strong); border-radius: 6px; overflow: hidden; }
+.theme button {
+  font: inherit; font-size: .76rem; padding: .3rem .6rem;
+  background: transparent; color: var(--ink-2); border: 0; cursor: pointer;
+}
+.theme button + button { border-left: 1px solid var(--rule-strong); }
+.theme button:hover { background: var(--surface-2); color: var(--ink); }
+.theme button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
+
+/* --- Page ----------------------------------------------------------------- */
+.wrap { max-width: 74rem; margin: 0 auto; padding: 0 clamp(1.25rem, 4vw, 3rem) 6rem; }
+
+.masthead { padding: clamp(2.5rem, 7vw, 5rem) 0 2.5rem; border-bottom: 1px solid var(--rule); }
+.eyebrow {
+  font-family: var(--mono); font-size: .74rem; text-transform: uppercase;
+  letter-spacing: .14em; color: var(--accent-ink); margin: 0 0 1rem;
+}
+.masthead h1 {
+  font-family: var(--serif); font-weight: 600;
+  font-size: clamp(2.2rem, 5.5vw, 3.6rem); line-height: 1.05;
+  letter-spacing: -.02em; margin: 0 0 1.25rem; text-wrap: balance; max-width: 20ch;
+}
+.lede {
+  font-family: var(--serif); font-size: clamp(1.05rem, 2vw, 1.3rem);
+  line-height: 1.55; color: var(--ink-2); margin: 0; max-width: 58ch;
+}
+
+section { padding: 3.25rem 0 1rem; scroll-margin-top: calc(var(--topbar) + 1rem); }
+section + section { border-top: 1px solid var(--rule); }
+.sec-head { display: flex; align-items: baseline; gap: .75rem; margin-bottom: .35rem; }
+.sec-num {
+  font-family: var(--mono); font-size: .8rem; color: var(--accent-ink);
+  font-variant-numeric: tabular-nums;
+}
+h2 {
+  font-family: var(--serif); font-weight: 600;
+  font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.15;
+  letter-spacing: -.015em; margin: 0; text-wrap: balance;
+}
+h3 { font-weight: 600; font-size: 1.05rem; margin: 2rem 0 .5rem; }
+.standfirst { color: var(--ink-2); font-size: 1.02rem; max-width: var(--measure); margin: 0 0 1.5rem; }
+p, ul, ol { max-width: var(--measure); }
+p { margin: 0 0 1rem; }
+ul, ol { margin: 0 0 1rem; padding-left: 1.3rem; }
+li { margin-bottom: .4rem; }
+a { color: var(--accent-ink); text-underline-offset: 2px; }
+strong { font-weight: 600; }
+
+code {
+  font-family: var(--mono); font-size: .86em; background: var(--code-bg);
+  padding: .08em .35em; border-radius: 3px;
+  border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent);
+}
+pre {
+  font-family: var(--mono); font-size: .82rem; line-height: 1.7;
+  background: var(--code-bg); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: 8px;
+  padding: 1rem 1.1rem; margin: 0 0 1.25rem; overflow-x: auto;
+}
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+pre .c { color: var(--muted); font-style: italic; }
+
+/* --- Figures -------------------------------------------------------------- */
+figure {
+  margin: 0 0 1.75rem; background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 10px;
+  padding: 1.25rem; overflow-x: auto;
+}
+figure svg { display: block; width: 100%; height: auto; min-width: 34rem; color: var(--ink-2); }
+figcaption {
+  margin-top: .9rem; padding-top: .8rem; border-top: 1px solid var(--rule);
+  font-size: .86rem; color: var(--muted); max-width: 74ch;
+}
+figcaption strong { color: var(--ink-2); }
+
+/* --- Tables --------------------------------------------------------------- */
+.scroller { overflow-x: auto; margin: 0 0 1.5rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: .89rem; }
+th, td { text-align: left; padding: .6rem .85rem; border-bottom: 1px solid var(--rule); vertical-align: top; font-variant-numeric: tabular-nums; }
+thead th {
+  font-family: var(--mono); font-size: .7rem; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--muted); font-weight: 500;
+  background: var(--surface-2); white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--surface-2); }
+td code { white-space: nowrap; }
+
+/* --- Callouts ------------------------------------------------------------- */
+.note {
+  border-left: 3px solid var(--rule-strong); background: var(--surface);
+  border-radius: 0 8px 8px 0; padding: .95rem 1.15rem; margin: 0 0 1.5rem;
+  max-width: var(--measure);
+}
+.note > :last-child { margin-bottom: 0; }
+.note-label {
+  display: block; font-family: var(--mono); font-size: .68rem;
+  text-transform: uppercase; letter-spacing: .1em; margin-bottom: .35rem; color: var(--muted);
+}
+.note.rule { border-left-color: var(--accent); background: var(--accent-soft); }
+.note.rule .note-label { color: var(--accent-ink); }
+.note.dont { border-left-color: var(--fail); background: var(--fail-soft); }
+.note.dont .note-label { color: var(--fail); }
+
+/* --- Legend --------------------------------------------------------------- */
+.legend { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; margin: 0 0 1.25rem; padding: 0; list-style: none; max-width: none; }
+.legend li { display: flex; align-items: center; gap: .5rem; font-size: .82rem; color: var(--muted); margin: 0; }
+.legend .swatch { width: 1.6rem; height: 0; border-top: 2px solid currentColor; flex: none; }
+.legend .swatch.accent { color: var(--accent); }
+.legend .swatch.dashed { border-top-style: dashed; }
+
+footer {
+  border-top: 1px solid var(--rule); margin-top: 3rem; padding: 2rem 0 0;
+  color: var(--muted); font-size: .85rem;
+}
+
+@media (max-width: 48rem) {
+  .topnav { display: none; }
+  .brand b { display: none; }
+}
+</style>
+</head>
+<body>
+<script>
+  (function () {
+    try {
+      var stored = localStorage.getItem('handbook-theme');
+      if (stored === 'light' || stored === 'dark') document.documentElement.setAttribute('data-theme', stored);
+    } catch (error) { /* storage can be denied; the system preference still applies */ }
+  })();
+</script>
+
+<header class="topbar">
+  <a class="brand" href="#top">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <rect x="1.1" y="1.1" width="29.8" height="29.8" rx="8" fill="none"
+            stroke="currentColor" stroke-opacity=".22" stroke-width="1.6"></rect>
+      <g stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <path d="M8 9.5h16" stroke-opacity=".28"></path>
+        <path d="M8 14.5h12" stroke-opacity=".44"></path>
+        <path d="M8 19.5h9" stroke-opacity=".62"></path>
+        <path d="M8 24.5h6" stroke-opacity=".8"></path>
+      </g>
+      <circle cx="23.4" cy="24.5" r="2.7" fill="var(--accent)"></circle>
+    </svg>
+    <b>Playwright Template CLI</b>
+    <span class="badge">Architecture</span>
+  </a>
+  <span class="topbar-spacer"></span>
+  <nav class="topnav" aria-label="Related documents">
+    <a href="handbook.html">Handbook</a>
+    <a href="learnings.md">Learnings</a>
+  </nav>
+  <div class="theme" role="group" aria-label="Colour theme">
+    <button type="button" data-theme-choice="light">Light</button>
+    <button type="button" data-theme-choice="dark">Dark</button>
+    <button type="button" data-theme-choice="auto">Auto</button>
+  </div>
+</header>
+
+<div class="wrap" id="top">
+
+<div class="masthead">
+  <p class="eyebrow">How the pieces fit</p>
+  <h1>One core, many applications, one path through.</h1>
+  <p class="lede">
+    Framework code never names an application; an application is a profile and a
+    pack that the framework discovers. This page shows where that boundary sits,
+    how a spec gets its verbs, and what actually happens between
+    <code>npm run onboard</code> and a result landing back in PractiTest.
+  </p>
+</div>
+
+<section id="map">
+  <div class="sec-head"><span class="sec-num">01</span><h2>The boundary that everything else follows</h2></div>
+  <p class="standfirst">
+    Three regions. The arrows that <em>do not</em> exist are the design.
+  </p>
+
+  <ul class="legend">
+    <li><span class="swatch"></span> reads / calls</li>
+    <li><span class="swatch accent"></span> writes or generates</li>
+    <li><span class="swatch dashed"></span> discovers at runtime</li>
+  </ul>
+
+  <figure>
+    <svg viewBox="0 0 900 420" role="img"
+         aria-label="Framework core contains fixtures, integrations, support and tools. It discovers target profiles from config/targets and never imports a target pack. Target packs contain locators, actions, fixtures and specs, and drive the application under test. Tools write the packs and talk to external systems.">
+      <defs>
+        <marker id="a-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+        </marker>
+        <marker id="a-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"></path>
+        </marker>
+      </defs>
+
+      <!-- region: framework core -->
+      <rect x="16" y="46" width="268" height="330" rx="10" fill="none" stroke="currentColor" stroke-opacity=".35"></rect>
+      <text x="32" y="70" font-family="ui-monospace, monospace" font-size="11" fill="currentColor" fill-opacity=".65">FRAMEWORK CORE — agnostic</text>
+
+      <g font-family="ui-monospace, monospace" font-size="12" fill="currentColor">
+        <rect x="36" y="84" width="228" height="34" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="150" y="105" text-anchor="middle">src/fixtures/</text>
+        <rect x="36" y="128" width="228" height="34" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="150" y="149" text-anchor="middle">src/integrations/</text>
+        <rect x="36" y="172" width="228" height="34" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="150" y="193" text-anchor="middle">src/support/</text>
+        <rect x="36" y="216" width="228" height="34" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="150" y="237" text-anchor="middle">tools/</text>
+        <rect x="36" y="276" width="228" height="46" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="150" y="296" text-anchor="middle">config/targets/</text>
+        <text x="150" y="312" text-anchor="middle" font-size="10.5" fill-opacity=".6">profiles — the only place a host lives</text>
+      </g>
+
+      <!-- region: target packs -->
+      <rect x="356" y="46" width="238" height="264" rx="10" fill="none" stroke="currentColor" stroke-opacity=".35"></rect>
+      <text x="372" y="70" font-family="ui-monospace, monospace" font-size="11" fill="currentColor" fill-opacity=".65">TARGET PACK — per application</text>
+
+      <g font-family="ui-monospace, monospace" font-size="12" fill="currentColor">
+        <rect x="376" y="84" width="198" height="30" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="475" y="104" text-anchor="middle">L1 locators/ endpoints/</text>
+        <rect x="376" y="122" width="198" height="30" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="475" y="142" text-anchor="middle">L2 actions/ api/ db/</text>
+        <rect x="376" y="160" width="198" height="30" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="475" y="180" text-anchor="middle">L3 fixtures.ts</text>
+        <rect x="376" y="198" width="198" height="30" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="475" y="218" text-anchor="middle">L4 tests/</text>
+        <rect x="376" y="248" width="198" height="42" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="475" y="266" text-anchor="middle">.auth/ sessions</text>
+        <text x="475" y="281" text-anchor="middle" font-size="10.5" fill-opacity=".6">gitignored, per run</text>
+      </g>
+
+      <!-- region: outside -->
+      <rect x="664" y="46" width="220" height="330" rx="10" fill="none" stroke="currentColor" stroke-opacity=".35"></rect>
+      <text x="680" y="70" font-family="ui-monospace, monospace" font-size="11" fill="currentColor" fill-opacity=".65">OUTSIDE</text>
+
+      <g font-family="ui-monospace, monospace" font-size="12" fill="currentColor">
+        <rect x="684" y="84" width="180" height="34" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="774" y="105" text-anchor="middle">application under test</text>
+        <rect x="684" y="128" width="180" height="30" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="774" y="148" text-anchor="middle">Vault</text>
+        <rect x="684" y="168" width="180" height="30" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="774" y="188" text-anchor="middle">Jira · PractiTest</text>
+        <rect x="684" y="208" width="180" height="30" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="774" y="228" text-anchor="middle">Teams · SMTP</text>
+      </g>
+
+      <!-- edges -->
+      <g fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a-arrow)">
+        <line x1="594" y1="99" x2="680" y2="99"></line>
+        <line x1="284" y1="145" x2="680" y2="145"></line>
+        <line x1="284" y1="185" x2="680" y2="185"></line>
+        <line x1="284" y1="225" x2="680" y2="225"></line>
+      </g>
+      <!-- discovery: framework reads profiles rather than importing packs -->
+      <path d="M 150 276 L 150 262 L 475 262 L 475 238" fill="none" stroke="currentColor"
+            stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a-arrow)"></path>
+      <!-- generation: tools write the pack -->
+      <path d="M 264 233 L 320 233 L 320 99 L 372 99" fill="none" stroke="var(--accent)"
+            stroke-width="2" marker-end="url(#a-arrow-accent)"></path>
+
+      <g font-family="ui-monospace, monospace" font-size="10.5" fill="currentColor" fill-opacity=".7">
+        <text x="637" y="93" text-anchor="middle">drives</text>
+        <text x="482" y="139" text-anchor="middle">resolves credentials</text>
+        <text x="482" y="179" text-anchor="middle">pulls cases · pushes results</text>
+        <text x="482" y="219" text-anchor="middle">sends the report</text>
+        <text x="312" y="256" text-anchor="middle">selected by TARGET</text>
+        <text x="330" y="90" text-anchor="middle" fill="var(--accent)" fill-opacity="1">scaffolds</text>
+      </g>
+
+      <!-- the forbidden edge -->
+      <g>
+        <path d="M 356 320 L 284 320" fill="none" stroke="var(--fail)" stroke-width="1.4" stroke-dasharray="4 4"></path>
+        <line x1="311" y1="311" x2="329" y2="329" stroke="var(--fail)" stroke-width="2"></line>
+        <line x1="329" y1="311" x2="311" y2="329" stroke="var(--fail)" stroke-width="2"></line>
+        <text x="320" y="352" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10.5" fill="var(--fail)">no import, ever</text>
+      </g>
+    </svg>
+    <figcaption>
+      <strong>The crossed edge is the point.</strong> Framework code may not
+      import a target pack and may not name one — <code>layer-boundaries</code>
+      and <code>no-target-coupling</code> both fail the build for it. The core
+      learns about an application only by <em>discovering</em> its profile in
+      <code>config/targets/</code>, which is why adding an application needs no
+      registration step and why deleting one leaves nothing behind.
+    </figcaption>
+  </figure>
+
+  <div class="note rule">
+    <span class="note-label">The consequence worth stating</span>
+    <p>
+      Because the arrow does not exist, every capability the core offers has to
+      be expressed as <em>configuration a profile declares</em> rather than a
+      branch on a name. That is what makes the same fixtures, reporters, triage
+      rules and publishing paths work for the sixth application as for the
+      first.
+    </p>
+  </div>
+</section>
+
+<section id="injection">
+  <div class="sec-head"><span class="sec-num">02</span><h2>How a spec gets its verbs</h2></div>
+  <p class="standfirst">
+    A spec imports one thing. Everything else is injected, and each hop has a
+    rule that a machine checks.
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 900 300" role="img"
+         aria-label="TARGET selects a profile; the profile configures framework fixtures; the pack's fixtures.ts merges its actions on top; the spec receives the combined surface and is the only layer that asserts.">
+      <defs>
+        <marker id="i-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+        </marker>
+      </defs>
+
+      <g font-family="ui-monospace, monospace" font-size="12" fill="currentColor">
+        <rect x="16" y="112" width="132" height="56" rx="8" fill="none" stroke="currentColor" stroke-opacity=".55"></rect>
+        <text x="82" y="136" text-anchor="middle">TARGET=app</text>
+        <text x="82" y="153" text-anchor="middle" font-size="10.5" fill-opacity=".6">env var</text>
+
+        <rect x="208" y="112" width="146" height="56" rx="8" fill="none" stroke="currentColor" stroke-opacity=".55"></rect>
+        <text x="281" y="136" text-anchor="middle">TargetProfile</text>
+        <text x="281" y="153" text-anchor="middle" font-size="10.5" fill-opacity=".6">capabilities + baseURL</text>
+
+        <rect x="414" y="70" width="160" height="140" rx="8" fill="none" stroke="currentColor" stroke-opacity=".55"></rect>
+        <text x="494" y="94" text-anchor="middle">framework fixtures</text>
+        <text x="494" y="118" text-anchor="middle" font-size="10.5" fill-opacity=".65">target · secrets · run</text>
+        <text x="494" y="136" text-anchor="middle" font-size="10.5" fill-opacity=".65">authedPage · api · apis</text>
+        <text x="494" y="154" text-anchor="middle" font-size="10.5" fill-opacity=".65">db · contracts · a11y</text>
+        <text x="494" y="172" text-anchor="middle" font-size="10.5" fill-opacity=".65">accounts · otp · inbox</text>
+        <text x="494" y="194" text-anchor="middle" font-size="10.5" fill-opacity=".5">15 in total</text>
+
+        <rect x="634" y="70" width="150" height="60" rx="8" fill="none" stroke="currentColor" stroke-opacity=".55"></rect>
+        <text x="709" y="94" text-anchor="middle">pack fixtures.ts</text>
+        <text x="709" y="112" text-anchor="middle" font-size="10.5" fill-opacity=".6">its actions, by name</text>
+
+        <rect x="634" y="162" width="150" height="60" rx="8" fill="none" stroke="var(--accent)" stroke-opacity=".9"></rect>
+        <text x="709" y="186" text-anchor="middle" fill="var(--accent)">the spec</text>
+        <text x="709" y="204" text-anchor="middle" font-size="10.5" fill="var(--accent)" fill-opacity=".8">every assertion</text>
+      </g>
+
+      <g fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#i-arrow)">
+        <line x1="148" y1="140" x2="204" y2="140"></line>
+        <line x1="354" y1="140" x2="410" y2="140"></line>
+        <line x1="574" y1="100" x2="630" y2="100"></line>
+        <path d="M 709 130 L 709 158"></path>
+      </g>
+
+      <g font-family="ui-monospace, monospace" font-size="10.5" fill="currentColor" fill-opacity=".7">
+        <text x="176" y="132" text-anchor="middle">selects</text>
+        <text x="382" y="132" text-anchor="middle">configures</text>
+        <text x="602" y="92" text-anchor="middle">extends</text>
+      </g>
+
+      <g font-family="ui-monospace, monospace" font-size="10.5" fill="currentColor" fill-opacity=".55">
+        <text x="16" y="252">A disabled capability skips its test with a stated reason —</text>
+        <text x="16" y="270">never a hang, never a silent zero.</text>
+      </g>
+    </svg>
+    <figcaption>
+      <strong>One import per spec:</strong> <code>import { expect, test } from
+      '../../fixtures'</code>. The pack's <code>fixtures.ts</code> is where its
+      own verbs join the framework's, so a spec never reaches for a locator and
+      never constructs a client. <code>layer-boundaries</code> fails a spec that
+      imports from <code>locators/</code>.
+    </figcaption>
+  </figure>
+
+  <div class="scroller">
+    <table>
+      <thead><tr><th>Fixture</th><th>Gives the spec</th></tr></thead>
+      <tbody>
+        <tr><td><code>target</code></td><td>The resolved profile — base URL, capabilities, environment, roles.</td></tr>
+        <tr><td><code>run</code></td><td>Run identity and unique-value helpers, so created records are traceable and cleanable.</td></tr>
+        <tr><td><code>secrets</code> · <code>secretStore</code></td><td>Credential lookup by reference. The value never appears in a spec.</td></tr>
+        <tr><td><code>accounts</code> · <code>accountSlot</code> · <code>role</code></td><td>Which identity this worker holds, leased atomically on a pooled target.</td></tr>
+        <tr><td><code>authedPage</code></td><td>A page already carrying the role's session.</td></tr>
+        <tr><td><code>api</code> · <code>apis</code></td><td>The primary typed client, and the other services by name. Response-schema validation is inside them, so every call is a contract check for free.</td></tr>
+        <tr><td><code>db</code></td><td>Read-only database access, when the capability is on.</td></tr>
+        <tr><td><code>contracts</code></td><td>The vendored contract document, when the target publishes one.</td></tr>
+        <tr><td><code>a11y</code></td><td>Accessibility scanning against the declared standard. Returns findings; asserts nothing.</td></tr>
+        <tr><td><code>otp</code> · <code>inbox</code></td><td>MFA codes however this target does MFA — or a refusal with a reason.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="flow">
+  <div class="sec-head"><span class="sec-num">03</span><h2>End to end, and what each stage leaves behind</h2></div>
+  <p class="standfirst">
+    <code>npm run app:journey -- --target=&lt;app&gt;</code> walks all six. The
+    artifacts on the edges are what makes a skipped stage detectable.
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 900 470" role="img"
+         aria-label="Six stages left to right: onboard writes the pack; cases or stories are pulled; coverage is read from tags; the live suite writes run-result.json; triage clusters and classifies it; publish sends results back to PractiTest and the report to Teams and email.">
+      <defs>
+        <marker id="f-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+        </marker>
+        <marker id="f-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"></path>
+        </marker>
+      </defs>
+
+      <!-- stage boxes -->
+      <g font-family="ui-monospace, monospace" font-size="11.5" fill="currentColor">
+        <rect x="14" y="150" width="118" height="66" rx="8" fill="none" stroke="currentColor" stroke-opacity=".55"></rect>
+        <text x="73" y="172" text-anchor="middle" font-size="13">1 · onboard</text>
+        <text x="73" y="190" text-anchor="middle" font-size="10" fill-opacity=".6">target:doctor</text>
+        <text x="73" y="204" text-anchor="middle" font-size="10" fill-opacity=".6">--sign-in</text>
+
+        <rect x="160" y="150" width="118" height="66" rx="8" fill="none" stroke="currentColor" stroke-opacity=".55"></rect>
+        <text x="219" y="172" text-anchor="middle" font-size="13">2 · trace</text>
+        <text x="219" y="190" text-anchor="middle" font-size="10" fill-opacity=".6">cases:pull</text>
+        <text x="219" y="204" text-anchor="middle" font-size="10" fill-opacity=".6">story:pull</text>
+
+        <rect x="306" y="150" width="118" height="66" rx="8" fill="none" stroke="currentColor" stroke-opacity=".55"></rect>
+        <text x="365" y="172" text-anchor="middle" font-size="13">3 · coverage</text>
+        <text x="365" y="190" text-anchor="middle" font-size="10" fill-opacity=".6">five tags read</text>
+        <text x="365" y="204" text-anchor="middle" font-size="10" fill-opacity=".6">off the specs</text>
+
+        <rect x="452" y="150" width="118" height="66" rx="8" fill="none" stroke="var(--accent)" stroke-opacity=".9"></rect>
+        <text x="511" y="172" text-anchor="middle" font-size="13" fill="var(--accent)">4 · run</text>
+        <text x="511" y="190" text-anchor="middle" font-size="10" fill="var(--accent)" fill-opacity=".75">suites:live</text>
+        <text x="511" y="204" text-anchor="middle" font-size="10" fill="var(--accent)" fill-opacity=".75">9 projects</text>
+
+        <rect x="598" y="150" width="118" height="66" rx="8" fill="none" stroke="currentColor" stroke-opacity=".55"></rect>
+        <text x="657" y="172" text-anchor="middle" font-size="13">5 · triage</text>
+        <text x="657" y="190" text-anchor="middle" font-size="10" fill-opacity=".6">cluster → rules</text>
+        <text x="657" y="204" text-anchor="middle" font-size="10" fill-opacity=".6">→ agent</text>
+
+        <rect x="744" y="150" width="142" height="66" rx="8" fill="none" stroke="currentColor" stroke-opacity=".55"></rect>
+        <text x="815" y="172" text-anchor="middle" font-size="13">6 · publish</text>
+        <text x="815" y="190" text-anchor="middle" font-size="10" fill-opacity=".6">PractiTest · Teams</text>
+        <text x="815" y="204" text-anchor="middle" font-size="10" fill-opacity=".6">· email</text>
+      </g>
+
+      <g fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#f-arrow)">
+        <line x1="132" y1="183" x2="156" y2="183"></line>
+        <line x1="278" y1="183" x2="302" y2="183"></line>
+        <line x1="424" y1="183" x2="448" y2="183"></line>
+        <line x1="570" y1="183" x2="594" y2="183"></line>
+        <line x1="716" y1="183" x2="740" y2="183"></line>
+      </g>
+
+      <!-- artifacts above -->
+      <g font-family="ui-monospace, monospace" font-size="10.5" fill="currentColor" fill-opacity=".72">
+        <rect x="14" y="72" width="118" height="30" rx="5" fill="none" stroke="currentColor" stroke-opacity=".3"></rect>
+        <text x="73" y="91" text-anchor="middle">the pack</text>
+        <rect x="160" y="72" width="118" height="30" rx="5" fill="none" stroke="currentColor" stroke-opacity=".3"></rect>
+        <text x="219" y="91" text-anchor="middle">cases/*.yaml</text>
+        <rect x="452" y="72" width="118" height="30" rx="5" fill="none" stroke="currentColor" stroke-opacity=".3"></rect>
+        <text x="511" y="91" text-anchor="middle">run-result.json</text>
+        <rect x="598" y="72" width="118" height="30" rx="5" fill="none" stroke="currentColor" stroke-opacity=".3"></rect>
+        <text x="657" y="91" text-anchor="middle">triage-result</text>
+      </g>
+      <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-opacity=".55" stroke-dasharray="4 3" marker-end="url(#f-arrow)">
+        <line x1="73" y1="146" x2="73" y2="108"></line>
+        <line x1="219" y1="146" x2="219" y2="108"></line>
+        <line x1="511" y1="146" x2="511" y2="108"></line>
+        <line x1="657" y1="146" x2="657" y2="108"></line>
+      </g>
+      <text x="14" y="48" font-family="ui-monospace, monospace" font-size="11" fill="currentColor" fill-opacity=".55">WRITES</text>
+
+      <!-- the loop back into PractiTest -->
+      <path d="M 815 216 L 815 268 L 219 268 L 219 220" fill="none" stroke="var(--accent)"
+            stroke-width="2" marker-end="url(#f-arrow-accent)"></path>
+      <text x="517" y="286" text-anchor="middle" font-family="ui-monospace, monospace"
+            font-size="11" fill="var(--accent)">results go back against the same case ids</text>
+
+      <!-- ground truth feeding stage 5 -->
+      <g font-family="ui-monospace, monospace" font-size="10.5" fill="currentColor">
+        <rect x="598" y="330" width="118" height="46" rx="6" fill="none" stroke="currentColor" stroke-opacity=".45"></rect>
+        <text x="657" y="350" text-anchor="middle">triage-fixture</text>
+        <text x="657" y="366" text-anchor="middle" font-size="10" fill-opacity=".6">deliberate failures</text>
+      </g>
+      <path d="M 657 330 L 657 300" fill="none" stroke="currentColor" stroke-width="1.4"
+            stroke-opacity=".7" marker-end="url(#f-arrow)"></path>
+      <text x="742" y="318" font-family="ui-monospace, monospace" font-size="10.5"
+            fill="currentColor" fill-opacity=".65">scores the rules</text>
+
+      <g font-family="ui-monospace, monospace" font-size="10.5" fill="currentColor" fill-opacity=".55">
+        <text x="14" y="420">A green run exercises none of stage 5, which is why the fixture exists —</text>
+        <text x="14" y="438">and why "the suite passed" is one claim, not two.</text>
+      </g>
+    </svg>
+    <figcaption>
+      <strong>Stage 5 needs a failure on purpose.</strong> Triage classifies
+      failures, so a green suite proves nothing about it. The
+      <code>triage-fixture</code> project holds specs written to fail a stated
+      way, each annotated with the category it should produce, and
+      <code>npm run triage:measure</code> scores the rules against them.
+      <code>app:journey</code> refuses to report a skipped stage as a pass.
+    </figcaption>
+  </figure>
+
+  <div class="note dont">
+    <span class="note-label">Why the artifacts matter</span>
+    <p>
+      Stage 2 once passed by pulling <em>another application's</em> story,
+      because it took the first file on disk rather than asking this target's
+      specs which story they cite. A stage that exists to catch “traced to
+      nothing” must not be satisfiable by “traced to somebody else” — so each
+      stage is checked against an artifact that names the application.
+    </p>
+  </div>
+</section>
+
+<section id="failure">
+  <div class="sec-head"><span class="sec-num">04</span><h2>What happens to a failure</h2></div>
+  <p class="standfirst">
+    Group it, settle what a rule can settle, and decline the rest. Declining is
+    a correct outcome, not a shortfall.
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 900 280" role="img"
+         aria-label="Failures are clustered by shared cause, then rules attempt to settle each cluster. A settled cluster gets a category; an unsettled one is declined to a human or an agent. Ground truth compares what the rules settled against what the fixture declared, producing agreed, contradicted or declined.">
+      <defs>
+        <marker id="x-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+        </marker>
+      </defs>
+
+      <g font-family="ui-monospace, monospace" font-size="12" fill="currentColor">
+        <rect x="16" y="104" width="120" height="50" rx="8" fill="none" stroke="currentColor" stroke-opacity=".55"></rect>
+        <text x="76" y="134" text-anchor="middle">failures</text>
+
+        <rect x="184" y="104" width="120" height="50" rx="8" fill="none" stroke="currentColor" stroke-opacity=".55"></rect>
+        <text x="244" y="127" text-anchor="middle">clusters</text>
+        <text x="244" y="144" text-anchor="middle" font-size="10" fill-opacity=".6">shared cause</text>
+
+        <rect x="352" y="104" width="120" height="50" rx="8" fill="none" stroke="currentColor" stroke-opacity=".55"></rect>
+        <text x="412" y="134" text-anchor="middle">rules</text>
+
+        <rect x="524" y="44" width="150" height="50" rx="8" fill="none" stroke="var(--pass)" stroke-opacity=".85"></rect>
+        <text x="599" y="67" text-anchor="middle" fill="var(--pass)">settled</text>
+        <text x="599" y="84" text-anchor="middle" font-size="10" fill="var(--pass)" fill-opacity=".8">a category</text>
+
+        <rect x="524" y="164" width="150" height="50" rx="8" fill="none" stroke="var(--warn)" stroke-opacity=".85"></rect>
+        <text x="599" y="187" text-anchor="middle" fill="var(--warn)">declined</text>
+        <text x="599" y="204" text-anchor="middle" font-size="10" fill="var(--warn)" fill-opacity=".8">a judgement call</text>
+
+        <rect x="726" y="104" width="150" height="50" rx="8" fill="none" stroke="currentColor" stroke-opacity=".55"></rect>
+        <text x="801" y="127" text-anchor="middle">the report</text>
+        <text x="801" y="144" text-anchor="middle" font-size="10" fill-opacity=".6">and the run history</text>
+      </g>
+
+      <g fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#x-arrow)">
+        <line x1="136" y1="129" x2="180" y2="129"></line>
+        <line x1="304" y1="129" x2="348" y2="129"></line>
+        <path d="M 472 120 L 498 120 L 498 69 L 520 69"></path>
+        <path d="M 472 138 L 498 138 L 498 189 L 520 189"></path>
+        <path d="M 674 69 L 700 69 L 700 120 L 722 120"></path>
+        <path d="M 674 189 L 700 189 L 700 138 L 722 138"></path>
+      </g>
+
+      <g font-family="ui-monospace, monospace" font-size="10.5" fill="currentColor" fill-opacity=".7">
+        <text x="158" y="121" text-anchor="middle">group</text>
+        <text x="326" y="121" text-anchor="middle">match</text>
+      </g>
+
+      <g font-family="ui-monospace, monospace" font-size="10.5" fill="currentColor" fill-opacity=".55">
+        <text x="16" y="248">A rule that invented a category to avoid declining would be the actual defect.</text>
+      </g>
+    </svg>
+    <figcaption>
+      <strong>Three outcomes when measured against ground truth:</strong>
+      <em>agreed</em> (a rule settled it as the fixture says), <em>contradicted</em>
+      (a rule settled it as something else — exactly one of the two is wrong, and
+      it is usually the rule), and <em>declined</em> (no rule matched, which is
+      correct where the cause is a genuine judgement call).
+      <code>triage:measure</code> exits non-zero only on a contradiction.
+    </figcaption>
+  </figure>
+</section>
+
+<section id="dashboard">
+  <div class="sec-head"><span class="sec-num">05</span><h2>The dashboard is seven pages, not one</h2></div>
+  <p class="standfirst">
+    <code>npm run onboard</code> opens the wizard, but the same local server
+    serves the operational surface beside it.
+  </p>
+
+  <div class="scroller">
+    <table>
+      <thead><tr><th>Page</th><th>For</th></tr></thead>
+      <tbody>
+        <tr><td><code>/onboard</code></td><td>The wizard. Reads the running application, then writes the profile, pack, contract document and credentials.</td></tr>
+        <tr><td><code>/runs</code></td><td>Run history, and a live view of one in progress.</td></tr>
+        <tr><td><code>/triage</code></td><td>Clusters and their verdicts, and recording what a person decided — which is what tightens a rule.</td></tr>
+        <tr><td><code>/cases</code></td><td>Cases with no spec, orphans, and what is automated.</td></tr>
+        <tr><td><code>/stories</code></td><td>Stories and their acceptance criteria, with drafts.</td></tr>
+        <tr><td><code>/users</code></td><td>Test users: which accounts a profile implies, and where each credential lives.</td></tr>
+        <tr><td><code>/publish</code></td><td>What is about to be pushed back, and what is unannotated.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    Every page is held to four budgets measured on the rendered page rather than
+    reviewed by eye — <strong>contrast</strong> in both themes,
+    <strong>height</strong>, <strong>copy</strong> (34 words per explanatory
+    block, 220 visible per page) and <strong>line length</strong>. Each budget
+    was written after something got past a green suite.
+  </p>
+
+  <div class="note rule">
+    <span class="note-label">Removing an application is a first-class operation</span>
+    <p>
+      <code>npm run target:remove</code> plans before it removes, names how many
+      files git has never seen, and does nothing until the target's own name is
+      typed back. That is what makes it reasonable to point <code>main</code> at
+      a live application: try one, drive it, and put the repository back.
+    </p>
+  </div>
+</section>
+
+<section id="where">
+  <div class="sec-head"><span class="sec-num">06</span><h2>Where a change belongs</h2></div>
+  <p class="standfirst">
+    The question to ask about any fix: <strong>which mechanism produced this
+    artifact, and is that mechanism right?</strong>
+  </p>
+
+  <div class="scroller">
+    <table>
+      <thead><tr><th>You want to…</th><th>Change</th><th>Not</th></tr></thead>
+      <tbody>
+        <tr><td>Support a new kind of application</td><td>A capability in <code>config/targets/types.ts</code> and the code that reads it</td><td>A branch on a target name</td></tr>
+        <tr><td>Fix a locator the scaffolder guessed wrong</td><td>The probe that derives it, or the template</td><td>The generated locator</td></tr>
+        <tr><td>Make a failure diagnosable</td><td>The action or reporter that produces the message</td><td>The spec that hit it</td></tr>
+        <tr><td>Catch a bad state earlier</td><td><code>target:doctor</code>, healing, or a triage rule</td><td>A patched pack</td></tr>
+        <tr><td>Add coverage</td><td>Specs and the verbs they need, in the pack</td><td>— this is the exception, and it is the point of a pack</td></tr>
+        <tr><td>Change a convention</td><td><code>docs/CONVENTIONS.md</code>, then <code>npm run instructions:build</code></td><td><code>CLAUDE.md</code>, <code>AGENTS.md</code> or the Copilot file</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    If the framework genuinely cannot express a fix, that is the finding: raise
+    it as framework work and say what is missing. “It was quicker in the pack”
+    is not a reason, and neither is “only this application has the problem” —
+    the second one is nearly always false and is exactly how it stays hidden.
+  </p>
+
+  <p style="margin-top:2rem">
+    <a href="handbook.html">→ The handbook</a> covers each of these in
+    detail: the layers, the locator rules, onboarding, secrets, accessibility,
+    triage and the full command reference.
+  </p>
+</section>
+
+<footer>
+  <p>
+    <strong>Playwright Template CLI</strong> — architecture and end-to-end flow.
+    Diagrams are hand-authored inline SVG and theme with the page. Where this
+    page and <code>docs/CONVENTIONS.md</code> disagree, that file is right.
+  </p>
+</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var root = document.documentElement;
+  var buttons = Array.prototype.slice.call(document.querySelectorAll('[data-theme-choice]'));
+
+  function paint() {
+    var current = root.getAttribute('data-theme') || 'auto';
+    buttons.forEach(function (button) {
+      button.setAttribute('aria-pressed', String(button.dataset.themeChoice === current));
+    });
+  }
+
+  buttons.forEach(function (button) {
+    button.addEventListener('click', function () {
+      var choice = button.dataset.themeChoice;
+      if (choice === 'auto') {
+        root.removeAttribute('data-theme');
+        try { localStorage.removeItem('handbook-theme'); } catch (error) { /* denied */ }
+      } else {
+        root.setAttribute('data-theme', choice);
+        try { localStorage.setItem('handbook-theme', choice); } catch (error) { /* denied */ }
+      }
+      paint();
+    });
+  });
+  paint();
+})();
+</script>
+</body>
+</html>
