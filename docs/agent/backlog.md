@@ -3793,3 +3793,73 @@ framing had a hole in it. The capability exists, the doctor asks, and turning
 it on is one line with better evidence behind it.
 
 ---
+
+### 67. Three applications had a measured answer, and it was the wrong measurement — `done`
+
+Shipped on `agent/2026-08-23-shared-identity-measured` (run 85). **One of the
+three keeps the flag. The other two proved the instrument was asking a narrower
+question than the decision it informed.**
+
+**What the item asked for, done as asked.** `npm run pool:measure --runs=5` per
+application, which clears `FLAKE_MINIMUM_RUNS`:
+
+| application | at its ceiling | above it, one account |
+|---|---|---|
+| saucedemo | 5/5 green | **5/5 green** |
+| restful-booker | 5/5 green | **5/5 green** |
+| orangehrm | 5/5 green | **5/5 green** |
+
+Unanimous. `sharedIdentitySafe: true` went on all three.
+
+**Then the live suites were run at the width that actually produces**, and two
+of them fell over:
+
+| application | at the real width | what failed |
+|---|---|---|
+| **restful-booker** | 1 of 3 live passes clean | `RB-1-01` in one pass, `RB-1-02` in the next — a different room-list spec each time |
+| **orangehrm** | 4 of 5 e2e runs clean at 5 workers | `OHRM-3-01`, the `@audit` spec — a user added and then removed from the list |
+| saucedemo | 5/5 e2e at 4 workers, 3/3 live passes | — |
+
+Both were reverted the same day, with the evidence written into their profiles.
+
+**The mechanism defect, which is the real content of this item.**
+`pool:measure`'s experiment arm ran at `ceiling + 1` — two workers, for a
+target capped at one. But lifting the cap does not run the suite at two: it
+runs it at whatever the runner picks, which was **five** here. So the command
+answered *"may two workers share this identity"* and was read as *"may this
+suite run uncapped"*. Those are different questions.
+
+They come apart the moment an application has **global** state. A room list or
+a user list is not owned by whoever signed in, so concurrent workers collide
+over the *data* long before they collide over the login — and the specs that
+break are precisely the ones asserting what a list contains. Both failures were
+list assertions. Neither was an authentication problem.
+
+**The reasoning that justified lifting it was exactly backwards**, and it is
+worth keeping as the correction. The profile comment written that morning said
+rooms are *global rather than owned by the signing-in identity, so two workers
+sharing the administrator collide over nothing*. Being global is precisely why
+they collide.
+
+**What shipped:**
+
+- `runOnce` takes `number | null`, and the experiment arm omits `--workers`
+  entirely — so it runs exactly as an uncapped profile would. `--workers=N`
+  still forces a specific width when somebody wants one.
+- The verdict stops at what it can support. "The cap is buying no protection"
+  now carries "run the live suites a few times with it lifted", and says why:
+  workers collide over global data before they collide over a login.
+- `docs/CONVENTIONS.md` carries the finding, so the next person meets it before
+  they meet the failure.
+- `saucedemo` keeps `sharedIdentitySafe: true`. Its state is per-browser-context
+  — a cart and an inventory, no shared server-side list — which is the
+  structural reason it survives where the other two did not.
+
+**The standing lesson, and it is the third time in three runs.** Run 83
+corrected a conclusion drawn from a measurement whose arms both ran above the
+normal ceiling. Run 84 built the flag from a 2-run measurement and deliberately
+declined to set it. Run 85 set it from a 5-run measurement and still had to
+revert two of three — because the runs were right and the *width* was wrong.
+**Ask what the number will be used to decide, then measure that.**
+
+---

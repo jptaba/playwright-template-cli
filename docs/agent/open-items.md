@@ -15,7 +15,7 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 67 | Three applications have a measured answer and still pay the cap | `ready` |
+| 68 | Two applications keep a worker cap that costs them, for a reason worth removing | `hypothesis` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
@@ -76,10 +76,17 @@ account", and four of five applications ran **serially** for a scaffold default
 nobody had answered. `sharedIdentitySafe` separates them, `target:doctor` asks,
 and `pool:measure` can finally see the case that costs the most.
 
-**Take item 67 next** — the three applications with a measured answer still pay
-the cap, and what they need is five runs each rather than two. After that, 49
-needs credentials only the owner can supply and 11 is a standing objective, so
-the run after is a scan run.
+**Item 67 closed in run 85, and only one of the three kept the flag.** All three
+measured 5/5 green, and two then failed at the width lifting the cap actually
+produces — `restful-booker` on two different room-list specs, `orangehrm` on its
+audit spec. The instrument was asking "may two workers share this identity" and
+being read as "may this suite run uncapped". It now runs the experiment arm
+uncapped, and the verdict says what a clean result does not prove.
+
+**Nothing here is `ready`.** 68 is a hypothesis, 49 needs credentials only the
+owner can supply, and 11 is a standing objective. **So the next run is a scan
+run** — drive the dashboard and the onboarding journey and raise what is found
+with evidence.
 
 **Where the journey stands, run 80, every application:**
 
@@ -167,37 +174,30 @@ one. The fakes set both so a demo shows something; a real channel should not.
 
 ---
 
-### 67. Three applications have a measured answer and still pay the cap — `ready`
+### 68. Two applications keep a worker cap that costs them, for a reason worth removing — `hypothesis`
 
-**Raised in run 84**, by shipping item 66. `sharedIdentitySafe` exists and no
-profile sets it, so `saucedemo`, `restful-booker` and `orangehrm` still run at
-one worker despite measuring green above it.
+**Raised in run 85.** `restful-booker` and `orangehrm` both run at **one
+worker** and both earned that cap honestly — they failed at wider settings on
+specs asserting what a global list contains.
 
-**What is needed is more runs, not more thinking.** Item 66 measured 2 per
-application; `FLAKE_MINIMUM_RUNS` in `src/support/quarantine.ts` is **5**, and
-this repository has twice been bitten by treating singletons as rates — the
-a11y "vendor regression" of run 78, and the pool conclusion of run 77 that run
-83 had to correct.
+But the cap is a blunt answer to a narrow problem. Neither failure was about
+sharing an identity; both were about two workers mutating one list. The
+suite-side fixes are known and unexercised here:
 
-So: `npm run pool:measure --target=<app> --runs=5`, per application, and set
-`sharedIdentitySafe: true` only where all five agree. A profile edit recording
-a measured property is not troubleshooting, but the measurement has to be worth
-the name first.
+1. **Scope every list assertion to what the spec created.** `run.runId` already
+   tags created records, and `orangehrm`'s filter specs half do this already —
+   `OHRM-1-01` narrows by username and passes at five workers, while
+   `OHRM-3-01` asserts on the unfiltered list and does not.
+2. **Give the fixture data a per-worker namespace**, so two workers cannot
+   generate colliding names.
 
-**`parabank` is the fourth and should wait.** It is parked with its own review
-date; measuring an application that answers HTTP 500 measures the outage.
+**Do not start this by lifting the cap.** The order is: make the assertions
+worker-safe, prove it at width, *then* lift. Reversed, it is run 85 again.
 
-**Do not set it for `toolshop` without thinking separately.** Its ceiling is 2
-rather than 1, its pool exists for reasons run 83 wrote down, and
-`authFlowAccount` guards a *measured, deterministic* collision between
-`auth-flows` and `e2e` that is about the session rather than the cart. Lifting
-the cap there is a different question with a different answer.
-
-**Worth noting while in the area:** the doctor's warning is scoped to a pool of
-one, where the cost is total. A pooled target pays a smaller version of the
-same cap and gets no warning. That is deliberate for now — the message would
-have to stop saying "1 worker" — but it is the obvious generalisation if
-somebody wants it.
+**Worth weighing against the cost.** One worker is slow but correct, and these
+are vendor demos where the room and user lists are shared with strangers
+anyway. The honest question is whether the wall-clock saved is worth rewriting
+specs that currently read cleanly — which is a judgement, not a measurement.
 
 ---
 

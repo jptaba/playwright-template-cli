@@ -28,7 +28,45 @@ export const restfulBooker: TargetProfile = {
   capabilities: {
     mfa: 'none', // 'none' | 'totp' | 'email'
     accountPool: 'static', // 'static' | 'leased'
-    serverState: true, // does state need cross-test cleanup?
+    /*
+       Yes, and it is real here — these specs create and delete rooms through
+       the administrator UI, so anything they leave behind is visible to the
+       next run.
+    */
+    serverState: true,
+    /*
+       **No — the cap is earned, and this was measured the hard way.** Item 67,
+       2026-08-23.
+
+       `npm run pool:measure --runs=5` said otherwise: 5/5 green at the ceiling
+       of 1 and 5/5 green above it. `sharedIdentitySafe: true` was set on that
+       evidence and **reverted the same day**, because the measurement ran at
+       two workers and lifting the cap runs the suite at whatever Playwright
+       picks locally, which is far more.
+
+       At that width, three full `suites:live` passes:
+
+         pass 1   clean
+         pass 2   RB-1-01 · a room an administrator creates appears in the list
+         pass 3   RB-1-02 · a room removed by an administrator is gone from it
+
+       A different spec each time, both about what a *list* contains, both
+       settled as "no rule matched". That is the signature of contention rather
+       than a defect.
+
+       The reasoning that justified lifting it was exactly backwards and is
+       worth keeping as the correction: rooms are **global** rather than owned
+       by the signing-in identity — and that is precisely *why* concurrent
+       workers collide over them. One worker's listing sees another's rooms
+       appear and disappear underneath it. Sharing the identity was never the
+       hazard; sharing the room list is.
+
+       So the lesson for the next application: `pool:measure` answers "may two
+       workers share this identity", and lifting the cap asks "may N workers
+       run at once". Those are different questions when the application has
+       global state, and only the second one is what the profile actually buys.
+    */
+    // sharedIdentitySafe: intentionally unset — see above.
     api: {
       enabled: true,
       baseURL: process.env.API_BASE_URL ?? 'https://automationintesting.online/api',

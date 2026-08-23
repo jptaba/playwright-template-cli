@@ -193,8 +193,13 @@ export function formatPoolMeasurement(measurement: PoolMeasurement): string[] {
     collapsedClean && controlClean
       ? [
           'Nothing collided, and the control was clean too. On this evidence the worker',
-          'cap is buying no protection — but the decision is a person’s: it also guards',
-          'collisions no spec currently exercises, and a suite proves only what it runs.',
+          'cap is buying no protection — but the decision is a person’s, and two runs of',
+          'this command are not the whole answer.',
+          '',
+          'Before lifting the cap, run the live suites a few times with it lifted. Two',
+          'applications passed here 5/5 and then failed at the real width, both on specs',
+          'that assert what a *list* contains: workers collide over global data long',
+          'before they collide over a login.',
         ]
       : collapsedClean
         ? [

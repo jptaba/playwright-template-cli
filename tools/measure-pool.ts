@@ -27,9 +27,14 @@ import type { RunResult } from '../src/support/reporters/run-result';
  * Deliberately **not** part of `npm run verify`, for the same reason
  * `suites:live` is not: it drives a real deployment.
  */
+/**
+ * @param workers a fixed worker count, or `null` for "however many the runner
+ *   would choose" — which is what lifting the cap actually produces, and the
+ *   only honest way to run the experiment arm.
+ */
 function runOnce(
   target: string,
-  workers: number,
+  workers: number | null,
   label: string,
   index: number,
   collapse: boolean,
@@ -40,19 +45,30 @@ function runOnce(
   fs.rmSync(resultPath, { force: true });
 
   console.log(`\n▶ ${label} run ${index + 1}`);
-  const run = spawnSync('npx', ['playwright', 'test', '--project=e2e', `--workers=${workers}`], {
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-    env: {
-      ...process.env,
-      TARGET: target,
-      LIVE_ONLY: 'true',
-      // The control arm runs the profile exactly as written.
-      ...(collapse ? { POOL_SIZE_OVERRIDE: '1' } : {}),
-      RUN_RESULT_PATH: resultPath,
-      JUNIT_PATH: path.join(outDir, `junit-${label}-${index + 1}.xml`),
+  const run = spawnSync(
+    'npx',
+    [
+      'playwright',
+      'test',
+      '--project=e2e',
+      // Omitted entirely for the uncapped arm: passing a number here would
+      // measure a width nobody is going to run at.
+      ...(workers === null ? [] : [`--workers=${workers}`]),
+    ],
+    {
+      stdio: 'inherit',
+      shell: process.platform === 'win32',
+      env: {
+        ...process.env,
+        TARGET: target,
+        LIVE_ONLY: 'true',
+        // The control arm runs the profile exactly as written.
+        ...(collapse ? { POOL_SIZE_OVERRIDE: '1' } : {}),
+        RUN_RESULT_PATH: resultPath,
+        JUNIT_PATH: path.join(outDir, `junit-${label}-${index + 1}.xml`),
+      },
     },
-  });
+  );
 
   if (run.error) return { failures: [], passed: 0, error: `could not start Playwright: ${run.error.message}` };
   if (!fs.existsSync(resultPath)) {
@@ -123,33 +139,36 @@ function main(): number {
   const runs = Math.max(1, Number(arg('runs') ?? 2));
 
   /*
-     **The control runs at the ceiling the profile actually imposes, and the
-     experiment runs above it** — item 66.
+     **The control runs at the cap; the experiment runs at the width lifting
+     the cap would actually produce.** — item 67, correcting item 66.
 
-     Both arms used to run at `cost.poolSize`, which for toolshop was 3 while
-     its real ceiling was 2. That made the control an abnormal run, and run
-     77's conclusion had to be corrected in run 83 because of it: the collapsed
-     arm looked cleaner than a control that was itself over-subscribed.
+     The experiment used to run at `ceiling + 1`, which was too timid and gave
+     two applications a false clean bill of health on the same day. Both
+     measured 5/5 green at two workers, had `sharedIdentitySafe: true` set on
+     that evidence, and then failed at the width the flag really buys —
+     `restful-booker` on two different room-list specs across three live
+     passes, `orangehrm` on its audit spec once in five runs at five workers.
+     Both were reverted.
 
-     It also could not express the case that matters most. An application with
-     one account is capped at one worker, so "collapse the pool" is a no-op
-     there and both arms would have been identical — which is why this command
-     used to decline the four applications paying the most for the claim.
-
-     Framed this way the question is the same for both shapes: **is the cap
-     earned?** Control at the cap, experiment above it with every worker on one
-     identity. A target with a pool has its pool collapsed in the experiment
-     too, so what is being tried is the honest worst case rather than a wider
-     pool.
+     The lesson is in the question being asked. `--workers=2` answers "may two
+     workers share this identity". Lifting the cap asks "may this suite run at
+     whatever width the runner picks". Those come apart the moment an
+     application has **global** state — a room list, a user list — because
+     workers then collide over the data rather than over the login. So the
+     experiment omits `--workers` entirely and runs exactly as an uncapped
+     profile would.
   */
   const ceiling = Math.max(1, cost.usable);
-  const above = Math.max(ceiling + 1, Number(arg('workers') ?? ceiling + 1));
+  const asked = arg('workers');
+  const above: number | null = asked ? Math.max(ceiling + 1, Number(asked)) : null;
 
   console.log(`\n${worth}`);
   console.log(
-    `\nRunning ${target}'s e2e suite ${runs} time(s) at its ceiling of ${ceiling} worker(s),\n` +
-      `then ${runs} time(s) at ${above} with every worker on one account. The question is\n` +
-      'whether the cap is earned, so the arms differ in exactly that.',
+    `\nRunning ${target}'s e2e suite ${runs} time(s) at its ceiling of ${ceiling} worker(s),` +
+      `\nthen ${runs} time(s) ` +
+      (above === null ? 'at whatever width the runner picks' : `at ${above}`) +
+      ' with every worker on one account —' +
+      ' which is what lifting the cap actually produces.',
   );
 
   const baseline = Array.from({ length: runs }, (_, index) =>

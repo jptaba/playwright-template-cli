@@ -28,7 +28,34 @@ export const orangehrm: TargetProfile = {
   capabilities: {
     mfa: 'none', // 'none' | 'totp' | 'email'
     accountPool: 'static', // 'static' | 'leased'
-    serverState: true, // does state need cross-test cleanup?
+    /*
+       Yes, and it is real here — these specs add and remove system users, and
+       a leaked one is visible to every later run.
+    */
+    serverState: true,
+    /*
+       **No — the cap is earned.** Item 67, 2026-08-23, and this one was set and
+       reverted the same day.
+
+       `npm run pool:measure --runs=5` reported 5/5 green at the ceiling of 1
+       and 5/5 green above it, so the flag went on. But that measurement ran at
+       **two** workers, and lifting the cap runs this suite at whatever
+       Playwright picks locally — five, here.
+
+       At five workers: **4 of 5 runs green, and the fifth failed OHRM-3-01 · a
+       user that was added is on the list, and gone once removed.** That is the
+       `@audit` spec, and the failure is a *list* that another worker was
+       mutating underneath it.
+
+       The users this suite creates are global rather than owned by the
+       administrator signing in, so concurrent workers see each other's records
+       appear and disappear. Sharing the identity was never the hazard; sharing
+       the user list is.
+
+       `restful-booker` reverted the same day for the identical reason on its
+       room list, which is what makes this a shape rather than a coincidence.
+    */
+    // sharedIdentitySafe: intentionally unset — see above.
     api: { enabled: false, baseURL: process.env.API_BASE_URL },
     db: { enabled: false, vaultRole: 'qa-readonly', dialect: 'postgres' },
     // Off until the published document is vendored to the path below.

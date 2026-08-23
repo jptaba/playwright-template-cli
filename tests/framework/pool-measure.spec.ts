@@ -135,6 +135,16 @@ test.describe('reporting the measurement', () => {
     // serverState ceiling itself.
     expect(report).toContain('cap is buying no protection');
     expect(report).toContain('the decision is a person’s');
+    /*
+       And it says what "clean here" does not prove — item 67. Two applications
+       measured 5/5 green by this command, had the cap lifted on that evidence,
+       and failed at the width lifting it actually produces: `restful-booker`
+       on two different room-list specs, `orangehrm` on its audit spec. Both
+       reverted the same day. A verdict that stopped at "buying no protection"
+       is what made that look like a finished answer.
+    */
+    expect(report).toContain('run the live suites a few times with it lifted');
+    expect(report).toContain('collide over global data');
   });
 
   test('only the collapsed arm failing is the shape contention makes', () => {

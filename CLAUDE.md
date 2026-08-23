@@ -1,5 +1,5 @@
 <!-- GENERATED FILE — DO NOT EDIT.
-     Source: docs/CONVENTIONS.md (sha256 7f4d6da45aecb09d)
+     Source: docs/CONVENTIONS.md (sha256 460058f4e8ff492b)
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 
@@ -295,13 +295,25 @@ deleted. Accessibility waivers work the same way and for the same reason.
   Say which you mean. `sharedIdentitySafe: true` keeps `serverState` about
   cleanup and lifts the cap; leaving it unset keeps the cap, which is the safe
   default and stays the default. **Answer it with a measurement, never a
-  guess** — `npm run pool:measure` runs the suite at the cap and above it with
-  every worker on one identity, and reports both arms. Measured that way,
-  three applications ran green above their cap, including one whose specs
-  create and delete real user records. `target:doctor` reports an application
+  guess** — `npm run pool:measure` runs the suite at the cap and again at the
+  width lifting the cap would actually produce, with every worker on one
+  identity, and reports both arms. `target:doctor` reports an application
   paying the cap without having answered, and stops once the profile says
   either way — "yes, it is earned" is an answer worth recording, because it
   stops the next person re-measuring it.
+
+  **A clean measurement is not the whole answer, and this was learned the hard
+  way.** Three applications measured 5/5 green above their cap; two of them
+  then failed once the cap was actually lifted — one on two different room-list
+  specs across three live passes, the other on its audit spec at five workers.
+  Both were reverted the same day. The reason is worth carrying: sharing an
+  identity and running wide are different questions, and they come apart the
+  moment an application has **global** state. A room list or a user list is not
+  owned by whoever signed in, so concurrent workers collide over the *data*
+  long before they collide over the login — and the specs that break are the
+  ones asserting what a list contains. So lift a cap only after running the
+  live suites a few times with it lifted, and expect an application that
+  creates records in a shared list to keep its cap.
 - **Negative authentication specs spend the account's lockout budget.** Two
   specs asserting "a wrong password is refused" locked the shared account every
   other spec signed in as, and twenty-one unrelated tests failed. Declare

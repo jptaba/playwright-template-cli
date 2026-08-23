@@ -6053,3 +6053,81 @@ the owner accepted as red; parabank parked.
 
 **Next:** item 67 — five runs per application, then set the flag where they
 agree.
+
+## 2026-08-23 · run 85 · Five runs was the right number and the wrong width
+
+**Picked:** item 67, at the owner's direction — five `pool:measure` runs per
+application, then set `sharedIdentitySafe: true` where all five agree.
+
+**Did what the item asked, and all three agreed.** saucedemo, restful-booker
+and orangehrm each came back **5/5 green at their ceiling and 5/5 green above
+it**, which clears `FLAKE_MINIMUM_RUNS`. The flag went on all three.
+
+**Then two of them fell over at the width the flag actually buys.**
+
+| application | at the real width | what failed |
+|---|---|---|
+| **restful-booker** | 1 of 3 live passes clean | `RB-1-01`, then `RB-1-02` — a different room-list spec each pass |
+| **orangehrm** | 4 of 5 e2e runs clean at 5 workers | `OHRM-3-01`, the `@audit` spec |
+| saucedemo | 5/5 e2e at 4 workers, 3/3 live | — |
+
+Both reverted the same day, with the evidence in their profiles.
+
+**The finding is about the instrument, not the applications.**
+`pool:measure`'s experiment arm ran at `ceiling + 1` — two workers for a target
+capped at one. Lifting the cap does not run the suite at two; it runs it at
+whatever the runner picks, which was **five**. So the command answered *"may
+two workers share this identity"* and I read it as *"may this suite run
+uncapped"*.
+
+Those come apart the moment an application has **global** state. A room list
+and a user list are not owned by whoever signed in, so workers collide over the
+*data* long before they collide over the login — and both failures were list
+assertions. Neither was an authentication problem.
+
+**The reasoning I wrote that morning was exactly backwards**, which is the part
+worth keeping. The profile comment justifying the lift said rooms are *"global
+rather than owned by the signing-in identity — so two workers sharing the
+administrator collide over nothing."* Being global is precisely why they
+collide.
+
+**Shipped:** `runOnce` takes `number | null` and the experiment arm omits
+`--workers` entirely, so it runs as an uncapped profile would; the verdict now
+carries "run the live suites a few times with it lifted" and says why; the
+conventions carry the finding. `saucedemo` keeps the flag — its state is
+per-browser-context, a cart and an inventory rather than a shared list, which
+is the structural reason it survives.
+
+**Verify:** `npm run verify` passes, exit 0 — **1148 tests**.
+
+**Live suites, with the caps restored:** unchanged from run 84 — saucedemo 6/6;
+orangehrm 6/7, restful-booker 12/13, toolshop 21/22, all three on the
+accessibility violations the owner accepted as red; parabank parked.
+
+**Raised:** item 68. Both reverted applications keep a cap that is a blunt
+answer to a narrow problem — the fix is worker-safe list assertions
+(`OHRM-1-01` filters by username and passes at five workers; `OHRM-3-01`
+asserts on the unfiltered list and does not), not a wider pool. The order
+matters: make the assertions safe, prove it at width, *then* lift.
+
+**Learned:**
+
+- **Ask what the number will decide, then measure that.** Five runs was the
+  right count and two workers was the wrong width, so a measurement that
+  cleared the repository's own flake threshold still produced two wrong
+  answers. The runs axis was fine; nobody had checked the other axis.
+- **Third correction in three runs, same family.** Run 83 corrected a
+  conclusion whose arms both ran above the normal ceiling; run 84 declined to
+  act on two runs; run 85 acted on five and still had to revert. Each time the
+  count was the thing being argued about and the *conditions* were the thing
+  that was wrong.
+- **A false justification survives right up until it is tested.** "Global, so
+  they collide over nothing" reads plausibly and is the inverse of the truth.
+  Writing the reason down is what made it falsifiable — a bare
+  `sharedIdentitySafe: true` would have been reverted with nothing learned.
+- **Reverting well is cheap if the evidence is written down.** Both profiles
+  now say what was measured, what failed, and why the cap is earned, so the
+  next person does not re-run this.
+
+**Next:** nothing is `ready`. 68 is a hypothesis, 49 needs credentials only the
+owner has, 11 is standing — so the next run is a scan run.

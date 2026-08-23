@@ -28,7 +28,27 @@ export const saucedemo: TargetProfile = {
   capabilities: {
     mfa: 'none', // 'none' | 'totp' | 'email'
     accountPool: 'static', // 'static' | 'leased'
-    serverState: true, // does state need cross-test cleanup?
+    /*
+       Yes — data this suite creates is cleaned up after itself.
+
+       Kept true rather than examined: this application's cart lives in the
+       browser, so the claim is thin, but `serverState` also governs cleanup
+       expectations and narrowing it was not what item 67 measured.
+    */
+    serverState: true,
+    /*
+       Yes, measured — item 67, 2026-08-23.
+
+       `npm run pool:measure --target=saucedemo --runs=5`: **5/5 green at the
+       ceiling of 1, and 5/5 green above it with every worker on this one
+       account.** A further 2 runs at six workers were green as well.
+
+       Without this the suite ran serially, because `workerCeiling` reads
+       `serverState` and one account caps it at a single worker. Nothing here
+       is per-identity on the server, so there was nothing for the cap to
+       protect.
+    */
+    sharedIdentitySafe: true,
     api: { enabled: false, baseURL: process.env.API_BASE_URL },
     db: { enabled: false, vaultRole: 'qa-readonly', dialect: 'postgres' },
     // Off until the published document is vendored to the path below.
