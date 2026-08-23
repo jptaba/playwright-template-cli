@@ -6482,3 +6482,43 @@ either end. The page is reporting that correctly; the ids never matched.
 
 **Next:** item 73 — the fix exists in `run-journey.ts` and needs applying to
 `/api/stories`.
+
+## 2026-08-23 · run 91 · Re-verified run 90 one application at a time
+
+**Why:** the owner pointed out that run 90's scan switched applications in a
+scripted loop and called the APIs directly — neither one application at a time
+nor driving the UI, and a method that could have raced the selection write.
+That is a fair objection to the *evidence*, so the answer was to re-run it
+rather than defend it.
+
+**Both findings survive, and item 73 reproduces more cleanly than it was first
+found.** A fresh server, a fresh browser session, `/stories` opened directly
+with `orangehrm` already selected and **nothing switched at all**: the page
+offers *"Search the catalogue for a tool by name"*. One deliberate switch to
+`saucedemo` through the control itself — the way a person switches — shows the
+same five. The switching was never the cause.
+
+**Item 74 in a stable single-application state:** `saucedemo` selected before
+the page loaded, page reads *"0 cases · 9 specs read"* — correct — while the
+payload behind it carries toolshop's cases, orphans from all five applications,
+and `counts` of 10 and 63.
+
+**The race objection is ruled out by the orphans**, which is the part worth
+keeping: a route that scoped to the selection could not return orphan specs for
+five applications whichever one it had read. Only an unscoped route can. That
+was true of the original evidence too — it just was not the evidence I led
+with.
+
+**Verify:** `npm run verify` passes, exit 0 — **1169 tests**. No code changed.
+
+**Learned:**
+
+- **A sloppy method makes a real finding arguable.** Both items were correct and
+  both were reported from evidence that could not rule out its own obvious
+  failure mode. The cost was not a wrong item; it was an item nobody should have
+  had to take on trust.
+- **Ask what would falsify it, and check that first.** The orphan list spanning
+  five applications settles the scoping question on its own, and it was in the
+  first run's own output. Leading with it would have made the method irrelevant.
+- **One application at a time is the method, and it is now in memory.** Run 90's
+  sweep was faster and produced findings that then needed re-doing at full cost.

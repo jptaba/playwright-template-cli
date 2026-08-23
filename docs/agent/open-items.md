@@ -246,6 +246,15 @@ Worth stating because it is the sharper half: this is not cosmetic. The page's
 job is *what the work is meant to do*, and it is currently answering with a
 different product's requirements.
 
+**Re-verified one application at a time, after the owner pointed out that run
+90's sweep switched applications in a scripted loop and could have raced the
+selection.** It survives the better method, and more cleanly than it was first
+found: a **fresh server and a fresh browser session**, `/stories` opened
+directly with `orangehrm` already selected and *nothing switched at all*, shows
+"Search the catalogue for a tool by name". One deliberate switch to `saucedemo`
+through the control itself shows the same five. The switching was never the
+cause.
+
 ---
 
 ### 74. `/api/cases` hands every page the whole repository — `ready`
@@ -280,6 +289,17 @@ scoping lives in one consumer rather than in the thing being consumed.
 **The fix is to scope the route**, not to add a warning to the field. The
 coverage collector already takes a target — `collectCoverage(target)` — and the
 route has the selection.
+
+**Re-verified in a stable single-application state**, for the same reason as
+item 73: with `saucedemo` selected before the page loaded and no switching in
+the session, the page reads *"0 cases · 9 specs read"* — correct — while the
+payload behind it still carries toolshop's cases, orphans from all five
+applications and `counts` of 10 and 63.
+
+**A race was the obvious objection to the original method and it is ruled out
+by the orphans.** A route that scoped to the selection could not return orphan
+specs for five applications no matter which one it had read; only an unscoped
+one can.
 
 ---
 
