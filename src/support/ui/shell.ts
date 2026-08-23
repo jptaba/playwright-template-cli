@@ -75,6 +75,32 @@ export interface TargetContext {
   refusal?: { label: string; detail: string } | null;
 }
 
+/**
+ * What `target:doctor` says about the selected application — item 71.
+ *
+ * **Not rendered from the server.** Deciding it reaches the secret store, and
+ * on a Vault target that is a network call: putting it in the page render
+ * would make every navigation wait on somebody else's server. The bar ships an
+ * empty chip and fills it from `/api/health` after load, so a slow or
+ * unreachable store costs a chip rather than the tool.
+ */
+export interface TargetHealth {
+  /** Blocking findings. A run against one of these is not going to work. */
+  errors: number;
+  /** Smells. Worth seeing, not worth stopping for. */
+  warnings: number;
+  /**
+   * Set when the profile parks this application, with the reason and the date
+   * somebody promised to look again.
+   *
+   * Its own field rather than one warning among many, because it changes what
+   * the tool should let you do rather than what it should tell you. Driven
+   * before this existed: `/runs` offered to start a run against an application
+   * parked because it answers HTTP 500, and said nothing at all.
+   */
+  parked: { reason: string; reviewBy: string } | null;
+}
+
 export interface PageFact {
   label: string;
   value: string;
@@ -514,7 +540,9 @@ function applicationSwitcher(target: TargetContext): string {
   return (
     `${label}` +
     `<select id="ctxTarget" class="ctx-pick" aria-label="Application everything is scoped to">` +
-    `${options}</select>${environment}`
+    `${options}</select>${environment}` +
+    // Filled after load — see TargetHealth for why it is not rendered here.
+    `<a id="ctxHealth" class="ctx-health" href="/onboard" hidden></a>`
   );
 }
 
@@ -714,6 +742,48 @@ function showFirst(container, selector, limit, noun, onShowAll) {
       pick.parentNode.append(note);
     }
   };
+})();
+
+/*
+   The doctor's verdict, fetched rather than rendered — item 71.
+
+   After load, and failing silently: deciding it reaches the secret store, and
+   on a Vault target that is somebody else's server. A chip that does not
+   arrive is a chip that does not arrive; a page that waits for one would be
+   every navigation in the tool waiting on a network call.
+
+   Parked outranks a count, because it says something different in kind: not
+   "this needs attention" but "somebody decided this is not to be run", with a
+   reason and a date. Before this existed, /runs offered to start a run against
+   an application parked for answering HTTP 500 and said nothing at all.
+*/
+(function () {
+  const chip = $('ctxHealth');
+  if (!chip || !TARGET_NAME) return;
+
+  post('/api/health', { target: TARGET_NAME })
+    .then((health) => {
+      if (health.parked) {
+        chip.dataset.state = 'parked';
+        chip.textContent = 'parked';
+        chip.title =
+          health.parked.reason + ' — review by ' + health.parked.reviewBy;
+      } else if (health.errors > 0) {
+        chip.dataset.state = 'errors';
+        chip.textContent = health.errors + ' to fix';
+        chip.title = 'target:doctor reports ' + health.errors + ' blocking finding(s).';
+      } else if (health.warnings > 0) {
+        chip.dataset.state = 'warnings';
+        chip.textContent = health.warnings + ' smell' + (health.warnings === 1 ? '' : 's');
+        chip.title = 'target:doctor reports ' + health.warnings + ' warning(s).';
+      } else {
+        return; // Clean applications cost no pixels.
+      }
+      chip.hidden = false;
+    })
+    .catch(() => {
+      /* A verdict nobody could reach is not a verdict to display. */
+    });
 })();
 
 /*

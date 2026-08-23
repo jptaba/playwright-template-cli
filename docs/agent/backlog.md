@@ -3978,3 +3978,66 @@ somebody argues that a returning user is better served by Runs — in which case
 the command should probably not be called `onboard`.
 
 ---
+
+### 71. The dashboard could not tell you an application was parked, or unhealthy — `done`
+
+Shipped on `agent/2026-08-23-health-and-history` (run 89).
+
+**A health chip beside the switcher, on every page.** `/api/health` answers with
+the doctor's counts and the parking; the bar renders nothing when there is
+nothing to say. Fetched **after load**, never rendered server-side: deciding it
+reaches the secret store, and on a Vault target that is somebody else's server,
+so a page render would wait on a network call. A verdict nobody can reach costs
+a chip rather than the tool.
+
+Driven, and the counts match `npm run target:doctor` exactly:
+
+| application | chip |
+|---|---|
+| saucedemo | hidden — clean |
+| orangehrm · restful-booker · toolshop | `1 smell` |
+| parabank | **`parked`**, titled with the reason and the review date |
+
+`packSpecTags` is exported from `tools/check-target.ts` and used by both, so the
+chip and the command cannot report different numbers — and that file's `main()`
+is now guarded with `require.main === module`, the way its sibling
+`tools/offboard.ts` already was, because importing it used to run the whole
+doctor and then `process.exit`.
+
+**`/runs` says when the application is parked**, with the reason and the date,
+as a standing notice beside the control rather than a message after the click.
+
+**It still lets you run it**, and that is the decision worth recording.
+`suites:live --target=` runs a parked application when it is named on the
+command line, because naming one is a deliberate act; selecting it in the
+switcher is that same act. What was wrong was the silence, not the running — and
+a tool that refused would send somebody to the command line to find out whether
+the vendor had recovered.
+
+---
+
+### 72. The page called Runs could not show you a run — `done`
+
+Shipped on `agent/2026-08-23-health-and-history` (run 89).
+
+A **Finished runs** section, newest first, each row carrying the run id, the
+application, whether it passed, when it finished, and where to go next.
+`/api/runs/history` answers with the same list `/api/triage/runs` does, under a
+name the Runs page can ask for without pretending to be about triage.
+
+Two details that came out of building it:
+
+- **Triage is offered only where there is something to triage.** "Why it
+  failed" beside a run that passed is an invitation to a page with nothing to
+  show, which reads as the tool being confused about its own results. Every run
+  can be published; only a failed one can be explained.
+- **The page sorts, rather than trusting the route to.** The copy above the list
+  promises "the most recent first", and a page that makes a promise should keep
+  it. The route sorts too; relying on that would make the order a property of
+  whoever answered rather than of the section that states it. A test asserts it
+  against a deliberately unsorted fake.
+
+Nothing is rendered when there are no runs — an empty box explaining that it is
+empty is worse than no box.
+
+---

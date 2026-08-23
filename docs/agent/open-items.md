@@ -15,8 +15,6 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 71 | The dashboard cannot tell you an application is parked, or unhealthy | `ready` |
-| 72 | The page called Runs cannot show you a run | `ready` |
 | 68 | Two applications keep a worker cap that costs them, for a reason worth removing | `hypothesis` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
@@ -97,13 +95,11 @@ and sessions were still listed in the plan it threw away. And
 the draft refused to execute. **The CLI had been right about both since item
 16; two consumers had not, and nothing drove them until now.**
 
-**Run 88 was a deep scan of all seven dashboard pages**, driven through the UI,
-comparing what they expose against everything the framework can do. **Take item
-71 next** — the dashboard will start a run against a **parked** application with
-no warning at all, and `target:doctor` is unreachable for an application that
-already exists, hiding six findings across the five on disk. Item 72 is smaller:
-the page called Runs has no run history, though the history already fills
-dropdowns on two other pages.
+**Run 88 scanned all seven pages and run 89 closed both findings.** The top bar
+carries the doctor's verdict on every page, `/runs` states when an application
+is parked, and the page called Runs lists the runs that have finished. The
+declined list below still stands: eight capabilities that should stay out of the
+dashboard, and why.
 
 **Ten other capabilities are absent from the dashboard and most should stay
 that way** — the reasoning is recorded under item 72 so nobody re-derives it.
@@ -197,101 +193,16 @@ one. The fakes set both so a demo shows something; a real channel should not.
 
 ---
 
-### 71. The dashboard cannot tell you an application is parked, or unhealthy — `ready`
-
-**Found in run 88**, a deep scan of all seven pages driven through the UI. Two
-things the CLI knows and the dashboard does not, and they are the same shape as
-the two item-16 defects run 87 found: **the CLI is right, and nothing drove the
-page.**
-
-**1. Parking is invisible.** Driven: select `parabank` on `/runs`, and **Run it
-is enabled with nothing on the page saying the application is parked.**
-`npm run suites:live` reports it as *parked — ParaBank answers HTTP 500 on its
-own login and accounts pages* and refuses to run it. The dashboard will run it
-and hand back a wall of red for a suite somebody deliberately paused, with a
-reason and a review date, precisely so nobody would.
-
-Parking is a recorded decision. A tool that ignores it is worse than one that
-never had it, because the red it produces looks like a finding.
-
-**2. `target:doctor` is unreachable.** There is no health, preflight or check
-control anywhere for an application that already exists — confirmed by
-selecting an onboarded application on `/onboard` and enumerating every visible
-button:
-
-> Change its settings · Add another service · Read the application · Skip and
-> fill in by hand · Check where credentials come from · Preview what will be
-> written · Show me what would go
-
-The doctor runs once, inside Create, and is never offered again. What that
-hides today, across the five applications on disk:
-
-| application | the doctor says |
-|---|---|
-| orangehrm | `worker-cap-unmeasured` |
-| parabank | `worker-cap-unmeasured`, `api-no-specs`, **`target-parked`** |
-| restful-booker | `worker-cap-unmeasured` |
-| saucedemo | — clean |
-| toolshop | `coverage-incomplete` — 4 of 5 kinds, missing `@audit` |
-
-Six findings, none of them visible in the tool. `/users` shows a *slice* of it
-— "4 account(s), all resolving" — which is credentials only, and resolving is
-not the same claim as signing in.
-
-**The fix, and it is deliberately not a new page.** The standing brief says a
-change that adds a capability and adds a step is a net loss. So:
-
-1. **A health line where the application is chosen.** The top bar already
-   carries the switcher; the doctor's verdict belongs beside it — clean, or a
-   count that expands to the findings, each of which already names the file to
-   fix. One element, every page, no new decision.
-2. **Parked is a state the switcher shows**, and `/runs` refuses to start
-   without an explicit override, the way `suites:live` does. The reason and the
-   review date are already in the profile.
-
-Both are the page telling the truth about state it can already read, which is
-the half of the standing brief that is not about crowding.
-
----
-
-### 72. The page called Runs cannot show you a run — `ready`
-
-**Found in run 88.** `/runs` offers *Start a run*, a live view, and nothing
-else. Driven and confirmed: no history section, hidden or otherwise, and no
-past run appears anywhere in its DOM.
-
-The history exists. It populates a dropdown on **two other pages**:
-
-```
-local-mt6c34rj · default · 0 failed · 2026-08-23 21:44
-20260817T015328-nk1i · toolshop · 0 failed · 2026-08-17 01:55
-20260816T164527-dl50 · toolshop · 2 failed · 2026-08-16 16:47
-```
-
-So a finished run is reachable only by going to `/triage` — which is about
-*why failures failed* — or `/publish`, which is about sending results
-somewhere. Neither is where somebody looks for "how did that run go".
-
-**What is missing beside it:** `npm run report:render` produces the
-human-readable report and nothing in the tool links to it. A run therefore has
-no destination in the UI at all; the number of failures in a dropdown is the
-whole story.
-
-**The fix is one section on a page that already exists**, listing what the
-dropdowns already list, each row linking to its report and to its clusters on
-`/triage`. No new page, no new decision, and it makes `/runs` mean what its
-name says.
-
-**Rank it below item 71.** A missing history is an inconvenience; a tool that
-silently runs a parked application is wrong.
-
----
-
 ### What was deliberately *not* raised, and why
 
 Run 88 checked the whole command surface against the seven pages. Ten things
-the framework can do are absent from the dashboard. Two became items 71 and 72;
-the rest are listed here so nobody re-derives them and files eight more.
+the framework can do were absent from the dashboard. Two became items 71 and 72
+and shipped in run 89; the rest are listed here so nobody re-derives them and
+files eight more.
+
+**Kept in the live worklist deliberately**, though neither item is open: this is
+a standing decision about what the dashboard is for, and it was very nearly lost
+when its two items were archived — the same way runs 66 and 80 lost sections.
 
 | Not exposed | Verdict |
 |---|---|
@@ -312,6 +223,8 @@ command (catalog, explore), a *once-per-application measurement*
 (rotate:passwords, heal). Everything raised is the page failing to report state
 it already has. That is the line to hold: the dashboard should say more, not do
 more.
+
+---
 
 ---
 

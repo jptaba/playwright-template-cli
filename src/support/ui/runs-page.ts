@@ -136,6 +136,7 @@ const BODY = `
         'runs — so this is for watching, never for deciding whether something passed.',
       control: '<input type="checkbox" id="rHeaded">',
     })}
+    <div class="status warn" id="rParked" hidden></div>
     <button id="rStart">Run it</button>
     <div class="status" id="rStatus"></div>
   </section>
@@ -143,9 +144,75 @@ const BODY = `
   <div class="runs solo" id="runs">
     <section class="empty" id="noRuns">Nothing is running. Start something above.</div>
   </div>
+
+  <section id="rHistory" hidden>
+    <h2>Finished runs</h2>
+    <p class="explain">
+      The most recent first. Open one to see why its failures failed, or to send
+      its results on.
+    </p>
+    <ul class="files" id="rHistoryList"></ul>
+  </section>
 `;
 
 const SCRIPT = `
+/*
+   What has already run — item 72.
+
+   The page called Runs could start one and watch it, and could not show you a
+   run that had finished. The history existed the whole time: it filled a
+   dropdown on /triage and another on /publish, so a completed run was reachable
+   only from the two pages that are about something else.
+
+   Each row links to both, because those are the two things anybody wants next
+   from a finished run — why did it fail, and send it on.
+*/
+function loadHistory() {
+  post('/api/runs/history', {})
+    .then((data) => {
+      const runs = data.runs || [];
+      if (runs.length === 0) return;
+      const list = $('rHistoryList');
+      list.replaceChildren();
+      /*
+         Sorted here, because the copy above this list promises "the most recent
+         first" and a page that makes a promise should keep it. The route
+         happens to sort too; relying on that would make the order a property of
+         whoever answers rather than of the section that states it.
+      */
+      const ordered = runs
+        .slice()
+        .sort((a, b) => String(b.finishedAt).localeCompare(String(a.finishedAt)));
+      for (const run of ordered.slice(0, 12)) {
+        const row = el('li', 'run-past');
+        row.append(el('span', 'mono', run.id));
+        row.append(el('span', '', run.target));
+        row.append(el('span', run.failures > 0 ? 'run-failed' : 'run-clean',
+          run.failures > 0 ? run.failures + ' failed' : 'all passed'));
+        row.append(el('span', 'muted', run.finishedAt.slice(0, 16).replace('T', ' ')));
+        /*
+           Triage only where there is something to triage. "Why it failed"
+           beside a run that passed is an invitation to a page that will have
+           nothing to show, which reads as the tool being confused.
+        */
+        if (run.failures > 0) {
+          const triageLink = el('a', '', 'Why it failed');
+          triageLink.href = '/triage';
+          row.append(triageLink);
+        }
+        const publishLink = el('a', '', 'Publish it');
+        publishLink.href = '/publish';
+        row.append(publishLink);
+        list.append(row);
+      }
+      $('rHistory').hidden = false;
+    })
+    .catch(() => {
+      /* A history nobody could read is not a history to display. */
+    });
+}
+loadHistory();
+
 let expanded = null;
 
 /*
@@ -173,6 +240,39 @@ function requireSelection() {
   status.replaceChildren(el('div', '',
     'Choose an application in the bar at the top of the page. A run has to be against one.'));
 }
+
+/*
+   Say when the application is parked — item 71.
+
+   Driven before this existed: selecting a parked application left Run it
+   enabled with nothing on the page mentioning it, and the run came back a wall
+   of red from a deployment somebody had deliberately paused, with a reason and
+   a review date, precisely so nobody would.
+
+   It says so rather than refusing, which is what suites:live already does when
+   a parked application is named on the command line: naming one is a
+   deliberate act, and selecting it here is that act. What was wrong was the
+   silence, not the running.
+*/
+function showParked() {
+  if (!TARGET_NAME) return;
+  post('/api/health', { target: TARGET_NAME })
+    .then((health) => {
+      if (!health.parked) return;
+      const notice = $('rParked');
+      notice.replaceChildren(
+        el('div', '', 'This application is parked, and its live suites are not normally run.'),
+        el('div', '', health.parked.reason),
+        el('div', 'muted', 'Somebody said they would look again by ' + health.parked.reviewBy +
+          '. Starting a run here is allowed, and the failures are expected.'),
+      );
+      notice.hidden = false;
+    })
+    .catch(() => {
+      /* A verdict nobody could reach is not a verdict to display. */
+    });
+}
+showParked();
 
 /*
    Two facts decide whether a run can start: a free slot, and an application.

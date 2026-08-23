@@ -326,6 +326,21 @@ export interface PageData {
   runs: { count: number; failuresEach: number };
   /** Stories on disk, and how much hangs off each one. */
   stories: { count: number; criteriaEach: number; draftsEach: number };
+  /**
+   * Finished runs the history section lists — item 72.
+   *
+   * A count and how many of them failed, because the two questions this
+   * section answers are "what has run" and "which of them need looking at".
+   */
+  history: { count: number; failing: number };
+  /**
+   * What the doctor says about the selected application — item 71.
+   *
+   * `parked` is separate from the counts for the same reason it is on
+   * `TargetHealth`: it changes what the tool should let you do, not what it
+   * should tell you.
+   */
+  health: { errors: number; warnings: number; parked: { reason: string; reviewBy: string } | null };
 }
 
 export interface PagesHarness {
@@ -356,6 +371,8 @@ export const test = base.extend<{ pages: PagesHarness }>({
       users: { roles: 1, poolSize: 1 },
       runs: { count: 0, failuresEach: 0 },
       stories: { count: 0, criteriaEach: 0, draftsEach: 0 },
+      history: { count: 0, failing: 0 },
+      health: { errors: 0, warnings: 0, parked: null },
     };
 
     const shell = (current: string) => ({
@@ -385,6 +402,23 @@ export const test = base.extend<{ pages: PagesHarness }>({
         { method: 'GET', path: '/users', public: true, handle: () => serve(usersPageContent(), '/users') },
         ...testUsersRoutes(usersService(data.users.roles, data.users.poolSize)),
         { method: 'GET', path: '/runs', public: true, handle: () => serve(runsPageContent(), '/runs') },
+        {
+          method: 'POST',
+          path: '/api/runs/history',
+          handle: () =>
+            json(200, {
+              runs: Array.from({ length: data.history.count }, (_, index) => ({
+                id: `run-${String(index + 1).padStart(2, '0')}`,
+                target: 'demo',
+                // Newest first is the page's job, so the fake hands them over
+                // oldest-first-ish and lets the ordering be asserted.
+                finishedAt: `2026-08-${String(10 + index).padStart(2, '0')}T09:00:00.000Z`,
+                failures: index < data.health.errors + data.history.failing ? 2 : 0,
+                source: 'disk',
+              })),
+            }),
+        },
+        { method: 'POST', path: '/api/health', handle: () => json(200, data.health) },
         { method: 'GET', path: '/stories', public: true, handle: () => serve(storiesPageContent(), '/stories') },
         ...authoringRoutes(
           authoringService(data.stories.count, data.stories.criteriaEach, data.stories.draftsEach),

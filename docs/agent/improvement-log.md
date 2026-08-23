@@ -6362,3 +6362,62 @@ command (`catalog`, `explore`), a *once-per-application measurement*
 
 **Next:** item 71 — the dashboard should not start a run against an application
 somebody parked.
+
+## 2026-08-23 · run 89 · The bar carries the verdict, and Runs can show you a run
+
+**Picked:** items 71 and 72, at the owner's direction. Both were run 88's scan
+findings; both are the dashboard reporting state it already had.
+
+**Item 71 — the doctor, and parking.** A health chip beside the application
+switcher on every page, fetched from `/api/health` **after load** rather than
+rendered: deciding it reaches the secret store, and on a Vault target that is
+somebody else's server, so a page render would wait on a network call. Driven,
+and the counts match `npm run target:doctor` exactly — saucedemo hidden and
+clean, three applications at `1 smell`, parabank at **`parked`** with the reason
+and the review date in its title.
+
+`packSpecTags` is exported from `tools/check-target.ts` so the chip and the
+command read the same tags, and that file's `main()` is guarded with
+`require.main === module` — importing it used to run the whole doctor and then
+`process.exit`, which is why the dashboard had been missing
+`coverage-incomplete` entirely.
+
+`/runs` states the parking beside the control, with the reason and the date.
+**It still allows the run**, which is the decision worth recording:
+`suites:live --target=` runs a parked application when it is named, because
+naming one is deliberate, and selecting it in the switcher is that same act.
+The silence was the defect, not the running.
+
+**Item 72 — Finished runs**, newest first, each row linking on to triage or
+publish. Two things came out of building it: triage is offered only where there
+is something to triage, because "Why it failed" beside a passing run reads as
+the tool being confused; and the page sorts rather than trusting the route to,
+because the copy above the list promises an order and a page that promises one
+should keep it. A test asserts that against a deliberately unsorted fake.
+
+**Verify:** `npm run verify` passes, exit 0 — **1169 tests**, up from 1161.
+Eight new dashboard tests, and the harness grew `/api/health` and
+`/api/runs/history` fakes.
+
+**Live suites:** not re-run — nothing here touches a target, a fixture or a
+rule.
+
+**Learned:**
+
+- **I cut a section while archiving, again.** The declined-capabilities list —
+  ten things that should stay out of the dashboard, written specifically so the
+  next scan does not file them — lived inside item 72's block and went with it.
+  Recovered from `git show HEAD:` and re-seated as its own section, which is
+  where a standing decision belongs. Runs 66 and 80 lost sections the same way;
+  the file warns about it; the warning is not enough on its own. **Grep for the
+  content, not just the headings, before and after a cut.**
+- **A degenerate viewport reads as a layout bug.** A background tab reports
+  `clientWidth: 0`, and the overflow check then flags half the page. Second time
+  this run. Set the viewport before believing any measurement taken through the
+  browser tools.
+- **An unguarded `main()` is an import hazard nobody notices.** `check-target.ts`
+  had run its whole doctor on import since it was written; nothing imported it,
+  so nothing found out. Its sibling had the guard already.
+
+**Next:** nothing is `ready`. 68 is a hypothesis, 49 needs credentials only the
+owner has, 11 is standing.

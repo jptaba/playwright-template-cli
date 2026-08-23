@@ -101,8 +101,13 @@ function listPack(targetName: string): { exists: boolean; files: string[] } {
  * Read from the sources, because the tag in a title is what the suite selects
  * on: a kind claimed in a directory name and missing from every title would
  * satisfy a filename check and be reported as covered.
+ *
+ * Exported because the dashboard needs the same answer — it renders the
+ * doctor's verdict beside the application switcher, and a chip that disagreed
+ * with `npm run target:doctor` would be worse than no chip. One
+ * implementation, for the reason `ONBOARDING_DRAFT_PATH` is one constant.
  */
-function packSpecTags(targetName: string): string[] {
+export function packSpecTags(targetName: string): string[] {
   const root = path.join(REPO_ROOT, 'src', 'targets', targetName, 'tests');
   if (!fs.existsSync(root)) return [];
 
@@ -317,10 +322,18 @@ async function main(): Promise<number> {
   return worstExit;
 }
 
-main().then(
-  (code) => process.exit(code),
-  (error) => {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(2);
-  },
-);
+/*
+   Only when run as a command. This file is also imported — the dashboard reuses
+   `packSpecTags` so its health chip and this command cannot disagree — and an
+   unguarded `main()` would run the whole doctor, and then `process.exit`, on
+   import. The same guard `tools/offboard.ts` has for the same reason.
+*/
+if (require.main === module) {
+  main().then(
+    (code) => process.exit(code),
+    (error) => {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exit(2);
+    },
+  );
+}

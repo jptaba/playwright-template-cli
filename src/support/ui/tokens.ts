@@ -355,6 +355,32 @@ export const DASHBOARD_STYLES = `
     background: var(--surface-2); border: 1px solid var(--rule);
     font-size: .72rem; color: var(--muted);
   }
+
+  /*
+     The doctor's verdict, beside the application it is about — item 71.
+
+     Hidden when there is nothing to say, so a healthy application costs no
+     pixels. Parked is a distinct colour from "things to fix" because it means
+     something different: not "this needs attention" but "somebody decided this
+     is not to be run".
+  */
+  .ctx-health {
+    padding: .05rem .5rem; border-radius: 999px; text-decoration: none;
+    font-size: .72rem; font-weight: 600; white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .ctx-health:hover { text-decoration: underline; }
+  .ctx-health[data-state="parked"] {
+    background: var(--warn-soft); color: var(--warn);
+    border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+  }
+  .ctx-health[data-state="errors"] {
+    background: var(--fail-soft); color: var(--fail);
+    border-color: color-mix(in srgb, var(--fail) 40%, transparent);
+  }
+  .ctx-health[data-state="warnings"] {
+    background: var(--surface-2); color: var(--muted); border-color: var(--rule);
+  }
   .ctx-none { color: var(--muted); font-style: italic; }
   /*
      The switcher. Sized to its content and styled down to look like part of
@@ -793,6 +819,30 @@ export const DASHBOARD_STYLES = `
     break-inside: avoid; color: var(--ink-2);
   }
   .status { margin-top: .85rem; font-size: .89rem; color: var(--ink-2); }
+
+  /*
+     A standing notice rather than a transient one — item 71. Parking is a
+     recorded decision with a reason and a date, so it is stated where the
+     control is, not flashed after somebody presses it.
+  */
+  .status.warn {
+    padding: .7rem .9rem; border-radius: 8px;
+    background: var(--warn-soft); color: var(--warn);
+    border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+  }
+  .status.warn .muted { color: inherit; opacity: .85; }
+
+  /* A finished run, one row — item 72. */
+  .run-past {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .9rem;
+    padding: .5rem .1rem; border-bottom: 1px solid var(--rule); font-size: .85rem;
+  }
+  .run-past:last-child { border-bottom: 0; }
+  .run-past .mono { font-size: .78rem; color: var(--ink-2); }
+  .run-past .muted { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .run-past a { font-size: .8rem; }
+  .run-failed { color: var(--fail); font-weight: 600; }
+  .run-clean { color: var(--pass); font-weight: 600; }
 
   /*
      A list whose length nobody chose.

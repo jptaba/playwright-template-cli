@@ -82,6 +82,7 @@ import { PractiTestClient } from '../src/integrations/practitest/client';
 import { REOPEN_TRANSITIONS } from '../src/support/publish/payloads';
 import { diagnose, type TargetFacts } from '../src/support/onboarding/diagnose';
 import { planOffboard, type OffboardPlan } from '../src/support/onboarding/offboard';
+import { packSpecTags } from './check-target';
 import { gatherFacts, removeTarget } from './offboard';
 import {
   probeTarget,
@@ -523,6 +524,9 @@ async function diagnoseWritten(name: string): Promise<CreateResult['diagnostics'
   const facts: TargetFacts = {
     packExists: fs.existsSync(root),
     packFiles,
+    // The same reader the CLI doctor uses, so the chip in the bar and
+    // `npm run target:doctor` cannot report different numbers.
+    specTags: packSpecTags(name),
     ...resolved,
     contractSpecExists: Boolean(specPath && fs.existsSync(path.join(REPO_ROOT, specPath))),
     env: {
@@ -1144,6 +1148,63 @@ const selectionRoutes: Route[] = [
   },
 ];
 
+/**
+ * What the doctor says about one application — item 71.
+ *
+ * The chip in the top bar asks for this after the page has loaded, because
+ * answering it reaches the secret store and on a Vault target that is somebody
+ * else's server. Rendering it server-side would make every navigation in the
+ * tool wait on a network call.
+ *
+ * Counts and the parking, not the findings themselves: the bar has room for a
+ * verdict and not for a list, and the list already has a home in
+ * `npm run target:doctor`, which names the file to fix for every one.
+ */
+const healthRoutes: Route[] = [
+  {
+    method: 'POST',
+    path: '/api/health',
+    handle: async (request) => {
+      const body = (request.body ?? {}) as Record<string, unknown>;
+      const wanted = sanitiseSelection(body);
+      if (!wanted || !existingTargets().includes(wanted)) {
+        return json(400, { error: 'That is not an application name.' });
+      }
+
+      const diagnostics = await diagnoseWritten(wanted);
+      let parked: { reason: string; reviewBy: string } | null = null;
+      try {
+        parked = resolveTarget(wanted).parked ?? null;
+      } catch {
+        // A profile that will not load is already an error in the list above.
+      }
+
+      return json(200, {
+        errors: diagnostics.filter((one) => one.level === 'error').length,
+        warnings: diagnostics.filter((one) => one.level === 'warning').length,
+        parked,
+      });
+    },
+  },
+];
+
+/**
+ * Runs that have finished — item 72.
+ *
+ * The same list `/api/triage/runs` answers with, under a name the Runs page can
+ * ask for without pretending to be about triage. Driven before this existed:
+ * the page called Runs offered *Start a run* and a live view and nothing else,
+ * while every finished run was reachable only from `/triage` — which is about
+ * why failures failed — or `/publish`, which is about sending results away.
+ */
+const runHistoryRoutes: Route[] = [
+  {
+    method: 'POST',
+    path: '/api/runs/history',
+    handle: () => json(200, { runs: triage.runs() }),
+  },
+];
+
 const usersRoutes: Route[] = [
   {
     method: 'GET',
@@ -1598,6 +1659,8 @@ const caseRoutes: Route[] = [
 const handle = createRouter(
   [
     ...selectionRoutes,
+    ...healthRoutes,
+    ...runHistoryRoutes,
     ...usersRoutes,
     ...runRoutes,
     ...triageViewRoutes,
