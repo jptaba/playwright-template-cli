@@ -4,7 +4,7 @@ import { FakePractiTestServer } from '../tests/support/fake-practitest-server';
 import { FakeSmtpServer } from '../tests/support/fake-smtp-server';
 import { FakeTeamsServer } from '../tests/support/fake-teams-server';
 import { readSpecs } from '../src/support/cases/collect';
-import { casesFor, storiesFor, storyFields } from '../src/support/cases/seed';
+import { casesBySet, storiesFor, storyFields } from '../src/support/cases/seed';
 
 /**
  * `npm run fakes:serve` — Jira and PractiTest, locally, for as long as you
@@ -65,10 +65,21 @@ async function main(): Promise<void> {
   */
   const specs = await readSpecs();
   const stories = storiesFor(specs);
-  const cases = casesFor(specs);
+  /*
+     One set per application, because "the cases for this suite" is otherwise
+     unanswerable in a project holding all five (item 63). `pull-cases` looks
+     the set up by the application's own name.
+  */
+  const bySet = casesBySet(specs);
+  const cases = [...bySet.values()].flat();
 
   for (const story of stories) jira.seedIssue(story.key, storyFields(story));
-  for (const entry of cases) practitest.seedCase(entry.id, { name: entry.name } as never);
+  for (const [set, entries] of bySet) {
+    practitest.seedSet(set);
+    for (const entry of entries) {
+      practitest.seedCase(entry.id, { name: entry.name, setName: set } as never);
+    }
+  }
 
   /*
      Still honoured, for a case id that no spec claims yet — writing the spec
@@ -87,8 +98,11 @@ async function main(): Promise<void> {
   console.log(`  SMTP        (report out)           ${mailbox.host}:${mailbox.port}`);
   const groundTruth = cases.filter((entry) => entry.name.includes(' → '));
   console.log(
-    `\n  Seeded ${cases.length} case(s) and ${stories.length} story(ies), read from the specs` +
+    `\n  Seeded ${cases.length} case(s) in ${bySet.size} set(s) and ${stories.length} story(ies), read from the specs` +
       ` on disk${extra.length > 0 ? ` (plus ${extra.length} asked for)` : ''}.`,
+  );
+  console.log(
+    `  Sets:    ${[...bySet.entries()].map(([set, e]) => `${set} (${e.length})`).join(', ') || 'none'}`,
   );
   console.log(`  Stories: ${stories.map((story) => story.key).join(', ') || 'none'}`);
   if (groundTruth.length > 0) {

@@ -67,6 +67,17 @@ export interface SpecFact {
  * an author with a lint error telling them to add the thing a page reports as
  * wrong.
  */
+/**
+ * Which application's pack a spec belongs to, from its path.
+ *
+ * Used to group cases by application — a PractiTest **set** per application is
+ * what makes "the cases for this suite" a real question with a real answer,
+ * rather than "every case in the project" (item 63).
+ */
+export function targetOfSpec(file: string): string | null {
+  return /^src\/targets\/([^/]+)\//.exec(file)?.[1] ?? null;
+}
+
 export function projectOfSpec(file: string): string | null {
   return /^src\/targets\/[^/]+\/tests\/([^/]+)\//.exec(file)?.[1] ?? null;
 }

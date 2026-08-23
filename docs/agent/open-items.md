@@ -15,15 +15,18 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 62 | Two applications have real accessibility violations, newly visible | `blocked` |
+| 62 | Three applications have real accessibility violations, newly visible | `blocked` |
 | 52 | One coverage cell is left, and it is blocked | `blocked` |
 | 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `blocked` |
-| 63 | The case half of traceability is never exercised | `ready` |
+| 64 | The a11y settle can fire early under load | `ready` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Items 46, 48, 51, 53, 55, 58, 59, 60 and 61 are `done`** and archived in
-`backlog.md`. **46 and 48 closed together in run 80**: the fakes seed from the
+**Items 46, 48, 51, 53, 55, 58, 59, 60, 61 and 63 are `done`** and archived in
+`backlog.md`. **63 closed in run 81**: a PractiTest **set per application**,
+looked up by the application's own name rather than an id written into a
+profile, so `pull-cases` returns this suite's cases and not the project's. The
+case half of stage 2 is exercised for the first time. **46 and 48 closed together in run 80**: the fakes seed from the
 specs on disk rather than from one application's ids — 62 cases and 22 stories
 across all five, where it was 4 and 3 — and the journey has now been run for
 every application. **saucedemo completes all six stages**, the second
@@ -64,7 +67,7 @@ reaches the packs that already exist.
 What is left of it is a decision only the owner can take, so it is `blocked`
 rather than ready.
 
-**Take item 63 next.** Everything else `ready` is closed; 62, 56, 52 and 49 are
+**Take item 64 next.** It is the only `ready` item; 62, 56, 52 and 49 are all
 waiting on the owner rather than on work.
 
 **Where the journey stands, run 80, every application:**
@@ -92,7 +95,7 @@ accident while archiving item 51 — the two were adjacent, and the row in the
 table above survived while its body did not. Worth a glance whenever a section
 is cut from this file.)*
 
-### 62. Two applications have real accessibility violations, newly visible — `blocked`
+### 62. Three applications have real accessibility violations, newly visible — `blocked`
 
 **Not a regression. These were always there** — item 61's fix is what made them
 visible, by stopping the scan answering for a page that had not finished
@@ -102,9 +105,12 @@ rendering. Both were reported green until run 79.
 |---|---|---|
 | **orangehrm** | `A11Y-001`, the dashboard | **critical** `button-name` ×4 · serious `color-contrast` ×11 · `list` ×1 · `scrollable-region-focusable` ×1 |
 | **toolshop** | `TOOL-5-01`, the sign-in form | **critical** `button-name`, plus two more |
+| **restful-booker** | `A11Y-001`, the landing page | **critical** `label` ×3 · serious `color-contrast` ×4 — **seen only under load**, see item 64 |
 
-`restful-booker` is genuinely clean — 13/13 — and `saucedemo` declares no
-accessibility capability, so neither changed.
+**`restful-booker` was recorded here as clean and that was wrong** — run 81
+found it fails under full-suite load and passes alone, because the settle can
+fire early when the machine is busy (item 64). Its violations are real.
+`saucedemo` declares no accessibility capability, so it is unaffected.
 
 Triage now files both as `application-defect` via the `accessibility-violation`
 rule rather than leaving them as "needs judgement", so the report says where
@@ -218,35 +224,50 @@ because only toolshop declares a `poolSize`; the next application to declare
 one inherits the same unexamined claim. `pool:measure` is what that application
 now has and toolshop did not.
 
-### 63. The case half of traceability is never exercised — `ready`
+### 64. The a11y settle can fire early under load — `ready`
 
-**Found in run 80**, running the journey for all five. Stage 2 is satisfied by
-*either* cases out of PractiTest *or* a story out of Jira, and it has only ever
-been the story: `pull-cases` returns **0 for every target**, against a fake
-holding 62 seeded cases.
+**Found in run 81**, and it is a weakness in run 79's own fix rather than a new
+application defect.
 
-**Why.** The fake's `GET /tests.json` filters on
-`filter[custom-fields][case-identity]` and returns only cases whose `identity`
-matches. Seeded cases carry none, so an unfiltered list matches nothing. The
-real API returns every test in the project when unfiltered.
+`restful-booker`'s accessibility spec is **intermittent, and only under
+load**:
 
-**Do not just make the fake return everything**, which is the ten-second fix
-and the wrong one. With one PractiTest project holding every application's
-cases, an unfiltered pull returns all 62 for whichever target asked — so stage
-2 would go green everywhere on a pile that is mostly other applications'
-requirements. That is the false green run 80 removed from the story half,
-reintroduced through the other door.
+| how it was run | result |
+|---|---|
+| the `a11y` project alone, 3 times | green, 3 of 3 |
+| the full live suite, 2 times | **1 red**, `[critical] label` ×3 and `[serious] color-contrast` ×4 |
 
-**Answer first what "the cases for this application" means** in a single
-project. A PractiTest **set** per application is the obvious candidate —
-`pull-cases` already accepts `--set=` and passes it through — and if that is
-the answer then the fake needs sets, the profile needs somewhere to name one,
-and `fakes:serve` needs to seed per set. A design decision worth taking
-deliberately rather than discovering.
+**Why, and it is the heuristic's own shape.** The settle waits for the DOM to
+be still for a quiet period measured in *wall-clock* time. Under CPU
+contention — four projects and several workers on one machine — a page that is
+mid-render can easily be still for 500ms because the application is starved,
+not because it has finished. The scan then fires early and reports the shell
+clean, which is exactly the false pass run 79 removed, arriving less often
+through the same door.
 
-**Not urgent**, because the story half traces correctly now and stage 2 passes
-honestly for all five. It is a capability that is built, wired and never
-exercised end to end — which is the state items 46 and 48 were raised about.
+So the red run is the honest one again, and `restful-booker` has real
+violations to add to item 62 — `label` on 3 nodes is critical, and unlabelled
+inputs are a genuine barrier.
+
+**Directions worth weighing before building anything**, and this is the item's
+open question:
+
+1. **Quiet *and* agreement**: settle, scan, settle, scan, and only accept a
+   result when two consecutive scans agree. Costs a second scan; catches the
+   starved-page case, because a page still rendering produces different
+   findings each time.
+2. **Anchor on readiness first** — `document.readyState === 'complete'` plus
+   quiet — which helps a slow load but not a slow SPA render.
+3. **Scale the quiet period** by observed mutation cadence rather than fixing
+   it at 500ms.
+
+**Do not simply raise the quiet period.** It makes the window wider without
+making the signal better, slows every scan on every application, and still
+fails whenever contention is worse than the number somebody guessed.
+
+**Note for whoever takes it:** `scan.settled` already exists and is `true` in
+these early-firing runs, which is itself the finding — the scan believed it had
+settled. Whatever replaces the heuristic should be able to tell that story.
 
 ---
 

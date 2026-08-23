@@ -1,4 +1,4 @@
-import type { SpecFact } from './specs';
+import { targetOfSpec, type SpecFact } from './specs';
 
 /**
  * What the fake services should hold, derived from the suite on disk — items
@@ -27,6 +27,8 @@ import type { SpecFact } from './specs';
 export interface SeededCase {
   id: string;
   name: string;
+  /** The application that owns it — the PractiTest set it belongs in. */
+  set: string | null;
 }
 
 export interface SeededStory {
@@ -61,9 +63,36 @@ export function casesFor(specs: SpecFact[]): SeededCase[] {
     byId.set(spec.caseId, {
       id: spec.caseId,
       name: spec.groundTruth ? `${title} → ${spec.groundTruth}` : title,
+      set: targetOfSpec(spec.file),
     });
   }
   return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/**
+ * The cases each application owns, keyed by the set they belong in — item 63.
+ *
+ * **"The cases for this application" had no answer**, and stage 2's case half
+ * was unusable because of it. One PractiTest project holds every
+ * application's cases, so an unfiltered pull returns all of them for whoever
+ * asked: 62 cases, mostly other applications' requirements, reported as this
+ * suite's traceability. A **set per application** is what makes the question
+ * answerable, and `pull-cases` already accepted `--set=` and passed it to
+ * `filter[set-ids]`.
+ *
+ * The set is named after the application rather than recorded as an id
+ * anywhere. That is the conventions' own rule about internal identifiers —
+ * derive them, never write them down — applied to a different system: a
+ * transcribed set id would be a number in a profile that nobody can check and
+ * that silently points at the wrong set the day somebody rebuilds the project.
+ */
+export function casesBySet(specs: SpecFact[]): Map<string, SeededCase[]> {
+  const bySet = new Map<string, SeededCase[]>();
+  for (const seeded of casesFor(specs)) {
+    if (!seeded.set) continue;
+    bySet.set(seeded.set, [...(bySet.get(seeded.set) ?? []), seeded]);
+  }
+  return bySet;
 }
 
 /**

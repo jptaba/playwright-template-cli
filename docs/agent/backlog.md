@@ -3442,3 +3442,48 @@ it for the other four, and fix what it reports.
 **48.** `fakes:serve` seeds four deliberate-failure cases and a Jira story
 stating them as acceptance criteria — for `restful-booker`. The other
 applications have neither, and the two should be done together per application.
+
+### 63. The case half of traceability is never exercised — `done`
+
+Shipped on `agent/2026-08-23-one-set-per-application` (run 81).
+
+**The question the item insisted be answered first: what are "the cases for
+this application" in a project holding all five?** A PractiTest **set** per
+application, named after the application.
+
+**Looked up by name, never written down.** The obvious alternative was a
+`practitestSetId` in each profile, and it is the wrong one: the conventions
+already refuse transcribed internal identifiers for the application under test
+— *"a transcribed internal id is a hallucinated locator wearing a different
+hat, and it fails silently"* — and a set id is an internal identifier of
+somebody else's system. A number in a profile is unverifiable by anyone
+reading it and points at the wrong set the day the project is rebuilt. The
+name is the thing a person chose and can check, and it costs no profile edit
+on any of the five.
+
+**A missing set pulls nothing, and says so.** Falling back to the whole project
+is not a fallback, it is a wrong answer: 62 cases, mostly other applications'
+requirements, counted as this suite's traceability. *"This application has no
+cases yet"* is true and useful; *"here are everybody's"* is not.
+
+**`filter[name]` is a match, not an equality**, in the real API — so a project
+holding `shop` and `shop-staging` hands back both and the first wins by
+accident. `findSetByName` filters again for an exact match, and the fake
+matches loosely on purpose so a client that assumed exactness fails here rather
+than in production.
+
+**Proven end to end**, against the fakes: five sets seeded from the packs —
+`saucedemo (9)`, `orangehrm (9)`, `parabank (10)`, `restful-booker (16)`,
+`toolshop (18)` — `pull-cases` returns 9 for saucedemo and 18 for toolshop
+rather than 62 for both, and **saucedemo's journey traces stage 2 through cases
+for the first time** while still completing all six stages.
+
+The seeded cases all fail the quality gate, which is the gate working: they
+carry a name and no steps, and the tool says so per case.
+
+The original item follows.
+
+Stage 2 is satisfied by *either* cases out of PractiTest *or* a story out of
+Jira, and it has only ever been the story: `pull-cases` returned **0 for every
+target** against a fake holding 62 seeded cases, because the fake's
+`GET /tests.json` only matched an identity filter.

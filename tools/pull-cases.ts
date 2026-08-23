@@ -56,16 +56,47 @@ function toTestCase(raw: PractiTestCase, target: string): TestCase {
 async function main(): Promise<number> {
   const target = process.argv.find((arg) => arg.startsWith('--target='))?.split('=')[1]
     ?? resolveTarget().name;
-  const setId = process.argv.find((arg) => arg.startsWith('--set='))?.split('=')[1];
+  const asked = process.argv.find((arg) => arg.startsWith('--set='))?.split('=')[1];
 
   const client = PractiTestClient.fromEnvironment();
-  console.log(`Pulling PractiTest cases${setId ? ` from set ${setId}` : ''} for '${target}'…`);
+
+  /*
+     The set named after the application, unless one was asked for by id —
+     item 63.
+
+     **Pulling the whole project is not a fallback, it is a wrong answer.** One
+     PractiTest project holds every application's cases, so an unfiltered pull
+     hands back all of them and the journey's traceability stage reports them
+     as this suite's: 62 cases, mostly other applications' requirements,
+     counted as though somebody had written them for this one. That is the
+     same false green the story half carried until run 80, through the other
+     door.
+
+     So a missing set says so and pulls nothing. "This application has no
+     cases yet" is a true and useful answer; "here are everybody's" is not.
+  */
+  let setId = asked;
+  if (!setId) {
+    setId = (await client.findSetByName(target)) ?? undefined;
+    if (!setId) {
+      console.log(
+        `No PractiTest set named '${target}', so there are no cases to pull for it.\n` +
+          `Create a set called '${target}' and put its cases in it — one set per application is\n` +
+          'what makes "the cases for this suite" a question with an answer. `npm run fakes:serve`\n' +
+          'seeds one per onboarded application. Pass --set=<id> to override.',
+      );
+      console.log('\n0 case(s) pulled; 0 did not pass the quality gate.');
+      return 0;
+    }
+  }
+
+  console.log(`Pulling PractiTest cases from set ${asked ?? target} for '${target}'…`);
 
   let pulled = 0;
   let rejected = 0;
 
   try {
-    const raw = await client.listCases({ ...(setId ? { setId } : {}) });
+    const raw = await client.listCases({ setId });
     for (const entry of raw) {
       const testCase = toTestCase(entry, target);
       const gate = gateCase(testCase);

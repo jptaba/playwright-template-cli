@@ -13,6 +13,8 @@ export interface FakeCase {
   displayId: string;
   identity?: string;
   lastEditedBy?: string;
+  /** The set this case belongs to, by name — one per application (item 63). */
+  setName?: string;
   attributes?: Record<string, unknown>;
 }
 
@@ -21,6 +23,8 @@ export class FakePractiTestServer {
   private nextId = 900;
 
   readonly cases: FakeCase[] = [];
+  /** Sets by name, so a pull can ask for one application's cases (item 63). */
+  readonly sets = new Map<string, string>();
   readonly postedRuns: Array<Record<string, unknown>> = [];
   readonly attachments: Array<{ name: string; base64: string }> = [];
   readonly calls: string[] = [];
@@ -42,8 +46,18 @@ export class FakePractiTestServer {
 
   seedCase(displayId: string, extra: Partial<FakeCase> = {}): FakeCase {
     const entry: FakeCase = { id: `i-${displayId}`, displayId, ...extra };
+    if (entry.setName) this.seedSet(entry.setName);
     this.cases.push(entry);
     return entry;
+  }
+
+  /** @returns the set's id, created on first mention. */
+  seedSet(name: string): string {
+    const existing = this.sets.get(name);
+    if (existing) return existing;
+    const id = `s-${this.sets.size + 1}`;
+    this.sets.set(name, id);
+    return id;
   }
 
   private async handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
@@ -87,8 +101,41 @@ export class FakePractiTestServer {
       return send(res, 200, { data: { id: 'att-1' } });
     }
 
+    if (url.pathname.endsWith('/sets.json') && req.method === 'GET') {
+      /*
+         `filter[name]` is a match rather than an exact match in the real API,
+         so this fake behaves the same way — a client that assumed exactness
+         would pass here and pick the wrong set in production.
+      */
+      const wanted = url.searchParams.get('filter[name]') ?? '';
+      return send(res, 200, {
+        data: [...this.sets.entries()]
+          .filter(([name]) => name.includes(wanted))
+          .map(([name, id]) => ({ id, attributes: { name } })),
+      });
+    }
+
     if (url.pathname.endsWith('/tests.json')) {
       if (req.method === 'GET') {
+        const setIds = (url.searchParams.get('filter[set-ids]') ?? '')
+          .split(',')
+          .filter(Boolean);
+        if (setIds.length > 0) {
+          const names = [...this.sets.entries()]
+            .filter(([, id]) => setIds.includes(id))
+            .map(([name]) => name);
+          return send(res, 200, {
+            data: this.cases
+              .filter((entry) => entry.setName && names.includes(entry.setName))
+              .map((entry) => ({
+                id: entry.id,
+                attributes: {
+                  'last-modified-by': entry.lastEditedBy ?? 'qa-automation',
+                  ...entry.attributes,
+                },
+              })),
+          });
+        }
         const identity = url.searchParams.get('filter[custom-fields][case-identity]');
         const found = this.cases.filter((entry) => entry.identity === identity);
         return send(res, 200, {

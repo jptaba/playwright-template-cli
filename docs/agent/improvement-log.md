@@ -5706,3 +5706,66 @@ deliberate.
 
 **Next:** item 63. Everything else `ready` is closed, and 62, 56, 52 and 49 are
 waiting on the owner.
+
+## 2026-08-23 · run 81 · One PractiTest set per application
+
+**Picked:** item 63, the only `ready` item.
+
+**The item insisted the design question be answered before anything was
+built**, and the answer is a **set per application, looked up by the
+application's own name**. The alternative — a `practitestSetId` in each
+profile — is refused by the conventions' own rule about internal identifiers:
+a transcribed id is unverifiable by anyone reading it and points at the wrong
+set the day the project is rebuilt. Looking it up by name also costs no edit
+to any of the five profiles, which keeps rule zero out of it entirely.
+
+**A missing set pulls nothing and says so.** Falling back to the whole project
+is not a fallback, it is the wrong answer: 62 cases, mostly other
+applications', counted as this suite's traceability.
+
+**`filter[name]` is a match rather than an equality** in the real API, so
+`findSetByName` filters again for exactness — and the fake matches loosely on
+purpose, so a client that assumed exactness fails in a test rather than in
+production.
+
+**Proven end to end:** five sets seeded from the packs — saucedemo (9),
+orangehrm (9), parabank (10), restful-booker (16), toolshop (18) — `pull-cases`
+returns 9 for saucedemo and 18 for toolshop rather than 62 for both, and
+**saucedemo's journey traced stage 2 through cases for the first time** while
+still completing all six stages.
+
+**Verify:** `npm run verify` passes, exit 0 — **1132 tests**, up from 1126.
+
+**Live suites: 1 passing, 3 failing, 1 parked.** saucedemo 6/6; orangehrm and
+toolshop on item 62's accessibility violations; parabank parked. **And
+restful-booker joined them, which is a new finding rather than the same one.**
+
+**Raised as item 64, and it is a weakness in run 79's own fix.**
+restful-booker's a11y spec is green 3 of 3 run alone and red 1 of 2 under full
+suite load, reporting `[critical] label` ×3. The settle waits for the DOM to be
+still for a quiet period measured in wall-clock time — and under contention a
+page that is mid-render is easily still for 500ms because it is starved, not
+because it has finished. So the scan fires early and reports a shell clean:
+the same false pass run 79 removed, less often, through the same door.
+`scan.settled` reads `true` in those runs, which is the sharpest part of it.
+
+**Triage agreement, unchanged on all four:** toolshop **4 · 0 · 0**, orangehrm
+**4 · 0 · 0**, restful-booker **3 · 0 · 1**, saucedemo **1 · 0 · 3**.
+
+**Learned:**
+
+- **A heuristic that measures time measures the machine, not the page.** The
+  settle is right in principle and its unit is wrong: "still for 500ms" means
+  something different on a loaded machine, and the failure mode is silent
+  because the scan believes it settled. Every wall-clock threshold in a suite
+  that runs in parallel has this shape.
+- **Measuring before concluding worked this time.** Run 78 filed a vendor
+  regression from one sighting; here the same instinct was checked with 3 runs
+  alone and 2 under load before writing anything down, and the answer was the
+  opposite of "flaky test".
+- **`git clean -nd` is the instrument for scratch, not `rm -rf`.** Last run I
+  deleted ten committed case files while tidying. This run produced 20
+  untracked case files in the same directories, and a dry run then
+  `git clean -fd` removed exactly those.
+
+**Next:** item 64. Everything else is waiting on the owner.

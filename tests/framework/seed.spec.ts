@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { casesFor, readableTitle, storiesFor, storyFields } from '../../src/support/cases/seed';
+import {
+  casesBySet,
+  casesFor,
+  readableTitle,
+  storiesFor,
+  storyFields,
+} from '../../src/support/cases/seed';
 import type { SpecFact } from '../../src/support/cases/specs';
 
 /**
@@ -48,8 +54,8 @@ test.describe('cases', () => {
     ]);
 
     expect(cases).toEqual([
-      { id: 'DEMO-1-01', name: 'A shopper can sign in' },
-      { id: 'DEMO-1-02', name: 'A wrong password is refused' },
+      { id: 'DEMO-1-01', name: 'A shopper can sign in', set: 'demo' },
+      { id: 'DEMO-1-02', name: 'A wrong password is refused', set: 'demo' },
     ]);
   });
 
@@ -78,6 +84,33 @@ test.describe('cases', () => {
     // A case can legitimately be implemented by more than one spec; seeding
     // it twice would make the count a lie.
     expect(casesFor([spec({ caseId: 'DEMO-1-01' }), spec({ caseId: 'DEMO-1-01' })])).toHaveLength(1);
+  });
+});
+
+test.describe('sets', () => {
+  /*
+     Item 63. One project holds every application's cases, so "the cases for
+     this suite" is only answerable once each application owns a set — and
+     `pull-cases` looks it up by the application's own name rather than
+     carrying an id in a profile, which is the conventions' rule about
+     internal identifiers applied to somebody else's system.
+  */
+  test('groups cases by the application whose pack they live in', () => {
+    const bySet = casesBySet([
+      spec({ caseId: 'A-1', file: 'src/targets/alpha/tests/e2e/x.spec.ts' }),
+      spec({ caseId: 'A-2', file: 'src/targets/alpha/tests/api/y.spec.ts' }),
+      spec({ caseId: 'B-1', file: 'src/targets/beta/tests/e2e/z.spec.ts' }),
+    ]);
+
+    expect([...bySet.keys()].sort()).toEqual(['alpha', 'beta']);
+    expect(bySet.get('alpha')).toHaveLength(2);
+    expect(bySet.get('beta')).toHaveLength(1);
+  });
+
+  test('a spec outside any pack belongs to no set rather than to an arbitrary one', () => {
+    // Putting it somewhere would be worse than leaving it out: a case in the
+    // wrong set is traced to an application that never claimed it.
+    expect(casesBySet([spec({ caseId: 'X-1', file: 'tests/framework/x.spec.ts' })]).size).toBe(0);
   });
 });
 

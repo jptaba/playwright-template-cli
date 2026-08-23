@@ -230,6 +230,46 @@ export class PractiTestClient {
   }
 
   /** Cases in the project, optionally scoped to a set (§09, Track B). */
+  /**
+   * The id of a set, by its name — item 63.
+   *
+   * **Looked up rather than written down.** One project holds every
+   * application's cases, so "the cases for this application" is only a real
+   * question once there is a set per application; and the set's *id* is an
+   * internal identifier of somebody else's system. The conventions already
+   * refuse transcribed internal ids for the application under test, and the
+   * reasoning carries: a number in a profile is unverifiable, and it points
+   * silently at the wrong set the day the project is rebuilt. The name is the
+   * thing a person chose and can check.
+   *
+   * @returns the id, or null when no set carries that name — which is a real
+   * answer and the caller says what to do about it, rather than falling back
+   * to every case in the project.
+   */
+  async findSetByName(name: string): Promise<string | null> {
+    const http = await this.client();
+    try {
+      const response = await http.get<{ data?: PractiTestEntity[] }>(
+        `projects/${this.config.projectId}/sets.json`,
+        { query: { 'filter[name]': name, page_size: 100 } },
+      );
+      /*
+         Filtered again here rather than trusting the query. `filter[name]` is
+         documented as a match rather than an exact match, so a project with
+         `shop` and `shop-staging` would hand back both and the first one wins
+         by accident — which is the quietest possible way to trace a suite to
+         the wrong application's cases.
+      */
+      const exact = (response.body.data ?? []).find(
+        (entity) => String(entity.attributes?.name ?? '') === name,
+      );
+      return exact?.id ?? null;
+    } catch (error) {
+      if (isUnauthorized(error)) throw new PractiTestAuthError(error);
+      throw error;
+    }
+  }
+
   async listCases(options: { setId?: string; pageSize?: number } = {}): Promise<
     Array<{ id: string; attributes?: Record<string, unknown>; steps?: Array<Record<string, unknown>> }>
   > {

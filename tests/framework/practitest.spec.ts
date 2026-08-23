@@ -43,6 +43,63 @@ test.describe('PractiTestClient', () => {
     await server.stop();
   });
 
+  test.describe('one set per application', () => {
+    /*
+       Item 63. Stage 2 of the journey is satisfied by cases *or* a story, and
+       it had only ever been the story: one PractiTest project holds every
+       application's cases, so an unfiltered pull hands back all of them.
+       Reporting 62 cases — mostly other applications' requirements — as this
+       suite's traceability is the same false green the story half carried
+       until it was made target-specific.
+    */
+    test('a set is found by the name a person chose, not by a written-down id', async () => {
+      const id = server.seedSet('acme-shop');
+      const client = clientFor();
+
+      expect(await client.findSetByName('acme-shop')).toBe(id);
+      await client.dispose();
+    });
+
+    test('a name that matches nothing is null, not the whole project', async () => {
+      // The caller says what to do about it. Falling back to every case is
+      // the wrong answer this whole item is about.
+      server.seedSet('acme-shop');
+      const client = clientFor();
+
+      expect(await client.findSetByName('other-shop')).toBeNull();
+      await client.dispose();
+    });
+
+    test('a partial match is refused, because the real filter is not exact', async () => {
+      /*
+         `filter[name]` matches rather than equals in the real API, so a
+         project with `shop` and `shop-staging` hands back both and the first
+         wins by accident — the quietest possible way to trace a suite to
+         another application's cases. The fake matches loosely on purpose so
+         this stays honest.
+      */
+      const staging = server.seedSet('shop-staging');
+      const client = clientFor();
+
+      expect(await client.findSetByName('shop')).toBeNull();
+      expect(await client.findSetByName('shop-staging')).toBe(staging);
+      await client.dispose();
+    });
+
+    test('listing by set returns that application’s cases and no others', async () => {
+      server.seedCase('SHOP-1', { setName: 'acme-shop' });
+      server.seedCase('SHOP-2', { setName: 'acme-shop' });
+      server.seedCase('OTHER-1', { setName: 'other-shop' });
+      const client = clientFor();
+
+      const setId = await client.findSetByName('acme-shop');
+      const cases = await client.listCases({ setId: setId! });
+
+      expect(cases).toHaveLength(2);
+      await client.dispose();
+    });
+  });
+
   test('chunks results into the documented maximum of 20 per POST', async () => {
     for (let index = 1; index <= 45; index++) server.seedCase(String(index));
     const client = clientFor();
