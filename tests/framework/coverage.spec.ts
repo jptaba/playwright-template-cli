@@ -38,6 +38,8 @@ const spec = (overrides: Partial<SpecFact> = {}): SpecFact => ({
   caseId: null,
   casePath: null,
   caseHash: null,
+  jiraKey: null,
+  groundTruth: null,
   ...overrides,
 });
 

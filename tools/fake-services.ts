@@ -3,6 +3,8 @@ import { FakeJiraServer } from '../tests/support/fake-jira-server';
 import { FakePractiTestServer } from '../tests/support/fake-practitest-server';
 import { FakeSmtpServer } from '../tests/support/fake-smtp-server';
 import { FakeTeamsServer } from '../tests/support/fake-teams-server';
+import { readSpecs } from '../src/support/cases/collect';
+import { casesFor, storiesFor, storyFields } from '../src/support/cases/seed';
 
 /**
  * `npm run fakes:serve` — Jira and PractiTest, locally, for as long as you
@@ -32,85 +34,19 @@ import { FakeTeamsServer } from '../tests/support/fake-teams-server';
  *     notification paths can be exercised with no channel and no mailbox.
  */
 /**
- * The failures, injected **here** — in the seeded cases and the story that
- * describes them — rather than invented in a pack.
+ * What gets seeded is **derived from the suite**, not written down here.
  *
- * That is the owner's instruction and it is the right way round: a case is
- * where a person says what should happen, so a case describing a known-cause
- * failure is where the cause is *stated*. The pack's `tests/triage-fixture/`
- * specs implement these cases, and `publish:practitest` pushes their results
- * back against them — so the loop closes on the same ids it started from.
+ * This file used to carry `TF-RB-01…04` and three `RB-*` stories as constants,
+ * so `npm run app:journey` traced green for one application and reported
+ * *"nothing traced"* for the other four (items 46 and 48). The ids and the
+ * story keys are already in every spec's annotations — the same ones
+ * `triage:measure` scores and `publish:practitest` pushes against — so reading
+ * them means a newly onboarded application is seeded with no change here.
  *
- * Each carries the triage category it should produce, in the case name, so
- * seeing the seed tells you what the measurement expects without opening a
- * spec.
+ * The failures are still *stated in the cases* rather than invented in a pack,
+ * which is the owner's instruction: a ground-truth spec's category goes into
+ * the case name, so reading the seed tells you what the measurement expects.
  */
-const FAILURE_CASES: Array<[string, string]> = [
-  ['TF-RB-01', 'A control that is not on the page → locator-drift'],
-  ['TF-RB-02', 'An assertion about data the spec did not create → test-data'],
-  ['TF-RB-03', 'A page that will not load because the address is wrong → network-infrastructure'],
-  ['TF-RB-04', 'A wait too short for a page that fetches → timing-synchronisation'],
-];
-
-const SEEDED_STORIES: Array<[string, Record<string, unknown>]> = [
-  [
-    'RB-1',
-    {
-      summary: 'An administrator can keep the room list up to date',
-      description: [
-        'As an administrator I want to add and remove rooms so that the rooms guests can book',
-        'reflect what the hotel actually has.',
-        '',
-        // The heading the extractor looks for. A story without it is refused
-        // rather than guessed at, which is the rule being exercised here.
-        'Acceptance Criteria',
-        '* A room I create appears in the room list',
-        '* A room I remove is gone from the room list',
-        '* A room with no name is refused, and the form says why',
-      ].join('\n'),
-      status: { name: 'In Progress' },
-      issuetype: { name: 'Story' },
-    },
-  ],
-  [
-    'RB-2',
-    {
-      summary: 'The room form refuses what the service will not accept',
-      description: [
-        'As an administrator I want the form to tell me why a room was rejected so that I am',
-        'not left guessing which field was wrong.',
-        '',
-        'Acceptance Criteria',
-        '* A price below the allowed range is refused',
-        '* A price above the allowed range is refused',
-        '* Both ends of the allowed range are accepted',
-      ].join('\n'),
-      status: { name: 'In Progress' },
-      issuetype: { name: 'Story' },
-    },
-  ],
-  [
-    // The story the deliberate failures belong to. Triage is a product
-    // capability like any other, and it is only exercised by things that fail.
-    'RB-9',
-    {
-      summary: 'Failures are classified so a run says where to look',
-      description: [
-        'As a tester I want a failing run to say which kind of failure it was so that I am not',
-        'reading four stack traces to find out whether the application is broken.',
-        '',
-        'Acceptance Criteria',
-        '* A control that is not on the page is classified as locator drift',
-        '* An assertion about data the spec did not create is classified as test data',
-        '* An unreachable address is classified as network or infrastructure',
-        '* A wait shorter than the page takes is classified as timing',
-      ].join('\n'),
-      status: { name: 'In Progress' },
-      issuetype: { name: 'Story' },
-    },
-  ],
-];
-
 async function main(): Promise<void> {
   const jira = new FakeJiraServer();
   const practitest = new FakePractiTestServer();
@@ -122,37 +58,45 @@ async function main(): Promise<void> {
   const teamsUrl = await teams.start();
   const mailbox = await smtp.start();
 
-  for (const [key, fields] of SEEDED_STORIES) jira.seedIssue(key, fields);
+  /*
+     Every onboarded application, because the journey is run per application
+     and a fake that only knows one of them sends the other four to a stage
+     that cannot pass.
+  */
+  const specs = await readSpecs();
+  const stories = storiesFor(specs);
+  const cases = casesFor(specs);
+
+  for (const story of stories) jira.seedIssue(story.key, storyFields(story));
+  for (const entry of cases) practitest.seedCase(entry.id, { name: entry.name } as never);
 
   /*
-     Seeded from the case ids the specs already carry, so a pull finds the
-     cases those specs claim rather than a set invented here. A fake whose
-     contents have nothing to do with the suite proves the plumbing and
-     nothing else.
+     Still honoured, for a case id that no spec claims yet — writing the spec
+     after pulling the case is a legitimate order to work in.
   */
-  const caseIds = process.argv
+  const extra = process.argv
     .filter((argument) => argument.startsWith('--cases='))
     .flatMap((argument) => argument.slice('--cases='.length).split(','))
     .filter(Boolean);
-  for (const id of caseIds) practitest.seedCase(id, { name: `Case ${id}` } as never);
-
-  /*
-     The deliberate failures, seeded as cases in their own right. Without them
-     the fixture's results have no case to be pushed against, and triage would
-     be measuring specs that PractiTest has never heard of.
-  */
-  for (const [id, name] of FAILURE_CASES) practitest.seedCase(id, { name } as never);
+  for (const id of extra) practitest.seedCase(id, { name: `Case ${id}` } as never);
 
   console.log('Fake services are up. They hold no data between runs.\n');
   console.log('  Jira        (user stories)        ', jiraUrl);
   console.log('  PractiTest  (cases in, results out)', practitestUrl);
   console.log('  Teams       (report out)          ', teamsUrl);
   console.log(`  SMTP        (report out)           ${mailbox.host}:${mailbox.port}`);
-  if (caseIds.length > 0) {
-    console.log(`\n  Seeded ${caseIds.length} passing case(s): ${caseIds.join(', ')}`);
+  const groundTruth = cases.filter((entry) => entry.name.includes(' → '));
+  console.log(
+    `\n  Seeded ${cases.length} case(s) and ${stories.length} story(ies), read from the specs` +
+      ` on disk${extra.length > 0 ? ` (plus ${extra.length} asked for)` : ''}.`,
+  );
+  console.log(`  Stories: ${stories.map((story) => story.key).join(', ') || 'none'}`);
+  if (groundTruth.length > 0) {
+    // Named individually because these are triage's input: the deliberate
+    // failures, each stating the category it should produce.
+    console.log(`\n  Of those, ${groundTruth.length} deliberate-failure case(s):`);
+    for (const entry of groundTruth) console.log(`    ${entry.id}  ${entry.name}`);
   }
-  console.log(`\n  Seeded ${FAILURE_CASES.length} deliberate-failure case(s) — triage's input:`);
-  for (const [id, name] of FAILURE_CASES) console.log(`    ${id}  ${name}`);
   console.log('\nExport these in the shell you run the tools from:\n');
   console.log(`  export JIRA_BASE_URL=${jiraUrl}`);
   console.log('  export JIRA_PAT=jira-service-pat');
@@ -165,7 +109,13 @@ async function main(): Promise<void> {
   console.log(`  export SMTP_HOST=${mailbox.host} SMTP_PORT=${mailbox.port} SMTP_SECURE=false`);
   console.log('  export DIGEST_TO=qa-team@fake.invalid DIGEST_FROM=qa-automation@fake.invalid');
   console.log('  export TEAMS_ALWAYS=true DIGEST_ALWAYS=true   # notify on green runs too\n');
-  console.log('Then: npm run story:pull -- RB-1 · npm run publish:practitest · npm run notify:teams · npm run notify:email');
+  // The first seeded story rather than a literal, so the hint names one that
+  // exists whatever is onboarded.
+  const example = stories[0]?.key ?? '<story>';
+  console.log(
+    `Then: npm run story:pull -- ${example} · npm run publish:practitest · ` +
+      'npm run notify:teams · npm run notify:email',
+  );
   console.log('Ctrl+C to stop.\n');
 
   const shutdown = async (): Promise<void> => {

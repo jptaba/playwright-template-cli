@@ -3366,3 +3366,79 @@ The original item follows.
 in run 77 four days earlier. Nothing in this repository changed for that pack.
 `A11Y-001`, scanning the dashboard: critical `button-name` on 1 node, serious
 `color-contrast` on 3, `list` on 1.
+
+### 46 & 48. The journey, and its seeded cases, for one application only — `done`
+
+Shipped together on `agent/2026-08-23-journey-for-every-application` (run 80),
+because they are one gap seen from two ends.
+
+**The cause was a literal in a tool.** `tools/fake-services.ts` carried
+`TF-RB-01…04` and three `RB-*` stories as constants, so `npm run app:journey`
+traced green for `restful-booker` and reported *"nothing traced"* for the other
+four. Four of five suites could not complete the journey this repository exists
+to demonstrate, and no application-specific work was needed to fix it.
+
+**The seed is derived now**, from the `practitest`, `jira` and
+`triage-ground-truth` annotations the specs already carry — the same ones
+`triage:measure` scores and `publish:practitest` pushes against. `SpecFact`
+grew two fields; `src/support/cases/seed.ts` shapes them.
+
+| | before | after |
+|---|---|---|
+| cases | 4 | **62** |
+| stories | 3 | **22** |
+| applications covered | 1 | **5** |
+
+A newly onboarded application is seeded by the same command with no framework
+change, which is the property that made `triage-ground-truth` an annotation
+rather than an export.
+
+**The failures are still stated in the cases**, per the owner's instruction: a
+ground-truth spec's category goes into the case name, so reading the seed tells
+you what the measurement expects without opening a spec.
+
+**Running it for all five found a false green, which is the point of running
+it.** Stage 2's story fallback took the first `stories/*.json` on disk — not
+this target's, and not even this run's, since the directory is committed and
+holds `TOOL-*.json`. The journey for `orangehrm` duly reported *"story TOOL-1
+pulled from Jira"* and marked traceability **done**. A stage built to catch
+"traced to nothing" was satisfiable by "traced to somebody else's
+requirement". It now asks the target's own specs which story they cite.
+
+**Also fixed: a parked application's run said nothing about being parked.**
+`app:journey --target=parabank` reported *"2/7 passed · 5 failed"* for an
+application deliberately paused with a reason and a review date — the signal
+parking exists to protect. It still runs, because naming one is a deliberate
+act and `suites:live --target=` takes it the same way, but the line now says
+`— parked: <reason>`.
+
+**Where every application stands afterwards:**
+
+| application | stages | what is left |
+|---|---|---|
+| **saucedemo** | **6 of 6** | — |
+| orangehrm | 5 of 6 | run — item 62 |
+| restful-booker | 5 of 6 | run — 12/13, one flake |
+| parabank | 5 of 6 | run — parked |
+| toolshop | 4 of 6 | coverage (item 52), run (item 62) |
+
+Every application reaches stages 1, 2, 5 and 6. **saucedemo is the second
+application to complete all six**, and the first that needed no bespoke setup
+to do it.
+
+**One thing found and deliberately not fixed**, raised as item 63: `pull-cases`
+returns 0 for every target against a fake holding 62 cases, because the fake's
+`GET /tests.json` only matches an identity filter. Making it return everything
+is the wrong fix — one project holding five applications' cases would turn
+stage 2 green everywhere on a pile that is mostly other applications'
+requirements, which is the false green this run removed from the story half.
+
+The original items follow.
+
+**46.** `npm run fakes:serve` and `npm run app:journey` exist and the six-stage
+journey has been run green for `restful-booker`. What is left is narrower: run
+it for the other four, and fix what it reports.
+
+**48.** `fakes:serve` seeds four deliberate-failure cases and a Jira story
+stating them as acceptance criteria — for `restful-booker`. The other
+applications have neither, and the two should be done together per application.

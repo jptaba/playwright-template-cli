@@ -18,13 +18,16 @@ decide what to do.
 | 62 | Two applications have real accessibility violations, newly visible | `blocked` |
 | 52 | One coverage cell is left, and it is blocked | `blocked` |
 | 56 | Toolshop's cart is per-tab, and its profile says it is per-account | `blocked` |
-| 46 | The journey has been run for one application, not five | `ready` |
-| 48 | Seeded failure cases exist for one application, not five | `ready` |
+| 63 | The case half of traceability is never exercised | `ready` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
-**Items 51, 53, 55, 58, 59, 60 and 61 are `done`** and archived in
-`backlog.md`. **Item 61 closed in run 79, and it was not what it said it
+**Items 46, 48, 51, 53, 55, 58, 59, 60 and 61 are `done`** and archived in
+`backlog.md`. **46 and 48 closed together in run 80**: the fakes seed from the
+specs on disk rather than from one application's ids — 62 cases and 22 stories
+across all five, where it was 4 and 3 — and the journey has now been run for
+every application. **saucedemo completes all six stages**, the second
+application to do so. **Item 61 closed in run 79, and it was not what it said it
 was** — not a vendor regression but a framework defect: the accessibility scan
 ran before single-page applications had rendered, so it had been reporting
 false passes for as long as it existed. The scan now waits for the DOM to stop
@@ -61,8 +64,21 @@ reaches the packs that already exist.
 What is left of it is a decision only the owner can take, so it is `blocked`
 rather than ready.
 
-**Take 46 and 48 next**, together — one command per application. Item 62 is
-`blocked` on an owner decision rather than on work.
+**Take item 63 next.** Everything else `ready` is closed; 62, 56, 52 and 49 are
+waiting on the owner rather than on work.
+
+**Where the journey stands, run 80, every application:**
+
+| application | stages | what is left |
+|---|---|---|
+| **saucedemo** | **6 of 6** | — |
+| orangehrm | 5 of 6 | run — the a11y violations, item 62 |
+| restful-booker | 5 of 6 | run — 12/13, one flake |
+| parabank | 5 of 6 | run — parked, and the line now says so |
+| toolshop | 4 of 6 | coverage (`@audit`, item 52) and run (item 62) |
+
+Every application reaches stages 1, 2, 5 and 6. Every remaining failure is a
+known item, and three of the four are the owner's call.
 
 **Toolshop's live suite failed on a different spec in each of runs 75 and 76** —
 `TOOL-3-03` in the cart's cleanup, then `TOOL-1-02` settled as
@@ -75,51 +91,6 @@ sighting has something to join.
 accident while archiving item 51 — the two were adjacent, and the row in the
 table above survived while its body did not. Worth a glance whenever a section
 is cut from this file.)*
-
----
-
-### 60. The scaffold's next step names the file onboarding refuses to write to — `ready`
-
-**Found in run 74**, by onboarding a scratch target end to end through the
-running dashboard against `https://www.saucedemo.com` and reading the result
-panel — not by reading source. The credential was written to the **gitignored**
-`config/secrets.private.json`, which is the default step 4 offers and the
-correct one. The panel then said:
-
-> 1. Add credentials for standard to `config/secrets.local.json` — the keys are
->    listed above.
-
-Both halves are wrong at that moment. The credential **had just been written**,
-so there is nothing to add; and the file named is the **tracked** one, which
-`.gitignore`, the Test users page and item 15 all say is the wrong place for
-anything real.
-
-**Where it is.** `src/support/onboarding/scaffold.ts:419` hardcodes the path:
-
-```ts
-secretSource === 'local'
-  ? `Add credentials for ${roles.join(', ')} to config/secrets.local.json — …`
-  : `Write username and password to ${credentialPaths[0]} in Vault (…)`
-```
-
-**This is item 15's defect one layer over, and that is the useful part.** Run 17
-fixed *where onboarding writes* a credential and left *what onboarding tells you
-to do* naming the old destination. The same shape as items 14 and 17: the page
-contradicting what it just did. Verified on disk in the same run — the tracked
-file's checksum was byte-identical before and after, so the write is right and
-only the instruction is wrong.
-
-**Shape.** `buildScaffold` already takes `secretSource`; it needs to know
-whether credentials were supplied and which of `WRITABLE_LOCATIONS` they went
-to, and to say either nothing or the right file. The CLI path — where nobody
-typed a credential — still needs the instruction, so this is a message that
-varies rather than one to delete. Prefer naming the location the caller
-actually used over defaulting to either file.
-
-**Do not fix it by editing a pack.** The message is generated; the generator is
-the thing that is wrong.
-
----
 
 ### 62. Two applications have real accessibility violations, newly visible — `blocked`
 
@@ -247,25 +218,35 @@ because only toolshop declares a `poolSize`; the next application to declare
 one inherits the same unexamined claim. `pool:measure` is what that application
 now has and toolshop did not.
 
-### 46. The journey has been run for one application, not five — `ready`
+### 63. The case half of traceability is never exercised — `ready`
 
-**Rewritten in run 59: the original claim is out of date.** It said the
-operational surfaces could only be exercised by whoever owned a PractiTest
-licence. `npm run fakes:serve` and `npm run app:journey` now exist, and the
-whole six-stage journey has been run green end to end for `restful-booker`.
+**Found in run 80**, running the journey for all five. Stage 2 is satisfied by
+*either* cases out of PractiTest *or* a story out of Jira, and it has only ever
+been the story: `pull-cases` returns **0 for every target**, against a fake
+holding 62 seeded cases.
 
-What is actually left is narrower: **run it for the other four**, and fix what
-it reports. That is one command per application, and items 51 and 52 are most
-of what it will report.
+**Why.** The fake's `GET /tests.json` filters on
+`filter[custom-fields][case-identity]` and returns only cases whose `identity`
+matches. Seeded cases carry none, so an unfiltered list matches nothing. The
+real API returns every test in the project when unfiltered.
 
----
+**Do not just make the fake return everything**, which is the ten-second fix
+and the wrong one. With one PractiTest project holding every application's
+cases, an unfiltered pull returns all 62 for whichever target asked — so stage
+2 would go green everywhere on a pile that is mostly other applications'
+requirements. That is the false green run 80 removed from the story half,
+reintroduced through the other door.
 
-### 48. Seeded failure cases exist for one application, not five — `ready`
+**Answer first what "the cases for this application" means** in a single
+project. A PractiTest **set** per application is the obvious candidate —
+`pull-cases` already accepts `--set=` and passes it through — and if that is
+the answer then the fake needs sets, the profile needs somewhere to name one,
+and `fakes:serve` needs to seed per set. A design decision worth taking
+deliberately rather than discovering.
 
-Also narrower than written. `fakes:serve` seeds four deliberate-failure cases
-and a Jira story stating them as acceptance criteria — for `restful-booker`.
-The other applications have neither, which is the same gap as item 51 seen from
-the services' end, and the two should be done together per application.
+**Not urgent**, because the story half traces correctly now and stage 2 passes
+honestly for all five. It is a capability that is built, wired and never
+exercised end to end — which is the state items 46 and 48 were raised about.
 
 ---
 

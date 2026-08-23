@@ -4,6 +4,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { resolveTarget, targetNames } from '../config/target';
 import { REPO_ROOT, RESULTS_DIR } from '../src/support/paths';
+import { readSpecs } from '../src/support/cases/collect';
 import {
   coveragePresent,
   formatJourney,
@@ -48,7 +49,7 @@ function specSources(target: string): string[] {
   return sources;
 }
 
-function main(): number {
+async function main(): Promise<number> {
   const target = process.argv
     .filter((argument) => argument.startsWith('--target='))
     .map((argument) => argument.slice('--target='.length))[0];
@@ -92,13 +93,23 @@ function main(): number {
 
   let traced = caseCount > 0 ? `${caseCount} case(s) pulled from PractiTest` : '';
   if (!traced) {
-    // Fall back to a story. The stories on disk name themselves, so the first
-    // one is what this suite claims to implement.
-    const storyDir = path.join(REPO_ROOT, 'stories');
-    const known = fs.existsSync(storyDir)
-      ? fs.readdirSync(storyDir).filter((file) => file.endsWith('.json'))
-      : [];
-    const key = known[0]?.replace(/\.json$/, '');
+    /*
+       Fall back to a story — **this target's**.
+
+       It used to take the first `stories/*.json` on disk, which is neither
+       this target's nor even this run's: the directory is leftover state from
+       whatever was pulled last. Running the journey for `orangehrm` duly
+       reported *"story TOOL-1 pulled from Jira"* and marked the stage green,
+       which is a traceability claim satisfied by a different application's
+       requirement. A stage that exists to catch "traced to nothing" must not
+       be satisfiable by "traced to somebody else".
+
+       The keys come from the specs' own `jira` annotations, which is the only
+       statement in the repository of which story a spec is for.
+    */
+    const key = (await readSpecs(target))
+      .map((spec) => spec.jiraKey)
+      .find((candidate): candidate is string => Boolean(candidate));
     if (key) {
       const story = shell('npx', ['tsx', 'tools/pull-story.ts', key], env);
       if (story.status === 0 && /acceptance criteria/.test(story.stdout)) {
@@ -129,12 +140,22 @@ function main(): number {
         : `missing: ${missing.map((entry) => `${entry.kind} (${entry.tag})`).join(', ')}`,
   });
 
-  // 4 — the live suite.
+  /*
+     4 — the live suite.
+
+     A parked application is still run, because naming one is a deliberate act
+     and `suites:live --target=` takes it the same way — but the line says so.
+     Without that, the journey reported *"2/7 passed · 5 failed"* for an
+     application somebody had deliberately paused, with a reason and a review
+     date, which is the signal parking exists to protect.
+  */
+  const parked = resolveTarget(target).parked;
   const live = shell('npx', ['tsx', 'tools/live-suites.ts', `--target=${target}`]);
+  const counts = (live.stdout.match(/\d+\/\d+ passed[^\n]*/) ?? ['the live suite did not pass'])[0];
   add({
     stage: 'run',
     state: live.status === 0 ? 'done' : 'failed',
-    detail: (live.stdout.match(/\d+\/\d+ passed[^\n]*/) ?? ['the live suite did not pass'])[0],
+    detail: parked ? `${counts} — parked: ${parked.reason}` : counts,
   });
 
   /*
@@ -182,9 +203,9 @@ function main(): number {
   return journeyComplete(results) ? 0 : 1;
 }
 
-try {
-  process.exit(main());
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(2);
-}
+main()
+  .then((code) => process.exit(code))
+  .catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(2);
+  });

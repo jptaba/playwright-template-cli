@@ -41,6 +41,22 @@ export interface SpecFact {
   casePath: string | null;
   /** The `case-hash` annotation — which version of that case. */
   caseHash: string | null;
+  /**
+   * The `jira` annotation — the story this spec helps satisfy.
+   *
+   * Read here so that `fakes:serve` can stand up a story per key rather than
+   * carrying one application's stories as a constant. The link already exists
+   * in every spec that has one; nothing new is being asked of an author.
+   */
+  jiraKey: string | null;
+  /**
+   * The `triage-ground-truth` annotation — the category this spec is written
+   * to produce, on a `tests/triage-fixture/` spec.
+   *
+   * The same annotation `triage:measure` scores against, read here so the
+   * seeded case and the measurement cannot describe different things.
+   */
+  groundTruth: string | null;
 }
 
 /**
@@ -155,6 +171,8 @@ export function readSpecFacts(source: SourceFile, file: string): SpecFact[] {
       caseId: cited.get('practitest')?.trim() || null,
       casePath: cited.get('case')?.trim() || null,
       caseHash: cited.get('case-hash')?.trim() || null,
+      jiraKey: cited.get('jira')?.trim() || null,
+      groundTruth: cited.get('triage-ground-truth')?.trim() || null,
     });
   });
 

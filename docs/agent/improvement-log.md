@@ -5629,3 +5629,80 @@ rule contradicted nothing.
 
 **Next:** items 46 and 48 together — one command per application. Item 62 is
 blocked on an owner decision, not on work.
+
+## 2026-08-23 · run 80 · The journey runs for every application, not one
+
+**Picked:** items 46 and 48, together, as the file says they should be — one
+gap seen from two ends.
+
+**The cause was a literal in a tool.** `fake-services.ts` carried `TF-RB-01…04`
+and three `RB-*` stories as constants, so the journey traced green for
+`restful-booker` and reported "nothing traced" for the other four. Nothing
+application-specific was needed; the seed is derived now, from the
+`practitest`, `jira` and `triage-ground-truth` annotations the specs already
+carry.
+
+| | before | after |
+|---|---|---|
+| cases | 4 | **62** |
+| stories | 3 | **22** |
+| applications covered | 1 | **5** |
+
+**Running it for all five is what found the interesting defect**, which is the
+whole argument for item 46 being a doing task rather than a reading one. Stage
+2's story fallback took the first `stories/*.json` on disk — committed files,
+so `TOOL-*.json` every time. The `orangehrm` journey reported *"story TOOL-1
+pulled from Jira"* and marked traceability **done**: a stage built to catch
+"traced to nothing" was satisfiable by "traced to another application's
+requirement". It now asks the target's own specs which story they cite.
+
+**Also fixed:** a parked application's run line said nothing about being
+parked. `parabank` reported "2/7 passed · 5 failed" for a suite somebody had
+deliberately paused with a review date.
+
+**Where every application stands:**
+
+| application | stages | what is left |
+|---|---|---|
+| **saucedemo** | **6 of 6** | — |
+| orangehrm | 5 of 6 | run — item 62 |
+| restful-booker | 5 of 6 | run — 12/13, one flake |
+| parabank | 5 of 6 | run — parked |
+| toolshop | 4 of 6 | coverage (item 52), run (item 62) |
+
+Every application reaches stages 1, 2, 5 and 6.
+
+**Verify:** `npm run verify` passes, exit 0 — **1126 tests**, up from 1117.
+
+**Live suites** were exercised through the journey per application rather than
+in one pass: orangehrm 6/7, restful-booker 12/13, saucedemo 6/6, toolshop
+21/22, parabank 2/7 parked. The two a11y reds are item 62, unchanged and
+deliberate.
+
+**Triage agreement, per application, from the journey's own stage 5:** toolshop
+**4 · 0 · 0**, orangehrm **4 · 0 · 0**, restful-booker **3 · 0 · 1**, saucedemo
+**1 · 0 · 3**, parabank **4 · 0 · 0**. Unchanged.
+
+**Learned:**
+
+- **A false green survives precisely as long as nobody runs the thing twice.**
+  Stage 2 had been green for `restful-booker` since run 59 and would have
+  stayed green for every application the moment the seed covered them — on a
+  story belonging to whichever target sorted first. Running it for the second
+  application is what exposed it, and that is the entire content of item 46.
+- **Committed state makes a per-run bug look stable.** `stories/TOOL-*.json`
+  are tracked, so the wrong answer was the *same* wrong answer on every machine
+  and every run, which is exactly how it passed for months.
+- **I deleted tracked files while tidying.** `rm -rf stories cases` took ten
+  committed case files and five stories with the run's own artifacts;
+  `git status` caught it and `git checkout --` restored them. Scratch cleanup
+  needs to name what it created, not a directory that also holds repository
+  content.
+- **A section-removal script must verify what it removed.** Cutting items 46
+  and 48 from `open-items.md` also took 62, 52 and 56, because a `rindex` for
+  the preceding separator walked back past a heading. The file already warns
+  about this — run 66 lost item 52's body the same way — so the fix is to
+  print the section list before and after, which is what caught it this time.
+
+**Next:** item 63. Everything else `ready` is closed, and 62, 56, 52 and 49 are
+waiting on the owner.
