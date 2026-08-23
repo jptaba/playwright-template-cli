@@ -6131,3 +6131,88 @@ matters: make the assertions safe, prove it at width, *then* lift.
 
 **Next:** nothing is `ready`. 68 is a hypothesis, 49 needs credentials only the
 owner has, 11 is standing — so the next run is a scan run.
+
+## 2026-08-23 · run 86 · A scan run, and the crowding was state nobody clears
+
+**Picked:** nothing — a scan run, which the file's own rule calls for when
+nothing is `ready`. Drove the dashboard and the onboarding page rather than
+reading them.
+
+**Raised item 69, and it is the standing priority exactly.** The onboarding
+page, measured on the running page at 1280×720:
+
+| state | height | screens | steps revealed | name field |
+|---|---|---|---|---|
+| no draft on disk | **1761px** | 2.45 | 1 of 5 | empty |
+| the draft this machine had | **3173px** | **4.41** | **3 of 5** | `fold-scratch` |
+
+**+80% height and two extra steps**, from `.onboarding-draft.json` written on
+2026-08-19 by a run testing something else. It names a scratch target that no
+longer exists and pre-fills twelve fields with that application's readings.
+
+The 1761px matches the 1714px item 23 recorded when progressive disclosure
+shipped — so **the disclosure mechanism is working perfectly**, and what
+defeats it is state nobody clears. `savedAt` is written and read only for
+non-emptiness (`dashboard-page.ts:904`, `:917`); its value is never compared to
+anything, so there is no expiry. `offboard.ts` and `tools/offboard.ts` contain
+the string `draft` zero times, so `target:remove` takes the profile, the pack,
+the credentials and the sessions and leaves the draft describing what it just
+removed.
+
+**Raised item 70**, small: `npm run onboard`'s own docstring says it opens the
+onboarding page, and the server always opens `/`. The root adapts — onboarding
+with nothing onboarded, Runs with five — so the claim holds for a first-time
+user and fails for everybody else.
+
+**Three things nearly went in wrong, and that is the entry.**
+
+- A **copy bug** — the accessibility tree rendered *"Two at a time. A third is
+  rather than queued"* with "refused" as a detached node. `get_page_text` shows
+  the sentence intact. An artifact of how the tree flattens an inline element.
+- A **truncated sentence** — *"…so this is"* in the tree, complete on the page.
+  Same cause.
+- **Item 70 as a much larger finding.** First seen with five applications, and
+  written up as "the onboarding command does not open onboarding". Driving the
+  zero-application case showed the root adapts. Reading `onboard.ts` would have
+  *confirmed* the wrong conclusion — nine lines, no routing in them, because
+  the routing is elsewhere.
+
+**And a fourth**, which is the one worth keeping: the revealed steps 2 and 3
+looked like a regression of item 18 until the draft on disk explained them.
+Filing that would have sent somebody to fix a mechanism that is working.
+
+**Nothing was committed to a finding until it had been reproduced on a rendered
+page.**
+
+**Also checked, and clean:** 375px phone width — no horizontal scroll, nothing
+overflowing, so item 25's fix holds. The Runs page with no application selected
+says *"Choose an application in the bar at the top of the page. A run has to be
+against one."*, which is clear.
+
+**Method note.** Reproducing the zero-application state meant moving all five
+profiles out of `config/targets/` and the draft aside, then restoring both.
+`git status` was empty afterwards and the draft is byte-intact — worth doing
+that way rather than reasoning about an empty repository, because the root
+route's adaptation is exactly what nobody would have predicted.
+
+**Verify:** `npm run verify` passes, exit 0 — **1148 tests**. No code changed
+this run.
+
+**Live suites:** not re-run — nothing in this run touched a target, a fixture
+or a rule, and run 85 ended with two clean passes an hour earlier.
+
+**Learned:**
+
+- **The accessibility tree is a lossy view of the text.** Two of four candidate
+  findings were flattening artifacts. Read the rendered text before believing a
+  copy defect — the tree is the right tool for structure and roles, not for
+  prose.
+- **Check the environment before blaming the code.** The crowded page was a
+  four-day-old file, not a regression. "What is on this machine that would not
+  be on a fresh one?" is a cheaper first question than reading the renderer.
+- **A route that adapts is invisible until you remove its input.** `/` serving
+  onboarding-or-runs cannot be seen from the file that opens it, and the
+  entrypoint's own docstring describes the case that is now the rarer one.
+
+**Next:** item 69 — start with clearing the draft in `target:remove`, which is
+the unambiguous bug and the case that actually happened.
