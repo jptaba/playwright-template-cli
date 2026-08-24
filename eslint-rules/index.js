@@ -25,7 +25,11 @@ const rules = {
   'no-target-coupling': require('./no-target-coupling'),
 };
 
-const { DEFAULT_AUTH_FLOW_PATTERN, authFlowPatternFor } = require('./lib/paths');
+const {
+  DEFAULT_AUTH_FLOW_PATTERN,
+  TARGET_PACK_ROOT,
+  authFlowPatternFor,
+} = require('./lib/paths');
 
 const plugin = {
   meta: { name: 'framework', version: '1.0.0' },
@@ -37,6 +41,8 @@ const plugin = {
    */
   DEFAULT_AUTH_FLOW_PATTERN,
   authFlowPatternFor,
+  /** Where a pack lives, so a test can assert this and `packRootFor` agree. */
+  TARGET_PACK_ROOT,
 };
 
 /** Every rule at error, which is the only setting an agent can act on. */

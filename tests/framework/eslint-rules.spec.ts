@@ -1,10 +1,10 @@
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { RuleTester } from 'eslint';
 import tseslint from 'typescript-eslint';
 import plugin from '../../eslint-rules';
-import { repoPath } from '../../src/support/paths';
+import { packRootFor, repoPath } from '../../src/support/paths';
 
 /**
  * The lint rules are the framework's conventions in executable form, so they
@@ -533,6 +533,42 @@ test('no-target-coupling stops the framework growing a special case for one appl
         filename: INTEGRATION,
         options,
         errors: [{ messageId: 'pathsIntoTarget' }],
+      },
+    ],
+  });
+});
+
+/**
+ * The lint rules and the framework agree about where a pack lives.
+ *
+ * They each have to state it, because a lint rule runs in plain CommonJS and
+ * cannot import `src/support/paths.ts`. Two copies of one fact is the
+ * arrangement this repository keeps finding defects in — the story hash was
+ * written down twice and disagreed for months — so the two are asserted equal
+ * here rather than assumed equal.
+ *
+ * What this catches is a layout change landing in halves: the rules updated
+ * and the framework not, or the reverse. Every symptom of that is silent. A
+ * layer rule whose pattern no longer matches any file does not fail; it stops
+ * firing, and `layer-boundaries` quietly permits a spec importing a locator.
+ */
+test('the lint rules and src/support/paths state one pack root', () => {
+  expect(plugin.TARGET_PACK_ROOT).toBe(packRootFor('').replace(/\/$/, ''));
+  expect(packRootFor('acme-shop')).toBe(`${plugin.TARGET_PACK_ROOT}/acme-shop`);
+});
+
+test('and the layer patterns are built from it, so they cannot be left behind', () => {
+  // A file in the pack root the framework would compute is a spec to the
+  // rules. If these two ever disagree, this is the assertion that says so.
+  const spec = `${packRootFor('acme-shop')}/tests/e2e/orders.spec.ts`;
+
+  ruleTester.run('layer-boundaries', plugin.rules['layer-boundaries'], {
+    valid: [],
+    invalid: [
+      {
+        code: `import { cart } from '../../locators/cart';`,
+        filename: spec,
+        errors: [{ messageId: 'specImportsPrimitive' }],
       },
     ],
   });

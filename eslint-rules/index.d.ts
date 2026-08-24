@@ -39,6 +39,13 @@ declare const plugin: {
   DEFAULT_AUTH_FLOW_PATTERN: RegExp;
   /** The pattern a given file's target profile declares, or the default. */
   authFlowPatternFor(relativePath: string): RegExp;
+  /**
+   * Where a target's pack lives, repo-relative. Held identical to
+   * `packRootFor` in `src/support/paths.ts` by a framework test — the rules
+   * cannot import that file, so both sides state it and the test is what stops
+   * a layout change landing in halves.
+   */
+  TARGET_PACK_ROOT: string;
 };
 
 export default plugin;

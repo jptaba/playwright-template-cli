@@ -1,7 +1,7 @@
 import { defineConfig, devices, type Project } from '@playwright/test';
 import { resolveTarget, TargetSelectionError } from './config/target';
 import { DEFAULT_AUTH_FLOW_PATTERN } from './src/support/auth-flows';
-import { resolveWorkers, workerCeiling } from './src/support/paths';
+import { packRootFor, resolveWorkers, workerCeiling } from './src/support/paths';
 import type { FrameworkOptions } from './src/fixtures/base';
 
 const isCI = Boolean(process.env.CI);
@@ -107,7 +107,7 @@ if (!target) {
     `\nNo application selected, so only the 'framework' project is available.\n${selection.reason}\n`,
   );
 } else {
-  const targetRoot = `src/targets/${target.name}`;
+  const targetRoot = packRootFor(target.name);
 
   /**
    * Declared capabilities travel to the reporter through the environment, so

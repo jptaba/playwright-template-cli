@@ -28,6 +28,7 @@
  * the deleting.
  */
 
+import { packRootFor, profilePathFor } from '../paths';
 import { describeOrphanedSessions, orphanedSessions } from './sessions';
 
 export interface OffboardFacts {
@@ -152,8 +153,8 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
     throw new OffboardError('Which target? Offboarding needs a name; it never guesses.');
   }
 
-  const profile = `config/targets/${target}.ts`;
-  const packRoot = `src/targets/${target}`;
+  const profile = profilePathFor(target);
+  const packRoot = packRootFor(target);
 
   /*
      The draft goes only when it describes *this* target.
@@ -411,7 +412,7 @@ export function describeOffboard(plan: OffboardPlan): string[] {
 
   const lines = plan.alreadyGone
     ? [`No profile or pack — they are already gone`]
-    : [`${packAndProfile} file(s) under src/targets/${plan.target}/ and its profile`];
+    : [`${packAndProfile} file(s) under ${packRootFor(plan.target)}/ and its profile`];
   if (cases > 0) lines.push(`${cases} test case(s) from cases/${plan.target}/`);
   if (stories > 0) lines.push(`${stories} story file(s) from stories/${plan.target}/`);
   if (plan.removeSecretKeys.length > 0) {

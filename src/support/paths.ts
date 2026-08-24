@@ -166,6 +166,20 @@ export const RUN_RESULT_PATH = process.env.RUN_RESULT_PATH ?? repoPath('run-resu
 export const LIVE_EVENTS_PATH = process.env.LIVE_EVENTS_PATH ?? null;
 export const TRIAGE_RESULT_PATH = repoPath('triage-result.json');
 export const CASES_DIR = repoPath('cases');
+/**
+ * Where a target's pack and profile live, repo-relative and forward-slashed.
+ *
+ * Written down once. The layout was spelled out in about sixty places — six
+ * that build a path, the rest in messages telling a person where to look —
+ * and in the lint rules, which carry their own copy because they run in plain
+ * CommonJS and cannot import this file. `eslint-rules/lib/paths.js` states it
+ * too, and a framework test asserts the two agree; that test is the thing
+ * that will catch the halves of a layout change going in separately.
+ */
+export const packRootFor = (target: string): string => `src/targets/${target}`;
+
+export const profilePathFor = (target: string): string => `config/targets/${target}.ts`;
+
 export const STORIES_DIR = repoPath('stories');
 
 /**

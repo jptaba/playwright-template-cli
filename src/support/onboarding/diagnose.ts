@@ -1,5 +1,5 @@
 import { describeOrphanedSessions, orphanedSessions } from './sessions';
-import { poolSizeFor } from '../paths';
+import { packRootFor, poolSizeFor } from '../paths';
 import { SCAFFOLDED_SPECS } from './scaffold';
 import { COVERAGE_KINDS } from '../journey';
 import { KNOWN_A11Y_STANDARDS, type TargetProfile } from '../../../config/targets/types';
@@ -218,7 +218,7 @@ function checkPack(
   if (!facts.packExists) {
     error(
       'pack-missing',
-      `No pack at src/targets/${profile.name}/, so this profile has no locators, actions or specs.`,
+      `No pack at ${packRootFor(profile.name)}/, so this profile has no locators, actions or specs.`,
       `Run \`npm run target:new -- --name=${profile.name}\` to scaffold one, or remove the profile.`,
     );
     return;
@@ -227,7 +227,7 @@ function checkPack(
   if (!has('fixtures.ts')) {
     error(
       'fixtures-missing',
-      `src/targets/${profile.name}/fixtures.ts is absent, and it is the only import a spec makes.`,
+      `${packRootFor(profile.name)}/fixtures.ts is absent, and it is the only import a spec makes.`,
       'Add it, extending the framework `test` with this target’s named actions and testData (§03).',
     );
   }
@@ -395,7 +395,7 @@ function checkRoles(
   if (facts.packExists && !has('tests/auth.setup.ts')) {
     error(
       'auth-setup-missing',
-      `Roles are declared (${profile.roles.join(', ')}) but src/targets/${profile.name}/tests/` +
+      `Roles are declared (${profile.roles.join(', ')}) but ${packRootFor(profile.name)}/tests/` +
         'auth.setup.ts does not exist, so no storage state is ever written.',
       'Add it. Without it every spec taking `authedPage` fails with "No storage state for role", ' +
         'which points at the wrong thing entirely.',

@@ -24,21 +24,38 @@ function targetNames() {
     .map((file) => file.replace(/\.ts$/, ''));
 }
 
+/**
+ * Where a target's pack lives, repo-relative. One statement of it.
+ *
+ * The layout was written out in every rule that needed it, and again on the
+ * TypeScript side in `src/support/paths.ts` — which cannot be imported here,
+ * because a lint rule runs in plain CommonJS. Two copies is the arrangement
+ * this repository keeps finding defects in, so this one is exported and a
+ * framework test asserts the two agree. That test is what catches the halves
+ * of a layout change going in separately.
+ */
+const TARGET_PACK_ROOT = 'src/targets';
+
+/** `<pack root>/<target>/<tail>` as a pattern. The target is not captured. */
+const packPattern = (tail) => new RegExp('^' + TARGET_PACK_ROOT + '/[^/]+/' + tail);
+
+const TARGET_OF = new RegExp('^' + TARGET_PACK_ROOT + '/([^/]+)/');
+
 /** Which target's pack a file belongs to, or null for framework code. */
 function targetOf(relativePath) {
-  const match = /^src\/targets\/([^/]+)\//.exec(relativePath);
+  const match = TARGET_OF.exec(relativePath);
   return match ? match[1] : null;
 }
 
 const LAYERS = {
   /** L1 primitives: named locators, endpoint descriptors, named SQL. */
-  primitive: /^src\/targets\/[^/]+\/(locators|endpoints|queries)\//,
+  primitive: packPattern('(locators|endpoints|queries)/'),
   /** L2 vocabularies: UI actions, typed HTTP clients, read-only queries. */
-  vocabulary: /^src\/targets\/[^/]+\/(actions|api|db)\//,
+  vocabulary: packPattern('(actions|api|db)/'),
   /** L3 the injectable surface. */
-  fixtures: /^(src\/fixtures\/|src\/targets\/[^/]+\/fixtures\.ts$)/,
+  fixtures: new RegExp('^(src/fixtures/|' + TARGET_PACK_ROOT + '/[^/]+/fixtures[.]ts$)'),
   /** L4 specs — every assertion lives here. */
-  spec: /^src\/targets\/[^/]+\/tests\//,
+  spec: packPattern('tests/'),
 };
 
 function layerOf(relativePath) {
@@ -66,7 +83,7 @@ function isSpec(relativePath) {
 
 /** Which Playwright project a spec belongs to, from its path. */
 function projectOf(relativePath) {
-  const match = /^src\/targets\/[^/]+\/tests\/([^/]+)\//.exec(relativePath);
+  const match = packPattern('tests/([^/]+)/').exec(relativePath);
   return match ? match[1] : null;
 }
 
@@ -160,7 +177,7 @@ const REPO_ROOTS = ['src/', 'config/', 'tools/', 'tests/', 'eslint-rules/'];
  * handling them here means the rule catches it either way.
  */
 const ALIASES = [
-  [/^@targets\//, 'src/targets/'],
+  [/^@targets\//, TARGET_PACK_ROOT + '/'],
   [/^@fixtures\//, 'src/fixtures/'],
   [/^@integrations\//, 'src/integrations/'],
   [/^@support\//, 'src/support/'],
@@ -200,6 +217,7 @@ function resolveImport(relativePath, specifier) {
 
 module.exports = {
   REPO_ROOT,
+  TARGET_PACK_ROOT,
   relPath,
   targetNames,
   targetOf,

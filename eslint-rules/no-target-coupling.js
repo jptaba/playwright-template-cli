@@ -1,6 +1,6 @@
 'use strict';
 
-const { relPath, isFramework, targetNames } = require('./lib/paths');
+const { relPath, isFramework, targetNames, TARGET_PACK_ROOT } = require('./lib/paths');
 
 /**
  * Framework code may not name an application under test (§04).
@@ -62,7 +62,9 @@ module.exports = {
     const check = (node, text) => {
       for (const name of names) {
         if (!text.includes(name)) continue;
-        const messageId = text.includes(`src/targets/${name}`) ? 'pathsIntoTarget' : 'namesTarget';
+        const messageId = text.includes(`${TARGET_PACK_ROOT}/${name}`)
+          ? 'pathsIntoTarget'
+          : 'namesTarget';
         context.report({ node, messageId, data: { name } });
         return;
       }
