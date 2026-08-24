@@ -20,7 +20,7 @@ the fix goes into the **application-agnostic framework** — and is validated en
 to end from there, through onboarding, `target:doctor`, and a run.
 
 **Never troubleshoot by editing an application's own artifacts.** That means no
-hand-fix to `config/targets/<app>.ts`, to anything under `src/targets/<app>/`,
+hand-fix to `targets/<app>/profile.ts`, to anything under `targets/<app>/`,
 or to an application's specs and docs, as a way of making a problem go away.
 
 A target pack is an **output**. `npm run onboard` writes it, `target:doctor`
@@ -58,14 +58,14 @@ finished.
 
 | Layer | Directory | Job | May not |
 |---|---|---|---|
-| **L1** | `src/targets/<app>/locators/` | Named locators. `getByRole` → `getByLabel` → `getByTestId`. | Contain logic, waits or assertions |
-| **L1** | `src/targets/<app>/endpoints/` | Typed endpoint descriptors | Contain logic |
-| **L1** | `src/targets/<app>/queries/` | Named, parameterised SQL | Write anything, ever |
-| **L2** | `src/targets/<app>/actions/` | UI business verbs | Assert outcomes |
-| **L2** | `src/targets/<app>/api/` | Typed HTTP clients | Assert outcomes |
-| **L2** | `src/targets/<app>/db/` | Read-only query vocabulary | Write, or assert |
-| **L3** | `src/fixtures/`, `src/targets/<app>/fixtures.ts` | The injectable surface | Name a host or a selector |
-| **L4** | `src/targets/<app>/tests/` | Specs. **Every assertion lives here.** | Import from L1 |
+| **L1** | `targets/<app>/locators/` | Named locators. `getByRole` → `getByLabel` → `getByTestId`. | Contain logic, waits or assertions |
+| **L1** | `targets/<app>/endpoints/` | Typed endpoint descriptors | Contain logic |
+| **L1** | `targets/<app>/queries/` | Named, parameterised SQL | Write anything, ever |
+| **L2** | `targets/<app>/actions/` | UI business verbs | Assert outcomes |
+| **L2** | `targets/<app>/api/` | Typed HTTP clients | Assert outcomes |
+| **L2** | `targets/<app>/db/` | Read-only query vocabulary | Write, or assert |
+| **L3** | `src/fixtures/`, `targets/<app>/fixtures.ts` | The injectable surface | Name a host or a selector |
+| **L4** | `targets/<app>/tests/` | Specs. **Every assertion lives here.** | Import from L1 |
 
 Rules that execute:
 
@@ -166,7 +166,7 @@ board — every task, every run, every contributor, human or agent.**
 **When troubleshooting, the fix goes in the application-agnostic framework and
 is validated end to end from there — through onboarding, the doctor, a run.
 Application-specific artifacts are not touched.** That means no hand-edit to
-`config/targets/<app>.ts`, `src/targets/<app>/**` or an application's specs and
+`targets/<app>/profile.ts`, `targets/<app>/**` or an application's specs and
 docs as a way of making a problem go away.
 
 If the framework genuinely cannot express the fix, that is the finding: raise
@@ -515,7 +515,7 @@ standard must never require an edit to framework code.
 
 ## The application under test is configuration
 
-Nothing outside `config/targets/` may name a host. — `no-hardcoded-urls`
+Nothing outside `targets/` may name a host. — `no-hardcoded-urls`
 
 Framework code branches on **declared capabilities**, never on a target name:
 
@@ -583,13 +583,13 @@ confirmation a stray click can satisfy is not a confirmation.
 Removing a target does not touch `docs/generated/catalog.md` — run
 `npm run catalog:build` afterwards, which the tool reminds you to do.
 
-`target:new` writes `config/targets/<app>.ts` and the whole of
-`src/targets/<app>/` — locators, actions, fixtures and `tests/auth.setup.ts` —
+`target:new` writes `targets/<app>/profile.ts` and the whole of
+`targets/<app>/` — locators, actions, fixtures and `tests/auth.setup.ts` —
 and stops. It never overwrites. Add `--with=api,db,contracts,a11y` for the
 optional layers; the api layer also needs `--api-url`.
 
 **There is no registration step.** Profiles are discovered from
-`config/targets/`, so a new file is selectable the moment it lands.
+`targets/`, so a new file is selectable the moment it lands.
 
 Then the work that cannot be generated:
 
@@ -620,12 +620,12 @@ alphabetical order does not get to decide which application gets tested.
 
 ## Never
 
-- **Troubleshoot by editing a target's own artifacts** — `config/targets/<app>.ts`,
-  `src/targets/<app>/**`, an application's specs or docs. Fix the mechanism that
+- **Troubleshoot by editing a target's own artifacts** — `targets/<app>/profile.ts`,
+  `targets/<app>/**`, an application's specs or docs. Fix the mechanism that
   produced them. See rule zero; it is non-negotiable
 - `waitForTimeout`, `sleep`, or any fixed delay
 - XPath; CSS without a justification comment
-- A URL or hostname literal outside `config/targets/`
+- A URL or hostname literal outside `targets/`
 - `process.env` for a credential
 - An assertion inside an action
 - An import from `locators/` inside a spec
@@ -656,7 +656,7 @@ then assert the time.
 
 ## The triage ground-truth fixture
 
-`src/targets/<app>/tests/triage-fixture/` holds specs that are **meant to
+`targets/<app>/tests/triage-fixture/` holds specs that are **meant to
 fail**, with causes known in advance. They do not run in the normal suite — the
 `triage-fixture` project exists only when `TRIAGE_FIXTURE=true` — so a green
 pipeline stays green.

@@ -7,9 +7,9 @@ import type { TargetProfile } from './targets/types';
  * injected everywhere else through the `target` fixture. No spec, action or
  * locator ever names a host (§04).
  *
- * Profiles are **discovered**, not registered. Every `.ts` file in
- * `config/targets/` other than `types.ts` is read, and any export shaped like a
- * `TargetProfile` becomes a selectable target.
+ * Profiles are **discovered**, not registered. Every `targets/<app>/profile.ts`
+ * is read, and any export shaped like a `TargetProfile` becomes a selectable
+ * target.
  *
  * That is deliberate. Adding an application used to mean editing this file —
  * the one step in onboarding that reached outside the new target's own
@@ -17,10 +17,7 @@ import type { TargetProfile } from './targets/types';
  * profile that was sitting right there. Onboarding is now entirely additive:
  * drop a profile in, drop a pack in, and both are found.
  */
-const TARGETS_DIR = path.join(__dirname, 'targets');
-
-/** Not a profile: the shared type declarations every profile imports. */
-const NOT_A_PROFILE = /^(types|index)\.(ts|js)$/;
+const TARGETS_DIR = path.join(__dirname, '..', 'targets');
 
 function isProfile(value: unknown): value is TargetProfile {
   if (typeof value !== 'object' || value === null) return false;
@@ -52,9 +49,21 @@ function profiles(): Map<string, TargetProfile> {
     );
   }
 
+  /*
+     One directory per application, each holding its own `profile.ts`.
+
+     It used to be one flat file per application under `config/targets/`, which
+     meant an application's profile lived in a different tree from its pack,
+     its cases and its stories — four places to keep in step, and offboarding
+     had to know all four. A directory that either has a profile or does not is
+     also a cheaper question than "is this file a profile or a helper?", which
+     is what `NOT_A_PROFILE` existed to answer.
+  */
   const files = fs
-    .readdirSync(TARGETS_DIR)
-    .filter((file) => /\.(ts|js)$/.test(file) && !file.endsWith('.d.ts') && !NOT_A_PROFILE.test(file))
+    .readdirSync(TARGETS_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => `${entry.name}/profile.ts`)
+    .filter((file) => fs.existsSync(path.join(TARGETS_DIR, file)))
     .sort();
 
   for (const file of files) {
@@ -65,7 +74,7 @@ function profiles(): Map<string, TargetProfile> {
       module = require(modulePath) as Record<string, unknown>;
     } catch (error) {
       throw new Error(
-        `config/targets/${file} could not be loaded: ` +
+        `targets/${file} could not be loaded: ` +
           `${error instanceof Error ? error.message : String(error)}`,
       );
     }
@@ -73,10 +82,10 @@ function profiles(): Map<string, TargetProfile> {
     const exported = Object.values(module).filter(isProfile);
     if (exported.length === 0) {
       throw new Error(
-        `config/targets/${file} exports no TargetProfile. A profile must export an object with ` +
+        `targets/${file} exports no TargetProfile. A profile must export an object with ` +
           'at least name, baseURL, testIdAttribute, capabilities and hostAllowlist — see ' +
           'config/targets/types.ts. If this file is a helper rather than a profile, move it out ' +
-          'of config/targets/.',
+          'of targets/.',
       );
     }
 
@@ -85,7 +94,7 @@ function profiles(): Map<string, TargetProfile> {
       if (existing) {
         throw new Error(
           `Two profiles both claim the name '${profile.name}'. A target name selects a profile, a ` +
-            'pack under src/targets/ and a storage-state file, so it has to be unique.',
+            'pack under targets/ and a storage-state file, so it has to be unique.',
         );
       }
       found.set(profile.name, profile);
@@ -128,7 +137,7 @@ export function defaultTarget(): string {
   const names = targetNames();
   if (names.length === 0) {
     throw new TargetSelectionError(
-      'No target profiles found in config/targets/. Run `npm run target:new -- --name=<app> ' +
+      'No target profiles found in targets/. Run `npm run target:new -- --name=<app> ' +
         '--url=<base-url>` to scaffold one.',
     );
   }
@@ -158,7 +167,7 @@ export function resolveTarget(name = process.env.TARGET ?? undefined): TargetPro
   if (!profile) {
     throw new Error(
       `Unknown TARGET '${wanted}'. Known targets: ${targetNames().join(', ')}. ` +
-        'A profile is any file under config/targets/ exporting a TargetProfile — ' +
+        'A profile is targets/<app>/profile.ts exporting a TargetProfile — ' +
         '`npm run target:new` writes one for you.',
     );
   }

@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { AUTH_DIR, REPO_ROOT } from '../src/support/paths';
+import { AUTH_DIR, REPO_ROOT, packRootFor } from '../src/support/paths';
 import { ContractRegistry } from '../src/support/contracts/validator';
 import { resolveTarget, targetNames } from '../config/target';
 import { createSecretStore } from '../src/integrations/secrets';
@@ -36,7 +36,7 @@ import type { TargetProfile } from '../config/targets/types';
  * written.
  */
 function declaredEndpoints(targetName: string): string[] {
-  const directory = path.join(REPO_ROOT, 'src', 'targets', targetName, 'endpoints');
+  const directory = path.join(REPO_ROOT, packRootFor(targetName), 'endpoints');
   if (!fs.existsSync(directory)) return [];
 
   const found: string[] = [];
@@ -77,7 +77,7 @@ function documentedOperations(profile: TargetProfile): string[] {
 }
 
 function listPack(targetName: string): { exists: boolean; files: string[] } {
-  const root = path.join(REPO_ROOT, 'src', 'targets', targetName);
+  const root = path.join(REPO_ROOT, packRootFor(targetName));
   if (!fs.existsSync(root)) return { exists: false, files: [] };
 
   const files: string[] = [];
@@ -108,7 +108,7 @@ function listPack(targetName: string): { exists: boolean; files: string[] } {
  * implementation, for the reason `ONBOARDING_DRAFT_PATH` is one constant.
  */
 export function packSpecTags(targetName: string): string[] {
-  const root = path.join(REPO_ROOT, 'src', 'targets', targetName, 'tests');
+  const root = path.join(REPO_ROOT, packRootFor(targetName), 'tests');
   if (!fs.existsSync(root)) return [];
 
   const found = new Set<string>();

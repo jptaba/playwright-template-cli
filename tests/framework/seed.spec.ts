@@ -19,7 +19,7 @@ import type { SpecFact } from '../../src/support/cases/specs';
  */
 function spec(overrides: Partial<SpecFact> = {}): SpecFact {
   return {
-    file: 'src/targets/demo/tests/e2e/thing.spec.ts',
+    file: 'targets/demo/tests/e2e/thing.spec.ts',
     title: 'DEMO-1-01 · A shopper can sign in @smoke @auth',
     caseId: null,
     casePath: null,
@@ -97,9 +97,9 @@ test.describe('sets', () => {
   */
   test('groups cases by the application whose pack they live in', () => {
     const bySet = casesBySet([
-      spec({ caseId: 'A-1', file: 'src/targets/alpha/tests/e2e/x.spec.ts' }),
-      spec({ caseId: 'A-2', file: 'src/targets/alpha/tests/api/y.spec.ts' }),
-      spec({ caseId: 'B-1', file: 'src/targets/beta/tests/e2e/z.spec.ts' }),
+      spec({ caseId: 'A-1', file: 'targets/alpha/tests/e2e/x.spec.ts' }),
+      spec({ caseId: 'A-2', file: 'targets/alpha/tests/api/y.spec.ts' }),
+      spec({ caseId: 'B-1', file: 'targets/beta/tests/e2e/z.spec.ts' }),
     ]);
 
     expect([...bySet.keys()].sort()).toEqual(['alpha', 'beta']);

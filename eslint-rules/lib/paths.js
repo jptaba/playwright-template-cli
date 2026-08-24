@@ -16,12 +16,13 @@ function relPath(context) {
  * here, so adding a target never means editing a lint rule.
  */
 function targetNames() {
-  const dir = path.join(REPO_ROOT, 'config', 'targets');
+  const dir = path.join(REPO_ROOT, TARGET_PACK_ROOT);
   if (!fs.existsSync(dir)) return [];
   return fs
-    .readdirSync(dir)
-    .filter((file) => file.endsWith('.ts') && file !== 'types.ts')
-    .map((file) => file.replace(/\.ts$/, ''));
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .filter((entry) => fs.existsSync(path.join(dir, entry.name, 'profile.ts')))
+    .map((entry) => entry.name);
 }
 
 /**
@@ -34,10 +35,31 @@ function targetNames() {
  * framework test asserts the two agree. That test is what catches the halves
  * of a layout change going in separately.
  */
-const TARGET_PACK_ROOT = 'src/targets';
+const TARGET_PACK_ROOT = 'targets';
 
 /** `<pack root>/<target>/<tail>` as a pattern. The target is not captured. */
 const packPattern = (tail) => new RegExp('^' + TARGET_PACK_ROOT + '/[^/]+/' + tail);
+
+/**
+ * The profile, which is the one file in a target's directory that is *not*
+ * pack code.
+ *
+ * It became a question the moment the profile moved in beside the pack. A
+ * profile names a host and reads `process.env` — that is what a profile is —
+ * and `no-hardcoded-urls` and `secrets-via-fixture` exist to stop pack code
+ * doing either. Both used to exempt it by its old address, `config/targets/`,
+ * and the move handed them a file that looked like a locator.
+ */
+const PROFILE_PATTERN = packPattern('profile[.]ts$');
+
+function isProfile(relativePath) {
+  return PROFILE_PATTERN.test(relativePath);
+}
+
+/** Where one target's profile is on disk. */
+function profilePath(target) {
+  return path.join(REPO_ROOT, TARGET_PACK_ROOT, target, 'profile.ts');
+}
 
 const TARGET_OF = new RegExp('^' + TARGET_PACK_ROOT + '/([^/]+)/');
 
@@ -118,7 +140,7 @@ function authFlowPatternFor(relativePath) {
   const target = targetOf(relativePath);
   if (!target) return DEFAULT_AUTH_FLOW_PATTERN;
 
-  const profile = path.join(REPO_ROOT, 'config', 'targets', `${target}.ts`);
+  const profile = profilePath(target);
   if (!fs.existsSync(profile)) return DEFAULT_AUTH_FLOW_PATTERN;
 
   const declared = /authFlowPattern\s*:\s*\/((?:[^/\\\n]|\\.)+)\/([gimsuy]*)/.exec(
@@ -153,7 +175,7 @@ function isSharedEnvironment(relativePath) {
   const target = targetOf(relativePath);
   if (!target) return false;
 
-  const profile = path.join(REPO_ROOT, 'config', 'targets', `${target}.ts`);
+  const profile = profilePath(target);
   if (!fs.existsSync(profile)) return false;
 
   return /sharedEnvironment\s*:\s*true/.test(fs.readFileSync(profile, 'utf8'));
@@ -163,7 +185,7 @@ function isSharedEnvironment(relativePath) {
  * Directories a non-relative specifier can point into and still be this
  * repository's own code. Anything else is a package.
  */
-const REPO_ROOTS = ['src/', 'config/', 'tools/', 'tests/', 'eslint-rules/'];
+const REPO_ROOTS = ['src/', 'config/', 'tools/', 'tests/', 'eslint-rules/', TARGET_PACK_ROOT + '/'];
 
 /**
  * Aliases that have existed, or could plausibly be re-added, in tsconfig's
@@ -218,6 +240,7 @@ function resolveImport(relativePath, specifier) {
 module.exports = {
   REPO_ROOT,
   TARGET_PACK_ROOT,
+  isProfile,
   relPath,
   targetNames,
   targetOf,

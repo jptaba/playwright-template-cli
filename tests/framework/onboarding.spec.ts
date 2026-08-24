@@ -208,7 +208,7 @@ test.describe('the onboarding preflight', () => {
       profile({
         capabilities: {
           ...profile().capabilities,
-          contracts: { enabled: true, spec: 'src/targets/demo/contracts/openapi.yaml' },
+          contracts: { enabled: true, spec: 'targets/demo/contracts/openapi.yaml' },
         },
       }),
       facts({ contractSpecExists: false }),
@@ -254,7 +254,7 @@ test.describe('the onboarding preflight', () => {
       profile({
         capabilities: {
           ...profile().capabilities,
-          contracts: { enabled: false, spec: 'src/targets/demo/contracts/openapi.yaml' },
+          contracts: { enabled: false, spec: 'targets/demo/contracts/openapi.yaml' },
         },
       }),
       facts({ contractSpecExists: true }),
@@ -296,7 +296,7 @@ test.describe('the onboarding preflight', () => {
         capabilities: {
           ...profile().capabilities,
           api: { enabled: true, baseURL: 'https://api.internal.corp' },
-          contracts: { enabled: true, spec: 'src/targets/demo/contracts/openapi.yaml' },
+          contracts: { enabled: true, spec: 'targets/demo/contracts/openapi.yaml' },
           a11y: { enabled: true, standard: 'wcag22aa' },
         },
       }),
@@ -564,7 +564,7 @@ test.describe('the onboarding preflight', () => {
           ...profile().capabilities,
           contracts: {
             enabled: true,
-            spec: 'src/targets/demo/contracts/openapi.yaml',
+            spec: 'targets/demo/contracts/openapi.yaml',
             waived: [
               {
                 endpoint: 'GET /products/search',
@@ -719,12 +719,12 @@ test.describe('the target scaffolder', () => {
 
   test('writes a profile and a complete four-layer pack', () => {
     expect(paths()).toEqual([
-      'config/targets/new-app.ts',
-      'src/targets/new-app/locators/sign-in.ts',
-      'src/targets/new-app/actions/sign-in.ts',
-      'src/targets/new-app/fixtures.ts',
-      'src/targets/new-app/tests/auth.setup.ts',
-      'src/targets/new-app/tests/e2e/.gitkeep',
+      'targets/new-app/profile.ts',
+      'targets/new-app/locators/sign-in.ts',
+      'targets/new-app/actions/sign-in.ts',
+      'targets/new-app/fixtures.ts',
+      'targets/new-app/tests/auth.setup.ts',
+      'targets/new-app/tests/e2e/.gitkeep',
     ]);
   });
 
@@ -733,8 +733,8 @@ test.describe('the target scaffolder', () => {
     // scaffold that fails the check is worse than no scaffold at all.
     const plan = planScaffold({ ...options, roles: ['shopper'] });
     const packFiles = plan.files
-      .filter((file) => file.path.startsWith('src/targets/new-app/'))
-      .map((file) => file.path.replace('src/targets/new-app/', ''));
+      .filter((file) => file.path.startsWith('targets/new-app/'))
+      .map((file) => file.path.replace('targets/new-app/', ''));
 
     const found = diagnose(
       profile({
@@ -751,8 +751,8 @@ test.describe('the target scaffolder', () => {
 
   test('names the symbols after the target so two packs never collide', () => {
     const rendered = new Map(planScaffold(options).files.map((file) => [file.path, file.contents]));
-    expect(rendered.get('config/targets/new-app.ts')).toContain('export const newApp: TargetProfile');
-    expect(rendered.get('src/targets/new-app/fixtures.ts')).toContain('interface NewAppFixtures');
+    expect(rendered.get('targets/new-app/profile.ts')).toContain('export const newApp: TargetProfile');
+    expect(rendered.get('targets/new-app/fixtures.ts')).toContain('interface NewAppFixtures');
     expect(camelCase('new-app')).toBe('newApp');
     expect(pascalCase('new-app')).toBe('NewApp');
   });
@@ -772,12 +772,12 @@ test.describe('the target scaffolder', () => {
       include: { api: true, db: true, contracts: true },
     }).files.map((file) => file.path);
 
-    expect(withAll).toContain('src/targets/new-app/endpoints/orders.ts');
-    expect(withAll).toContain('src/targets/new-app/api/orders.ts');
-    expect(withAll).toContain('src/targets/new-app/tests/api/.gitkeep');
-    expect(withAll).toContain('src/targets/new-app/queries/ledger.ts');
-    expect(withAll).toContain('src/targets/new-app/db/ledger.ts');
-    expect(withAll).toContain('src/targets/new-app/contracts/README.md');
+    expect(withAll).toContain('targets/new-app/endpoints/orders.ts');
+    expect(withAll).toContain('targets/new-app/api/orders.ts');
+    expect(withAll).toContain('targets/new-app/tests/api/.gitkeep');
+    expect(withAll).toContain('targets/new-app/queries/ledger.ts');
+    expect(withAll).toContain('targets/new-app/db/ledger.ts');
+    expect(withAll).toContain('targets/new-app/contracts/README.md');
   });
 
   test('the accessibility layer ships a spec, not an empty directory', () => {
@@ -787,7 +787,7 @@ test.describe('the target scaffolder', () => {
     const rendered = new Map(
       planScaffold({ ...options, include: { a11y: true } }).files.map((f) => [f.path, f.contents]),
     );
-    const spec = rendered.get('src/targets/new-app/tests/a11y/landing.spec.ts') ?? '';
+    const spec = rendered.get('targets/new-app/tests/a11y/landing.spec.ts') ?? '';
     expect(spec).toContain("from '../../fixtures'");
     expect(spec).toContain('a11y.scan(authedPage)');
     expect(spec).toContain('scan.incomplete');
@@ -809,8 +809,8 @@ test.describe('the target scaffolder', () => {
         file.contents,
       ]),
     );
-    const written = rendered.get('config/targets/new-app.ts') ?? '';
-    expect(written).toContain("contracts: { enabled: false, spec: 'src/targets/new-app/contracts/openapi.yaml' }");
+    const written = rendered.get('targets/new-app/profile.ts') ?? '';
+    expect(written).toContain("contracts: { enabled: false, spec: 'targets/new-app/contracts/openapi.yaml' }");
   });
 
   test('the accessibility standard is a choice at scaffold time and after it', () => {
@@ -819,7 +819,7 @@ test.describe('the target scaffolder', () => {
     // and it changes on the standards body's schedule, not this repository's.
     const written = (options_: Parameters<typeof planScaffold>[0]): string =>
       new Map(planScaffold(options_).files.map((f) => [f.path, f.contents])).get(
-        'config/targets/new-app.ts',
+        'targets/new-app/profile.ts',
       ) ?? '';
 
     expect(written({ ...options, include: { a11y: true } })).toContain(
@@ -963,7 +963,10 @@ test.describe('the target scaffolder', () => {
       include: { api: true, db: true, contracts: true },
     });
     for (const file of plan.files) {
-      if (file.path.startsWith('config/targets/')) continue; // the one place a host may appear
+      // The profile is the one place a host may appear — and since the packs
+      // moved it sits inside the target's own directory, so it is skipped by
+      // what it is rather than by where it used to live.
+      if (file.path.endsWith('/profile.ts')) continue;
       expect(file.contents, file.path).not.toMatch(/https?:\/\//);
     }
   });
@@ -1118,7 +1121,7 @@ test.describe('a spec the scaffolder wrote is not somebody having started', () =
       include: { api: true, db: true, contracts: true, a11y: true },
       apiBaseURL: 'https://api.demo.internal.corp',
     })
-      .files.map((file) => file.path.replace('src/targets/demo/', ''))
+      .files.map((file) => file.path.replace('targets/demo/', ''))
       .filter((path) => path.endsWith('.spec.ts'));
 
     expect([...SCAFFOLDED_SPECS].sort()).toEqual(written.sort());

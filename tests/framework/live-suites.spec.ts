@@ -27,7 +27,7 @@ function failing(id: string, message: string, overrides: Partial<TestRecord> = {
     caseId: `TC-${id}`,
     jiraKey: null,
     caseHash: null,
-    file: 'src/targets/demo/tests/e2e/x.spec.ts',
+    file: 'targets/demo/tests/e2e/x.spec.ts',
     project: 'e2e',
     kind: 'ui',
     tags: [],

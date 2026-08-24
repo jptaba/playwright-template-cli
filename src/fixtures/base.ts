@@ -29,7 +29,7 @@ import { attachLiveView, liveViewFromEnv } from '../integrations/live-view/scree
  *
  * Target-agnostic by construction: it names no host, no selector and no
  * business verb. Per-target action fixtures extend this in
- * `src/targets/<name>/fixtures.ts`.
+ * `targets/<name>/fixtures.ts`.
  */
 
 export interface RunContext {

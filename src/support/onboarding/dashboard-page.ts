@@ -1938,7 +1938,7 @@ function markerArrivedTooLate(derived) {
   if (!written || !derived) return null;
 
   const name = $('name').value.trim() || '<name>';
-  const file = 'src/targets/' + name + '/locators/sign-in.ts';
+  const file = 'targets/' + name + '/locators/sign-in.ts';
   const call = "page.getByRole('" + derived.role + "', { name: '" + derived.name.replace(/'/g, "\\\\'") + "' })";
 
   const box = el('div', 'diag error');
@@ -2528,7 +2528,7 @@ export function onboardingPageContent(): DashboardPageContent {
     heading: 'Add an application under test',
     /*
        "its whole four-layer pack" was the old wording. "Pack" is this
-       repository's word for `src/targets/<app>/`, and the first screen is the
+       repository's word for `targets/<app>/`, and the first screen is the
        one place a reader has not met it yet — a lede that needs a glossary is
        not a lede.
     */

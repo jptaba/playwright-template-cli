@@ -453,13 +453,13 @@ test('a vendored document lands in the pack and switches the capability on', () 
   });
 
   expect(plan.files.map((file) => file.path)).toContain(
-    'src/targets/acme-shop/contracts/openapi.json',
+    'targets/acme-shop/contracts/openapi.json',
   );
-  const profile = plan.files.find((file) => file.path === 'config/targets/acme-shop.ts')!.contents;
+  const profile = plan.files.find((file) => file.path === 'targets/acme-shop/profile.ts')!.contents;
   // The capability ships off only because the document has to be vendored
   // first. This is that having happened.
   expect(profile).toContain(
-    "contracts: { enabled: true, spec: 'src/targets/acme-shop/contracts/openapi.json' }",
+    "contracts: { enabled: true, spec: 'targets/acme-shop/contracts/openapi.json' }",
   );
 });
 
@@ -470,7 +470,7 @@ test('without a document the capability still ships off, with its path declared'
     apiBaseURL: 'https://api.staging.acme.example',
     include: { api: true, contracts: true },
   });
-  const profile = plan.files.find((file) => file.path === 'config/targets/acme-shop.ts')!.contents;
+  const profile = plan.files.find((file) => file.path === 'targets/acme-shop/profile.ts')!.contents;
   expect(profile).toContain('contracts: { enabled: false');
 });
 
@@ -490,7 +490,7 @@ test('extra services are written into the profile by name', () => {
     include: { api: true },
   });
 
-  const profile = plan.files.find((file) => file.path === 'config/targets/acme-shop.ts')!.contents;
+  const profile = plan.files.find((file) => file.path === 'targets/acme-shop/profile.ts')!.contents;
   expect(profile).toContain('services: {');
   expect(profile).toContain("billing: 'https://billing.staging.acme.example',");
   expect(profile).toContain("search: 'https://search.staging.acme.example',");
@@ -503,7 +503,7 @@ test('extra services are dropped when the api layer is not included', () => {
     baseURL: 'https://staging.acme.example',
     apiServices: { billing: 'https://billing.staging.acme.example' },
   });
-  const profile = plan.files.find((file) => file.path === 'config/targets/acme-shop.ts')!.contents;
+  const profile = plan.files.find((file) => file.path === 'targets/acme-shop/profile.ts')!.contents;
   expect(profile).not.toContain('billing');
 });
 
@@ -617,8 +617,8 @@ function service(overrides: Partial<DashboardService> = {}): DashboardService {
     }),
     planRemoval: (target) => ({
       target,
-      removeFiles: ['config/targets/' + target + '.ts'],
-      removeDirectories: ['src/targets/' + target],
+      removeFiles: ['targets/' + target + '/profile.ts'],
+      removeDirectories: ['targets/' + target],
       removeSecretKeys: [],
       removeStorageStates: [],
       clearDraft: false,
@@ -692,7 +692,7 @@ test('creating refuses to overwrite an existing pack', async () => {
     request({ path: '/api/create' }),
     {
       token: 'the-token',
-      service: service({ existing: () => ['config/targets/acme-shop.ts'] }),
+      service: service({ existing: () => ['targets/acme-shop/profile.ts'] }),
     },
   );
   expect(response.status).toBe(409);
@@ -778,7 +778,7 @@ test('planning a removal is safe to call and removes nothing', async () => {
     { token: 'the-token', service: service({ remove: async (plan) => { removed += 1; return plan.removeFiles; } }) },
   );
   expect(response.status).toBe(200);
-  expect(response.body).toContain('config/targets/acme-shop.ts');
+  expect(response.body).toContain('targets/acme-shop/profile.ts');
   expect(removed, 'planning never deletes').toBe(0);
 });
 

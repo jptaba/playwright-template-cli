@@ -86,7 +86,7 @@ real guardrails — everything else is documentation.
 | `no-raw-locators` | CSS/XPath without an inline justification comment |
 | `no-hard-waits` | `waitForTimeout` and hand-rolled sleeps |
 | `layer-boundaries` | Specs importing locators; framework importing a target pack; cross-target imports |
-| `no-hardcoded-urls` | Any host literal outside `config/targets/` |
+| `no-hardcoded-urls` | Any host literal outside `targets/` |
 | `typed-clients-only` | Raw `request.*`, `fetch` and inline SQL in specs |
 | `secrets-via-fixture` | `process.env` for credentials anywhere but one registered helper |
 | `require-case-id` | Specs with no PractiTest annotation (contract project exempt) |
@@ -114,7 +114,7 @@ TARGET=<app> npx playwright test --project=setup:auth # prove sign-in works
 
 `target:new` writes the profile and the whole pack — locators, actions,
 fixtures, `auth.setup.ts` — and never overwrites. There is no registration
-step: profiles are discovered from `config/targets/`, so a new file is
+step: profiles are discovered from `targets/`, so a new file is
 selectable the moment it lands. `--with=api,db,contracts,a11y` adds the optional
 layers.
 
@@ -140,12 +140,12 @@ is a framework bug: the thing you need is a capability, not a special case.
 config/targets/       one profile per application; the only place a host appears
 eslint-rules/         the thirteen executable conventions, with tests
 src/fixtures/         L3 — the closed vocabulary a generated spec may use
-src/targets/<app>/    L1 locators/endpoints/queries · L2 actions/api/db · L4 tests
+targets/<app>/    L1 locators/endpoints/queries · L2 actions/api/db · L4 tests
 src/integrations/     vault · mail · practitest · jira · http · llm · db
 src/support/          redaction, cases, contracts, onboarding, reporters, triage, heal
 tools/                the CLIs the pipeline and the agents call
 tests/framework/      the framework's own tests, incl. the lint rules
-src/targets/<app>/tests/{e2e,api,contract,a11y}/   tests of the application
+targets/<app>/tests/{e2e,api,contract,a11y}/   tests of the application
 cases/                the intermediate case format both authoring tracks produce
 docs/CONVENTIONS.md   single source of truth → CLAUDE.md, AGENTS.md, copilot
 docs/handbook.html    onboarding · the layers · running · triage · commands

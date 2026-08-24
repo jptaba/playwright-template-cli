@@ -163,7 +163,7 @@ const IDLE_CHECK_MS = Math.max(250, Math.min(60_000, IDLE_MS));
 const TOKEN = crypto.randomBytes(24).toString('hex');
 
 function existingTargets(): string[] {
-  const directory = path.join(REPO_ROOT, 'config', 'targets');
+  const directory = path.join(REPO_ROOT, 'targets');
   if (!fs.existsSync(directory)) return [];
   return fs
     .readdirSync(directory)
@@ -522,7 +522,7 @@ async function describeCredentials(
  * fails a minute later somewhere less obvious.
  */
 async function diagnoseWritten(name: string): Promise<CreateResult['diagnostics']> {
-  const profilePath = path.join(REPO_ROOT, 'config', 'targets', `${name}.ts`);
+  const profilePath = path.join(REPO_ROOT, 'targets', name, 'profile.ts');
   if (!fs.existsSync(profilePath)) return [];
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -533,7 +533,7 @@ async function diagnoseWritten(name: string): Promise<CreateResult['diagnostics'
   );
   if (!profile) return [];
 
-  const root = path.join(REPO_ROOT, 'src', 'targets', name);
+  const root = path.join(REPO_ROOT, 'targets', name);
   const packFiles: string[] = [];
   const walk = (directory: string, prefix: string): void => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -671,7 +671,7 @@ function readDraft(): OnboardingDraft {
  * to record it.
  */
 function onboarded(): OnboardedApp[] {
-  const directory = path.join(REPO_ROOT, 'config', 'targets');
+  const directory = path.join(REPO_ROOT, 'targets');
   if (!fs.existsSync(directory)) return [];
 
   const found: OnboardedApp[] = [];
@@ -690,7 +690,7 @@ function onboarded(): OnboardedApp[] {
     }
     if (!profile) continue;
 
-    const packRoot = path.join(REPO_ROOT, 'src', 'targets', name);
+    const packRoot = path.join(REPO_ROOT, 'targets', name);
     let packFiles = 0;
     const walk = (directoryPath: string): void => {
       for (const entry of fs.readdirSync(directoryPath, { withFileTypes: true })) {
@@ -940,7 +940,7 @@ const service: DashboardService = {
   existing,
 
   updateProfile: (target, edits) => {
-    const file = path.join(REPO_ROOT, 'config', 'targets', `${target}.ts`);
+    const file = path.join(REPO_ROOT, 'targets', target, 'profile.ts');
     const outcome = editProfileSource(fs.readFileSync(file, 'utf8'), edits);
     /*
        Written only when something actually changed, so an edit that applied

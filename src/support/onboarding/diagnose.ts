@@ -35,12 +35,12 @@ export interface Diagnostic {
  */
 export interface TargetFacts {
   /**
-   * Paths inside `src/targets/<name>/` that exist, using forward slashes and
+   * Paths inside `targets/<name>/` that exist, using forward slashes and
    * no leading slash — `fixtures.ts`, `tests/e2e/orders.spec.ts`. Empty when
    * the pack directory itself is absent.
    */
   packFiles: string[];
-  /** True when `src/targets/<name>/` exists at all. */
+  /** True when `targets/<name>/` exists at all. */
   packExists: boolean;
   /**
    * The coverage tags every spec in the pack carries, deduplicated.

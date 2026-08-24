@@ -47,7 +47,7 @@ module.exports = {
         'from the target profile instead — `capabilities.api.enabled`, `capabilities.mfa` — so ' +
         'the behaviour holds for every application with that property (§04).',
       pathsIntoTarget:
-        "Framework code builds a path into 'src/targets/{{name}}'. Resolve target paths from the " +
+        "Framework code builds a path into 'targets/{{name}}'. Resolve target paths from the " +
         'profile (`target.name`) rather than writing one in (§04).',
     },
   },

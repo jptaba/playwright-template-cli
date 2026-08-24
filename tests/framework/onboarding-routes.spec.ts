@@ -62,8 +62,8 @@ function service(overrides: Partial<DashboardService> = {}): DashboardService {
     }),
     planRemoval: (target) => ({
       target,
-      removeFiles: [`config/targets/${target}.ts`],
-      removeDirectories: [`src/targets/${target}`],
+      removeFiles: [`targets/${target}.ts`],
+      removeDirectories: [`targets/${target}`],
       removeSecretKeys: [],
       removeStorageStates: [],
       clearDraft: false,
@@ -428,7 +428,7 @@ test.describe('idempotency', () => {
   });
 
   test('a second create is refused once the first one landed', async () => {
-    const written = ['config/targets/acme-shop.ts'];
+    const written = ['targets/acme-shop/profile.ts'];
     const response = await send(
       { path: '/api/create' },
       { existing: (paths) => paths.filter((path) => written.includes(path)) },

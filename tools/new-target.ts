@@ -12,7 +12,7 @@ import { parseScaffoldArgs, planScaffold } from '../src/support/onboarding/scaff
  * target pack is a scaffolder nobody runs twice.
  *
  * There is no registration step. Profiles are discovered from
- * `config/targets/`, so dropping the file in is the whole of it.
+ * `targets/`, so dropping the directory in is the whole of it.
  */
 const USAGE = `Usage:
   npm run target:new -- --name=<app> --url=<base-url> [options]
@@ -89,7 +89,7 @@ function main(): number {
   }
 
   console.log(`\nTarget '${options.name}' scaffolded. No registration step: profiles are`);
-  console.log('discovered from config/targets/, so it is already selectable.\n');
+  console.log('discovered from targets/, so it is already selectable.\n');
   console.log('Next:');
   plan.nextSteps.forEach((step, index) => console.log(`  ${index + 1}. ${step}`));
   console.log(

@@ -75,11 +75,11 @@ export interface SpecFact {
  * rather than "every case in the project" (item 63).
  */
 export function targetOfSpec(file: string): string | null {
-  return /^src\/targets\/([^/]+)\//.exec(file)?.[1] ?? null;
+  return /^targets\/([^/]+)\//.exec(file)?.[1] ?? null;
 }
 
 export function projectOfSpec(file: string): string | null {
-  return /^src\/targets\/[^/]+\/tests\/([^/]+)\//.exec(file)?.[1] ?? null;
+  return /^targets\/[^/]+\/tests\/([^/]+)\//.exec(file)?.[1] ?? null;
 }
 
 /** Contract checks verify a published schema, not a scripted case (§07). */

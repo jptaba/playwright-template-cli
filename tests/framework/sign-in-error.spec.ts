@@ -106,7 +106,7 @@ test('every newly scaffolded pack reads the page, not only its own guess', () =>
 
   expect(actions, 'the scaffolder writes a sign-in action').toBeDefined();
   expect(actions!.contents).toContain('readVisibleError');
-  expect(actions!.contents).toContain("from '../../../support/sign-in-error'");
+  expect(actions!.contents).toContain("from '../../../src/support/sign-in-error'");
   expect(actions!.contents, 'the named locator is still tried first').toContain(
     'signInLocators.error(page)',
   );

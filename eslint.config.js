@@ -65,14 +65,14 @@ module.exports = tseslint.config(
   {
     // `async ({}, use) => …` is Playwright's own fixture idiom: a fixture that
     // depends on nothing still has to declare the dependency object.
-    files: ['src/fixtures/**/*.ts', 'src/targets/*/fixtures.ts'],
+    files: ['src/fixtures/**/*.ts', 'targets/*/fixtures.ts'],
     rules: { 'no-empty-pattern': 'off' },
   },
 
   {
     // Specs assert; that is their job. Non-null assertions on fixture payloads
     // read better than a guard clause in a test body.
-    files: ['src/targets/*/tests/**/*.ts', 'tests/**/*.ts'],
+    files: ['targets/*/tests/**/*.ts', 'tests/**/*.ts'],
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
 );

@@ -1042,7 +1042,7 @@
       <h3>What a target profile owns</h3>
       <p>One module per target, selected by <code>TARGET</code>, resolved once in <code>playwright.config.ts</code> and injected everywhere else through fixtures. No spec, action or locator ever names a host.</p>
 
-      <pre><code>// config/targets/saucedemo.ts
+      <pre><code>// targets/saucedemo/profile.ts
 export const saucedemo: TargetProfile = {
   name: 'saucedemo',
   baseURL: process.env.BASE_URL ?? 'https://www.saucedemo.com',
@@ -1075,7 +1075,7 @@ export const saucedemo: TargetProfile = {
       </div>
 
       <h3>What a profile cannot abstract</h3>
-      <p>This is where "configurable" is usually oversold. A base URL swap is a line of config; a different application is a different set of locators, actions and specs, and no amount of indirection changes that. So the split is explicit: <code>fixtures/</code>, <code>integrations/</code> and <code>support/</code> are target-agnostic framework; <code>locators/</code>, <code>actions/</code> and <code>tests/</code> are namespaced per target under <code>src/targets/&lt;name&gt;/</code>. Swapping targets selects a pack — it does not reuse one.</p>
+      <p>This is where "configurable" is usually oversold. A base URL swap is a line of config; a different application is a different set of locators, actions and specs, and no amount of indirection changes that. So the split is explicit: <code>fixtures/</code>, <code>integrations/</code> and <code>support/</code> are target-agnostic framework; <code>locators/</code>, <code>actions/</code> and <code>tests/</code> are namespaced per target under <code>targets/&lt;name&gt;/</code>. Swapping targets selects a pack — it does not reuse one.</p>
       <p>The payoff is that the framework itself gets exercised by a second, independent application from day one. A design that only ever runs against the app it was written for tends to grow assumptions about that app that nobody notices until the second target arrives.</p>
 
       <h4>The same spec shape, against the reference target</h4>
@@ -1321,7 +1321,7 @@ capabilities: {
 ├─ eslint-rules/                   # executable conventions
 └─ playwright.config.ts</code></pre>
       <p>The three generated instruction files are byte-derived from <code>docs/CONVENTIONS.md</code> and verified in CI. This is the only defence against Copilot and Claude Code slowly diverging into two different house styles.</p>
-      <p>Two structural points carry weight. <code>cases/</code> is the junction: Track A writes into it from a story, Track B fills it from PractiTest, and generation reads only from it — so there is one input format to the generator regardless of where a case came from. And <code>src/targets/</code> makes the per-target boundary a directory rather than a convention, which means the layer-boundary lint rule can also enforce that one target's actions never import another's. The <code>tests/{e2e,api,contract}</code> split under each target maps one-to-one onto the Playwright projects in section 05, so which suites exist for a target is visible in the directory listing rather than buried in config.</p>
+      <p>Two structural points carry weight. <code>cases/</code> is the junction: Track A writes into it from a story, Track B fills it from PractiTest, and generation reads only from it — so there is one input format to the generator regardless of where a case came from. And <code>targets/</code> makes the per-target boundary a directory rather than a convention, which means the layer-boundary lint rule can also enforce that one target's actions never import another's. The <code>tests/{e2e,api,contract}</code> split under each target maps one-to-one onto the Playwright projects in section 05, so which suites exist for a target is visible in the directory listing rather than buried in config.</p>
     </section>
 
     <section id="contract">
@@ -2359,7 +2359,7 @@ JIRA_TLS      = NODE_EXTRA_CA_CERTS=&lt;internal root CA&gt;  # see section 17</
         <table>
           <thead><tr><th>Question</th><th>Answer</th><th>Consequence in this plan</th></tr></thead>
           <tbody>
-            <tr><td>Application under test</td><td><b>Configurable · saucedemo default</b><br /><span class="mono">TARGET → config/targets/*.ts</span></td><td>Base URL, credential source and a capability matrix per profile; no URL literals outside <code>config/targets/</code>; per-target locator, action and spec packs under <code>src/targets/</code>. Section 04.</td></tr>
+            <tr><td>Application under test</td><td><b>Configurable · saucedemo default</b><br /><span class="mono">TARGET → config/targets/*.ts</span></td><td>Base URL, credential source and a capability matrix per profile; no URL literals outside <code>config/targets/</code>; per-target locator, action and spec packs under <code>targets/</code>. Section 04.</td></tr>
             <tr><td>Test scope</td><td><b>UI, mixed, API, contract</b><br /><span class="mono">DB read-only, last resort</span></td><td>Four Playwright projects; <code>actions/</code> gains <code>api/</code> and <code>db/</code> siblings at the same layer; assertions stay in specs. Assert through the UI, else the API, else the database. Section 05.</td></tr>
             <tr><td>Contract testing</td><td><b>Schema conformance, not Pact</b></td><td>Validation hook inside the shared HTTP client so every call is checked, plus a deliberate endpoint pass. Consumer-driven contracts are a development-team initiative and are explicitly out of scope here. Section 05.</td></tr>
             <tr><td>Environments</td><td><b>Real systems only</b></td><td>The framework provisions nothing — no service containers, no dev-mode Vault, no mail stand-in. The single container in the plan is the GitLab job image. Sections 04 and 16.</td></tr>

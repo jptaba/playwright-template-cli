@@ -34,7 +34,7 @@ import { describeOrphanedSessions, orphanedSessions } from './sessions';
 export interface OffboardFacts {
   /** Targets with a profile in `config/targets/`. */
   knownTargets: string[];
-  /** True when `src/targets/<name>/` exists. */
+  /** True when `targets/<name>/` exists. */
   packExists: boolean;
   /** Files under the pack, repo-relative, for the count shown before removal. */
   packFiles: string[];
@@ -397,7 +397,7 @@ export function describeOffboard(plan: OffboardPlan): string[] {
   /*
      Counted per class, not as one total.
 
-     This said "<n> file(s) under src/targets/<name>/ and its profile" for
+     This said "<n> file(s) under targets/<name>/ and its profile" for
      everything in `removeFiles`, and it stopped being true the moment the
      case library joined that list — then again when the stories did. Somebody
      reading the confirmation for the one destructive operation here was told

@@ -28,7 +28,7 @@ function failing(id: string, message: string, overrides: Partial<TestRecord> = {
     caseId: `TC-${id}`,
     jiraKey: null,
     caseHash: null,
-    file: 'src/targets/demo/tests/e2e/x.spec.ts',
+    file: 'targets/demo/tests/e2e/x.spec.ts',
     project: 'e2e',
     kind: 'ui',
     tags: [],
@@ -140,7 +140,7 @@ test.describe('a sign-in that established no session', () => {
   ].join('\n');
 
   const authSetup = (message = SIGN_IN_FAILURE) =>
-    failing('t1', message, { project: 'setup:auth', file: 'src/targets/demo/tests/auth.setup.ts' });
+    failing('t1', message, { project: 'setup:auth', file: 'targets/demo/tests/auth.setup.ts' });
 
   test('is not called a test-timing defect, however the marker was waited for', () => {
     // One passing test, so this is a run with a working environment and one

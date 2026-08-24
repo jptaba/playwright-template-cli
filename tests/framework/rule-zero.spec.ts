@@ -36,9 +36,10 @@ test.describe('rule zero — fix the framework, never the target pack', () => {
       expect(text, 'the rule itself').toMatch(/fix the framework, never the (application's|target) pack/i);
       // The wording an agent needs to see: this is not a preference.
       expect(text, 'and that it is compulsory').toMatch(/non-negotiable/i);
-      // The two directories a troubleshooting fix must not reach for.
-      expect(text).toContain('config/targets/<app>.ts');
-      expect(text).toContain('src/targets/<app>/');
+      // The places a troubleshooting fix must not reach for, by their real
+      // addresses — one directory per application since the packs moved.
+      expect(text).toContain('targets/<app>/profile.ts');
+      expect(text).toContain('targets/<app>/');
     });
   }
 
@@ -64,6 +65,6 @@ test.describe('rule zero — fix the framework, never the target pack', () => {
   test('it is in the Never list, which is what people skim', () => {
     const text = read('docs/CONVENTIONS.md');
     const never = text.slice(text.indexOf('\n## Never'));
-    expect(never.slice(0, 600)).toMatch(/target's own artifacts|src\/targets\/<app>/);
+    expect(never.slice(0, 600)).toMatch(/target's own artifacts|targets\/<app>/);
   });
 });

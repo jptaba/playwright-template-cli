@@ -33,7 +33,7 @@ const stored = (overrides: Partial<TestCase> = {}, file = 'cases/demo/tax.yaml')
 });
 
 const spec = (overrides: Partial<SpecFact> = {}): SpecFact => ({
-  file: 'src/targets/demo/tests/e2e/tax.spec.ts',
+  file: 'targets/demo/tests/e2e/tax.spec.ts',
   title: 'SD-012 · Checkout totals include tax @smoke',
   caseId: null,
   casePath: null,
@@ -65,7 +65,7 @@ test.describe('what a spec cites', () => {
           async ({ authedPage }) => { await expect(authedPage).toHaveURL(/./); },
         );
       `),
-      'src/targets/demo/tests/e2e/tax.spec.ts',
+      'targets/demo/tests/e2e/tax.spec.ts',
     );
 
     expect(facts).toHaveLength(1);
@@ -89,7 +89,7 @@ test.describe('what a spec cites', () => {
           test('two', { annotation: [{ 'type': 'practitest', 'description': '5105' }] }, async () => {});
         });
       `),
-      'src/targets/demo/tests/e2e/checkout.spec.ts',
+      'targets/demo/tests/e2e/checkout.spec.ts',
     );
 
     expect(facts.map((fact) => fact.caseId)).toEqual(['5104', '5105']);
@@ -105,7 +105,7 @@ test.describe('what a spec cites', () => {
           test.skip(process.env.CI === 'true', 'needs a real mailbox');
         });
       `),
-      'src/targets/demo/tests/e2e/thing.spec.ts',
+      'targets/demo/tests/e2e/thing.spec.ts',
     );
 
     expect(facts).toHaveLength(1);
@@ -115,7 +115,7 @@ test.describe('what a spec cites', () => {
   test('a spec with no annotation block at all yields no citation, not a crash', () => {
     const facts = readSpecFacts(
       sourceFor(`test('untraced', async () => {});`),
-      'src/targets/demo/tests/e2e/loose.spec.ts',
+      'targets/demo/tests/e2e/loose.spec.ts',
     );
     expect(facts[0]).toMatchObject({ caseId: null, casePath: null, caseHash: null });
   });
@@ -123,13 +123,13 @@ test.describe('what a spec cites', () => {
 
 test.describe('which specs owe a case', () => {
   test('agrees with the lint rule about what is excused', () => {
-    expect(specNeedsCase('src/targets/demo/tests/e2e/tax.spec.ts')).toBe(true);
-    expect(specNeedsCase('src/targets/demo/tests/api/orders.spec.ts')).toBe(true);
+    expect(specNeedsCase('targets/demo/tests/e2e/tax.spec.ts')).toBe(true);
+    expect(specNeedsCase('targets/demo/tests/api/orders.spec.ts')).toBe(true);
     // A published schema is not a scripted case; a template and a setup file
     // implement nothing.
-    expect(specNeedsCase('src/targets/demo/tests/contract/orders.spec.ts')).toBe(false);
-    expect(specNeedsCase('src/targets/demo/tests/seed.spec.ts')).toBe(false);
-    expect(specNeedsCase('src/targets/demo/tests/auth.setup.ts')).toBe(false);
+    expect(specNeedsCase('targets/demo/tests/contract/orders.spec.ts')).toBe(false);
+    expect(specNeedsCase('targets/demo/tests/seed.spec.ts')).toBe(false);
+    expect(specNeedsCase('targets/demo/tests/auth.setup.ts')).toBe(false);
   });
 });
 
@@ -140,7 +140,7 @@ test.describe('the matching', () => {
     expect(report.cases[0]).toMatchObject({
       status: 'automated',
       matchedBy: 'case-id',
-      specs: ['src/targets/demo/tests/e2e/tax.spec.ts'],
+      specs: ['targets/demo/tests/e2e/tax.spec.ts'],
     });
     expect(report.counts).toMatchObject({ cases: 1, automated: 1, noSpec: 0, orphans: 0 });
   });
@@ -160,7 +160,7 @@ test.describe('the matching', () => {
 
     expect(report.orphans).toEqual([
       {
-        file: 'src/targets/demo/tests/e2e/tax.spec.ts',
+        file: 'targets/demo/tests/e2e/tax.spec.ts',
         title: 'SD-012 · Checkout totals include tax @smoke',
         cites: '9999',
         citedAs: 'case id',
@@ -202,7 +202,7 @@ test.describe('the matching', () => {
 
   test('the case may name the spec, when nothing cited the case', () => {
     const report = buildCoverage({
-      cases: [stored({ id: null, specPath: 'src/targets/demo/tests/e2e/tax.spec.ts' })],
+      cases: [stored({ id: null, specPath: 'targets/demo/tests/e2e/tax.spec.ts' })],
       specs: [spec()],
     });
 
@@ -211,7 +211,7 @@ test.describe('the matching', () => {
 
   test('a specPath naming a file that is not there is said out loud', () => {
     const report = buildCoverage({
-      cases: [stored({ id: null, specPath: 'src/targets/demo/tests/e2e/gone.spec.ts' })],
+      cases: [stored({ id: null, specPath: 'targets/demo/tests/e2e/gone.spec.ts' })],
       specs: [],
     });
 
@@ -223,7 +223,7 @@ test.describe('the matching', () => {
     const report = buildCoverage({
       cases: [
         stored({ id: '5104' }, 'cases/demo/tax.yaml'),
-        stored({ id: '5105', specPath: 'src/targets/demo/tests/e2e/tax.spec.ts' }, 'cases/demo/other.yaml'),
+        stored({ id: '5105', specPath: 'targets/demo/tests/e2e/tax.spec.ts' }, 'cases/demo/other.yaml'),
       ],
       specs: [spec({ caseId: '5104' })],
     });
@@ -248,7 +248,7 @@ test.describe('the matching', () => {
   test('the seed template is not a spec citing a case that does not exist', () => {
     const report = buildCoverage({
       cases: [],
-      specs: [spec({ file: 'src/targets/demo/tests/seed.spec.ts', caseId: 'PT-ID' })],
+      specs: [spec({ file: 'targets/demo/tests/seed.spec.ts', caseId: 'PT-ID' })],
     });
 
     expect(report.orphans).toEqual([]);

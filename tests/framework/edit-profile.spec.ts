@@ -41,7 +41,7 @@ export const toolshop: TargetProfile = {
       baseURL: process.env.API_BASE_URL ?? 'https://api.practicesoftwaretesting.com/docs?api-docs.json',
     },
     db: { enabled: false, vaultRole: 'qa-readonly', dialect: 'postgres' },
-    contracts: { enabled: false, spec: 'src/targets/toolshop/contracts/openapi.json' },
+    contracts: { enabled: false, spec: 'targets/toolshop/contracts/openapi.json' },
     a11y: {
       enabled: false,
       standard: process.env.A11Y_STANDARD ?? 'wcag22aa',

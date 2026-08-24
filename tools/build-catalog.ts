@@ -50,7 +50,7 @@ function build(): string {
   }
 
   for (const target of targetNames()) {
-    const targetRoot = path.join(REPO_ROOT, 'src', 'targets', target);
+    const targetRoot = path.join(REPO_ROOT, 'targets', target);
     if (!fs.existsSync(targetRoot)) continue;
 
     const fixtures = project.getSourceFile(path.join(targetRoot, 'fixtures.ts'));

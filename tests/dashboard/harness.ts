@@ -170,8 +170,8 @@ export const test = base.extend<{ dashboard: Harness }>({
       draft: { ...EMPTY_DRAFT },
       removalPlan: {
         target: 'shop-one',
-        removeFiles: ['config/targets/shop-one.ts'],
-        removeDirectories: ['src/targets/shop-one'],
+        removeFiles: ['targets/shop-one/profile.ts'],
+        removeDirectories: ['targets/shop-one'],
         removeSecretKeys: [],
         removeStorageStates: [],
         clearDraft: false,

@@ -230,7 +230,7 @@ const ruleTester = new RuleTester({
   languageOptions: { parser: tseslint.parser as never, ecmaVersion: 2023, sourceType: 'module' },
 });
 
-const SPEC = 'src/targets/demo/tests/api/orders.spec.ts';
+const SPEC = 'targets/demo/tests/api/orders.spec.ts';
 const CASE_ID = `{ annotation: [{ type: 'practitest', description: '42' }] }`;
 
 test('require-case-id does not mistake a conditional skip for a nameless test', () => {
@@ -265,20 +265,20 @@ test('auth-project-boundary honours the pattern the target profile declares', ()
      documented `authFlowPattern` override: the rule rejected a file the runner
      handled correctly, and its message told the author to undo the override.
   */
-  const toolshopProfile = repoPath('config', 'targets', 'toolshop.ts');
+  const toolshopProfile = repoPath('targets', 'toolshop', 'profile.ts');
   test.skip(!fs.existsSync(toolshopProfile), 'no target declaring an override is present');
 
   ruleTester.run('auth-project-boundary', plugin.rules['auth-project-boundary'], {
     valid: [
       {
         code: `test('registers @auth', ${CASE_ID}, async ({ page }) => {});`,
-        filename: 'src/targets/toolshop/tests/e2e/register.spec.ts',
+        filename: 'targets/toolshop/tests/e2e/register.spec.ts',
       },
     ],
     invalid: [
       {
         code: `test('registers @auth', ${CASE_ID}, async ({ page }) => {});`,
-        filename: 'src/targets/toolshop/tests/e2e/onboarding.spec.ts',
+        filename: 'targets/toolshop/tests/e2e/onboarding.spec.ts',
         errors: [{ messageId: 'wrongFile' }],
       },
     ],
@@ -315,14 +315,14 @@ test('the scaffolder names the shell when npm swallows its arguments', () => {
 
 test('the default auth-flow pattern covers registration and password recovery', () => {
   for (const file of [
-    'src/targets/demo/tests/e2e/login.spec.ts',
-    'src/targets/demo/tests/e2e/register.spec.ts',
-    'src/targets/demo/tests/e2e/signup.spec.ts',
-    'src/targets/demo/tests/e2e/forgot.spec.ts',
-    'src/targets/demo/tests/e2e/password.spec.ts',
-    'src/targets/demo/tests/e2e/mfa.spec.ts',
+    'targets/demo/tests/e2e/login.spec.ts',
+    'targets/demo/tests/e2e/register.spec.ts',
+    'targets/demo/tests/e2e/signup.spec.ts',
+    'targets/demo/tests/e2e/forgot.spec.ts',
+    'targets/demo/tests/e2e/password.spec.ts',
+    'targets/demo/tests/e2e/mfa.spec.ts',
   ]) {
     expect(DEFAULT_AUTH_FLOW_PATTERN.test(file), `${file} belongs to auth-flows`).toBe(true);
   }
-  expect(DEFAULT_AUTH_FLOW_PATTERN.test('src/targets/demo/tests/e2e/checkout.spec.ts')).toBe(false);
+  expect(DEFAULT_AUTH_FLOW_PATTERN.test('targets/demo/tests/e2e/checkout.spec.ts')).toBe(false);
 });

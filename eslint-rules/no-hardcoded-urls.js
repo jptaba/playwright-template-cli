@@ -1,6 +1,6 @@
 'use strict';
 
-const { relPath } = require('./lib/paths');
+const { relPath, isProfile } = require('./lib/paths');
 
 const URL_LITERAL = /\bhttps?:\/\/([^\s/'"`)]+)/i;
 /**
@@ -18,7 +18,7 @@ const NON_ADDRESS = /^(www\.w3\.org|schemas?\.|json-schema\.org|xmlns)/i;
 const PLACEHOLDER = /[<>{}]|\.(invalid|example|test|localdomain)(:|$)/i;
 
 const EXEMPT_PATHS = [
-  /^config\/targets\//, // the one place a host may be named
+  /^config\/targets\//, // shared profile types
   /^tests\//, // framework self-tests spin up loopback servers
   /^docs\//,
   /^eslint-rules\//,
@@ -46,6 +46,9 @@ module.exports = {
 
   create(context) {
     const file = relPath(context);
+    // The profile is the one place a host may be named — that is what a
+    // profile is. Everything else under a target's directory is pack code.
+    if (isProfile(file)) return {};
     if (EXEMPT_PATHS.some((pattern) => pattern.test(file))) return {};
 
     const report = (node, value) => {

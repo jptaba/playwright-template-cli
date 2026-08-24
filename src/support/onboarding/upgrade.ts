@@ -230,6 +230,15 @@ export function planUpgrade(
       // still empty in every sense that matters here.
       if (key.slice(directory.length).includes('/')) continue;
       if (key.endsWith('/.gitkeep')) continue;
+      /*
+         Nor is the profile. It sits in the pack root since the packs moved,
+         and it is not somebody's alternative to `fixtures.ts` — it is the one
+         file in that directory the scaffolder writes for a different purpose.
+         Counting it made every pack root "already hold work", so a missing
+         `fixtures.ts` was reported as superseded and could never be offered
+         back.
+      */
+      if (key.endsWith('/profile.ts')) continue;
       return true;
     }
     return false;

@@ -51,7 +51,7 @@ export const HEAL_CONSTRAINTS = [
      here rather than left to be rediscovered.
   */
   'The failing file named below is the spec. A locator repair belongs in ' +
-    'src/targets/<target>/locators/ and a wait in actions/ — specs contain assertions, ' +
+    'targets/<target>/locators/ and a wait in actions/ — specs contain assertions, ' +
     'never selectors.',
   'Never change an assertion or an expected value.',
   'Label every healed test with what changed, so review is a diff read rather than an act of faith.',

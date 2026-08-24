@@ -47,7 +47,7 @@ const failing = (
   caseId,
   jiraKey: null,
   caseHash: null,
-  file: 'src/targets/demo/tests/e2e/thing.spec.ts',
+  file: 'targets/demo/tests/e2e/thing.spec.ts',
   project: 'e2e',
   kind: 'ui',
   tags: [],
@@ -123,7 +123,7 @@ const GROUND_TRUTH: GroundTruth[] = [
         '- Timeout 10000ms exceeded while waiting on the predicate',
       ].join('\n'),
       'Sign in',
-      { project: 'setup:auth', file: 'src/targets/demo/tests/auth.setup.ts' },
+      { project: 'setup:auth', file: 'targets/demo/tests/auth.setup.ts' },
     ),
     /*
        A locked account, a rotated credential and a stale signedInMarker all

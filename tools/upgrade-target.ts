@@ -35,8 +35,8 @@ import {
 function readPack(targetName: string): Map<string, string> {
   const onDisk = new Map<string, string>();
   const roots = [
-    path.join('src', 'targets', targetName),
-    path.join('config', 'targets'),
+    path.join('targets', targetName),
+    path.join('targets'),
   ];
 
   for (const root of roots) {

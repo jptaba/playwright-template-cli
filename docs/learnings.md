@@ -196,9 +196,9 @@ Adding an application meant editing `config/target.ts` to register the profile
 — a shared file, unrelated to the new target, and the only step in a
 four-step process that reached outside the new pack. Forget it and you get
 `Unknown TARGET 'your-app'` for a profile sitting right there in
-`config/targets/`.
+`targets/`.
 
-*Fix:* profiles are **discovered**. Every file in `config/targets/` exporting a
+*Fix:* profiles are **discovered**. Every file in `targets/` exporting a
 `TargetProfile` is selectable. Onboarding is now entirely additive.
 
 **8 · A profile is a set of claims, and nothing checked them.**

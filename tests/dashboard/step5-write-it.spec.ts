@@ -206,7 +206,7 @@ test.describe('the preview', () => {
        which is.
     */
     const { page } = dashboard;
-    dashboard.recorder.conflicts = ['config/targets/shop.ts', 'src/targets/shop/fixtures.ts'];
+    dashboard.recorder.conflicts = ['targets/shop/profile.ts', 'targets/shop/fixtures.ts'];
     await readyToWrite(dashboard);
 
     await expect(page.locator('#plan')).toContainText('already onboarded');
@@ -217,14 +217,14 @@ test.describe('the preview', () => {
 
   test('a conflict says how to change the application instead', async ({ dashboard }) => {
     const { page } = dashboard;
-    dashboard.recorder.conflicts = ['config/targets/shop.ts'];
+    dashboard.recorder.conflicts = ['targets/shop/profile.ts'];
     await readyToWrite(dashboard);
     await expect(page.locator('#plan')).toContainText('target:remove');
   });
 
   test('changing the name after a conflict makes it writable again', async ({ dashboard }) => {
     const { page } = dashboard;
-    dashboard.recorder.conflicts = ['config/targets/shop.ts'];
+    dashboard.recorder.conflicts = ['targets/shop/profile.ts'];
     await readyToWrite(dashboard);
     await expect(page.locator('#create')).toBeDisabled();
 
@@ -243,7 +243,7 @@ test.describe('the preview', () => {
     await readyToWrite(dashboard);
     await expect(page.locator('#create')).toBeEnabled();
 
-    dashboard.recorder.conflicts = ['config/targets/shop.ts'];
+    dashboard.recorder.conflicts = ['targets/shop/profile.ts'];
     await page.click('#preview');
     await expect(page.locator('#create')).toBeDisabled();
   });
@@ -338,7 +338,7 @@ test.describe('writing', () => {
     */
     const { page } = dashboard;
     await readyToWrite(dashboard);
-    dashboard.recorder.conflicts = ['config/targets/shop.ts'];
+    dashboard.recorder.conflicts = ['targets/shop/profile.ts'];
     await page.click('#create');
 
     await expect(page.locator('#result')).toContainText('Refusing to overwrite');

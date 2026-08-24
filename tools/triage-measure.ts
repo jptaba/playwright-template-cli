@@ -80,7 +80,7 @@ function main(): number {
   if (agreement.rows.length === 0 && agreement.unknownCategories.length === 0) {
     console.error(
       'No spec carried a triage-ground-truth annotation. Add one to each spec in ' +
-        "src/targets/<app>/tests/triage-fixture/ naming the category it is meant to produce, " +
+        "targets/<app>/tests/triage-fixture/ naming the category it is meant to produce, " +
         'or there is nothing to measure agreement against.',
     );
     return 2;

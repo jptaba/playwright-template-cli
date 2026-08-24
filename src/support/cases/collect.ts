@@ -14,7 +14,7 @@ import { loadCases } from './store';
  * as an empty report.
  */
 
-const TARGETS_DIR = path.join(REPO_ROOT, 'src', 'targets');
+const TARGETS_DIR = path.join(REPO_ROOT, 'targets');
 
 /** Repo-relative and forward-slashed, which is how every stored path is written. */
 function relative(full: string): string {

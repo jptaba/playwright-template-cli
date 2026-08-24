@@ -38,9 +38,9 @@ function facts(overrides: Partial<OffboardFacts> = {}): OffboardFacts {
 test('removes the profile, the pack, the credentials and the sessions — and nothing else', () => {
   const plan = planOffboard('acme-shop', facts());
 
-  expect(plan.removeFiles).toContain('config/targets/acme-shop.ts');
-  expect(plan.removeFiles).toContain('src/targets/acme-shop/fixtures.ts');
-  expect(plan.removeDirectories).toEqual(['src/targets/acme-shop']);
+  expect(plan.removeFiles).toContain('targets/acme-shop/profile.ts');
+  expect(plan.removeFiles).toContain('targets/acme-shop/fixtures.ts');
+  expect(plan.removeDirectories).toEqual(['targets/acme-shop']);
   expect(plan.removeSecretKeys).toEqual(['qa/acme-shop/pools/workforce/standard/1']);
   expect(plan.removeStorageStates).toEqual(['acme-shop.standard.json']);
   expect(isRemovable(plan)).toBe(true);
@@ -85,7 +85,7 @@ test('says which files git cannot bring back, and does not refuse over them', ()
   const plan = planOffboard(
     'acme-shop',
     facts({
-      untrackedPaths: ['config/targets/acme-shop.ts', 'src/targets/acme-shop/fixtures.ts'],
+      untrackedPaths: ['targets/acme-shop/profile.ts', 'targets/acme-shop/fixtures.ts'],
     }),
   );
 
@@ -97,7 +97,7 @@ test('says which files git cannot bring back, and does not refuse over them', ()
 test('untracked files belonging to other targets are not counted', () => {
   const plan = planOffboard(
     'acme-shop',
-    facts({ untrackedPaths: ['src/targets/other-app/fixtures.ts', 'docs/scratch.md'] }),
+    facts({ untrackedPaths: ['targets/other-app/fixtures.ts', 'docs/scratch.md'] }),
   );
   expect(plan.warnings.join(' ')).not.toContain('never been committed');
 });
@@ -290,7 +290,7 @@ test.describe('the stories the target was onboarded to prove', () => {
   test('the confirmation counts each kind, rather than calling them all pack files', () => {
     /*
        The sentence a person reads before typing the target's name back. It
-       said "<n> file(s) under src/targets/<name>/ and its profile" for a
+       said "<n> file(s) under targets/<name>/ and its profile" for a
        total that included the case library — so the one safeguard on a
        destructive operation was describing the wrong thing.
     */
@@ -305,7 +305,7 @@ test.describe('the stories the target was onboarded to prove', () => {
 
     // Two pack files plus the profile — and the cases and stories said
     // separately rather than folded into that number.
-    expect(described).toContain('3 file(s) under src/targets/acme-shop/ and its profile');
+    expect(described).toContain('3 file(s) under targets/acme-shop/ and its profile');
     expect(described).toContain('2 test case(s) from cases/acme-shop/');
     expect(described).toContain('1 story file(s) from stories/acme-shop/');
   });

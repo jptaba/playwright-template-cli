@@ -12,7 +12,7 @@ const { relPath, layerOf, targetOf, isFramework, resolveImport } = require('./li
  *   framework       may not import a target pack. This is the rule that keeps
  *                   the framework agnostic of the application under test: it
  *                   fails the build the first time `src/fixtures` reaches for
- *                   `src/targets/<app>/actions`.
+ *                   `targets/<app>/actions`.
  *   one target      may not import another target's code.
  */
 module.exports = {

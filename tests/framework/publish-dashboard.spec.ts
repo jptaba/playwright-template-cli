@@ -27,7 +27,7 @@ const failing = (id: string, caseId: string, message: string): TestRecord => ({
   caseId,
   jiraKey: null,
   caseHash: null,
-  file: 'src/targets/demo/tests/e2e/checkout.spec.ts',
+  file: 'targets/demo/tests/e2e/checkout.spec.ts',
   project: 'e2e',
   kind: 'ui',
   tags: [],

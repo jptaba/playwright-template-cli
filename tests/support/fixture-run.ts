@@ -17,7 +17,7 @@ function record(overrides: Partial<TestRecord> & Pick<TestRecord, 'id' | 'title'
     caseId: null,
     jiraKey: null,
     caseHash: null,
-    file: 'src/targets/demo/tests/e2e/thing.spec.ts',
+    file: 'targets/demo/tests/e2e/thing.spec.ts',
     project: 'e2e',
     kind: 'ui',
     tags: [],

@@ -18,8 +18,8 @@ async function openThePanel(dashboard: Parameters<Parameters<typeof test>[2]>[0]
 function plan(dashboard: Parameters<Parameters<typeof test>[2]>[0]['dashboard'], overrides = {}) {
   dashboard.recorder.removalPlan = {
     target: 'shop-one',
-    removeFiles: ['config/targets/shop-one.ts', 'src/targets/shop-one/fixtures.ts'],
-    removeDirectories: ['src/targets/shop-one'],
+    removeFiles: ['config/targets/shop-one.ts', 'targets/shop-one/fixtures.ts'],
+    removeDirectories: ['targets/shop-one'],
     removeSecretKeys: ['shop-one/standard/1'],
     removeStorageStates: ['.auth/shop-one.standard.json'],
     clearDraft: false,

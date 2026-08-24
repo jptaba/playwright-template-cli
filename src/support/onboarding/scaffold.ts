@@ -384,7 +384,7 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
   */
   const a11yStandard = options.a11yStandard?.trim() || 'wcag22aa';
 
-  const root = `src/targets/${name}`;
+  const root = `targets/${name}`;
   const camel = camelCase(name);
   const pascal = pascalCase(name);
   /*
@@ -404,7 +404,7 @@ export function planScaffold(options: ScaffoldOptions): ScaffoldPlan {
 
   const files: ScaffoldFile[] = [
     {
-      path: `config/targets/${name}.ts`,
+      path: `${root}/profile.ts`,
       contents: profileFile({
         name,
         camel,
@@ -536,7 +536,7 @@ function profileFile(input: ProfileInput): string {
   */
   const specFile = input.contractFilename ?? 'openapi.yaml';
   const contractsSpec = input.include.contracts
-    ? `'src/targets/${input.name}/contracts/${specFile}'`
+    ? `'targets/${input.name}/contracts/${specFile}'`
     : 'null';
   const contractsEnabled = Boolean(input.contractFilename);
   /*
@@ -559,7 +559,7 @@ function profileFile(input: ProfileInput): string {
   const apiLine = input.apiBaseURL
     ? `{\n      enabled: true,\n      baseURL: process.env.API_BASE_URL ?? '${input.apiBaseURL}'${servicesLine},\n    }`
     : '{ enabled: false, baseURL: process.env.API_BASE_URL }';
-  return `import type { TargetProfile } from './types';
+  return `import type { TargetProfile } from '../../config/targets/types';
 
 /**
  * ${input.name} — the application under test is configuration, not code (§04).
@@ -766,7 +766,7 @@ export interface GauntletContext {
     : '';
 
   return `import { test, type Page } from '@playwright/test';
-import { readVisibleError } from '../../../support/sign-in-error';
+import { readVisibleError } from '../../../src/support/sign-in-error';
 import { signInLocators${gauntlet.length ? ', gauntletLocators' : ''} } from '../locators/sign-in';
 
 export interface Credentials {
@@ -833,7 +833,7 @@ ${gauntlet.length ? renderGauntletAction(gauntlet) : ''}};
 }
 
 function fixturesFile(pascal: string): string {
-  return `import { test as framework } from '../../fixtures/base';
+  return `import { test as framework } from '../../src/fixtures/base';
 import { signIn } from './actions/sign-in';
 
 /**
@@ -879,8 +879,8 @@ export { expect } from '@playwright/test';
 const AUTH_SETUP = `import fs from 'node:fs';
 import path from 'node:path';
 import { signIn } from '../actions/sign-in';
-import { AUTH_DIR, poolSizeFor, storageStatePath } from '../../../support/paths';
-import { expect, test as setup } from '../../../fixtures/base';
+import { AUTH_DIR, poolSizeFor, storageStatePath } from '../../../src/support/paths';
+import { expect, test as setup } from '../../../src/fixtures/base';
 
 /**
  * The \`setup:auth\` project — §13.
@@ -967,7 +967,7 @@ setup('Establish a session for each role', async ({ browser, target, secrets }) 
 });
 `;
 
-const ENDPOINTS = `import type { EndpointDescriptor } from '../../../integrations/http/api-client';
+const ENDPOINTS = `import type { EndpointDescriptor } from '../../../src/integrations/http/api-client';
 
 /**
  * L1 — typed endpoint descriptors: the HTTP equivalent of a named locator.
@@ -988,7 +988,7 @@ export const orderEndpoints = {
 } satisfies Record<string, EndpointDescriptor>;
 `;
 
-const API_CLIENT = `import type { ApiClient } from '../../../integrations/http/api-client';
+const API_CLIENT = `import type { ApiClient } from '../../../src/integrations/http/api-client';
 import { orderEndpoints } from '../endpoints/orders';
 
 export interface NewOrder {
@@ -1028,7 +1028,7 @@ export function ordersApi(client: ApiClient) {
 }
 `;
 
-const QUERIES = `import { defineQuery } from '../../../integrations/db/reader';
+const QUERIES = `import { defineQuery } from '../../../src/integrations/db/reader';
 
 export interface LedgerEntry {
   reference: string;
@@ -1057,7 +1057,7 @@ export const ledgerQueries = {
 };
 `;
 
-const DB_READER = `import type { DbReader } from '../../../integrations/db/reader';
+const DB_READER = `import type { DbReader } from '../../../src/integrations/db/reader';
 import { ledgerQueries, type LedgerEntry } from '../queries/ledger';
 
 /**

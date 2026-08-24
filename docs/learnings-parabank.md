@@ -52,7 +52,7 @@ TargetSelectionError: No target profiles found in config/targets/.
 `npm run verify` failed with it, at `catalog:check`.
 
 **Cause.** `targetNames()` went through `profiles()`, which threw when
-`config/targets/` was empty. Discovery and selection were the same code path.
+`targets/` was empty. Discovery and selection were the same code path.
 
 **Why it mattered.** The tool's own closing note says: *"This is the last
 target. Afterwards the repository is the agnostic framework again — with
@@ -74,7 +74,7 @@ framework growing a special case for one application` failed:
 `Should have 1 error but had 0`.
 
 **Cause.** The test asserted that framework code naming `example-app` is an
-error — but the rule reads target names from `config/targets/`, so the test was
+error — but the rule reads target names from `targets/`, so the test was
 really asserting against whichever application happened to be onboarded.
 
 **Why it mattered.** Two ways. With no target it proved nothing while still
@@ -204,7 +204,7 @@ renderer says out loud when it is ignoring a file, naming both run ids.
 ### 7. The healing brief sent the healer to a file with no locators in it
 
 **Symptom.** A deliberately drifted locator produced a correct brief that named
-`src/targets/parabank/tests/e2e/transfer-funds.spec.ts`.
+`targets/parabank/tests/e2e/transfer-funds.spec.ts`.
 
 **Cause.** The brief names what the run model records as having failed, which
 is the spec.

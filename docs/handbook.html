@@ -572,7 +572,7 @@ npm run suites:live                          <span class="c"># every onboarded a
       <strong>application-agnostic framework</strong> and is validated end to
       end from there — through onboarding, <code>target:doctor</code>, and a
       run. Never troubleshoot by hand-editing <code>config/targets/&lt;app&gt;.ts</code>,
-      anything under <code>src/targets/&lt;app&gt;/</code>, or an application's
+      anything under <code>targets/&lt;app&gt;/</code>, or an application's
       specs and docs.
     </p>
   </div>
@@ -739,7 +739,7 @@ npm run suites:live                          <span class="c"># every onboarded a
     <div class="layer">
       <span class="layer-id">L1</span>
       <div class="layer-body">
-        <span class="path">src/targets/&lt;app&gt;/locators/ · endpoints/ · queries/</span>
+        <span class="path">targets/&lt;app&gt;/locators/ · endpoints/ · queries/</span>
         <p>Named locators, typed endpoint descriptors, named parameterised SQL.</p>
         <span class="never">May not contain logic, waits or assertions. Queries may not write anything, ever.</span>
       </div>
@@ -747,7 +747,7 @@ npm run suites:live                          <span class="c"># every onboarded a
     <div class="layer">
       <span class="layer-id">L2</span>
       <div class="layer-body">
-        <span class="path">src/targets/&lt;app&gt;/actions/ · api/ · db/</span>
+        <span class="path">targets/&lt;app&gt;/actions/ · api/ · db/</span>
         <p>Business verbs, typed HTTP clients, a read-only query vocabulary. They compose primitives and <strong>return data</strong>.</p>
         <span class="never">May not assert outcomes. The db layer may not write.</span>
       </div>
@@ -755,7 +755,7 @@ npm run suites:live                          <span class="c"># every onboarded a
     <div class="layer">
       <span class="layer-id">L3</span>
       <div class="layer-body">
-        <span class="path">src/fixtures/ · src/targets/&lt;app&gt;/fixtures.ts</span>
+        <span class="path">src/fixtures/ · targets/&lt;app&gt;/fixtures.ts</span>
         <p>The injectable surface. Everything a spec receives arrives here.</p>
         <span class="never">May not name a host or a selector.</span>
       </div>
@@ -763,7 +763,7 @@ npm run suites:live                          <span class="c"># every onboarded a
     <div class="layer">
       <span class="layer-id">L4</span>
       <div class="layer-body">
-        <span class="path">src/targets/&lt;app&gt;/tests/</span>
+        <span class="path">targets/&lt;app&gt;/tests/</span>
         <p>Specs. <strong>Every assertion lives here.</strong> A spec body should read aloud to a manual tester and match their test case step for step.</p>
         <span class="never">May not import from locators/.</span>
       </div>
@@ -1711,7 +1711,7 @@ npm run triage:measure   <span class="c"># score the rules against ground truth<
 
   <h3>The ground-truth fixture</h3>
   <p>
-    <code>src/targets/&lt;app&gt;/tests/triage-fixture/</code> holds specs that are
+    <code>targets/&lt;app&gt;/tests/triage-fixture/</code> holds specs that are
     <strong>meant to fail</strong>, with causes known in advance. They do not run
     in the normal suite — the <code>triage-fixture</code> project exists only
     when <code>TRIAGE_FIXTURE=true</code> — so a green pipeline stays green.

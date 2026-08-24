@@ -205,7 +205,7 @@ test.describe('editing an existing application', () => {
     dashboard,
   }) => {
     const { page } = dashboard;
-    dashboard.recorder.conflicts = ['config/targets/shop-one.ts'];
+    dashboard.recorder.conflicts = ['targets/shop-one/profile.ts'];
 
     await page.selectOption('#pick', '');
     await page.click('#addApp');

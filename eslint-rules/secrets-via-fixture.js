@@ -1,6 +1,6 @@
 'use strict';
 
-const { relPath, targetOf } = require('./lib/paths');
+const { relPath, targetOf, isProfile } = require('./lib/paths');
 
 /**
  * Short tokens need word boundaries: `TOTP` contains `OTP`, and
@@ -61,7 +61,10 @@ module.exports = {
     const file = relPath(context);
     // A target pack, not the framework's own fixtures: `src/fixtures/` may read
     // non-credential configuration such as RUN_ID.
-    const inTargetPack = targetOf(file) !== null;
+    // The profile reads the environment on purpose — a base URL that differs
+    // per deployment is exactly what `process.env.BASE_URL ?? …` is for. It is
+    // in the target's directory but it is not pack code.
+    const inTargetPack = targetOf(file) !== null && !isProfile(file);
     const isCredentialHelper = file === CREDENTIAL_ENV_HELPER || SELF_TEST_PATH.test(file);
 
     return {

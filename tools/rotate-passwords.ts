@@ -16,7 +16,7 @@ import { RotationRunner, type PasswordChanger } from '../src/support/rotation/ru
  * of the nightly test run (§13).
  *
  * Changing a password is an application flow, so the *how* comes from the
- * target pack: `src/targets/<name>/rotation.ts` exports a `passwordChanger`.
+ * target pack: `targets/<name>/rotation.ts` exports a `passwordChanger`.
  * The framework owns only the order of operations, which is the part that has
  * to be right everywhere.
  */
@@ -28,7 +28,7 @@ interface TargetRotationModule {
 async function loadChanger(profile: TargetProfile): Promise<PasswordChanger> {
   // Resolved from the profile name rather than written in, so this tool stays
   // agnostic of which application it is rotating (§04).
-  const modulePath = path.join(REPO_ROOT, 'src', 'targets', profile.name, 'rotation.ts');
+  const modulePath = path.join(REPO_ROOT, 'targets', profile.name, 'rotation.ts');
   if (!fs.existsSync(modulePath)) {
     throw new Error(
       `Target '${profile.name}' declares a leased account pool but has no ${path.relative(

@@ -24,11 +24,11 @@ const ruleTester = new RuleTester({
 });
 
 /** Paths that classify a snippet into a layer. Rules are path-sensitive. */
-const SPEC = 'src/targets/demo/tests/e2e/thing.spec.ts';
-const LOGIN_SPEC = 'src/targets/demo/tests/e2e/login.spec.ts';
-const CONTRACT_SPEC = 'src/targets/demo/tests/contract/orders.spec.ts';
-const ACTION = 'src/targets/demo/actions/orders.ts';
-const LOCATOR = 'src/targets/demo/locators/orders.ts';
+const SPEC = 'targets/demo/tests/e2e/thing.spec.ts';
+const LOGIN_SPEC = 'targets/demo/tests/e2e/login.spec.ts';
+const CONTRACT_SPEC = 'targets/demo/tests/contract/orders.spec.ts';
+const ACTION = 'targets/demo/actions/orders.ts';
+const LOCATOR = 'targets/demo/locators/orders.ts';
 const FIXTURE = 'src/fixtures/base.ts';
 const INTEGRATION = 'src/integrations/practitest/client.ts';
 const CASE_ID = `{ annotation: [{ type: 'practitest', description: '42' }] }`;
@@ -95,7 +95,7 @@ test('layer-boundaries keeps the four layers and the target packs apart', () => 
       },
       {
         // The rule that keeps the framework agnostic of the application.
-        code: `import { checkout } from '../targets/demo/actions/checkout';`,
+        code: `import { checkout } from '../../targets/demo/actions/checkout';`,
         filename: FIXTURE,
         errors: [{ messageId: 'frameworkImportsTarget' }],
       },
@@ -116,7 +116,7 @@ test('layer-boundaries keeps the four layers and the target packs apart', () => 
         errors: [{ messageId: 'specImportsPrimitive' }],
       },
       {
-        code: `import { l } from 'src/targets/demo/locators/orders';`,
+        code: `import { l } from 'targets/demo/locators/orders';`,
         filename: SPEC,
         errors: [{ messageId: 'specImportsPrimitive' }],
       },
@@ -373,12 +373,14 @@ test('a11y-scan-stability refuses a scan whose stability is never read', () => {
  * at no application at all.
  */
 function sharedTargetSpec(): string | null {
-  const dir = repoPath('config', 'targets');
+  const dir = repoPath(plugin.TARGET_PACK_ROOT);
   if (!fs.existsSync(dir)) return null;
-  for (const file of fs.readdirSync(dir)) {
-    if (!file.endsWith('.ts') || file === 'types.ts') continue;
-    if (/sharedEnvironment\s*:\s*true/.test(fs.readFileSync(path.join(dir, file), 'utf8'))) {
-      return `src/targets/${file.replace(/\.ts$/, '')}/tests/e2e/thing.spec.ts`;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const profile = path.join(dir, entry.name, 'profile.ts');
+    if (!fs.existsSync(profile)) continue;
+    if (/sharedEnvironment\s*:\s*true/.test(fs.readFileSync(profile, 'utf8'))) {
+      return `${plugin.TARGET_PACK_ROOT}/${entry.name}/tests/e2e/thing.spec.ts`;
     }
   }
   return null;
@@ -514,7 +516,7 @@ test('no-target-coupling stops the framework growing a special case for one appl
   ruleTester.run('no-target-coupling', plugin.rules['no-target-coupling'], {
     valid: [
       { code: `if (target.capabilities.mfa === 'none') return skipProvider();`, filename: FIXTURE, options },
-      { code: `const dir = 'src/targets/' + target.name + '/tests';`, filename: INTEGRATION, options },
+      { code: `const dir = 'targets/' + target.name + '/tests';`, filename: INTEGRATION, options },
       // Inside a target pack, naming the target is not coupling.
       { code: `const name = 'acme-shop';`, filename: ACTION, options },
       // With nothing onboarded there is no name to couple to, and the rule
@@ -529,7 +531,7 @@ test('no-target-coupling stops the framework growing a special case for one appl
         errors: [{ messageId: 'namesTarget' }],
       },
       {
-        code: `const dir = 'src/targets/acme-shop/tests';`,
+        code: `const dir = 'targets/acme-shop/tests';`,
         filename: INTEGRATION,
         options,
         errors: [{ messageId: 'pathsIntoTarget' }],

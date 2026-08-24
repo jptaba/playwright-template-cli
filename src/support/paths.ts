@@ -176,9 +176,9 @@ export const CASES_DIR = repoPath('cases');
  * too, and a framework test asserts the two agree; that test is the thing
  * that will catch the halves of a layout change going in separately.
  */
-export const packRootFor = (target: string): string => `src/targets/${target}`;
+export const packRootFor = (target: string): string => `targets/${target}`;
 
-export const profilePathFor = (target: string): string => `config/targets/${target}.ts`;
+export const profilePathFor = (target: string): string => `targets/${target}/profile.ts`;
 
 export const STORIES_DIR = repoPath('stories');
 

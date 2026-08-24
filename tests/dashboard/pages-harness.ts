@@ -47,7 +47,7 @@ const aTest = (id: string, overrides: Partial<TestRecord> = {}): TestRecord => (
   caseId: '5101',
   jiraKey: null,
   caseHash: null,
-  file: 'src/targets/demo/tests/e2e/checkout.spec.ts',
+  file: 'targets/demo/tests/e2e/checkout.spec.ts',
   project: 'e2e',
   kind: 'ui',
   tags: [],
@@ -88,7 +88,7 @@ function aRun(unannotated: number, failures = 0): RunResult {
       aTest(`f${index}`, {
         caseId: String(6000 + index),
         title: `a spec that fails for reason ${index}`,
-        file: `src/targets/demo/tests/e2e/failing-${index}.spec.ts`,
+        file: `targets/demo/tests/e2e/failing-${index}.spec.ts`,
         outcome: 'unexpected',
         status: 'failed',
         firstRunStatus: 'failed',
@@ -176,14 +176,14 @@ const aCase = (index: number, status: CaseRow['status']): CaseRow => ({
   target: 'demo',
   priority: 'medium',
   status,
-  specs: status === 'automated' ? [`src/targets/demo/tests/e2e/spec-${index}.spec.ts`] : [],
+  specs: status === 'automated' ? [`targets/demo/tests/e2e/spec-${index}.spec.ts`] : [],
   matchedBy: status === 'automated' ? 'case-id' : null,
   note: null,
   gate: { passed: true, score: 5, findings: [] },
 });
 
 const anOrphan = (index: number): OrphanSpec => ({
-  file: `src/targets/demo/tests/e2e/orphan-${index}.spec.ts`,
+  file: `targets/demo/tests/e2e/orphan-${index}.spec.ts`,
   title: `a spec citing a case that is not there, number ${index}`,
   cites: String(9000 + index),
   citedAs: 'case id',

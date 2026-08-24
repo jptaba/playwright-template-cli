@@ -61,7 +61,7 @@ test.describe('comparing a pack against the templates', () => {
 
   test('a file somebody rewrote is reported and never queued for writing', () => {
     const disk = freshPack();
-    const locators = 'src/targets/demo/locators/sign-in.ts';
+    const locators = 'targets/demo/locators/sign-in.ts';
     disk.set(locators, '// read off the real application\nexport const signInLocators = {};\n');
 
     const plan = planUpgrade(profile(), disk);
@@ -82,7 +82,7 @@ test.describe('comparing a pack against the templates', () => {
 
   test('a file absent from an empty directory is offered', () => {
     const disk = freshPack();
-    const fixtures = 'src/targets/demo/fixtures.ts';
+    const fixtures = 'targets/demo/fixtures.ts';
     disk.delete(fixtures);
 
     const plan = planUpgrade(profile(), disk);
@@ -110,16 +110,16 @@ test.describe('a starter the pack replaced under a better name', () => {
 
   test('is superseded, not missing, when the directory holds other work', () => {
     const disk = freshPack(withApi);
-    disk.delete('src/targets/demo/endpoints/orders.ts');
-    disk.set('src/targets/demo/endpoints/catalogue.ts', 'export const catalogueEndpoints = {};\n');
+    disk.delete('targets/demo/endpoints/orders.ts');
+    disk.set('targets/demo/endpoints/catalogue.ts', 'export const catalogueEndpoints = {};\n');
 
     const plan = planUpgrade(withApi, disk);
 
     expect(plan.superseded.map((file) => file.path)).toContain(
-      'src/targets/demo/endpoints/orders.ts',
+      'targets/demo/endpoints/orders.ts',
     );
     expect(plan.addable.map((file) => file.path)).not.toContain(
-      'src/targets/demo/endpoints/orders.ts',
+      'targets/demo/endpoints/orders.ts',
     );
   });
 
@@ -127,21 +127,21 @@ test.describe('a starter the pack replaced under a better name', () => {
     // Otherwise the scaffolder's own placeholder would suppress the starter
     // it was written to hold a place for.
     const disk = freshPack(withApi);
-    disk.delete('src/targets/demo/endpoints/orders.ts');
-    disk.set('src/targets/demo/endpoints/.gitkeep', '');
+    disk.delete('targets/demo/endpoints/orders.ts');
+    disk.set('targets/demo/endpoints/.gitkeep', '');
 
     expect(planUpgrade(withApi, disk).addable.map((file) => file.path)).toContain(
-      'src/targets/demo/endpoints/orders.ts',
+      'targets/demo/endpoints/orders.ts',
     );
   });
 
   test('work in a subdirectory does not count as work in this one', () => {
     const disk = freshPack(withApi);
-    disk.delete('src/targets/demo/endpoints/orders.ts');
-    disk.set('src/targets/demo/endpoints/v2/things.ts', 'export const things = {};\n');
+    disk.delete('targets/demo/endpoints/orders.ts');
+    disk.set('targets/demo/endpoints/v2/things.ts', 'export const things = {};\n');
 
     expect(planUpgrade(withApi, disk).addable.map((file) => file.path)).toContain(
-      'src/targets/demo/endpoints/orders.ts',
+      'targets/demo/endpoints/orders.ts',
     );
   });
 });
@@ -154,7 +154,7 @@ test('the report frames a divergence as information, not as a fault', () => {
      work, and would be ignored for good reason.
   */
   const disk = freshPack();
-  disk.set('src/targets/demo/locators/sign-in.ts', '// mine\n');
+  disk.set('targets/demo/locators/sign-in.ts', '// mine\n');
   const report = formatUpgrade(planUpgrade(profile(), disk)).join('\n');
 
   expect(report).toContain('Not touched, and mostly should not be');
@@ -167,7 +167,7 @@ test('the options are rebuilt from the profile, including the optional layers', 
       capabilities: {
         ...profile().capabilities,
         api: { enabled: true, baseURL: 'https://api.demo.internal.corp' },
-        contracts: { enabled: true, spec: 'src/targets/demo/contracts/openapi.json' },
+        contracts: { enabled: true, spec: 'targets/demo/contracts/openapi.json' },
       },
     }),
   );
@@ -189,7 +189,7 @@ test.describe('lines the template owns inside a file somebody else works in', ()
      no role, and fixing the template reached none of the four packs already on
      disk. The corrected line had to be pasted into each by hand.
   */
-  const LOCATORS = 'src/targets/demo/locators/sign-in.ts';
+  const LOCATORS = 'targets/demo/locators/sign-in.ts';
 
   /** The pack's file, with the marked line put back to an older rendering. */
   const withOldLine = (): Map<string, string> => {

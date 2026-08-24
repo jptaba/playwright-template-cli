@@ -35,7 +35,7 @@ function shell(command: string, args: string[], env: NodeJS.ProcessEnv = {}) {
 
 /** Every spec source in a pack, for reading the coverage tags out of. */
 function specSources(target: string): string[] {
-  const root = path.join(REPO_ROOT, 'src', 'targets', target, 'tests');
+  const root = path.join(REPO_ROOT, 'targets', target, 'tests');
   if (!fs.existsSync(root)) return [];
   const sources: string[] = [];
   const walk = (directory: string): void => {
@@ -165,7 +165,7 @@ async function main(): Promise<number> {
      so "triage passed" on a green suite is two claims where one was checked.
   */
   const hasFixture = fs.existsSync(
-    path.join(REPO_ROOT, 'src', 'targets', target, 'tests', 'triage-fixture'),
+    path.join(REPO_ROOT, 'targets', target, 'tests', 'triage-fixture'),
   );
   if (!hasFixture) {
     add({

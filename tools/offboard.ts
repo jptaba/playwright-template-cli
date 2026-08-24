@@ -41,7 +41,7 @@ Options:
   --keep-secrets     leave config/secrets.local.json alone`;
 
 export function gatherFacts(target: string): OffboardFacts {
-  const targetsDir = path.join(REPO_ROOT, 'config', 'targets');
+  const targetsDir = path.join(REPO_ROOT, 'targets');
   const knownTargets = fs.existsSync(targetsDir)
     ? fs
         .readdirSync(targetsDir)
@@ -49,7 +49,7 @@ export function gatherFacts(target: string): OffboardFacts {
         .map((file) => file.replace(/\.ts$/, ''))
     : [];
 
-  const packRoot = path.join(REPO_ROOT, 'src', 'targets', target);
+  const packRoot = path.join(REPO_ROOT, 'targets', target);
   const packFiles: string[] = [];
   const walk = (directory: string, prefix: string): void => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -142,7 +142,7 @@ function draftName(): string | null {
  * cannot throw.
  */
 function pointsAtPlaceholderHost(target: string): boolean {
-  const profile = path.join(REPO_ROOT, 'config', 'targets', `${target}.ts`);
+  const profile = path.join(REPO_ROOT, 'targets', target, 'profile.ts');
   if (!fs.existsSync(profile)) return false;
   const declared = /baseURL:[^\n]*?['"`](https?:\/\/[^'"`]+)['"`]/.exec(
     fs.readFileSync(profile, 'utf8'),
@@ -199,7 +199,7 @@ export function removeTarget(plan: OffboardPlan, options: { keepSecrets?: boolea
     const full = path.join(REPO_ROOT, relative);
     if (!fs.existsSync(full)) continue;
     // Recursive, because empty directories are left behind by the file pass
-    // and an empty `src/targets/<app>/tests/e2e` is still a target on disk.
+    // and an empty `targets/<app>/tests/e2e` is still a target on disk.
     fs.rmSync(full, { recursive: true, force: true });
     done.push(`removed ${relative}/`);
   }

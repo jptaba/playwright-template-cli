@@ -21,7 +21,7 @@ import { RULES } from '../../src/support/triage/rules';
  */
 
 const LOCKED_OUTPUT = `
-  1) [setup:auth] › src/targets/demo/tests/auth.setup.ts:25:6 › Establish a session
+  1) [setup:auth] › targets/demo/tests/auth.setup.ts:25:6 › Establish a session
 
     Error: Sign-in for role 'customer' (account 1) did not establish a session.
     The application said: "Account locked, too many failed attempts. Please contact the administrator."
@@ -85,7 +85,7 @@ test.describe('reading what the application contributed', () => {
     // "First line containing the word error" is almost always a path on a
     // Playwright run, and handing that back as the application's words is
     // worse than admitting there were none.
-    expect(reportedByApplication('at /repo/src/targets/demo/errors.ts:12:9')).toBeNull();
+    expect(reportedByApplication('at /repo/targets/demo/errors.ts:12:9')).toBeNull();
   });
 });
 

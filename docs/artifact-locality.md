@@ -1,7 +1,7 @@
 # Where an application's artifacts live
 
 Written in answer to a direct question — *is everything for one application
-inside `src/targets/<app>/`, and if not, what could move?* The short answer is
+inside `targets/<app>/`, and if not, what could move?* The short answer is
 **no, and mostly for good reasons**, with one thing that was genuinely wrong
 and is now fixed, and one open recommendation.
 
@@ -11,10 +11,10 @@ and is now fixed, and one open recommendation.
 
 | Artifact | Where | Scoped by | In the pack? | Verdict |
 |---|---|---|---|---|
-| Profile | `config/targets/<app>.ts` | filename | no | **Stays** |
-| Locators, actions, endpoints, api, db, queries, fixtures | `src/targets/<app>/` | directory | yes | — |
-| Specs | `src/targets/<app>/tests/` | directory | yes | — |
-| Vendored contract document | `src/targets/<app>/contracts/` | directory | yes | — |
+| Profile | `targets/<app>/profile.ts` | filename | no | **Stays** |
+| Locators, actions, endpoints, api, db, queries, fixtures | `targets/<app>/` | directory | yes | — |
+| Specs | `targets/<app>/tests/` | directory | yes | — |
+| Vendored contract document | `targets/<app>/contracts/` | directory | yes | — |
 | Test cases | `cases/<app>/*.yaml` | directory **and** a `target:` field | no | **Should move** |
 | Stories | `stories/<app>/<KEY>.json` | directory | no | **Done — see below** |
 | Credentials | `config/secrets.local.json`, keyed `qa/<app>/…` | key prefix | no | **Stays** |
@@ -26,9 +26,9 @@ and is now fixed, and one open recommendation.
 
 ## Why the ones outside the pack stay there
 
-**The profile** is the discovery mechanism. `config/targets/` is read at
+**The profile** is the discovery mechanism. `targets/` is read at
 startup to find out which applications exist; a profile inside
-`src/targets/<app>/` would mean scanning for packs to find profiles to know
+`targets/<app>/` would mean scanning for packs to find profiles to know
 which packs to load. It is also the one file that must be readable *without*
 loading the pack — `target:doctor` checks a profile against a pack precisely
 because they can disagree.
@@ -158,7 +158,7 @@ there.
 
 ## What I would move, and what it would cost
 
-`cases/<app>/` → `src/targets/<app>/cases/`.
+`cases/<app>/` → `targets/<app>/cases/`.
 
 **For:** cases are unambiguously target-scoped — the `target:` field inside
 each one says so. They are the direct input to spec generation, which lives in

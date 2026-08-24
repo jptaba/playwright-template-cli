@@ -29,8 +29,8 @@ function spec(file: string, jiraKey: string | null): SpecFact {
 test.describe('who cites a story', () => {
   test('a story is claimed by the application whose specs cite it', () => {
     const claims = storyClaims([
-      spec('src/targets/toolshop/tests/e2e/search.spec.ts', 'TOOL-1'),
-      spec('src/targets/orangehrm/tests/e2e/users.spec.ts', 'OHRM-1'),
+      spec('targets/toolshop/tests/e2e/search.spec.ts', 'TOOL-1'),
+      spec('targets/orangehrm/tests/e2e/users.spec.ts', 'OHRM-1'),
     ]);
 
     expect(claims.get('TOOL-1')).toEqual(['toolshop']);
@@ -41,8 +41,8 @@ test.describe('who cites a story', () => {
     // A real state rather than an error: two suites may prove parts of one
     // requirement, so this is a list and not a single owner.
     const claims = storyClaims([
-      spec('src/targets/toolshop/tests/e2e/a.spec.ts', 'SHARED-1'),
-      spec('src/targets/saucedemo/tests/e2e/b.spec.ts', 'SHARED-1'),
+      spec('targets/toolshop/tests/e2e/a.spec.ts', 'SHARED-1'),
+      spec('targets/saucedemo/tests/e2e/b.spec.ts', 'SHARED-1'),
     ]);
 
     expect(claims.get('SHARED-1')).toEqual(['toolshop', 'saucedemo']);
@@ -50,15 +50,15 @@ test.describe('who cites a story', () => {
 
   test('one application citing a story twice claims it once', () => {
     const claims = storyClaims([
-      spec('src/targets/toolshop/tests/e2e/a.spec.ts', 'TOOL-1'),
-      spec('src/targets/toolshop/tests/e2e/b.spec.ts', 'TOOL-1'),
+      spec('targets/toolshop/tests/e2e/a.spec.ts', 'TOOL-1'),
+      spec('targets/toolshop/tests/e2e/b.spec.ts', 'TOOL-1'),
     ]);
 
     expect(claims.get('TOOL-1')).toEqual(['toolshop']);
   });
 
   test('a spec citing no story claims nothing', () => {
-    expect(storyClaims([spec('src/targets/toolshop/tests/e2e/a.spec.ts', null)]).size).toBe(0);
+    expect(storyClaims([spec('targets/toolshop/tests/e2e/a.spec.ts', null)]).size).toBe(0);
   });
 
   test('a file outside a target pack claims nothing', () => {
@@ -69,8 +69,8 @@ test.describe('who cites a story', () => {
 
 test.describe('which stories an application should see', () => {
   const claims = storyClaims([
-    spec('src/targets/toolshop/tests/e2e/search.spec.ts', 'TOOL-1'),
-    spec('src/targets/orangehrm/tests/e2e/users.spec.ts', 'OHRM-1'),
+    spec('targets/toolshop/tests/e2e/search.spec.ts', 'TOOL-1'),
+    spec('targets/orangehrm/tests/e2e/users.spec.ts', 'OHRM-1'),
   ]);
 
   test('its own', () => {
@@ -106,8 +106,8 @@ test.describe('which stories an application should see', () => {
 
   test('a story two applications cite is shown to both', () => {
     const shared = storyClaims([
-      spec('src/targets/toolshop/tests/e2e/a.spec.ts', 'SHARED-1'),
-      spec('src/targets/saucedemo/tests/e2e/b.spec.ts', 'SHARED-1'),
+      spec('targets/toolshop/tests/e2e/a.spec.ts', 'SHARED-1'),
+      spec('targets/saucedemo/tests/e2e/b.spec.ts', 'SHARED-1'),
     ]);
 
     // Pulled under toolshop, and saucedemo proves it too. One directory

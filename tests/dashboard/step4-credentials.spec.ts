@@ -131,7 +131,7 @@ test.describe('signing in once', () => {
     await page.click('#verify');
     const status = page.locator('#verifyStatus');
     await expect(status).toContainText('This was not written to the pack.');
-    await expect(status).toContainText('src/targets/shop/locators/sign-in.ts');
+    await expect(status).toContainText('targets/shop/locators/sign-in.ts');
     // The exact replacement, not a description of one.
     await expect(status).toContainText("page.getByRole('button', { name: 'My account' })");
     await expect(status).toContainText('setup:auth');
