@@ -99,6 +99,7 @@ import { registerSecretPayload } from '../src/support/redact';
 import type { ScaffoldOptions, ScaffoldPlan } from '../src/support/onboarding/scaffold';
 import { editProfileSource } from '../src/support/onboarding/edit-profile';
 import { closeOnFailure, launchBrowser } from '../src/support/ui/failures';
+import { shouldOpenBrowser } from '../src/support/ui/open-browser';
 import { idleWatcher, shutdownHandler } from '../src/support/ui/shutdown';
 import {
   draftIsStale,
@@ -1909,7 +1910,18 @@ function main(): void {
         ? `Closes itself after ${IDLE_MINUTES} idle minutes (DASHBOARD_IDLE_MINUTES=0 to stay up).\n`
         : 'Stays up until stopped (DASHBOARD_IDLE_MINUTES=0).\n',
     );
-    open(url);
+    /*
+       A browser only when somebody is there to look at it — item 79.
+
+       This was unconditional, so every scheduled run, headless check and loop
+       iteration put a window on somebody's desktop. Run 96's sixty orphaned
+       servers had sixty tabs between them, and those tabs held the connections
+       that made the idle watchdog decline to reap them: the window nobody
+       asked for was keeping alive the server nobody wanted.
+    */
+    const choice = shouldOpenBrowser(process.env, process.stdout.isTTY);
+    if (choice.explain) console.log(choice.explain);
+    if (choice.open) open(url);
   });
 }
 

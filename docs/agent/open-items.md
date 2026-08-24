@@ -15,7 +15,6 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 79 | `npm run dashboard` opens a browser window even when nobody asked | `ready` |
 | 68 | Two applications keep a worker cap that costs them, for a reason worth removing | `hypothesis` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
@@ -110,6 +109,14 @@ when the chip named an application with a real finding — `/users` and
 own picker and did not. A query string the page reads once and drops from the
 address bar closes the gap without relaxing item 6's guarantee that a plain
 visit still opens blank.
+
+**Run 97 closed item 79, which is what made 78 work.** `main()` ended with an
+unconditional `open(url)`, so every scheduled run, headless check and loop
+iteration put a window on somebody's desktop — and those windows were holding
+the connections that made run 96's watchdog correctly decline to reap the
+servers. The default is now a fact rather than a flag: a terminal attached to
+stdout means a person is running this. Proven end to end — an automated caller
+now opens no browser, says why, and the server closes itself.
 
 **Run 96 closed item 78 and raised 79.** The dashboard had no way to notice it
 had been abandoned: `shutdownHandler` covers `SIGINT` and `SIGTERM`, and
@@ -277,25 +284,6 @@ it already has. That is the line to hold: the dashboard should say more, not do
 more.
 
 ---
-
----
-
-### 79. `npm run dashboard` opens a browser window even when nobody asked — `ready`
-
-**Found in run 96, while proving item 78's watchdog**, and it is evidenced
-rather than reasoned: `tools/dashboard.ts` ends `main()` with an unconditional
-`open(url)`, which spawns the platform browser on every start.
-
-That is right for a person typing `npm run dashboard`. It is wrong for every
-other caller — a scheduled run, a headless check, this improvement loop — and
-run 96 measured the cost: **60 orphaned servers meant 60 browser tabs**, and
-those tabs are why the servers looked busy to the very watchdog written to
-reap them. The idle watchdog is correct to treat an open tab as a person, so
-this is now the thing standing between it and the leak it was built for.
-
-Wants a flag and a default, not a rewrite: `open()` already exists and is
-already guarded against failure. `DASHBOARD_OPEN=0`, or a `--no-open`, with
-the interactive path unchanged. Small, and it makes item 78 fully effective.
 
 ---
 

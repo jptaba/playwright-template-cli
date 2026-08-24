@@ -6716,3 +6716,29 @@ Then the transition the whole feature rests on, proven directly: client connects
 - **The feature not working was the feature working.** Ninety seconds from "the watchdog is broken" to "the watchdog is correct and my test was naive", and the only reason it was ninety seconds is that I instrumented the three conditions instead of reasoning about which one was false.
 - **Trace the socket, do not infer it.** `getConnections()` returning 1 on an untouched server is a mystery until `Get-NetTCPConnection` names msedge, and then it is obvious. The first `OwningProcess` lookup answered "node", which is the server's own end and tells you nothing — the remote port has to be looked up separately.
 - **A tool that starts an unbounded number of copies of itself will.** Port 0 is the right default for a local dev server and it removes every natural limit; nothing here noticed sixty until somebody counted.
+
+## 2026-08-23 · run 97 · The window nobody asked for was keeping the server alive
+
+**Picked:** item 79, `ready`, raised by run 96 an hour earlier. At the owner's direction, together with clearing the orphans run 96 left running.
+
+**The orphans first.** 60 processes, 5,412 MB. Killed only those with **no established connection** — 44 of them, 2,953 MB — on the reasoning that a connection means somebody has the page open and losing their tab is not cleanup. All 60 went, because each logical dashboard is about three processes (`npx-cli`, `tsx`, the server) and taking the untethered ones out took their partners with them. Worth knowing rather than glossing: the safe filter was safe, and it was also less surgical than it looked.
+
+**Then the item, and it is the reason 78 could not work.** `main()` ended with an unconditional `open(url)`. Right for a person typing `npm run dashboard`; wrong for a scheduled run, a headless check, or this loop. And the two defects were feeding each other — sixty servers had spawned sixty tabs, those tabs were holding the connections, and run 96's watchdog was therefore *correctly* declining to reap servers that looked occupied. **The window nobody asked for was keeping alive the server nobody wanted.**
+
+**The default is a fact rather than a flag.** `shouldOpenBrowser(env, isTTY)` in a small pure module: a terminal attached to stdout is what separates "a person is running this" from "something is running this". An environment variable alone would have been useless here, because the callers that most need the fix are the automated ones nobody is watching and nobody would have set it for. `DASHBOARD_OPEN=1`/`0` overrides in both directions, and the *automatic* refusal explains itself on the console — an explicit one says nothing, because saying "no browser, as you asked" on every start is noise.
+
+**Proven end to end, which run 96 could not do:** an automated caller now prints *"No terminal attached, so no browser was opened. DASHBOARD_OPEN=1 to open one."*, opens nothing, and **the server closes itself and exits 0**. That is items 78 and 79 working as one thing for the first time.
+
+**One edge worth the test it has:** `DASHBOARD_OPEN=` set to empty — a shell profile or a CI runner exporting nothing — is somebody having *not* chosen, so the terminal still decides. Reading an empty string as "no" would silently take the browser away from a person at a terminal.
+
+**Verify:** `npm run verify` passes, exit 0 — **1207 tests**, up from 1200. Seven new.
+
+**Live suites:** not re-run; `src/support/ui/` and `tools/` only, no target pack and no spec. Run 94's result stands.
+
+**Not verified, and stated rather than assumed:** the interactive path was not driven, because doing so puts a real browser window on the owner's desktop. `open(url)` is unchanged and the only new gate is a boolean the unit tests cover exhaustively — but if `npm run dashboard` in a real terminal ever reports no TTY, the failure is graceful and self-explaining rather than silent, which is the property that made this default acceptable.
+
+**Learned:**
+
+- **Two defects can hold each other up.** 78 was correct and inert; 79 was the reason. Neither log entry alone would have explained why the watchdog "did not work" — and the thing that connected them was tracing a socket to msedge, not reading either file.
+- **A default that needs remembering is not a default.** The callers that needed the browser suppressed are exactly the ones with nobody present to set a variable. `isTTY` is the fact that was already there.
+- **"Safe" filters can still be broad.** Killing only unconnected processes was the right rule and still took all 60, because process trees are not the unit the rule was written about.
