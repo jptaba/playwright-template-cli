@@ -3,7 +3,7 @@
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 
-# Test framework conventions — for GitHub Copilot
+# Testbench conventions — for GitHub Copilot
 
 These instructions apply to every file in this repository. Prefer the fixtures and actions listed in `docs/generated/catalog.md`; the lint rules named below run on every merge request and will reject code that ignores them.
 

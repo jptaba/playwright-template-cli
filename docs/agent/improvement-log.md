@@ -6919,3 +6919,92 @@ written.
 - **A green new test that never went red is a claim, not a result.** Reverting
   took two minutes and turned seven assertions into five proofs and two
   deliberate guards.
+
+## 2026-08-24 · run 101 · The name said "template CLI"; the thing is a testbench
+
+**Picked:** the owner's request, four parts — rename the project across the
+documentation, re-scan `docs/architecture.html` for footer and SVG defects,
+bring every document up to date, and push to `main`.
+
+**The name.** `playwright-template-cli` described a delivery mechanism, and by
+now neither half of it was true: `main` is not a template waiting to be copied
+(it carries five onboarded applications) and the CLI is one surface among a
+dashboard, a doctor, a triage pipeline and a publisher. Renamed to
+**Testbench** — a testbench is precisely a rig you mount a device under test
+into, which is this repository's entire architecture claim: *the application
+under test is configuration*. Tagline: **an application-agnostic Playwright
+framework with guardrails that execute.**
+
+Applied to `README.md`, `docs/handbook.html`, `docs/architecture.html`,
+`docs/plan.html`, the dashboard wordmark (`src/support/ui/shell.ts`), the
+generated instruction headers (`tools/sync-instructions.ts` →
+`CLAUDE.md`/`AGENTS.md`/copilot) and `package.json`. The package is
+`private: true`, so renaming it is free; the git remote is unchanged and
+`plan.html`'s naming note now records both renames rather than erasing the
+first.
+
+**The architecture page was scanned by measuring it, not by reading it**, and
+the measurement found more than the eye had:
+
+| defect | evidence |
+|---|---|
+| Three framework→outside edges ran **straight through the L2, L3 and L4 boxes** | segment/rect intersection test, 3 hits |
+| Their labels sat **on top of the pack's own labels** | text bbox overlap test, 3 pairs |
+| The dashed discovery edge ran **through `.auth/ sessions`** | 2 hits, horizontal and vertical |
+| The footer occupied **571px of a 1088px page**, hugging the left | `getBoundingClientRect` |
+
+The strike-throughs were the serious one: a line drawn through a box reads as
+passing *via* it, which is the exact claim this diagram exists to deny — the
+core never touches a pack on its way anywhere. The three edges now leave the
+core below the pack and run in three lanes.
+
+**The nesting runs the way that is not obvious, and I got it wrong first.** The
+topmost destination takes the **highest** lane and the **innermost** riser.
+Nested the other way — outermost-first, which is what I reached for — each
+outer riser drops straight through the approach line of the one below it. The
+checker caught three crossings I had introduced while removing five older
+defects, which is the argument for measuring the fix rather than looking at it.
+
+Final state, all four diagrams: **zero strike-throughs, zero lines through
+text, zero connector crossings, zero text overlaps**, all within their
+viewBoxes. Diagrams 2, 3 and 4 were clean before and after; only diagram 1 was
+ever wrong.
+
+**The footer.** `p, ul, ol { max-width: 70ch }` is right for body prose and
+wrong for a row of short parallel notes, which is what a footer is. Both pages
+now use `repeat(auto-fit, minmax(15rem, 1fr))`: three columns filling 1088px at
+1280, one column at 375px, no page overflow either way. Dark mode measured too
+— 6.58:1 and 11.26:1 against the ground, both above AA.
+
+**Stale documentation corrected while there**, because "update the docs" is
+worth nothing if the docs still describe a repository that no longer exists:
+the ESLint rule count was **ten** and is thirteen (`known-failures-declared`,
+`no-lockout-on-shared` and `a11y-scan-stability` had never been added to the
+README table); `main` was described as shipping an `example-app` scaffold and
+naming no real application; three documents pointed at a
+`saucedemo/extensive-coverage` branch for a pack that has been on `main` since
+run 11; and Vault was still listed as unreachable, which run 21 disproved with
+one `docker run`.
+
+**Verify:** `npm run verify` passes, exit 0 — **1220 tests**, unchanged. The
+one test that asserted the wordmark was rewritten to the new name.
+
+**Live suites:** not re-run. This run touched documentation, one wordmark
+string and one generated header — no target pack, no spec, no fixture. Run
+100's result stands: 1 passing, 3 failing on accepted-red accessibility specs,
+1 parked.
+
+**Learned:**
+
+- **A diagram defect is measurable, and the eye is the wrong instrument.** Five
+  strike-throughs and three text collisions had been on that page long enough
+  to be reviewed repeatedly. Thirty lines of segment-versus-rect arithmetic
+  found all eight in one pass, and then found three more that my own fix
+  introduced.
+- **A name that describes the delivery mechanism dates fastest.**
+  `template-cli` was accurate for about a week, and every later change made it
+  less true while nothing forced it to be revisited.
+- **"Update the documentation" is mostly not about wording.** The rename took
+  minutes; the stale claims — a rule count, a branch that no longer holds what
+  it is cited for, a capability listed as unproven — took longer and mattered
+  more.

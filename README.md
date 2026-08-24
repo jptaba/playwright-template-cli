@@ -1,8 +1,11 @@
-# playwright-template-cli
+# Testbench
 
-A Playwright end-to-end test framework designed so that AI coding agents can
-**generate conforming tests from written test cases**, and so that failures get
-triaged automatically before a human reads them.
+**An application-agnostic Playwright framework with guardrails that execute.**
+
+Mount any application under test, let AI coding agents author conforming specs
+against it, and have failures triaged before a human reads them. The application
+is configuration: onboarding one takes minutes, removing one leaves nothing
+behind, and no framework code ever names it.
 
 > **Status: the architecture in [docs/plan.html](docs/plan.html) is implemented.**
 > The framework, its guardrails and every integration adapter are built and
@@ -24,24 +27,22 @@ fix landed. New learnings go there.
 ```bash
 npm install
 npx playwright install chromium
-npm run verify        # lint + types + generated-file checks + 250 framework tests
+npm run verify        # lint + types + generated-file checks + the framework's own tests
 ```
 
 `verify` is the whole gate, and it is what CI runs. It needs no browser, no
 credential and no application.
 
-`npx playwright test` also drives the browser projects against the selected
-target — which, on a fresh clone, is the `example-app` template pointed at a
-host reserved so it can never resolve. **It is meant to fail there**, and it
-fails with a DNS error rather than something clearer. Attach a real
-application first; `npm run target:doctor` says the same thing before you get
-that far.
+`npx playwright test` also drives the browser projects, but only against an
+application you have selected. With several onboarded and `TARGET` unset, just
+the framework's own project builds — alphabetical order does not get to decide
+which application gets tested.
 
-`main` is the template: the framework, its guardrails, and one clearly-labelled
-scaffold at `src/targets/example-app/` with a deliberately unusable host and no
-specs. Copy it, rename it, replace its contents — the four steps are below. A
-worked implementation against a live public site lives on the
-`saucedemo/extensive-coverage` branch.
+`main` carries the framework plus **five onboarded public demo applications** —
+`toolshop`, `saucedemo`, `parabank`, `restful-booker` and `orangehrm` — which
+exist so agnosticism is tested continuously rather than assumed. Each is a
+worked example of the four layers against a real, live site. Remove any of them
+with one command and the repository is back to the template.
 
 ---
 
@@ -76,8 +77,8 @@ This template treats both as design problems rather than prompting problems.
 
 ## The executable conventions
 
-Ten custom ESLint rules, each with unit tests. These are the framework's real
-guardrails — everything else is documentation.
+Thirteen custom ESLint rules, each with unit tests. These are the framework's
+real guardrails — everything else is documentation.
 
 | Rule | Stops |
 |---|---|
@@ -91,6 +92,9 @@ guardrails — everything else is documentation.
 | `step-naming` | Step titles that describe mechanics rather than intent |
 | `auth-project-boundary` | `@auth` specs inheriting a session they were meant to establish |
 | `no-target-coupling` | Framework code branching on a target's *name* instead of a capability |
+| `known-failures-declared` | `test.fail()`, which reports a spec as passing the moment it fails for some other reason |
+| `no-lockout-on-shared` | A real username paired with a made-up password on a deployment shared with strangers |
+| `a11y-scan-stability` | An accessibility spec that scans a page and never says whether the result was stable |
 
 ## Application-under-test agnostic
 
@@ -133,7 +137,7 @@ is a framework bug: the thing you need is a capability, not a special case.
 
 ```
 config/targets/       one profile per application; the only place a host appears
-eslint-rules/         the ten executable conventions, with tests
+eslint-rules/         the thirteen executable conventions, with tests
 src/fixtures/         L3 — the closed vocabulary a generated spec may use
 src/targets/<app>/    L1 locators/endpoints/queries · L2 actions/api/db · L4 tests
 src/integrations/     vault · mail · practitest · jira · http · llm · db
@@ -174,7 +178,7 @@ npm run rotate:passwords    # scheduled, blackout-aware, quarantine-on-failure
 
 The distinction matters more than the line count, so it is stated plainly.
 
-**Verified by running it.** The four layers, all ten lint rules, the target
+**Verified by running it.** The four layers, all thirteen lint rules, the target
 profile mechanism, session setup, the case format and quality gate, the
 capability catalog and instruction sync, the Vault adapter (against an
 in-process fake Vault), account-pool leasing under concurrency, both OTP
@@ -184,11 +188,14 @@ PractiTest and Jira clients (against in-process fakes, including their rate
 limits and DC's Bearer-auth behaviour), Track A's invention guards, the run
 model, the HTML report, the email digest's Outlook constraints, triage
 clustering and rules, the healing brief's refusal to touch assertions, and the
-drift harness — the last of these against a live application, on the
-`saucedemo/extensive-coverage` branch.
+drift harness — the last of these against the live applications onboarded on
+`main`.
 
-**Not proven, and cannot be from here.** No real Vault, PractiTest, Jira, mail
-tool, GitLab runner or internal application has been reachable. The adapters are
+**Not proven, and cannot be from here.** No real PractiTest, Jira, mail tool,
+GitLab runner or internal application has been reachable. (Vault is the one
+that came off this list: the adapter has since been driven against a real
+`hashicorp/vault` dev server, which is one `docker run` away, and a Vault
+target now reaches a passing `setup:auth` with no file edited by hand.) The adapters are
 written against their documented contracts and exercised against fakes that
 encode those contracts; first contact with the real systems will still find
 things. `.gitlab-ci.yml` has never executed. The generation hit rate in §21

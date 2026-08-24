@@ -3,7 +3,7 @@
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 
-# Test framework conventions — for Claude Code
+# Testbench conventions — for Claude Code
 
 Explore the running application with `npx playwright-cli` before writing a spec — snapshots are written to disk and read on demand, which is roughly 4x cheaper in tokens than streaming them through the MCP server (§08). The MCP server is installed too; reach for it when a human is interactively poking at a stubborn page.
 

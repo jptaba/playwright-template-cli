@@ -3,7 +3,7 @@
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 
-# Test framework conventions — for any agent following the AGENTS.md convention
+# Testbench conventions — for any agent following the AGENTS.md convention
 
 Before writing a spec, read `docs/generated/catalog.md` for the fixtures and actions available. If what you need is not in it, stop and say so rather than inventing a helper or reaching for `page.locator`.
 

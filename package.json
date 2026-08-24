@@ -1,8 +1,8 @@
 {
-  "name": "playwright-template-cli",
+  "name": "testbench",
   "version": "0.1.0",
   "private": true,
-  "description": "An AI-legible Playwright framework: locators -> actions -> fixtures -> specs, with a closed vocabulary and executable conventions.",
+  "description": "Testbench - an application-agnostic Playwright framework with guardrails that execute: locators -> actions -> fixtures -> specs, a closed vocabulary, and conventions a build can fail on.",
   "license": "MIT",
   "type": "commonjs",
   "engines": {

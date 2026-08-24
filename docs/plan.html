@@ -1,4 +1,4 @@
-<title>Playwright MCP Test Framework — Architecture Plan</title>
+<title>Testbench — Architecture Plan</title>
 <style>
   :root {
     --topbar: 3.25rem;
@@ -829,7 +829,7 @@
           </g>
           <circle cx="23.4" cy="24.5" r="2.7" fill="var(--accent)"/>
         </svg>
-      <b>Playwright Template CLI</b>
+      <b>Testbench</b>
       <span class="badge">Plan · Draft 7</span>
     </a>
 
@@ -852,7 +852,7 @@
     <h1>An AI-legible Playwright framework</h1>
     <p class="standfirst">A test automation stack with two authoring tracks — a Jira story becomes reviewed test cases, or an existing PractiTest case is picked up as written — and both end as running Playwright specs with a human in the review seat, not the typing seat. It covers UI journeys, API tests, contract conformance and the mixed tests that span them. The application under test is configuration, not code, with <code>www.saucedemo.com</code> as the reference target, and every environment it touches is a real running system.</p>
     <p class="standfirst" style="font-size:0.95rem;opacity:0.78;border-left:3px solid currentColor;padding-left:0.9em;margin-top:1.2em">
-      <b>Historical record.</b> This is the plan as authored, before implementation, and it is kept unedited so the design decisions can be checked against what was actually built. It names <code>www.saucedemo.com</code> throughout as its reference target; that target pack lives on the <code>saucedemo/extensive-coverage</code> branch and is not on <code>main</code>. <code>main</code> ships the framework plus one <code>example-app</code> scaffold and names no real application. For the built system, read <a href="handbook.html">the handbook</a>; for what the reference target taught the framework, <a href="learnings.md">docs/learnings.md</a>.
+      <b>Historical record.</b> This is the plan as authored, before implementation, and it is kept unedited so the design decisions can be checked against what was actually built. It names <code>www.saucedemo.com</code> throughout as its reference target; <code>saucedemo</code> is now one of five onboarded applications on <code>main</code>, alongside <code>toolshop</code>, <code>parabank</code>, <code>restful-booker</code> and <code>orangehrm</code>. Framework code still names none of them. For the built system, read <a href="handbook.html">the handbook</a>; for what the reference target taught the framework, <a href="learnings.md">docs/learnings.md</a>.
     </p>
     <dl class="factbar">
       <div class="fact"><dt>Runner</dt><dd>Playwright 1.62.1</dd></div>
@@ -1261,7 +1261,7 @@ capabilities: {
 
     <section id="layout">
       <h2><span class="num">Section 06</span>Repository layout</h2>
-      <pre><code>playwright-template-cli/
+      <pre><code>testbench/
 ├─ .gitlab-ci.yml                  # pipeline entry point
 ├─ ci/
 │  ├─ verify.yml  test.yml  publish.yml  rotate.yml
@@ -1398,7 +1398,7 @@ npx playwright-cli -s=&lt;name&gt; open &lt;url&gt; --persistent   # named sessi
       <p><code>state-save</code> and <code>state-load</code> are worth noting — the CLI's session handling lines up directly with the storage-state strategy in section 13, so an agent can explore an authenticated area without driving a login every time.</p>
 
       <p><b>Keep the MCP, narrowly.</b> It remains better for short exploratory debugging where rich introspection beats token economy, and it needs no filesystem. Install both; make the CLI the documented default in the conventions, and reach for the MCP when a human is interactively poking at a stubborn page.</p>
-      <p><em>Naming note, now resolved:</em> the repository is <code>playwright-template-cli</code>, renamed from <code>playwright-mcp-template</code> to match the reversal above. Worth having done early — a name that advertises the wrong default tool costs an explanation in every onboarding conversation.</p>
+      <p><em>Naming note, twice resolved:</em> the package was renamed from <code>playwright-mcp-template</code> to <code>playwright-template-cli</code> to match the reversal above — a name that advertises the wrong default tool costs an explanation in every onboarding conversation. It is now <b>Testbench</b>, for the same reason one step further out: <code>template-cli</code> described the delivery mechanism rather than the thing, and neither half was true any more. The git remote is still <code>playwright-template-cli</code>; the product is not.</p>
 
       <h3>What else gets a tool surface</h3>
       <p>The remaining rule is unchanged, and the reasoning still holds: every MCP server injects its full tool list into the agent's context, so five servers is plausibly 60+ tools, which measurably degrades tool selection. And an authoring agent that <em>can</em> read a secret eventually will, into a file or a transcript.</p>

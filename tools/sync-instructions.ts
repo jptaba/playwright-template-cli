@@ -63,7 +63,7 @@ const BANNER = (client: Client, hash: string): string =>
     `     Regenerate: npm run instructions:build`,
     `     Verified in CI by: npm run instructions:check -->`,
     '',
-    `# Test framework conventions — for ${client.label}`,
+    `# Testbench conventions — for ${client.label}`,
     '',
     client.preamble,
     '',

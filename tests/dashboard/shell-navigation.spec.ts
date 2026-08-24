@@ -62,7 +62,7 @@ test.describe('the rail', () => {
        somebody opens daily.
     */
     await expect(rail.getByRole('link')).toHaveText([
-      'Test framework',
+      'Testbench',
       /Stories/,
       /Cases/,
       /Runs/,

@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Framework Architecture</title>
+<title>Testbench Architecture</title>
 <meta name="description" content="How the pieces fit and what happens end to end — from onboarding an application to publishing a triaged result.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
 <style>
 /* ==========================================================================
-   Framework Architecture
+   Testbench — Architecture
 
    Same design system as docs/handbook.html and src/support/ui/tokens.ts,
    token for token. See tokens.ts for why the four surfaces must match, and
@@ -237,10 +237,24 @@ td code { white-space: nowrap; }
 .legend .swatch.accent { color: var(--accent); }
 .legend .swatch.dashed { border-top-style: dashed; }
 
+/*
+   The footer spreads; the prose above it does not.
+
+   `p, ul, ol` caps every paragraph at --measure so body text keeps a readable
+   line length. The footer inherited that and sat as one 571px column hugging
+   the left of a 1088px page, with half the width empty beside it. It is not
+   body prose — it is a set of short, parallel notes — so it gets columns that
+   fill the measure it actually has, and collapses to one on a narrow screen.
+*/
 footer {
-  border-top: 1px solid var(--rule); margin-top: 3rem; padding: 2rem 0 0;
+  border-top: 1px solid var(--rule); margin-top: 3rem; padding: 2rem 0 3rem;
   color: var(--muted); font-size: .85rem;
+  display: grid; gap: 1.25rem 2.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  align-items: start;
 }
+footer p { max-width: none; margin: 0; }
+footer .foot-name { color: var(--ink-2); font-weight: 600; display: block; margin-bottom: .35rem; }
 
 @media (max-width: 48rem) {
   .topnav { display: none; }
@@ -271,7 +285,7 @@ footer {
       </g>
       <circle cx="23.4" cy="24.5" r="2.7" fill="var(--accent)"></circle>
     </svg>
-    <b>Playwright Template CLI</b>
+    <b>Testbench</b>
     <span class="badge">Architecture</span>
   </a>
   <span class="topbar-spacer"></span>
@@ -374,15 +388,40 @@ footer {
         <text x="774" y="228" text-anchor="middle">Teams · SMTP</text>
       </g>
 
-      <!-- edges -->
+      <!-- The pack drives the application. The only edge that crosses this gap. -->
       <g fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a-arrow)">
         <line x1="594" y1="99" x2="680" y2="99"></line>
-        <line x1="284" y1="145" x2="680" y2="145"></line>
-        <line x1="284" y1="185" x2="680" y2="185"></line>
-        <line x1="284" y1="225" x2="680" y2="225"></line>
       </g>
-      <!-- discovery: framework reads profiles rather than importing packs -->
-      <path d="M 150 276 L 150 262 L 475 262 L 475 238" fill="none" stroke="currentColor"
+
+      <!--
+         Framework core to the outside systems, routed under the pack.
+
+         These three used to run straight across at y=145/185/225, which put
+         them through the middle of the L2, L3 and L4 boxes and dropped their
+         labels on top of the pack's own. A line that strikes through a box
+         reads as passing *via* it, which is the one claim this diagram exists
+         to deny: the core never touches a pack on its way anywhere.
+
+         So they leave the core's right edge below the pack and run in three
+         lanes. The nesting is what keeps them from crossing each other, and it
+         runs the way that is not obvious: the *topmost* destination takes the
+         highest lane and the *innermost* riser. Nested the other way, each
+         outer riser drops straight through the approach line of the one below
+         it — three crossings, which is how the first version of this was
+         drawn.
+      -->
+      <g fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a-arrow)">
+        <path d="M 284 330 L 610 330 L 610 143 L 680 143"></path>
+        <path d="M 284 348 L 622 348 L 622 183 L 680 183"></path>
+        <path d="M 284 366 L 634 366 L 634 223 L 680 223"></path>
+      </g>
+
+      <!--
+         Discovery: the framework reads profiles rather than importing packs.
+         It stops at the pack's boundary — it used to end inside, driving
+         through the `.auth/ sessions` box on the way.
+      -->
+      <path d="M 150 276 L 150 262 L 356 262" fill="none" stroke="currentColor"
             stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a-arrow)"></path>
       <!-- generation: tools write the pack -->
       <path d="M 264 233 L 320 233 L 320 99 L 372 99" fill="none" stroke="var(--accent)"
@@ -390,19 +429,27 @@ footer {
 
       <g font-family="ui-monospace, monospace" font-size="10.5" fill="currentColor" fill-opacity=".7">
         <text x="637" y="93" text-anchor="middle">drives</text>
-        <text x="482" y="139" text-anchor="middle">resolves credentials</text>
-        <text x="482" y="179" text-anchor="middle">pulls cases · pushes results</text>
-        <text x="482" y="219" text-anchor="middle">sends the report</text>
         <text x="312" y="256" text-anchor="middle">selected by TARGET</text>
         <text x="330" y="90" text-anchor="middle" fill="var(--accent)" fill-opacity="1">scaffolds</text>
       </g>
 
+      <!--
+         The lane labels name their source. Alignment used to carry that, and
+         alignment is exactly what forced the lines through the pack — so the
+         attribution is written down instead.
+      -->
+      <g font-family="ui-monospace, monospace" font-size="10.5" fill="currentColor" fill-opacity=".7">
+        <text x="447" y="324" text-anchor="middle">src/integrations · resolves credentials</text>
+        <text x="453" y="342" text-anchor="middle">src/support · pulls cases, pushes results</text>
+        <text x="459" y="360" text-anchor="middle">tools · sends the report</text>
+      </g>
+
       <!-- the forbidden edge -->
       <g>
-        <path d="M 356 320 L 284 320" fill="none" stroke="var(--fail)" stroke-width="1.4" stroke-dasharray="4 4"></path>
-        <line x1="311" y1="311" x2="329" y2="329" stroke="var(--fail)" stroke-width="2"></line>
-        <line x1="329" y1="311" x2="311" y2="329" stroke="var(--fail)" stroke-width="2"></line>
-        <text x="320" y="352" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10.5" fill="var(--fail)">no import, ever</text>
+        <path d="M 356 288 L 284 288" fill="none" stroke="var(--fail)" stroke-width="1.4" stroke-dasharray="4 4"></path>
+        <line x1="311" y1="279" x2="329" y2="297" stroke="var(--fail)" stroke-width="2"></line>
+        <line x1="329" y1="279" x2="311" y2="297" stroke="var(--fail)" stroke-width="2"></line>
+        <text x="320" y="312" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10.5" fill="var(--fail)">no import, ever</text>
       </g>
     </svg>
     <figcaption>
@@ -785,9 +832,19 @@ footer {
 
 <footer>
   <p>
-    <strong>Playwright Template CLI</strong> — architecture and end-to-end flow.
-    Diagrams are hand-authored inline SVG and theme with the page. Where this
-    page and <code>docs/CONVENTIONS.md</code> disagree, that file is right.
+    <strong class="foot-name">Testbench</strong>
+    An application-agnostic Playwright framework with guardrails that execute.
+    This page is its architecture and end-to-end flow.
+  </p>
+  <p>
+    <strong class="foot-name">The diagrams</strong>
+    Hand-authored inline SVG — no library, no runtime, no external image. They
+    stroke in <code>currentColor</code>, so they theme with the page.
+  </p>
+  <p>
+    <strong class="foot-name">Where the truth lives</strong>
+    <code>docs/CONVENTIONS.md</code> is the single source. Where this page and
+    that file disagree, that file is right.
   </p>
 </footer>
 </div>

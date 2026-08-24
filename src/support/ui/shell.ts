@@ -468,7 +468,7 @@ function navigation(
   */
   return (
     `\n  <nav class="rail" aria-label="Dashboard sections">\n` +
-    `    <a class="wordmark" href="/">Test framework</a>\n` +
+    `    <a class="wordmark" href="/">Testbench</a>\n` +
     `${rendered}\n  </nav>`
   );
 }

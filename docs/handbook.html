@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Playwright Template CLI Handbook</title>
+<title>Testbench Handbook</title>
 <meta name="description" content="How this application-agnostic Playwright framework is built, onboarded, run, triaged and reported.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
 <style>
 /* ==========================================================================
-   Playwright Template CLI — Handbook
+   Testbench — Handbook
 
    The palette is shared with `src/support/ui/tokens.ts`, token for token,
    and both were redesigned together. That file says why they must match: the
@@ -372,11 +372,23 @@ td code { white-space: nowrap; }
 .stage p { margin: 0; font-size: .92rem; color: var(--ink-2); max-width: none; }
 
 /* --- Footer --------------------------------------------------------------- */
+/*
+   The footer spreads; the prose above it does not. See the same note in
+   docs/architecture.html — `p { max-width: --measure }` is right for body text
+   and wrong for a row of short parallel notes, which sat in one narrow column
+   with the rest of the width empty beside it.
+*/
 footer {
-  border-top: 1px solid var(--rule); margin-top: 3rem; padding: 2rem 0 0;
+  border-top: 1px solid var(--rule); margin-top: 3rem; padding: 2rem 0 3rem;
   color: var(--muted); font-size: .85rem;
 }
-footer p { max-width: var(--measure); }
+footer .foot-cols {
+  display: grid; gap: 1.25rem 2.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  align-items: start;
+}
+footer p { max-width: none; margin: 0; }
+footer .foot-name { color: var(--ink-2); font-weight: 600; display: block; margin-bottom: .35rem; }
 
 /* --- Narrow --------------------------------------------------------------- */
 @media (max-width: 60rem) {
@@ -427,7 +439,7 @@ footer p { max-width: var(--measure); }
       </g>
       <circle cx="23.4" cy="24.5" r="2.7" fill="var(--accent)"></circle>
     </svg>
-    <b>Playwright Template CLI</b>
+    <b>Testbench</b>
     <span class="badge">Handbook</span>
   </a>
 
@@ -1905,15 +1917,21 @@ npm run notify:email       <span class="c"># the digest</span></code></pre>
 </div>
 
 <footer>
-  <div class="main" style="padding-top:0">
+  <div class="main foot-cols" style="padding-top:0">
     <p>
-      <strong>Playwright Template CLI</strong> — an application-under-test-agnostic
-      Playwright framework. The conventions in this handbook are rendered from
-      <code>docs/CONVENTIONS.md</code>, which is the single source of truth; where
-      this page and that file disagree, that file is right.
+      <strong class="foot-name">Testbench</strong>
+      An application-agnostic Playwright framework with guardrails that execute.
+      Onboard an application, author tests against it, triage what fails,
+      report the result.
     </p>
     <p>
-      Design system shared with the onboarding dashboard
+      <strong class="foot-name">Where the truth lives</strong>
+      These conventions are rendered from <code>docs/CONVENTIONS.md</code>, the
+      single source. Where this page and that file disagree, that file is right.
+    </p>
+    <p>
+      <strong class="foot-name">The design system</strong>
+      Shared with the onboarding dashboard
       (<code>src/support/ui/tokens.ts</code>) and held to WCAG 2.2 AA in both
       themes by <code>tests/dashboard/contrast.spec.ts</code>.
     </p>
