@@ -18,7 +18,7 @@ async function openThePanel(dashboard: Parameters<Parameters<typeof test>[2]>[0]
 function plan(dashboard: Parameters<Parameters<typeof test>[2]>[0]['dashboard'], overrides = {}) {
   dashboard.recorder.removalPlan = {
     target: 'shop-one',
-    removeFiles: ['config/targets/shop-one.ts', 'targets/shop-one/fixtures.ts'],
+    removeFiles: ['targets/shop-one/profile.ts', 'targets/shop-one/fixtures.ts'],
     removeDirectories: ['targets/shop-one'],
     removeSecretKeys: ['shop-one/standard/1'],
     removeStorageStates: ['.auth/shop-one.standard.json'],
@@ -41,7 +41,7 @@ test.describe('planning a removal', () => {
     await expect(page.locator('#offPlanOut')).toContainText('2 file(s)');
     await expect(page.locator('#offPlanOut')).toContainText('1 credential entr(ies)');
     await expect(page.locator('#offPlanOut')).toContainText('1 stored session(s)');
-    await expect(page.locator('#offPlanOut')).toContainText('config/targets/shop-one.ts');
+    await expect(page.locator('#offPlanOut')).toContainText('targets/shop-one/profile.ts');
     expect(dashboard.recorder.calls.filter((c) => c.path === '/api/offboard/remove')).toHaveLength(0);
   });
 
