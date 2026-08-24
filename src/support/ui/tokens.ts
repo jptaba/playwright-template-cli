@@ -290,6 +290,27 @@ export const DASHBOARD_STYLES = `
   }
 
   nav.rail ul { list-style: none; margin: 0; padding: 0; }
+
+  /*
+     A closed disclosure means closed, whatever the rule below says.
+
+     "nav.rail a { display: grid }" is an author rule, and an author rule
+     setting "display" beats the closed-"<details>" default exactly as it beats
+     "[hidden]" — which this stylesheet already learned once, thirty lines up.
+     So the links inside a collapsed group kept real 58px boxes: invisible
+     underneath the group after them, unreachable by mouse because that group
+     painted over them, and **still in the keyboard tab order**.
+
+     Measured before this: with *Set up* collapsed, "/onboard" sat at y=100 and
+     "/users" at y=158 behind Stories and Cases, "elementFromPoint" returned
+     "/stories", and both were tabbable.
+
+     The same lesson as item 18 — "disabled both ways, "pointer-events" for the
+     mouse and "tabindex="-1"" for the keyboard, because doing one of the two
+     leaves a control broken for exactly the people least able to tell."
+  */
+  nav.rail details:not([open]) > *:not(summary) { display: none !important; }
+
   nav.rail a {
     display: grid; grid-template-columns: 1fr auto; align-items: baseline;
     gap: 0 .5rem; padding: .5rem 1.15rem;
@@ -347,7 +368,16 @@ export const DASHBOARD_STYLES = `
     font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
   }
   .topbar-end { display: flex; align-items: center; gap: 1rem; }
-  .ctx { display: flex; align-items: center; gap: .5rem; font-size: .82rem; }
+  /*
+     Wraps, for the reason item 25 recorded: .topbar-end wraps as a row inside
+     the already-wrapping .topbar, so a flex container inside it that cannot
+     wrap pushes the whole page sideways at a phone width. Item 75 added a
+     third child here and reproduced exactly that at 375px.
+  */
+  .ctx {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: .35rem .5rem; font-size: .82rem; min-width: 0;
+  }
   .ctx-label { color: var(--muted); }
   .ctx-name { font-weight: 640; color: var(--ink); }
   .ctx-env {
@@ -370,6 +400,27 @@ export const DASHBOARD_STYLES = `
     border: 1px solid transparent;
   }
   .ctx-health:hover { text-decoration: underline; }
+
+  /*
+     Onboarding and recovery, beside the switcher they are about — item 75.
+     Quieter than the switcher, because they are reached occasionally and it
+     is selected constantly.
+  */
+  .ctx-setup { display: flex; align-items: center; gap: .1rem; margin-left: .35rem; }
+  .ctx-setup-link {
+    font-size: .76rem; color: var(--muted); text-decoration: none;
+    padding: .18rem .45rem; border-radius: 5px; white-space: nowrap;
+  }
+  .ctx-setup-link:hover { background: var(--surface-2); color: var(--ink); }
+  /*
+     They wrap; they never disappear. Hiding them below 60rem made Applications
+     and Test users unreachable on a phone, which the navigation suite caught
+     immediately — "every destination is still reachable there" is a rule this
+     bar already had, and item 25 is why the bar wraps at all.
+  */
+  @media (max-width: 60rem) {
+    .ctx-setup { margin-left: 0; }
+  }
   .ctx-health[data-state="parked"] {
     background: var(--warn-soft); color: var(--warn);
     border-color: color-mix(in srgb, var(--warn) 40%, transparent);

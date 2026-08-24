@@ -4107,3 +4107,89 @@ it is now in the scan-run memory: read what the page shows, not what a route
 returns to a question the page never asks.
 
 ---
+
+### 75. Set up left the rail for the bar, and the chip learned where to send you — `done`
+
+Shipped on `agent/2026-08-23-setup-in-the-bar` (run 93), at the owner's
+direction: *"it shouldn't always show up there after onboarding … could that
+just be a button beside the app name selection?"*
+
+**The instinct was already half-implemented, which is the argument for
+finishing it.** Set up was a `<details>` that shipped **closed** once anything
+was onboarded — somebody had already decided it was not an everyday
+destination and left it holding the first slot of a list of five things
+somebody opens daily. `landingPath()` reached the same conclusion about `/`
+and its comment says so: *the steady state of this tool is run, triage,
+publish.*
+
+Space was never the argument — it cost about 40px of 720. Prominence was.
+
+**Applications and Test users now sit beside the application switcher**, which
+is exactly what they are about: one configures the thing the switcher selects,
+the other holds its logins. The health chip already sat there and already
+linked to `/onboard`.
+
+**The chip routes by cause now**, which is what makes recovery discoverable
+without a rail entry: `whereToFix` sends a credentials finding to `/users`, a
+coverage finding to `/cases`, everything else to the profile. Matched on code
+*prefix* rather than a list, because the doctor has forty-odd codes and grows
+one whenever somebody finds a condition worth catching — a closed list would
+send each new one to the default silently. Driven: toolshop's chip reads
+`1 smell` and points at `/cases`.
+
+**The collapsed group had left a live defect.** `nav.rail a { display: grid }`
+is an author rule and beat the closed-`<details>` default — the same way it
+beats `[hidden]`, which this stylesheet had already learned once thirty lines
+up. Measured: `/onboard` at y=100 and `/users` at y=158 with real 58px boxes
+behind Stories and Cases, `elementFromPoint` returning `/stories`, and **both
+still in the keyboard tab order**. Item 18's lesson exactly — *doing one of the
+two leaves a control broken for exactly the people least able to tell.* Fixed
+at the stylesheet rather than by removing the group, so a group collapsed later
+is correct.
+
+**Three defects were introduced building this and caught before it shipped**,
+which is worth recording because two of them were the *same mistake in
+different places*:
+
+1. **Hidden below 60rem.** Applications and Test users unreachable on a phone.
+   The navigation suite's *"every destination is still reachable there"* caught
+   it immediately. They wrap now.
+2. **Inside the switcher's switchable branch.** An environment-decided target,
+   where the bar is a label rather than a control, lost both links entirely —
+   and since the rail no longer carries them there is nowhere else. Then the
+   same again for a page rendered with no target context at all. They are
+   appended to the bar unconditionally now.
+3. **`.ctx` could not wrap.** A third child overflowed 375px, which is item 25's
+   defect returning.
+
+**The rail filters itself**, rather than each caller passing the right list.
+The first attempt narrowed `PAGES` in `tools/dashboard.ts` and the test harness
+— a different caller — kept rendering the old rail. That is the shape this
+repository keeps finding: a rule living in one consumer while its siblings keep
+the old behaviour.
+
+---
+
+### 76. A budget that could not fail — the phone-width test rendered a bar that never ships — `done`
+
+Found while shipping item 75, and it is the more useful half.
+
+`tests/dashboard/shell-navigation.spec.ts` had *"the bar does not overflow the
+viewport at phone width"*, at 375px, written for item 25 — and it **passed
+while the running page overflowed**.
+
+Its target was `{ name: 'acme-shop', environment: 'staging' }` with **no
+`available` list**, so `applicationSwitcher` took its early branch and rendered
+a short read-only label. The shipping bar has a `<select>` sized by its longest
+option name, a health chip, and now two set-up links. The test's bar was
+narrow enough that the budget could not fail.
+
+Fixed by giving the fixture a realistic five-application list, and **proven by
+reverting the CSS fix and watching the test go red**, then restoring it. A
+budget nobody has seen fail is a budget nobody should trust.
+
+The general lesson, and it is the same one as items 73 and 74: **a test that
+renders something other than what ships is measuring the wrong thing, and it
+fails silently by passing.**
+
+---

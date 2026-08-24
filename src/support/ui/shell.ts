@@ -383,11 +383,23 @@ function navigation(
   badges: Readonly<Record<string, NavBadge>>,
   nothingConfigured: boolean,
 ): string {
+  /*
+     The rail decides what the rail shows — item 75.
+
+     Set-up pages are filtered here rather than by whoever calls this, because
+     a caller that forgets is a caller that puts Applications and Test users
+     back at the top of the daily list. That is exactly the shape of defect
+     this repository keeps finding: a rule that lives in one consumer while its
+     siblings keep the old behaviour. Every caller passes the full list and
+     gets the right rail.
+  */
+  const railPages = pages.filter((page) => page.group !== 'Set up');
+
   // One entry is not a choice, so it is not rendered as one.
-  if (pages.length < 2) return '';
+  if (railPages.length < 2) return '';
 
   const groups: { name: string; pages: PageLink[] }[] = [];
-  for (const page of pages) {
+  for (const page of railPages) {
     const last = groups[groups.length - 1];
     if (last && last.name === page.group) last.pages.push(page);
     else groups.push({ name: page.group, pages: [page] });
@@ -458,7 +470,37 @@ function navigation(
  * *stage of work* and not of a page: a third set-up page added later should
  * inherit the answer rather than restate it.
  */
-const COLLAPSED_GROUPS: ReadonlySet<string> = new Set(['Set up']);
+const COLLAPSED_GROUPS: ReadonlySet<string> = new Set([]);
+
+/**
+ * Set up leaves the rail — item 75.
+ *
+ * **Onboarding and recovery are not steady-state destinations.** Applications
+ * is used once per application; Test users when a login breaks. They held the
+ * first two slots of a list of five things somebody opens daily, and the group
+ * had already been collapsed by default in recognition of that — which is the
+ * argument for finishing the job rather than the counter-argument.
+ *
+ * `landingPath()` reached the same conclusion about `/` for the same reason,
+ * and its comment says so: *the steady state of this tool is run, triage,
+ * publish.* This is that judgement applied to the rail.
+ *
+ * They move beside the **application switcher**, which is exactly what they are
+ * about: one adds and configures the thing the switcher selects, the other
+ * holds its logins. The health chip already sat there and already linked to
+ * `/onboard`.
+ *
+ * Derived from the group rather than listed, so a third set-up page added later
+ * lands in the right place without anybody remembering this file.
+ */
+export const SETUP_PAGES: readonly PageLink[] = DASHBOARD_PAGES.filter(
+  (page) => page.group === 'Set up',
+);
+
+/** The steady state: Author, Execute, Report. What the rail shows. */
+export const RAIL_PAGES: readonly PageLink[] = DASHBOARD_PAGES.filter(
+  (page) => page.group !== 'Set up',
+);
 
 /**
  * Whether the page being rendered is inside this group.
@@ -481,8 +523,21 @@ function slug(value: string): string {
  * The org-switcher position, for the same reason products put one there —
  * every page under it is scoped to one thing, and that thing was invisible.
  */
-function topbar(page: DashboardPageContent, target: TargetContext | undefined): string {
-  const context = !target ? '' : applicationSwitcher(target);
+function topbar(
+  page: DashboardPageContent,
+  target: TargetContext | undefined,
+  current: string,
+): string {
+  /*
+     Set up sits in the bar unconditionally — item 75.
+
+     It lived inside the switcher at first, which meant it disappeared twice:
+     on an environment-decided target, where the bar is a label rather than a
+     control, and on any page rendered without a target context at all. Since
+     the rail no longer carries them there is nowhere else to reach them from,
+     so they are appended to the bar rather than to one branch of it.
+  */
+  const context = (!target ? '' : applicationSwitcher(target)) + setupLinks(current);
 
   return (
     `\n    <div class="topbar">\n` +
@@ -525,6 +580,13 @@ function applicationSwitcher(target: TargetContext): string {
       ? `<span class="ctx-why">${escapeHtml(target.refusal.label)}</span>` +
         `<span class="ctx-detail">${escapeHtml(target.refusal.detail)}</span>`
       : '';
+    /*
+       Set up belongs here too. It reached only the switchable branch at first,
+       so an environment-decided target — where TARGET is set and the bar is a
+       label rather than a control — lost Applications and Test users
+       altogether. They are not reachable from anywhere else since item 75 took
+       them out of the rail.
+    */
     return `${label}${name}${why}`;
   }
 
@@ -543,6 +605,29 @@ function applicationSwitcher(target: TargetContext): string {
     `${options}</select>${environment}` +
     // Filled after load — see TargetHealth for why it is not rendered here.
     `<a id="ctxHealth" class="ctx-health" href="/onboard" hidden></a>`
+  );
+}
+
+/**
+ * Onboarding and recovery, beside the switcher they are about — item 75.
+ *
+ * Plain links rather than a menu behind a button. There are two of them; a
+ * disclosure would add a click and a state to the one part of the chrome that
+ * is on every page, to save a few pixels that are already there.
+ */
+function setupLinks(current: string): string {
+  return (
+    `<span class="ctx-setup">` +
+    SETUP_PAGES.map((page) => {
+      // The rail marked the current page and these have the same duty: on
+      // /users, something has to say so.
+      const here = page.href === current ? ' aria-current="page"' : '';
+      return (
+        `<a class="ctx-setup-link" href="${escapeHtml(page.href)}"${here} ` +
+        `title="${escapeHtml(page.hint)}">${escapeHtml(page.label)}</a>`
+      );
+    }).join('') +
+    `</span>`
   );
 }
 
@@ -625,7 +710,7 @@ export function renderPage(page: DashboardPageContent, options: ShellOptions): s
 <body>
 <a class="skip" href="#content">Skip to the page</a>
 <div class="app">${navigation(options.pages, options.current, options.badges ?? {}, options.target?.available?.length === 0)}
-  <div class="main">${topbar(page, options.target)}
+  <div class="main">${topbar(page, options.target, options.current)}
     <div class="shell">
       <header class="masthead">
         <h1>${escapeHtml(page.heading)}</h1>
@@ -763,6 +848,8 @@ function showFirst(container, selector, limit, noun, onShowAll) {
 
   post('/api/health', { target: TARGET_NAME })
     .then((health) => {
+      // Where the finding is fixed, not always the profile page — item 75.
+      if (health.fixAt) chip.href = health.fixAt;
       if (health.parked) {
         chip.dataset.state = 'parked';
         chip.textContent = 'parked';

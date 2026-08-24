@@ -95,6 +95,13 @@ and sessions were still listed in the plan it threw away. And
 the draft refused to execute. **The CLI had been right about both since item
 16; two consumers had not, and nothing drove them until now.**
 
+**Run 93 closed items 75 and 76**, at the owner's direction: *Set up* left the
+rail for the top bar beside the application switcher, and the health chip now
+routes to the page that fixes the finding rather than always the profile. The
+collapsed group had been leaving two invisible links in the keyboard tab order.
+A phone-width budget that had been passing while the page overflowed was found
+and strengthened — it rendered a bar that never ships.
+
 **Run 92 closed item 73 and withdrew item 74.** The Stories page is scoped to
 the application whose specs cite each story — run 80's fix, applied where it had
 been missed. **Item 74 was not a defect**: `/api/cases` was always scoped and

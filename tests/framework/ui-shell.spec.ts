@@ -305,9 +305,17 @@ test.describe('the destinations', () => {
   });
 
   test('are words, not icons — a word is worth a thousand pictures in a nav', () => {
+    /*
+       Every destination, wherever it lives. The rail's five carry a
+       `nav-label`; Applications and Test users moved to the top bar in item 75
+       and are words there too — the claim is about the navigation, not about
+       one element's class.
+    */
     const html = render();
     for (const page of DASHBOARD_PAGES) {
-      expect(html).toContain(`<span class="nav-label">${page.label}</span>`);
+      const inRail = html.includes(`<span class="nav-label">${page.label}</span>`);
+      const inBar = html.includes(`>${page.label}</a>`);
+      expect(inRail || inBar, `${page.label} is named somewhere`).toBe(true);
     }
   });
 
@@ -521,13 +529,25 @@ test.describe('the set-up group is not always on screen', () => {
       ...(available ? { target: { name: null, available } } : {}),
     });
 
-  test('renders as a disclosure, closed, on a day-to-day page', () => {
-    const html = rail('/runs');
+  test('the rail does not carry set up at all', () => {
+    /*
+       Item 75. It used to be a disclosure here, shipped closed — the
+       recognition that onboarding and recovery are not steady-state
+       destinations, without the consequence. They are in the top bar now,
+       beside the switcher they are about.
 
-    expect(html).toContain('<details class="nav-collapsible" data-nav-group="set-up">');
-    // Closed is the absence of the attribute, so assert on the attribute
-    // rather than on the words: the links are still in the markup either way.
-    expect(html).not.toContain('data-nav-group="set-up" open');
+       Filtered by the rail itself rather than by its callers, so a caller
+       passing the whole page list still gets the right rail: a rule that lives
+       in one consumer is a rule its siblings will not follow.
+    */
+    const html = rail('/runs');
+    // Scoped to the rail: the bar legitimately carries both of these now, so
+    // asserting on the whole document would assert the opposite of the change.
+    const navOnly = html.slice(html.indexOf('<nav class="rail"'), html.indexOf('</nav>'));
+
+    expect(navOnly).not.toContain('data-nav-group="set-up"');
+    expect(navOnly).not.toContain('href="/onboard"');
+    expect(navOnly).not.toContain('href="/users"');
   });
 
   test('the day-to-day groups are not disclosures', () => {
@@ -540,26 +560,28 @@ test.describe('the set-up group is not always on screen', () => {
     expect(html).toContain('<p class="nav-group" id="nav-report">');
   });
 
-  test('opens itself when the page being rendered is inside it', () => {
+  test('the steady state keeps its five, in pipeline order', () => {
+    const html = rail('/runs');
+
+    for (const href of ['/stories', '/cases', '/runs', '/triage', '/publish']) {
+      expect(html).toContain(`href="${href}"`);
+    }
+    expect(html.indexOf('/stories')).toBeLessThan(html.indexOf('/runs'));
+    expect(html.indexOf('/runs')).toBeLessThan(html.indexOf('/publish'));
+  });
+
+  test('set up is reachable from the bar however the switcher renders', () => {
     /*
-       Otherwise navigating to Test users collapses the link marked
-       `aria-current`, and the rail claims you are nowhere.
+       It reached only the switchable branch at first, so a target decided by
+       the environment — where the bar is a label rather than a control — lost
+       Applications and Test users altogether, and since item 75 took them out
+       of the rail there is nowhere else to find them.
     */
-    expect(rail('/users')).toContain('data-nav-group="set-up" open');
-    expect(rail('/onboard')).toContain('data-nav-group="set-up" open');
-  });
-
-  test('opens itself when nothing is onboarded, because there is nothing else to do', () => {
-    // The same judgement `landingPath()` makes about `/`: an empty repository
-    // has one useful thing in it, and it must not be behind a disclosure.
-    expect(rail('/runs', [])).toContain('data-nav-group="set-up" open');
-    expect(rail('/runs', ['acme-shop'])).not.toContain('data-nav-group="set-up" open');
-  });
-
-  test('an absent application list is not an empty one', () => {
-    // Pages that are about something else omit `available` entirely, and a
-    // missing list is not a statement that nothing is onboarded.
-    expect(rail('/runs')).not.toContain('data-nav-group="set-up" open');
+    for (const available of [undefined, [], ['acme-shop']]) {
+      const html = rail('/runs', available);
+      expect(html).toContain('href="/onboard"');
+      expect(html).toContain('href="/users"');
+    }
   });
 
   test('the wordmark goes to the route that decides where home is', () => {

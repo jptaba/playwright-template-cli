@@ -29,7 +29,19 @@ const page = (options: Partial<Parameters<typeof renderPage>[1]> = {}) =>
       token: 't',
       pages: DASHBOARD_PAGES,
       current: '/runs',
-      target: { name: 'acme-shop', environment: 'staging' },
+      /*
+         With the list, so the bar renders the real control rather than the
+         read-only label. Without it, `applicationSwitcher` takes its early
+         branch and the bar is a short piece of text — narrow enough that the
+         phone-width overflow budget below could not fail. Item 75 added a
+         third child to `.ctx`, overflowed 375px on the running page, and this
+         suite stayed green.
+      */
+      target: {
+        name: 'acme-shop',
+        environment: 'staging',
+        available: ['acme-shop', 'orangehrm', 'parabank', 'restful-booker', 'toolshop'],
+      },
       badges: { '/triage': { count: 4, tone: 'attention', label: '4 failure groups waiting' } },
       ...options,
     },
@@ -43,22 +55,23 @@ test.beforeEach(async ({ page: browserPage }) => {
 test.describe('the rail', () => {
   test('lists every destination, grouped, in pipeline order', async ({ page: p }) => {
     const rail = p.getByRole('navigation', { name: 'Dashboard sections' });
-    // Set up is a disclosure now and starts closed, so this opens it: the
-    // claim being made is about the order and completeness of the rail, not
-    // about what happens to be revealed on a Runs page.
-    await rail.locator('details[data-nav-group="set-up"] > summary').click();
+    /*
+       Five, in pipeline order. Applications and Test users are in the top bar
+       since item 75 — onboarding and recovery are not steady-state
+       destinations, and they were holding the first two slots of the list
+       somebody opens daily.
+    */
     await expect(rail.getByRole('link')).toHaveText([
       'Test framework',
-      /Applications/,
-      /Test users/,
       /Stories/,
       /Cases/,
       /Runs/,
       /Triage/,
       /Publish/,
     ]);
-    await expect(rail.getByText('Set up', { exact: true })).toBeVisible();
+    await expect(rail.getByText('Author', { exact: true })).toBeVisible();
     await expect(rail.getByText('Execute', { exact: true })).toBeVisible();
+    await expect(rail.getByText('Report', { exact: true })).toBeVisible();
   });
 
   test('stays on screen at the bottom of a long page', async ({ page: p }) => {
@@ -150,9 +163,11 @@ test.describe('narrow windows', () => {
 
   test('every destination is still reachable there', async ({ page: p }) => {
     await p.setViewportSize({ width: 560, height: 900 });
-    // Including the two behind the disclosure — "reachable" is the claim, and
-    // a group that could not be opened at this width would break it.
-    await p.locator('details[data-nav-group="set-up"] > summary').click();
+    /*
+       All seven, five in the rail and two in the bar — "reachable" is the
+       claim. Hiding the bar's pair below 60rem to save space made Applications
+       and Test users unreachable on a phone, and this caught it.
+    */
     for (const link of DASHBOARD_PAGES) {
       await expect(p.getByRole('link', { name: new RegExp(link.label) })).toBeVisible();
     }
@@ -255,112 +270,60 @@ test.describe('the disclosures', () => {
   });
 });
 
-test.describe('the set-up group', () => {
+test.describe('set up, beside the switcher rather than in the rail', () => {
   /*
-     `tests/framework/` asserts the markup; only a browser can say whether the
-     links are actually off the screen, whether a keyboard reaches the
-     disclosure, and whether opening it survives a navigation. The persistence
-     is script, and script that is never run is a comment.
-  */
-  const setUp = (p: import('@playwright/test').Page) =>
-    p.locator('details[data-nav-group="set-up"]');
+     Item 75. Applications and Test users are onboarding and recovery: one is
+     used once per application, the other when a login breaks. They held the
+     first two slots of a list of five things somebody opens daily, behind a
+     disclosure that shipped closed — which was the recognition, not the fix.
 
-  test('keeps its two pages off the screen until it is asked', async ({ page: p }) => {
+     They are in the top bar now, beside the application switcher they are
+     about: one configures the thing the switcher selects, the other holds its
+     logins.
+
+     What this replaces is the disclosure's own suite — that it opened on
+     click, on keyboard, remembered across a navigation and opened itself for
+     the current page. All of it described a control that no longer exists.
+     The claims worth keeping are below: the rail is the steady state, both
+     pages are still reachable, and the one you are on still says so.
+  */
+  test('the rail is the steady state, and only that', async ({ page: p }) => {
     const labels = await p.locator('nav.rail a:visible .nav-label').allTextContents();
 
     expect(labels).toEqual(['Stories', 'Cases', 'Runs', 'Triage', 'Publish']);
-    // Off the screen, not out of the document: the group is one click away and
-    // its own heading is still on screen saying so, which is the difference
-    // between this and a hamburger.
-    await expect(setUp(p).getByText('Set up', { exact: true })).toBeVisible();
   });
 
-  test('a click reveals both of them', async ({ page: p }) => {
-    await setUp(p).getByText('Set up').click();
-
-    const labels = await p.locator('nav.rail a:visible .nav-label').allTextContents();
-    expect(labels).toEqual([
-      'Applications',
-      'Test users',
-      'Stories',
-      'Cases',
-      'Runs',
-      'Triage',
-      'Publish',
-    ]);
+  test('the rail no longer mentions set up at all', async ({ page: p }) => {
+    // Not collapsed — absent. A heading for a group with nothing under it is
+    // the shape this replaced.
+    await expect(p.locator('nav.rail').getByText('Set up', { exact: true })).toHaveCount(0);
+    await expect(p.locator('nav.rail a[href="/onboard"]')).toHaveCount(0);
+    await expect(p.locator('nav.rail a[href="/users"]')).toHaveCount(0);
   });
 
-  test('a keyboard opens it too, which a div and a click handler would not', async ({ page: p }) => {
-    await setUp(p).locator('summary').focus();
-    await p.keyboard.press('Enter');
+  test('both are in the bar, one click away, with no disclosure to find', async ({ page: p }) => {
+    const bar = p.locator('.ctx-setup');
 
-    await expect(p.getByRole('link', { name: /Applications/ })).toBeVisible();
+    await expect(bar.locator('a[href="/onboard"]')).toBeVisible();
+    await expect(bar.locator('a[href="/users"]')).toBeVisible();
   });
 
-  /*
-     `setContent` leaves the page on `about:blank`, where Chromium refuses
-     `localStorage` outright — the script swallows that by design, so a
-     persistence test written against it would pass for the wrong reason and
-     then fail. These two serve the same markup over a real origin instead,
-     the way the theme tests do, so a reload is a reload.
-  */
-  const served = async (p: import('@playwright/test').Page, options = {}) => {
-    await p.route('http://shell.test/**', (route) =>
-      route.fulfill({ contentType: 'text/html', body: page(options) }),
+  test('each says what it is for, for somebody who has not been here', async ({ page: p }) => {
+    // The hint the rail used to show under the label has to go somewhere.
+    await expect(p.locator('.ctx-setup a[href="/onboard"]')).toHaveAttribute(
+      'title',
+      /Add one, or change what it declares/,
     );
-    await p.goto('http://shell.test/');
-  };
+  });
 
-  /*
-     Wait for the write, not for the click.
-
-     `toggle` is dispatched asynchronously, so the handler that persists the
-     choice can still be pending when a reload starts — the page then comes
-     back closed and the test reports that remembering is broken. Both of
-     these failed exactly that way under a full `TARGET=<app>` run, where a
-     browser is sharing a machine with a live suite, and passed alone every
-     time. The fix is the convention this repository already has for it: wait
-     for the fact, which here is the stored value.
-  */
-  const stored = async (p: import('@playwright/test').Page, value: string | null) => {
-    await expect
-      .poll(() => p.evaluate(() => localStorage.getItem('nav-open:set-up')))
-      .toBe(value);
-  };
-
-  test('opening it is remembered on the next page', async ({ page: p }) => {
+  test('the page you are on still says so', async ({ page: p }) => {
     /*
-       Somebody who opens Set up to add an application and then check its
-       credentials should not have to open it again on the way. Only the
-       opening is stored — a person who never opens it never sees it open.
+       The disclosure used to open itself for the current page, so the rail
+       could not claim you were nowhere. The bar has the same duty and no
+       disclosure to open.
     */
-    await served(p);
-    await setUp(p).getByText('Set up', { exact: true }).click();
-    await stored(p, 'yes');
-    await p.reload();
-
-    await expect(setUp(p)).toHaveJSProperty('open', true);
-  });
-
-  test('and closing it again is forgotten rather than stored as a preference', async ({
-    page: p,
-  }) => {
-    await served(p);
-    await setUp(p).getByText('Set up', { exact: true }).click();
-    await stored(p, 'yes');
-    await setUp(p).getByText('Set up', { exact: true }).click();
-    await stored(p, null);
-    await p.reload();
-
-    await expect(setUp(p)).toHaveJSProperty('open', false);
-  });
-
-  test('the group holding the current page is open, so the rail says where you are', async ({
-    page: p,
-  }) => {
     await p.setContent(page({ current: '/users' }));
 
-    await expect(setUp(p)).toHaveJSProperty('open', true);
     await expect(p.getByRole('link', { name: /Test users/ })).toHaveAttribute(
       'aria-current',
       'page',

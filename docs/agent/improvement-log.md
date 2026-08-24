@@ -6574,3 +6574,60 @@ Eleven new tests for the scoping rule.
 - **A fix that hides everything passes the first check.** The counter-check —
   switch to the application that *should* see the data and confirm it still does
   — is what makes the first result mean anything, and it took one switch.
+
+## 2026-08-23 · run 93 · Set up leaves the rail, and a budget that could not fail
+
+**Picked:** the owner's observation — the dashboard is used for one live
+application, occasionally two, and *Set up* should not hold a permanent slot in
+the rail after onboarding.
+
+**The instinct was already half-implemented**, which is the argument for
+finishing it rather than against. *Set up* was a `<details>` shipping **closed**
+once anything was onboarded: somebody had already decided it was not an everyday
+destination and left it holding the first slot of a list of five things opened
+daily. `landingPath()` reached the same conclusion about `/`. It cost ~40px of
+720, so space was never the argument — prominence was.
+
+**Applications and Test users now sit beside the application switcher**, and the
+health chip routes by cause: a credentials finding to `/users`, a coverage
+finding to `/cases`, everything else to the profile. Matched on code *prefix*,
+because the doctor has forty-odd codes and grows one whenever somebody finds a
+condition worth catching. Driven: toolshop's chip reads `1 smell` and points at
+`/cases`.
+
+**The collapsed group had left a live defect.** `nav.rail a { display: grid }`
+beat the closed-`<details>` default the same way an author rule beats
+`[hidden]` — which this stylesheet had already learned once, thirty lines up.
+Measured: `/onboard` and `/users` with real 58px boxes behind Stories and Cases,
+and **both in the keyboard tab order**. Item 18's lesson, on a different control.
+
+**Item 76 is the more useful half.** The suite had *"the bar does not overflow
+the viewport at phone width"*, at 375px, written for item 25 — and it passed
+while the running page overflowed. Its fixture gave the bar no `available`
+list, so the switcher rendered a short read-only label instead of a `<select>`
+sized by its longest option. The test's bar was narrow enough that the budget
+could not fail. Fixed with a realistic fixture and **proven by reverting the CSS
+and watching it go red**.
+
+**Three defects introduced and caught before shipping**, two of them the same
+mistake twice: the links hidden below 60rem (unreachable on a phone, caught by
+the suite's own reachability rule); the links inside the switcher's *switchable*
+branch, so an environment-decided target lost them, and again for a page with no
+target context; and `.ctx` unable to wrap, which is item 25's defect returning.
+
+**Verify:** `npm run verify` passes, exit 0 — **1178 tests**. Eleven tests
+described the disclosure and were rewritten to the new shape rather than
+deleted.
+
+**Learned:**
+
+- **A budget nobody has seen fail is a budget nobody should trust.** Reverting
+  the fix to watch the strengthened test go red took one minute and is the only
+  thing that makes it evidence.
+- **A fixture that renders what does not ship fails by passing.** Same lesson
+  as items 73 and 74 in a third costume: the harness's bar, the unscoped route,
+  the empty-body probe.
+- **The rail filters itself, rather than its callers filtering.** The first
+  attempt narrowed the list in `tools/dashboard.ts` and the test harness kept
+  rendering the old rail — a rule living in one consumer while its siblings
+  keep the old behaviour, for the fourth time in a week.

@@ -83,6 +83,7 @@ import { PractiTestClient } from '../src/integrations/practitest/client';
 import { REOPEN_TRANSITIONS } from '../src/support/publish/payloads';
 import { diagnose, type TargetFacts } from '../src/support/onboarding/diagnose';
 import { planOffboard, type OffboardPlan } from '../src/support/onboarding/offboard';
+import { firstWorthFixing, whereToFix } from '../src/support/onboarding/where-to-fix';
 import { packSpecTags } from './check-target';
 import { gatherFacts, removeTarget } from './offboard';
 import {
@@ -1180,10 +1181,18 @@ const healthRoutes: Route[] = [
         // A profile that will not load is already an error in the list above.
       }
 
+      /*
+         Where the chip should take somebody, not just how many findings there
+         are — item 75. A chip that names a problem and opens the wrong page is
+         barely better than one that says nothing.
+      */
+      const worst = firstWorthFixing(diagnostics);
       return json(200, {
         errors: diagnostics.filter((one) => one.level === 'error').length,
         warnings: diagnostics.filter((one) => one.level === 'warning').length,
         parked,
+        code: worst,
+        fixAt: worst ? whereToFix(worst) : '/onboard',
       });
     },
   },
