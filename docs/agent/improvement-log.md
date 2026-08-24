@@ -7008,3 +7008,108 @@ string and one generated header — no target pack, no spec, no fixture. Run
   minutes; the stale claims — a rule count, a branch that no longer holds what
   it is cited for, a capability listed as unproven — took longer and mattered
   more.
+
+## 2026-08-24 · run 101 · The health chip's own promise did not hold for the finding it was built for
+
+**Picked:** a scan. Nothing in `open-items.md` was `ready` — 68 and 11 are
+`hypothesis`, 49 is `blocked` on credentials only the owner holds — so the
+file's own rule applied: drive the running system and raise what is found.
+
+**Method.** Started the dashboard headless and drove all seven pages through
+the accessibility tree and `get_page_text`, at desktop and phone widths, per
+the memory note that reading the page beats reading `dashboard-page.ts`. No
+horizontal overflow anywhere at 375px — the false alarm along the way was a
+`<select>` element's `scrollWidth` (which reports its widest *option*, not its
+rendered box) misread as a page-level bug; `body`/`html` `scrollWidth` both
+equalled the viewport width, so items 25/76's mobile fixes are holding.
+
+**Found, on the one live warning this repository currently carries.**
+`toolshop` has exactly one `target:doctor` finding — `coverage-incomplete`,
+missing `audit (@audit)`, permanently accepted at 4 of 5 by the owner's own
+decision (item 52). The health chip is `where-to-fix.ts`'s item 75/76
+mechanism, built specifically so a finding routes to the page that addresses
+it. Driving it end to end:
+
+1. The chip's tooltip reads only *"target:doctor reports 1 warning(s)."* — no
+   code, no message, just a count.
+2. It routes to `/cases`, because `whereToFix('coverage-incomplete')` says so.
+3. `/cases`, driven live, mentions none of "audit", "coverage kind", "happy
+   path", "idempotency" or "boundary" anywhere — confirmed both by
+   `get_page_text` and by a `body.innerText` regex sweep, not merely by
+   skimming.
+
+**Two different reports share the word "coverage" and the chip conflates
+them.** `/cases`'s own doc-comment says what it answers: "does every managed
+case have a spec" — case-to-spec traceability. `coverage-incomplete` asks a
+different question — does the pack have all five *kinds* of test
+(`COVERAGE_KINDS` in `journey.ts`: happy path, negative, idempotency, audit,
+boundary). `where-to-fix.ts`'s own docblock claims "a coverage kind that is
+missing is looked at on **Cases**" — a claim the running page did not honour.
+This is item 75/76's promise, evidenced not to hold for the one finding
+currently live in the repository.
+
+**Fixed by threading the same fact through, not by inventing a new one.**
+`journey.ts` already had `coveragePresent(specSources)`, pure and tested
+(`journey.spec.ts`), used today only by `tools/run-journey.ts`'s coverage
+stage. `collectCoverage` in `src/support/cases/collect.ts` already reads every
+spec's `title` via `readSpecFacts` — and a spec's tags live in its title text
+(`'TOOL-4-04 · ... @api @catalogue'`), so no new parsing was needed. Added one
+field: `kinds: target ? coveragePresent(specs.map(s => s.title)) : null` —
+`null` when the report spans every application, because there is no one
+pack's tags to ask.
+
+`/cases` renders it as a new "Coverage kinds" section: five chips, one per
+kind, coloured `.pass`/`.fail` by presence, with a `<details>` explaining why
+this is a different question from the case list below it. Hidden whenever
+`report.kinds` is `null` — the "every application" state already used
+elsewhere on this page.
+
+**Proven live, on the exact reproduction.** Restarted the dashboard (tsx does
+not hot-reload; the first pass of manual verification was against
+already-stale code in memory, caught by checking `window.innerWidth` matched
+what had just been set — worth remembering next time a live check looks
+wrong for no reason). `/cases` with `toolshop` selected now shows *"Coverage
+kinds — 4 of 5"*, `audit`/`@audit` styled `.missing`, the other four
+`.present` — read via `document.querySelectorAll('.kind')`, not asserted from
+the DOM structure alone. Switching to "none selected" hides the section
+(`cKinds.hidden === true`) and reports `every application`, matching the
+page's existing convention for that state.
+
+**Verify:** `npm run verify` passes, exit 0 — **1248 tests**, up from 1246
+(one `page-copy.spec.ts` disclosure-summary-length failure along the way, a
+12-word summary against a 9-word cap — shortened and re-ran green). Two new:
+`collectCoverage('toolshop')` asserts the real, currently-accepted shape
+(audit missing, the other four present) rather than a synthetic fixture,
+because item 52 already made that shape a permanent decision rather than a
+moving target; `collectCoverage()` with no target asserts `kinds` is `null`.
+
+**Live suites:** `npm run suites:live` — **1 application passing, 3 failing
+(all three the accepted a11y red from item 62), 1 parked** — unchanged from
+run 100's headline. toolshop 21/22, orangehrm 6/7, restful-booker 12/13,
+saucedemo 6/6, parabank parked. Nothing here touched a target pack, and this
+confirms nothing regressed.
+
+**Not done, and worth a future run's attention rather than this one's scope
+creep:** the chip's tooltip itself still only says "reports 1 warning(s)"
+with no specifics. Making it show the actual diagnostic message would need
+`/api/health` to return more than `code`, and risks a tooltip long enough to
+need its own wrapping rules — a second, separable change, not folded in here
+to keep this diff to the one mechanism that was actually broken.
+
+**Learned:**
+
+- **A mechanism can be exactly right in general and wrong for the one case
+  that is actually live.** Item 75/76 built real routing-by-code; the bug was
+  that the one code with a permanently-accepted, currently-active finding
+  routed to a page that had never been taught the vocabulary that finding
+  uses. A general mechanism is not proven by its own tests until it is driven
+  against the specific finding a real repository actually carries.
+- **`document.body.innerText` regex sweeps catch a claim a skim misses.**
+  `get_page_text` read cleanly the first time and still missed that "audit"
+  never appeared — the sweep against every leaf node's `textContent`, cross-
+  checked for visibility, is what turned "I didn't see it" into "it is not
+  there".
+- **tsx does not hot-reload; a live check against a server started before the
+  edit is a check against the old code.** Caught only because the mobile
+  viewport width read back wrong for an unrelated reason and prompted a
+  second look — restart before trusting any live verification after an edit.

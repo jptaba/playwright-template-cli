@@ -19,6 +19,20 @@ decide what to do.
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
+**Run 101 was a scan and closed what it found: the health chip's own routing
+promise did not hold for the one finding this repository actually carries.**
+`toolshop`'s sole live warning is `coverage-incomplete` (missing `@audit`,
+permanently accepted at item 52), and the chip routes it to `/cases` per
+item 75/76's `whereToFix` mechanism — but `/cases`, driven live, never
+mentioned "audit" or any of the five coverage kinds anywhere on the page; its
+own "Coverage" section answers a different question (does every managed case
+have a spec) than `coverage-incomplete` asks (does the pack have all five
+*kinds* of test). `/cases` now renders a "Coverage kinds" section, reusing
+`journey.ts`'s already-tested `coveragePresent` against the spec titles
+`collectCoverage` already reads — no new parsing, and `kinds` is `null`
+whenever "every application" is selected, matching the page's existing
+convention for that state.
+
 **Items 62, 52, 56 and 65 all closed on 2026-08-23.** The first three were the
 owner's to decide and they decided them; 65 was work. See *The owner's
 decisions* below — and read 56's entry there before touching a worker

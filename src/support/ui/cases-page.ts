@@ -57,6 +57,18 @@ const STYLES = `
   details.gate .finding .fix { display: block; color: var(--muted); }
 
   .empty { color: var(--muted); font-size: .9rem; padding: .4rem 0 .1rem; }
+
+  .kinds { display: flex; flex-wrap: wrap; gap: .5rem; margin: .7rem 0 0; }
+  .kind {
+    display: inline-flex; align-items: center; gap: .4rem;
+    border: 1px solid var(--rule); border-radius: 999px; padding: .3rem .75rem;
+    font-size: .84rem;
+  }
+  .kind .tag {
+    font-family: ui-monospace, Consolas, monospace; font-size: .76rem; color: var(--muted);
+  }
+  .kind.present { color: var(--pass); border-color: var(--pass-soft); }
+  .kind.missing { color: var(--fail); border-color: var(--fail-soft); }
 `;
 
 const BODY = `
@@ -79,6 +91,30 @@ const BODY = `
     </details>
     <p class="counts-line" id="cCounts"></p>
     <div class="status" id="cStatus"></div>
+  </section>
+
+  <section id="cKinds" hidden>
+    <div class="head">
+      <h2>Coverage kinds</h2>
+      <span class="badge manual" id="kBadge">0 of 5</span>
+    </div>
+    <p class="explain">
+      Happy path, negative, idempotency, audit and boundary — the five kinds every
+      application is held to.
+    </p>
+    <details class="more">
+      <summary>Where these come from, and why they differ</summary>
+      <div class="body">
+        <p>Read from the <code>@tag</code> on each spec's own title — the same thing the suite
+        selects on when it runs <code>@smoke</code> or <code>@audit</code> — so this cannot claim
+        a kind the suite does not actually exercise.</p>
+        <p>This is a different question from the cases below: those ask whether each managed case
+        has a spec behind it. This asks whether the pack has all five <i>kinds</i> of test at all,
+        which is what <code>target:doctor</code>'s <code>coverage-incomplete</code> warning and
+        <code>npm run app:journey</code>'s coverage stage both check.</p>
+      </div>
+    </details>
+    <div class="kinds" id="kList"></div>
   </section>
 
   <section id="cNothing" hidden>
@@ -259,10 +295,30 @@ function fill(id, rows, emptyMessage) {
   for (const row of rows) box.append(row);
 }
 
+function renderKinds() {
+  const section = $('cKinds');
+  section.hidden = !report.kinds;
+  if (!report.kinds) return;
+
+  const present = report.kinds.filter((entry) => entry.present).length;
+  const badge = $('kBadge');
+  badge.textContent = present + ' of ' + report.kinds.length;
+  badge.className = 'badge ' + (present === report.kinds.length ? 'auto' : 'manual');
+
+  const list = $('kList');
+  list.replaceChildren();
+  for (const entry of report.kinds) {
+    const chip = el('span', 'kind ' + (entry.present ? 'present' : 'missing'));
+    chip.append(text(entry.kind + ' '), el('span', 'tag', entry.tag));
+    list.append(chip);
+  }
+}
+
 function render() {
   const counts = report.counts;
   const chosen = TARGET_NAME;
   $('cScope').textContent = chosen || 'every application';
+  renderKinds();
 
   /*
      With nothing in cases/, every spec cites a case this cannot see. Listing

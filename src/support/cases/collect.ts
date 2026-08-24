@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { REPO_ROOT } from '../paths';
+import { coveragePresent } from '../journey';
 import { buildCoverage, type CoverageReport } from './coverage';
 import { readSpecFacts, type SpecFact } from './specs';
 import { loadCases } from './store';
@@ -67,6 +68,22 @@ export async function readSpecs(target?: string): Promise<SpecFact[]> {
   return files.flatMap((file) => readSpecFacts(project.addSourceFileAtPath(file), relative(file)));
 }
 
+/** `collectCoverage`'s report, plus the five coverage *kinds* — a different question. */
+export interface TargetCoverage extends CoverageReport {
+  /**
+   * Which of happy path / negative / idempotency / audit / boundary the pack's
+   * specs carry, or `null` when the report spans every application and there
+   * is no one pack to ask.
+   *
+   * This is what the dashboard's health chip promises when it routes a
+   * `coverage-incomplete` finding here (`where-to-fix.ts`): the case-to-spec
+   * matching above answers "does every case have a spec", which is a
+   * different question from "does the suite have all five kinds of test",
+   * and neither page said so until this field existed.
+   */
+  kinds: ReturnType<typeof coveragePresent> | null;
+}
+
 /**
  * The report for one application, or for all of them when no name is given.
  *
@@ -74,11 +91,17 @@ export async function readSpecs(target?: string): Promise<SpecFact[]> {
  * skipping it: a case the loader could not read is not a case with no spec,
  * and reporting it as one would be a lie with an action attached.
  */
-export async function collectCoverage(target?: string): Promise<CoverageReport> {
+export async function collectCoverage(target?: string): Promise<TargetCoverage> {
   const cases = loadCases(target).map((stored) => ({
     file: relative(stored.file),
     case: stored.case,
   }));
+  const specs = await readSpecs(target);
 
-  return buildCoverage({ cases, specs: await readSpecs(target) });
+  return {
+    ...buildCoverage({ cases, specs }),
+    // Read from the same titles `target:doctor` tags a spec by, so the two
+    // cannot come to disagree about which kinds are present.
+    kinds: target ? coveragePresent(specs.map((spec) => spec.title)) : null,
+  };
 }

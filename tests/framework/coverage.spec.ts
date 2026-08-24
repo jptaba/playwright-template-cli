@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { Project } from 'ts-morph';
 import { casesPageContent } from '../../src/support/ui/cases-page';
 import { buildCoverage, type CoverageCase } from '../../src/support/cases/coverage';
+import { collectCoverage } from '../../src/support/cases/collect';
 import { hashCase } from '../../src/support/cases/store';
 import { readSpecFacts, specNeedsCase, type SpecFact } from '../../src/support/cases/specs';
 import type { TestCase } from '../../src/support/cases/schema';
@@ -268,6 +269,32 @@ test.describe('the matching', () => {
 
     expect(report.cases[0]!.gate.passed).toBe(false);
     expect(report.cases[0]!.gate.findings.map((finding) => finding.check)).toContain('preconditions');
+  });
+});
+
+test.describe('the five coverage kinds — a different question from the matching above', () => {
+  /*
+     The health chip routes a `coverage-incomplete` finding here
+     (`where-to-fix.ts`), and until this existed the page it lands on had
+     nothing to say about kinds at all — only case-to-spec matching, which is
+     a different report. `toolshop` is the stable reference target: the
+     owner's decision (item 52) is that it stays at 4 of 5 permanently, so
+     asserting its exact shape here is asserting a fact that will not drift
+     out from under the test.
+  */
+  test('a real target reports which of the five it has', async () => {
+    const report = await collectCoverage('toolshop');
+
+    expect(report.kinds).not.toBeNull();
+    expect(report.kinds!.find((entry) => entry.tag === '@audit')).toMatchObject({ present: false });
+    for (const tag of ['@smoke', '@negative', '@idempotency', '@boundary']) {
+      expect(report.kinds!.find((entry) => entry.tag === tag)).toMatchObject({ present: true });
+    }
+  });
+
+  test('spanning every application, there is no one pack to ask', async () => {
+    const report = await collectCoverage();
+    expect(report.kinds).toBeNull();
   });
 });
 
