@@ -9,6 +9,7 @@
     "node": ">=20.11"
   },
   "scripts": {
+    "postinstall": "tsx tools/install-browsers.ts",
     "test": "playwright test",
     "test:framework": "playwright test --project=framework --project=dashboard",
     "test:smoke": "playwright test --grep @smoke",

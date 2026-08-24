@@ -515,10 +515,15 @@ npm run verify</code></pre>
 
   <p>
     <code>verify</code> is lint, typecheck, the generated-file checks and the
-    framework's own test suite. It is deliberately buildable with
+    framework's own test suite. <code>npm install</code> brings a chromium down
+    with it, because the dashboard half of that suite drives the authoring UI
+    the way a person does; the rest of it runs without one. Past that first
+    download verify is buildable with
     <strong>no network, no credentials and every demo application down</strong> —
     that is what makes it the command CI and every contributor can run. It does
-    not touch an application under test.
+    not touch an application under test. Where the download is blocked,
+    <code>PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install</code> installs without
+    it, and <code>npx playwright install chromium</code> picks it up later.
   </p>
 
   <h3>The loop</h3>
@@ -1810,7 +1815,7 @@ npm run notify:email       <span class="c"># the digest</span></code></pre>
     <table>
       <thead><tr><th>Command</th><th>Does</th></tr></thead>
       <tbody>
-        <tr><td><code>npm run verify</code></td><td>Lint, typecheck, generated-file checks, framework tests. Works offline.</td></tr>
+        <tr><td><code>npm run verify</code></td><td>Lint, typecheck, generated-file checks, framework tests. Works offline, on the chromium <code>npm install</code> brought down.</td></tr>
         <tr><td><code>npm run lint</code> · <code>lint:fix</code></td><td>The executable conventions.</td></tr>
         <tr><td><code>npm run typecheck</code></td><td><code>tsc --noEmit</code>.</td></tr>
         <tr><td><code>npm run catalog:build</code> · <code>catalog:check</code></td><td>Regenerate <code>docs/generated/catalog.md</code>, or fail if it drifted.</td></tr>

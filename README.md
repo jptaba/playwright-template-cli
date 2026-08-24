@@ -25,13 +25,14 @@ conventions that came out of pointing this at a live application, and where each
 fix landed. New learnings go there.
 
 ```bash
-npm install
-npx playwright install chromium
+npm install           # brings a chromium down with it — verify drives one
 npm run verify        # lint + types + generated-file checks + the framework's own tests
 ```
 
-`verify` is the whole gate, and it is what CI runs. It needs no browser, no
-credential and no application.
+`verify` is the whole gate, and it is what CI runs. It needs no credential and
+no application — only the chromium `npm install` brought down, which the
+dashboard half of the suite drives the authoring UI in. The rest of it needs no
+browser, and `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` installs without one.
 
 `npx playwright test` also drives the browser projects, but only against an
 application you have selected. With several onboarded and `TARGET` unset, just
