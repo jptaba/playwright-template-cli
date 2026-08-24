@@ -6800,3 +6800,122 @@ The `/triage` line is the one that mattered. Before this it rendered toolshop's 
 - **An open decision can be a question about the data rather than a matter of taste.** "Show, hide, or group" sounded like a product call and took one `cat` to answer: `default` is the framework testing itself, so every option except "it belongs to nobody" was wrong.
 - **Scoping without an explanation trades one silent wrong answer for another.** The first version filtered and left parabank with a hidden section. That is a quieter version of the same defect — the page still not saying what it knows.
 - **The counter-switch belongs in the fix, not just the scan.** Filtering to nothing passes any test that only checks the application with no data; the proof is that toolshop still sees its three, and it took one switch.
+
+## 2026-08-24 · run 100 · The wizard advanced and left the keyboard behind
+
+**Picked:** a scan. Nothing in `open-items.md` was `ready` — 68 and 11 are
+`hypothesis`, 49 is `blocked` on credentials only the owner holds — so the
+file's own rule applied: drive the running system and raise what is found.
+
+**Method.** Started the dashboard headless, drove `/onboard` through the
+accessibility tree and computed styles rather than reading `dashboard-page.ts`.
+The screenshot tool was unavailable throughout, which is the normal condition
+here and cost nothing.
+
+**Found, and it is one defect wearing two disguises.** Every control that
+advances the wizard removes itself from the tab order at the moment it
+succeeds, and none of them hands focus on. The browser answers a focused
+element becoming disabled or hidden by dropping focus to the document body, so
+the next Tab restarts at the top of the page.
+
+| control | how it leaves the tab order | measured cost |
+|---|---|---|
+| `addApp` | `hidden = true` | focus → body, **16 Tabs** back to `#name` |
+| `probe` | `disabled` for the 12–18s read | focus → body, **25 Tabs** back to step 2 |
+| `preview` | its section **folds** on success | focus → a `display:none` button |
+| `create`, `offRemove` | disabled and never re-enabled | focus → body, over the result panel |
+| `vaultCheck`, `verify`, `saveApp` | disabled while working | same shape, same file |
+
+**The counter-check is the entry.** The first version of this fix named Preview
+as the shape the others should match — it is the one advance button that never
+disables itself, and driving it live reported focus still on `#preview`
+afterwards. The harness said `BODY`. Chasing the disagreement found `fold('s3')`
+on a successful preview, which hides the very button that was pressed: the two
+browsers merely disagree about what `document.activeElement` reports for a
+`display:none` element, and the user-visible consequence — a keyboard that is
+nowhere reachable — is identical. **A control does not have to be disabled to
+leave the tab order**, and the case I had written down as proof that this was a
+house style rather than a defect turned out to be a fourth instance of it.
+
+**Fixed framework-side**, in `src/support/onboarding/dashboard-page.ts`, as one
+mechanism with three verbs rather than eight patched call sites:
+
+- `busy(id)` / `idle(id)` for the reversible case — remember whether the button
+  held the keyboard, and take it back when it comes back.
+- `handOver(from, to)` for the two that do not come back, plus the one that
+  hides itself for good. Create lands on the panel holding the file list and
+  the numbered next steps; Remove lands on what went; Preview lands on step 4,
+  because credentials are what somebody has to type next.
+- `landOn(id)` underneath both.
+
+**The guard is what keeps it from being a nuisance**, and it is tested: focus is
+only reclaimed when it is still loose on the document body. A request in flight
+is exactly when somebody carries on filling the form, and a page that yanked
+them back mid-sentence would be worse than the defect.
+
+**Corrected in flight, twice, both by measuring rather than reasoning:**
+
+- A plain `focus()` leaves the field off-screen. Step 1 was `display:none` a
+  moment earlier, so the browser's own focus-scroll measures a layout that has
+  not caught up: `#name` came back focused at **1129px in a 720px viewport**.
+  `landOn` scrolls explicitly and a test asserts `toBeInViewport()`, not merely
+  `toBeFocused()`.
+- The first Create test passed by luck. It pressed Enter without waiting for
+  the preview to return, so on a slower pass it would have focused a disabled
+  button and pressed nothing. It now waits for the plan. Before that fix the
+  reverted-page run failed it on `toContainText`; after, it fails on
+  `Expected "result", Received "BODY"` — the right reason.
+
+**Proven by reverting**, per run 95's rule that seven green tests are not yet
+evidence. Against the unfixed page **5 of 7 go red**, each on the assertion it
+was written for. The 2 that stay green are the guards — the wizard opening
+unasked must *not* move focus, and a user who tabbed away must *not* be pulled
+back — and green is the correct answer for both.
+
+**Also hit the trap the loop's own notes warn about**, in under a minute:
+a comment containing backticks closed the one big template literal and became
+three `TS1005` parse errors. Worth the line it costs in every set of notes.
+
+**Verify:** `npm run verify` passes, exit 0 — **1220 tests**, up from 1213.
+Seven new.
+
+**Live suites: 1 passing, 3 failing, 1 parked** — the headline is unchanged, and
+*which* specs fail is not. Run twice, twenty minutes apart:
+
+| | pass 1 | pass 2 |
+|---|---|---|
+| saucedemo | 6/6 | 6/6 |
+| toolshop | 21/22 (accepted red) | 21/22 (accepted red) |
+| orangehrm | **4/7** — `OHRM-2-01`, `OHRM-3-01` | 6/7 (accepted red) |
+| restful-booker | 12/13 (accepted red) | **9/13** — `RB-1-01/02`, `RB-2-04` |
+| parabank | parked | parked |
+
+Every recorded run since 83 had orangehrm at 6/7, so its two lifecycle failures
+looked like a regression. They are not, and the conventions' own test settled
+it: run the failing thing with nothing else running. `TARGET=orangehrm` e2e
+alone went **6/6**, and e2e plus a11y together went **6/7** — its normal state.
+Neither failure is reproducible, so neither can honestly be reported as an
+application defect. Both sets are recorded in `open-items.md` as sightings for a
+later run to join, and both point at item 68: the specs that move are the ones
+asserting what a shared global list contains.
+
+Nothing in this run touched a target pack, a profile or a credential. The
+scratch draft the drive left behind was removed and no scratch target was ever
+written.
+
+**Learned:**
+
+- **The case you cite as proof that something is fine deserves the same drive as
+  the cases you think are broken.** Preview was in the first draft of the fix as
+  the counter-example justifying the whole diagnosis. It was a fourth instance.
+- **Two browsers can disagree about `document.activeElement` and still describe
+  the same defect.** The live pane said `preview`, Playwright said `BODY`, and
+  the thing that mattered — `display: none`, `offsetParent: null` — was true in
+  both. Resolving the disagreement was what found the fold.
+- **Do not measure scrolling in a pane that is not compositing.** `window.
+  scrollTo(0, 500)` left `scrollY` at 0, which briefly looked like the fix
+  failing. Focus was measurable there and scroll was not; the scroll assertion
+  belongs in the Playwright test, where a real viewport exists.
+- **A green new test that never went red is a claim, not a result.** Reverting
+  took two minutes and turned seven assertions into five proofs and two
+  deliberate guards.

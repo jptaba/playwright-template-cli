@@ -488,7 +488,7 @@ ${overview([
     </details>
     <div id="plan"></div>
     <button id="create">Create the target</button>
-    <div class="status" id="result"></div>
+    <div class="status" id="result" tabindex="-1"></div>
   </section>
 
   <details class="danger">
@@ -519,7 +519,7 @@ ${overview([
       <input type="text" id="offConfirm" autocomplete="off">
       <button class="destructive" id="offRemove" disabled>Remove it</button>
     </div>
-    <div class="status" id="offResult"></div>
+    <div class="status" id="offResult" tabindex="-1"></div>
   </details>
 `;
 
@@ -860,7 +860,7 @@ $('saveApp').onclick = async () => {
   const status = $('pickStatus');
   status.className = 'status';
   status.replaceChildren(el('div', '', 'Saving…'));
-  $('saveApp').disabled = true;
+  busy('saveApp');
   try {
     const result = await post('/api/onboard/update', {
       target,
@@ -905,7 +905,7 @@ $('saveApp').onclick = async () => {
     status.className = 'status error';
     status.textContent = error.message;
   } finally {
-    $('saveApp').disabled = false;
+    idle('saveApp');
   }
 };
 
@@ -969,8 +969,15 @@ function isPending(id) {
  * changes when the wizard starts, not how it advances.
  */
 function startAdding() {
+  const pressed = document.activeElement === $('addApp');
   $('addApp').hidden = true;
   if (isPending('s1')) enable('s1');
+  /*
+     Only when somebody pressed it. This also runs unasked — from a draft, and
+     on a repository with no applications yet — and focusing a field on first
+     paint would move a page nobody has touched.
+  */
+  if (pressed) landOn('name');
 }
 
 /**
@@ -1168,6 +1175,78 @@ function enable(id) {
   refreshStepRail();
 }
 
+/*
+   Where the keyboard goes when a button takes itself out of the tab order.
+
+   Every long-running control here disables itself while it works, and two of
+   them stay disabled once they have succeeded. A focused element that becomes
+   disabled or hidden does not pass focus on — the browser drops it to <body>,
+   so the next Tab starts at the top of the document. Measured on the running
+   page: 16 presses to get back to the field "Add an application" had just
+   revealed, 25 to reach step 2 after a read. Nothing looked broken, which is
+   why no test had an opinion about it.
+
+   Preview looked like the counter-case — it is the one advance button that
+   never disables itself — and driving it showed that it is not. A successful
+   preview folds step 3, and folding hides the button that was just pressed.
+   A control does not have to be disabled to leave the tab order, which is why
+   there are two verbs below rather than one.
+*/
+
+/** Disable a button while it works, remembering whether it held the keyboard. */
+function busy(id) {
+  const button = $(id);
+  button.dataset.hadFocus = document.activeElement === button ? 'yes' : '';
+  button.disabled = true;
+}
+
+/**
+ * Re-enable it, and take the keyboard back if it was ours and is still loose.
+ *
+ * Still on the document body is the test that keeps this honest. Somebody who
+ * tabbed on while the request was in flight moved deliberately, and a page
+ * that pulled them back mid-sentence would be worse than the defect.
+ */
+function idle(id) {
+  const button = $(id);
+  button.disabled = false;
+  if (button.dataset.hadFocus === 'yes' && document.activeElement === document.body) {
+    button.focus();
+  }
+  delete button.dataset.hadFocus;
+}
+
+/**
+ * Put the keyboard on something, and make sure it can be seen.
+ *
+ * Two calls rather than a plain focus(). The section a landing lives in was
+ * display:none a moment earlier, so the browser's own focus-scroll measures a
+ * layout that has not caught up: it leaves the field focused and 400px below
+ * the fold, which is a caret a sighted keyboard user cannot find. Measured on
+ * the running page, after the first version of this fix did exactly that.
+ */
+function landOn(id) {
+  const target = $(id);
+  /* A section or a result panel is not focusable on its own. Make it so, once. */
+  if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+  target.focus({ preventScroll: true });
+  target.scrollIntoView({ block: 'center' });
+}
+
+/**
+ * Hand the keyboard to what a control produced, when the control itself is gone.
+ *
+ * For the two buttons that do not come back — Create and Remove — and for the
+ * one that hides itself for good. The landing is the thing the person now
+ * needs: the field they came to fill, or the panel saying what was written.
+ */
+function handOver(fromId, toId) {
+  const from = $(fromId);
+  const wasOurs = from.dataset.hadFocus === 'yes' || document.activeElement === from;
+  delete from.dataset.hadFocus;
+  if (wasOurs || document.activeElement === document.body) landOn(toId);
+}
+
 /** The exact reverse, for the one transition that goes backwards. */
 function relock(id) {
   const section = $(id);
@@ -1340,7 +1419,7 @@ $('probe').onclick = async () => {
   const status = $('s1status');
   status.className = 'status';
   status.textContent = 'Loading the application…';
-  $('probe').disabled = true;
+  busy('probe');
   try {
     const result = await post('/api/probe', {
       baseURL: $('baseURL').value.trim(),
@@ -1365,7 +1444,7 @@ $('probe').onclick = async () => {
     status.className = 'status error';
     status.textContent = error.message;
   } finally {
-    $('probe').disabled = false;
+    idle('probe');
   }
 };
 
@@ -1905,7 +1984,7 @@ $('vaultCheck').onclick = async () => {
 
   status.className = 'status';
   status.textContent = 'Reading one path…';
-  $('vaultCheck').disabled = true;
+  busy('vaultCheck');
   try {
     const result = await post('/api/vault/check', {
       source: $('secrets').value,
@@ -1961,7 +2040,7 @@ $('vaultCheck').onclick = async () => {
     status.className = 'status error';
     status.textContent = error.message;
   } finally {
-    $('vaultCheck').disabled = false;
+    idle('vaultCheck');
   }
 };
 
@@ -1978,7 +2057,7 @@ $('verify').onclick = async () => {
   }
   const fromVault = $('secrets').value === 'vault';
   status.textContent = 'Signing in once…';
-  $('verify').disabled = true;
+  busy('verify');
   try {
     /*
        A Vault sign-in sends the path it proved, not a value. The credential is
@@ -2004,12 +2083,19 @@ $('verify').onclick = async () => {
     status.className = 'status error';
     status.textContent = error.message;
   } finally {
-    $('verify').disabled = false;
+    idle('verify');
   }
 };
 
 $('preview').onclick = async () => {
   const box = $('plan');
+  /*
+     Captured before anything runs, because a successful preview folds step 3
+     and folding hides this very button. Preview looked like the counter-case
+     to the rest of these — it never disables itself — and it is not: it loses
+     the keyboard by a different route, and only driving it showed that.
+  */
+  const pressed = document.activeElement === $('preview');
   box.replaceChildren(el('div', 'status', 'Planning…'));
   $('previewStatus').className = 'status';
   $('previewStatus').textContent = 'Planning…';
@@ -2098,6 +2184,11 @@ $('preview').onclick = async () => {
        "done" state gets wrong.
     */
     fold('s1'); fold('s2'); fold('s3');
+    /*
+       Step 4 rather than the plan: credentials are the next thing somebody has
+       to type, and step 5's own summary of the plan is one Tab further on.
+    */
+    if (pressed) landOn('s4');
   } catch (error) {
     box.replaceChildren(el('div', 'error', error.message));
     setPreviewBadge('Needs your input', 'manual');
@@ -2110,7 +2201,7 @@ $('create').onclick = async () => {
   const result = $('result');
   result.className = 'status';
   result.textContent = 'Writing…';
-  $('create').disabled = true;
+  busy('create');
   try {
     const credentials = {};
     for (const role of $('roles').value.split(',').map((s) => s.trim()).filter(Boolean)) {
@@ -2138,10 +2229,17 @@ $('create').onclick = async () => {
     const next = el('pre');
     next.textContent = created.nextSteps.map((s, i) => (i + 1) + '. ' + s).join('\\n');
     result.append(el('div', '', 'Next:'), next);
+    /*
+       Create does not come back — the pack is written and pressing it again is
+       not a thing to offer. So the keyboard goes to the panel that now holds
+       the file list and the numbered next steps, which is what the person is
+       there to read.
+    */
+    handOver('create', 'result');
   } catch (error) {
     result.className = 'status error';
     result.textContent = error.message;
-    $('create').disabled = false;
+    idle('create');
   }
 };
 
@@ -2217,7 +2315,7 @@ $('offRemove').onclick = async () => {
   const out = $('offResult');
   out.className = 'status';
   out.textContent = 'Removing…';
-  $('offRemove').disabled = true;
+  busy('offRemove');
   try {
     const done = await post('/api/offboard/remove', {
       target: offPlanned.target,
@@ -2239,10 +2337,15 @@ $('offRemove').onclick = async () => {
     */
     offPlanned = null;
     await loadState(true).catch(() => undefined);
+    /*
+       The confirmation box it was pressed from has just been hidden, so there
+       is nothing to give the keyboard back to. The panel saying what went is.
+    */
+    handOver('offRemove', 'offResult');
   } catch (error) {
     out.className = 'status error';
     out.textContent = error.message;
-    $('offRemove').disabled = false;
+    idle('offRemove');
   }
 };
 

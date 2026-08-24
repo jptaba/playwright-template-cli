@@ -110,6 +110,28 @@ own picker and did not. A query string the page reads once and drops from the
 address bar closes the gap without relaxing item 6's guarantee that a plain
 visit still opens blank.
 
+**Run 100 was a scan and closed what it found: the wizard dropped the keyboard
+at every step it advanced.** Four controls, two mechanisms, one defect. "Add an
+application" hides itself; the probe, the credential check, the sign-in, Create,
+Remove and Save all disable themselves; and a successful Preview *folds* the
+step its own button sits in. In every case the focused element left the tab
+order without handing focus on, so the browser dropped it to the document body
+and the next Tab restarted at the top of the page. Measured on the running
+dashboard: **16 Tab presses** back to the field "Add an application" had just
+revealed, **25** back to step 2 after a read.
+
+**Preview looked like the counter-case and was not, which is the part worth
+carrying.** It is the one advance button that never disables itself, and the
+first version of this fix cited it as the shape the others should match. Driving
+it showed the fold hides it just as effectively. A control does not have to be
+disabled to leave the tab order.
+
+**Also corrected in flight:** a plain `focus()` is not enough on a section that
+was `display:none` a moment earlier — the browser's focus-scroll measures a
+layout that has not caught up and leaves the caret hundreds of pixels below the
+fold. The landing scrolls explicitly, and a test asserts the field is in the
+viewport rather than merely focused.
+
 **Run 99 closed item 80.** `/runs`, `/triage` and `/publish` all showed an
 unscoped run list; `/triage` was the sharp one, because it *defaults* to a run
 and invites verdicts, so a person triaging with parabank in the bar was ruling
@@ -189,6 +211,20 @@ Every application reaches stages 1, 2, 5 and 6. **Every remaining stage failure
 is now a decision somebody has taken rather than an open question** — the three
 accessibility reds are accepted (see *The owner's decisions*), toolshop's
 missing `@audit` is accepted, and parabank is parked with a review date.
+
+**Two more live-suite singletons, run 100, on two different applications in two
+consecutive passes of the same command.** First pass: `orangehrm` **4/7**, with
+`OHRM-2-01` `@boundary` and `OHRM-3-01` `@audit` both timing out on the same
+`searchByUsername` locator. Second pass twenty minutes later: `orangehrm` back
+to **6/7**, and `restful-booker` down to **9/13** on `RB-1-01`, `RB-1-02` and
+`RB-2-04` — its room-list specs, which is the same set item 67 saw fail at
+width. Neither set reproduced in isolation: orangehrm's e2e suite ran **6/6
+alone** and **6/7 with e2e and a11y together**, which is its recorded normal
+state. So by the conventions' own test — run it with nothing else running, and
+if it still fails no change here will honestly fix it — these are not
+application defects that can be reported as such. They are sightings, recorded
+so a later run has something to join, and they strengthen item 68: the specs
+that move are the ones asserting what a shared global list contains.
 
 **Toolshop's live suite failed on a different spec in each of runs 75 and 76** —
 `TOOL-3-03` in the cart's cleanup, then `TOOL-1-02` settled as
