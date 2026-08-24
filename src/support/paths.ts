@@ -165,7 +165,22 @@ export const RUN_RESULT_PATH = process.env.RUN_RESULT_PATH ?? repoPath('run-resu
  */
 export const LIVE_EVENTS_PATH = process.env.LIVE_EVENTS_PATH ?? null;
 export const TRIAGE_RESULT_PATH = repoPath('triage-result.json');
-export const CASES_DIR = repoPath('cases');
+/** The one root every application's committed artifacts live under. */
+export const TARGETS_ROOT = repoPath('targets');
+
+/** Test cases, and the requirements they were derived from. */
+export const casesDirFor = (target: string): string =>
+  path.join(TARGETS_ROOT, target, 'cases');
+
+/**
+ * The directories these used to live in, kept only so a leftover can be
+ * reported.
+ *
+ * A file under the old root belongs to no application now, so every tool that
+ * reads by target skips it in silence — which is the flat-directory defect
+ * wearing its third costume. `hashes:check` names them; nothing adopts them.
+ */
+export const LEGACY_ROOTS = ['cases', 'stories'] as const;
 /**
  * Where a target's pack and profile live, repo-relative and forward-slashed.
  *
@@ -180,23 +195,24 @@ export const packRootFor = (target: string): string => `targets/${target}`;
 
 export const profilePathFor = (target: string): string => `targets/${target}/profile.ts`;
 
-export const STORIES_DIR = repoPath('stories');
+
 
 /**
  * Where one application's stories live.
  *
- * Scoped by directory, like `cases/<app>/`, because a story file says nothing
- * about which application it is for and a flat directory therefore had no
- * answer at all. The Stories page offered toolshop's catalogue and cart with
- * `orangehrm` in the bar; `run-journey` reported "story TOOL-1 pulled from
- * Jira" for whichever application asked; and `target:remove` left every story
- * behind, because there was no directory for it to take.
+ * Scoped by directory, like its cases, because a story file says nothing about
+ * which application it is for and a flat directory therefore had no answer at
+ * all. The Stories page offered toolshop's catalogue and cart with `orangehrm`
+ * in the bar; `run-journey` reported "story TOOL-1 pulled from Jira" for
+ * whichever application asked; and `target:remove` left every story behind,
+ * because there was no directory for it to take.
  *
  * A story cited by two applications is still a real state — see
  * `story-scope.ts`, which is what answers that. The directory says where it
  * was pulled to, not who is allowed to prove it.
  */
-export const storiesDirFor = (target: string): string => path.join(STORIES_DIR, target);
+export const storiesDirFor = (target: string): string =>
+  path.join(TARGETS_ROOT, target, 'stories');
 export const REPORT_OUT_DIR = repoPath('report-out');
 export const RESULTS_DIR = repoPath('results');
 

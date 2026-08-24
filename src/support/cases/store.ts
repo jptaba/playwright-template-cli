@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Ajv, { type ValidateFunction } from 'ajv';
 import YAML from 'yaml';
-import { CASES_DIR } from '../paths';
+import { TARGETS_ROOT, casesDirFor } from '../paths';
 import { testCaseSchema, type TestCase } from './schema';
 
 /**
@@ -67,16 +67,17 @@ export function parseCase(text: string, file = '<inline>'): TestCase {
 }
 
 export function loadCases(target?: string): StoredCase[] {
-  if (!fs.existsSync(CASES_DIR)) return [];
+  if (!fs.existsSync(TARGETS_ROOT)) return [];
   const targets = target
     ? [target]
-    : fs.readdirSync(CASES_DIR).filter((entry) =>
-        fs.statSync(path.join(CASES_DIR, entry)).isDirectory(),
-      );
+    : fs
+        .readdirSync(TARGETS_ROOT, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name);
 
   const cases: StoredCase[] = [];
   for (const name of targets) {
-    const dir = path.join(CASES_DIR, name);
+    const dir = casesDirFor(name);
     if (!fs.existsSync(dir)) continue;
     for (const file of fs.readdirSync(dir).filter((entry) => /\.ya?ml$/.test(entry)).sort()) {
       const full = path.join(dir, file);
@@ -87,7 +88,7 @@ export function loadCases(target?: string): StoredCase[] {
 }
 
 export function saveCase(testCase: TestCase, slug: string): string {
-  const dir = path.join(CASES_DIR, testCase.target);
+  const dir = casesDirFor(testCase.target);
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${slug}.yaml`);
   const withHash: TestCase = { ...testCase, caseHash: hashCase(testCase) };

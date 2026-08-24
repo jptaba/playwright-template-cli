@@ -62,6 +62,16 @@ export function gatherFacts(target: string): OffboardFacts {
   if (packExists) walk(packRoot, '');
 
   /*
+     The cases and the stories are inside the pack directory now, so the walk
+     above already found them — and they are counted separately, because the
+     confirmation a person reads before typing the target's name back has to
+     say "10 test case(s)" rather than fold them into a file count labelled
+     as the pack. Split here rather than walked twice.
+  */
+  const inside = (kind: string): string[] =>
+    packFiles.filter((file) => file.startsWith(`${kind}/`)).map((file) => `targets/${target}/${file}`);
+
+  /*
      Both local files, not just the tracked one.
 
      This read `config/secrets.local.json` alone, which was survivable only
@@ -81,22 +91,8 @@ export function gatherFacts(target: string): OffboardFacts {
   const authDir = path.join(REPO_ROOT, '.auth');
   const storageStateFiles = fs.existsSync(authDir) ? fs.readdirSync(authDir) : [];
 
-  // Cases are target-scoped and were being left behind — a whole test-case
-  // library describing an application this repository no longer has.
-  const casesDir = path.join(REPO_ROOT, 'cases', target);
-  const caseFiles = fs.existsSync(casesDir)
-    ? fs.readdirSync(casesDir).map((file) => `cases/${target}/${file}`)
-    : [];
-
-  // Stories are scoped the same way and were left behind for longer, because
-  // a flat `stories/` gave the plan nothing it could name.
-  const storiesDir = path.join(REPO_ROOT, 'stories', target);
-  const storyFiles = fs.existsSync(storiesDir)
-    ? fs
-        .readdirSync(storiesDir)
-        .filter((file) => file.endsWith('.json'))
-        .map((file) => `stories/${target}/${file}`)
-    : [];
+  const caseFiles = inside('cases');
+  const storyFiles = inside('stories');
 
   return {
     knownTargets,

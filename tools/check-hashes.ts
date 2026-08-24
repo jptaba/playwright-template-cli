@@ -4,7 +4,12 @@ import path from 'node:path';
 import { REPO_ROOT } from '../src/support/paths';
 import { hashCase, loadCases } from '../src/support/cases/store';
 import { storyContentHash, type NormalisedStory } from '../src/support/cases/author';
-import { StoryValidationError, loadAllStories, looseStories } from '../src/support/cases/stories';
+import {
+  StoryValidationError,
+  legacyArtifacts,
+  loadAllStories,
+  looseStories,
+} from '../src/support/cases/stories';
 
 /**
  * `npm run hashes:check` — traceability drift, both hops (§09, §22).
@@ -48,9 +53,17 @@ function storiesByKey(): { stories: Map<string, NormalisedStory>; problems: stri
   */
   for (const name of looseStories()) {
     problems.push(
-      `stories/${name} is not under an application directory, so nothing reads it. ` +
-        'Move it to stories/<app>/ — the directory is what says which application a story ' +
-        'was pulled for.',
+      `targets/${name} is not inside an application's directory, so nothing reads it. ` +
+        'Move it to targets/<app>/stories/ — the directory is what says which application ' +
+        'a story was pulled for.',
+    );
+  }
+
+  for (const file of legacyArtifacts()) {
+    problems.push(
+      `${file} is in a directory nothing reads any more. Cases and stories live under ` +
+        'targets/<app>/, with the profile and the pack — move it there, or delete it if it ' +
+        'belongs to an application this repository no longer has.',
     );
   }
 

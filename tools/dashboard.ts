@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import os from 'node:os';
 import {
   AUTH_DIR,
-  CASES_DIR,
+  casesDirFor,
   ONBOARDING_DRAFT_PATH,
   REPO_ROOT,
   RUN_RESULT_PATH,
@@ -1443,7 +1443,7 @@ const authoring: AuthoringService = {
   usage: () => (lastAuthor ? { ...lastAuthor.usage } : null),
 
   writeCase: (testCase, slug) => {
-    const full = path.join(CASES_DIR, testCase.target, `${slug}.yaml`);
+    const full = path.join(casesDirFor(testCase.target), `${slug}.yaml`);
     const replaced = fs.existsSync(full);
     const written = saveCase(testCase, slug);
     return {

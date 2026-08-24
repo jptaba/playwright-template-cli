@@ -15,8 +15,8 @@ and is now fixed, and one open recommendation.
 | Locators, actions, endpoints, api, db, queries, fixtures | `targets/<app>/` | directory | yes | — |
 | Specs | `targets/<app>/tests/` | directory | yes | — |
 | Vendored contract document | `targets/<app>/contracts/` | directory | yes | — |
-| Test cases | `cases/<app>/*.yaml` | directory **and** a `target:` field | no | **Should move** |
-| Stories | `stories/<app>/<KEY>.json` | directory | no | **Done — see below** |
+| Test cases | `targets/<app>/cases/*.yaml` | directory **and** a `target:` field | yes | **Done** |
+| Stories | `targets/<app>/stories/<KEY>.json` | directory | yes | **Done — see below** |
 | Credentials | `config/secrets.local.json`, keyed `qa/<app>/…` | key prefix | no | **Stays** |
 | Stored sessions | `.auth/<app>.<role>[.<n>].json` | filename | no | **Stays** |
 | Capability catalog | `docs/generated/catalog.md` | section headings | no | **Stays** |
@@ -156,24 +156,43 @@ there.
 
 ---
 
-## What I would move, and what it would cost
+## What was moved, and what it cost
 
-`cases/<app>/` → `targets/<app>/cases/`.
+`cases/<app>/` → `targets/<app>/cases/`, and `stories/<app>/` →
+`targets/<app>/stories/`, alongside the profile and the pack. One directory
+per application now holds everything about it that is committed.
 
-**For:** cases are unambiguously target-scoped — the `target:` field inside
-each one says so. They are the direct input to spec generation, which lives in
-the pack. Offboarding would take them without needing to know about a second
-directory. And "everything for one application is in one directory" becomes
-true rather than nearly true.
+**The argument against, as it stood.** Cases are *managed test assets* that
+outlive a pack — Track B pulls them from PractiTest, where they exist
+independently of any code. A pack is code and gets deleted casually while
+trying an application out; a case library is a record. Keeping them apart made
+`target:remove` destroying them a deliberate decision rather than a side
+effect.
 
-**Against:** cases are *managed test assets* that outlive a pack — Track B
-pulls them from PractiTest, where they exist independently of any code. A pack
-is code and gets deleted casually while trying an application out; a case
-library is a record. Keeping them apart makes `target:remove` destroying them
-a deliberate decision rather than a side effect. That argument is why they are
-where they are, and it is not a bad one.
+**It was already overtaken.** `planOffboard` had listed `cases/<app>` in
+`removeDirectories` since the orphan above was fixed, so removal was a side
+effect already. What preserves the intent is not the directory's location but
+the confirmation gate, which refuses to act until the target's own name is
+typed back — and which now counts the case library and the stories as their
+own lines rather than folding them into a file count labelled as the pack.
+Somebody about to remove an application is told, in the sentence they are
+agreeing to, that ten test cases and five stories are going with it.
 
-Both readings are reasonable, so this is a judgement call rather than a defect,
-and it is **not** something to change without deciding which reading is
-intended. It is written down here so the next person meets the argument rather
-than the surprise.
+**What the move actually cost.** Three defects surfaced, all of them latent
+before it:
+
+- The profile inside the pack tripped `no-hardcoded-urls` and
+  `secrets-via-fixture`, which exist to stop *pack code* naming a host or
+  reading the environment. A profile does both by definition. Stated once now,
+  as `isProfile`.
+- `target:upgrade` stopped offering a missing `fixtures.ts`, because the
+  profile made every pack root look like it already held work.
+- The layout was written down in three grammars — a string literal, a
+  `path.join` argument list and a regular expression — and only the first is
+  visible to a search for it. `gatherFacts` was one of the others: offboarding
+  reported "Nothing to remove" for a target whose pack was in front of it.
+
+**What is deliberately still outside**, and the reasons above still hold:
+credentials, stored sessions, run and triage output, and the capability
+catalog. `config/targets/` keeps `types.ts` alone — the shape a profile is
+written against belongs to the framework, not to any application.

@@ -140,13 +140,15 @@ is a framework bug: the thing you need is a capability, not a special case.
 config/targets/       one profile per application; the only place a host appears
 eslint-rules/         the thirteen executable conventions, with tests
 src/fixtures/         L3 — the closed vocabulary a generated spec may use
-targets/<app>/    L1 locators/endpoints/queries · L2 actions/api/db · L4 tests
+targets/<app>/        one directory per application: profile, pack, cases, stories
 src/integrations/     vault · mail · practitest · jira · http · llm · db
 src/support/          redaction, cases, contracts, onboarding, reporters, triage, heal
 tools/                the CLIs the pipeline and the agents call
 tests/framework/      the framework's own tests, incl. the lint rules
-targets/<app>/tests/{e2e,api,contract,a11y}/   tests of the application
-cases/                the intermediate case format both authoring tracks produce
+  profile.ts          what is true about it — the one place a host is named
+  locators/ endpoints/ queries/   L1 · actions/ api/ db/   L2 · fixtures.ts  L3
+  tests/{e2e,api,contract,a11y}/  L4 · every assertion lives here
+  cases/ stories/     the case format both authoring tracks produce, and their source
 docs/CONVENTIONS.md   single source of truth → CLAUDE.md, AGENTS.md, copilot
 docs/handbook.html    onboarding · the layers · running · triage · commands
 docs/architecture.html  how the pieces fit, and the end-to-end flow, in diagrams
@@ -163,7 +165,7 @@ npm run catalog:build       # ts-morph → docs/generated/catalog.md
 npm run instructions:build  # CONVENTIONS.md → CLAUDE.md / AGENTS.md / copilot
 npm run vault:check         # does a secret path resolve? (never prints values)
 npm run story:pull -- KEY   # Jira story → stories/<app>/*.json
-npm run cases:author -- KEY # story → cases/*.yaml + coverage matrix
+npm run cases:author -- KEY # story → targets/<app>/cases/*.yaml + coverage
 npm run cases:gate          # reject cases too vague to automate
 npm run cases:push          # → PractiTest; dry run unless --publish
 npm run report:render       # run-result.json → self-contained HTML

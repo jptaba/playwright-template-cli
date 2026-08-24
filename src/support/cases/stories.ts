@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { REPO_ROOT, STORIES_DIR } from '../paths';
+import { LEGACY_ROOTS, REPO_ROOT, TARGETS_ROOT, repoPath, storiesDirFor } from '../paths';
 import type { NormalisedStory } from './author';
 
 /**
- * Reading and writing `stories/<app>/<KEY>.json` — the upstream half of hop 1
+ * Reading and writing `targets/<app>/stories/<KEY>.json` — the upstream half of hop 1
  * (§09).
  *
  * One module rather than four, which is the whole point of it existing. Four
@@ -20,7 +20,7 @@ import type { NormalisedStory } from './author';
  * a field it is hashed over is a broken file, and saying so is the difference
  * between a diagnosable error and fifteen plausible-looking drift reports.
  *
- * The directory is per application for the same reason `cases/` is: a story
+ * The directory is per application for the same reason its cases are: a story
  * file names no application, so "the stories" meant "every story on disk", and
  * `target:remove` had nothing to remove. A story two applications both prove
  * is still a real state — `story-scope.ts` answers that, from the specs that
@@ -45,8 +45,11 @@ export interface OwnedStory {
   story: NormalisedStory;
 }
 
-export function storyPath(key: string, target: string, root = STORIES_DIR): string {
-  return path.join(root, target, `${key}.json`);
+const storiesIn = (target: string, root: string): string =>
+  root === TARGETS_ROOT ? storiesDirFor(target) : path.join(root, target, 'stories');
+
+export function storyPath(key: string, target: string, root = TARGETS_ROOT): string {
+  return path.join(storiesIn(target, root), `${key}.json`);
 }
 
 const isStringArray = (value: unknown): value is string[] =>
@@ -107,14 +110,14 @@ function readDir(dir: string): NormalisedStory[] {
     });
 }
 
-export function readStory(key: string, target: string, root = STORIES_DIR): NormalisedStory {
+export function readStory(key: string, target: string, root = TARGETS_ROOT): NormalisedStory {
   const file = storyPath(key, target, root);
   return parseStory(fs.readFileSync(file, 'utf8'), path.relative(REPO_ROOT, file));
 }
 
 /** One application's stories, sorted by key. Throws on the first unusable one. */
-export function loadStories(target: string, root = STORIES_DIR): NormalisedStory[] {
-  return readDir(path.join(root, target));
+export function loadStories(target: string, root = TARGETS_ROOT): NormalisedStory[] {
+  return readDir(storiesIn(target, root));
 }
 
 /**
@@ -123,25 +126,24 @@ export function loadStories(target: string, root = STORIES_DIR): NormalisedStory
  * What `hashes:check` needs: drift is checked across all of them, because a
  * case names its story by key and the key is unique repository-wide.
  */
-export function loadAllStories(root = STORIES_DIR): OwnedStory[] {
+export function loadAllStories(root = TARGETS_ROOT): OwnedStory[] {
   if (!fs.existsSync(root)) return [];
   return fs
     .readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort()
-    .flatMap((target) => readDir(path.join(root, target)).map((story) => ({ target, story })));
+    .flatMap((target) => readDir(storiesIn(target, root)).map((story) => ({ target, story })));
 }
 
 /**
- * Story files still sitting loose at the root of `stories/`.
+ * Story files sitting loose at the root, belonging to no application.
  *
- * They belong to no application, so every tool that scopes by directory will
- * skip them silently — which is the failure this scoping was meant to end, in
- * a new costume. Reported rather than adopted: guessing an owner is what the
- * flat directory did.
+ * Every tool that scopes by directory skips them silently — which is the
+ * failure this scoping was meant to end, in a new costume. Reported rather
+ * than adopted: guessing an owner is what the flat directory did.
  */
-export function looseStories(root = STORIES_DIR): string[] {
+export function looseStories(root = TARGETS_ROOT): string[] {
   if (!fs.existsSync(root)) return [];
   return fs
     .readdirSync(root, { withFileTypes: true })
@@ -150,8 +152,30 @@ export function looseStories(root = STORIES_DIR): string[] {
     .sort();
 }
 
+/**
+ * Anything left in the top-level directories cases and stories used to live in.
+ *
+ * The same orphan one level up, and the one an incomplete migration leaves:
+ * `loadCases` and `loadAllStories` now read `targets/<app>/`, so a file still
+ * sitting under `cases/` or `stories/` is read by nothing at all and says so
+ * to nobody. Reported by `hashes:check`, never adopted.
+ */
+export function legacyArtifacts(): string[] {
+  const stray: string[] = [];
+  const walk = (dir: string, prefix: string): void => {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const next = `${prefix}/${entry.name}`;
+      if (entry.isDirectory()) walk(path.join(dir, entry.name), next);
+      else stray.push(next);
+    }
+  };
+  for (const root of LEGACY_ROOTS) walk(repoPath(root), root);
+  return stray.sort();
+}
+
 /** Write one story into its application's directory, and return its repo path. */
-export function saveStory(story: NormalisedStory, target: string, root = STORIES_DIR): string {
+export function saveStory(story: NormalisedStory, target: string, root = TARGETS_ROOT): string {
   const file = storyPath(story.key, target, root);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${JSON.stringify(story, null, 2)}\n`, 'utf8');

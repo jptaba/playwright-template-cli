@@ -197,70 +197,65 @@ test.describe('the confirmation', () => {
   });
 });
 
-test.describe('the cases a target owns', () => {
+test.describe('the cases and stories a target owns', () => {
   /*
-     Cases are target-scoped — every one carries `target:` in its own body —
-     and nothing removed them. Taking a target out left its whole test-case
-     library behind: files describing an application this repository no longer
-     has, which `cases:gate` and the dashboard's coverage view both still read.
-     The same orphan as a stored session outliving its target, one directory up.
+     Cases carry `target:` in their own body and stories carry nothing at all,
+     and for a long time neither was removed. Taking a target out left its
+     whole test-case library, and every requirement it was onboarded to prove,
+     sitting on disk describing an application the repository no longer had.
+     The same orphan as a stored session outliving its target.
+
+     Both live inside the target's own directory now, so removing that
+     directory takes them — which is what the layout is for. They are still
+     counted separately, because the confirmation a person reads has to say
+     "10 test case(s)" rather than fold them into a number labelled as the
+     pack.
   */
-  test('go with it, listed by name', () => {
-    const plan = planOffboard('acme-shop', {
-      ...facts(),
-      caseFiles: ['cases/acme-shop/AC-1-checkout.yaml', 'cases/acme-shop/AC-2-refund.yaml'],
+  const withArtifacts = () =>
+    facts({
+      packFiles: [
+        'fixtures.ts',
+        'locators/sign-in.ts',
+        'cases/AC-1-checkout.yaml',
+        'cases/AC-2-refund.yaml',
+        'stories/FIN-2210.json',
+      ],
+      caseFiles: [
+        'targets/acme-shop/cases/AC-1-checkout.yaml',
+        'targets/acme-shop/cases/AC-2-refund.yaml',
+      ],
+      storyFiles: ['targets/acme-shop/stories/FIN-2210.json'],
     });
 
-    expect(plan.removeFiles).toContain('cases/acme-shop/AC-1-checkout.yaml');
-    expect(plan.removeFiles).toContain('cases/acme-shop/AC-2-refund.yaml');
-    expect(plan.removeDirectories).toContain('cases/acme-shop');
+  test('go with it, listed by name, under the one directory', () => {
+    const plan = planOffboard('acme-shop', withArtifacts());
+
+    expect(plan.removeFiles).toContain('targets/acme-shop/cases/AC-1-checkout.yaml');
+    expect(plan.removeFiles).toContain('targets/acme-shop/cases/AC-2-refund.yaml');
+    expect(plan.removeFiles).toContain('targets/acme-shop/stories/FIN-2210.json');
+    // One directory, not three.
+    expect(plan.removeDirectories).toEqual(['targets/acme-shop']);
   });
 
-  test('a target with no cases leaves the directory alone', () => {
-    // Never `rm` a path that was not there: an empty list must not become an
-    // instruction to remove `cases/<target>`.
-    const plan = planOffboard('acme-shop', facts({ caseFiles: [] }));
-    expect(plan.removeDirectories).not.toContain('cases/acme-shop');
+  test('the confirmation counts each kind, rather than calling them all pack files', () => {
+    /*
+       The sentence a person reads before typing the target's name back. It
+       counted every file as "under targets/<name>/ and its profile", so the
+       one safeguard on a destructive operation told them the pack was going
+       and did not tell them their test cases were.
+    */
+    const described = describeOffboard(planOffboard('acme-shop', withArtifacts())).join('\n');
+
+    expect(described).toContain('3 file(s) under targets/acme-shop/ and its profile');
+    expect(described).toContain('2 test case(s) from targets/acme-shop/cases/');
+    expect(described).toContain('1 story file(s) from targets/acme-shop/stories/');
   });
 
-  test('another target’s cases are not this target’s to remove', () => {
-    const plan = planOffboard('acme-shop', {
-      ...facts(),
-      caseFiles: ['cases/acme-shop/AC-1.yaml'],
-    });
-    expect(plan.removeFiles.filter((file) => file.startsWith('cases/'))).toEqual([
-      'cases/acme-shop/AC-1.yaml',
-    ]);
-  });
-});
+  test('a target with neither is not told about them', () => {
+    const described = describeOffboard(planOffboard('acme-shop', facts())).join('\n');
 
-/**
- * The seventh place, and the last one to get a directory.
- *
- * A story file names no application, so `stories/` was flat and the removal
- * plan had nothing it could name: a target taken back out left every
- * requirement it was onboarded to prove sitting on disk, still read by
- * `hashes:check`, belonging to nothing at all. The same orphan as the case
- * library and as a stored session, found the same way — by asking what a
- * removal leaves behind rather than what it takes.
- */
-test.describe('the stories the target was onboarded to prove', () => {
-  test('go with it, listed by name', () => {
-    const plan = planOffboard('acme-shop', {
-      ...facts(),
-      storyFiles: ['stories/acme-shop/FIN-2210.json', 'stories/acme-shop/FIN-2211.json'],
-    });
-
-    expect(plan.removeFiles).toContain('stories/acme-shop/FIN-2210.json');
-    expect(plan.removeFiles).toContain('stories/acme-shop/FIN-2211.json');
-    expect(plan.removeDirectories).toContain('stories/acme-shop');
-  });
-
-  test('a target with no stories leaves the directory alone', () => {
-    // Never `rm` a path that was not there — the same rule the case library
-    // gets, and for the same reason.
-    const plan = planOffboard('acme-shop', facts({ storyFiles: [] }));
-    expect(plan.removeDirectories).not.toContain('stories/acme-shop');
+    expect(described).not.toContain('test case(s)');
+    expect(described).not.toContain('story file(s)');
   });
 
   test('a pack deleted by hand does not strand them', () => {
@@ -268,55 +263,21 @@ test.describe('the stories the target was onboarded to prove', () => {
        The branch that exists because "the pack being gone does not mean
        nothing is left" was returning nothing but credentials and sessions.
        Remove a pack by hand, or offboard twice, and the case library and the
-       stories stayed — for an application the repository no longer has.
+       stories stayed behind.
     */
     const plan = planOffboard('ghost-app', {
       ...facts(),
       knownTargets: ['acme-shop'],
       packExists: false,
       packFiles: [],
-      caseFiles: ['cases/ghost-app/AC-1.yaml'],
-      storyFiles: ['stories/ghost-app/FIN-1.json'],
+      caseFiles: ['targets/ghost-app/cases/AC-1.yaml'],
+      storyFiles: ['targets/ghost-app/stories/FIN-1.json'],
     });
 
     expect(plan.alreadyGone).toBe(true);
     expect(plan.removeFiles).toEqual([
-      'cases/ghost-app/AC-1.yaml',
-      'stories/ghost-app/FIN-1.json',
-    ]);
-    expect(plan.removeDirectories).toEqual(['cases/ghost-app', 'stories/ghost-app']);
-  });
-
-  test('the confirmation counts each kind, rather than calling them all pack files', () => {
-    /*
-       The sentence a person reads before typing the target's name back. It
-       said "<n> file(s) under targets/<name>/ and its profile" for a
-       total that included the case library — so the one safeguard on a
-       destructive operation was describing the wrong thing.
-    */
-    const described = describeOffboard(
-      planOffboard('acme-shop', {
-        ...facts(),
-        packFiles: ['fixtures.ts', 'locators/sign-in.ts'],
-        caseFiles: ['cases/acme-shop/AC-1.yaml', 'cases/acme-shop/AC-2.yaml'],
-        storyFiles: ['stories/acme-shop/FIN-1.json'],
-      }),
-    ).join('\n');
-
-    // Two pack files plus the profile — and the cases and stories said
-    // separately rather than folded into that number.
-    expect(described).toContain('3 file(s) under targets/acme-shop/ and its profile');
-    expect(described).toContain('2 test case(s) from cases/acme-shop/');
-    expect(described).toContain('1 story file(s) from stories/acme-shop/');
-  });
-
-  test('another target’s stories are not this target’s to remove', () => {
-    const plan = planOffboard('acme-shop', {
-      ...facts(),
-      storyFiles: ['stories/acme-shop/FIN-2210.json'],
-    });
-    expect(plan.removeFiles.filter((file) => file.startsWith('stories/'))).toEqual([
-      'stories/acme-shop/FIN-2210.json',
+      'targets/ghost-app/cases/AC-1.yaml',
+      'targets/ghost-app/stories/FIN-1.json',
     ]);
   });
 });

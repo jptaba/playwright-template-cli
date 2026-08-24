@@ -230,11 +230,14 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
     };
   }
 
+  /*
+     `packFiles` already holds the cases and the stories, because they live in
+     the pack directory. They are listed separately in the facts so the
+     confirmation can count them by kind, not so they can be removed twice.
+  */
   const removeFiles = [
     ...(facts.knownTargets.includes(target) ? [profile] : []),
     ...facts.packFiles.map((file) => `${packRoot}/${file}`),
-    ...facts.caseFiles,
-    ...facts.storyFiles,
   ];
 
   /*
@@ -331,11 +334,9 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
     target,
     // Deepest first, so a directory is empty by the time it is removed.
     removeFiles: [...removeFiles].sort((a, b) => b.split('/').length - a.split('/').length),
-    removeDirectories: [
-      ...(facts.packExists ? [packRoot] : []),
-      ...(facts.caseFiles.length > 0 ? [`cases/${target}`] : []),
-      ...(facts.storyFiles.length > 0 ? [`stories/${target}`] : []),
-    ],
+    // One directory. That is the whole point of the layout: the profile, the
+    // pack, the cases and the stories are all inside it.
+    removeDirectories: facts.packExists ? [packRoot] : [],
     removeSecretKeys,
     removeStorageStates,
     clearDraft,
@@ -406,15 +407,15 @@ export function describeOffboard(plan: OffboardPlan): string[] {
   */
   const under = (prefix: string): number =>
     plan.removeFiles.filter((file) => file.startsWith(prefix)).length;
-  const cases = under(`cases/${plan.target}/`);
-  const stories = under(`stories/${plan.target}/`);
+  const cases = under(`targets/${plan.target}/cases/`);
+  const stories = under(`targets/${plan.target}/stories/`);
   const packAndProfile = plan.removeFiles.length - cases - stories;
 
   const lines = plan.alreadyGone
     ? [`No profile or pack — they are already gone`]
     : [`${packAndProfile} file(s) under ${packRootFor(plan.target)}/ and its profile`];
-  if (cases > 0) lines.push(`${cases} test case(s) from cases/${plan.target}/`);
-  if (stories > 0) lines.push(`${stories} story file(s) from stories/${plan.target}/`);
+  if (cases > 0) lines.push(`${cases} test case(s) from targets/${plan.target}/cases/`);
+  if (stories > 0) lines.push(`${stories} story file(s) from targets/${plan.target}/stories/`);
   if (plan.removeSecretKeys.length > 0) {
     lines.push(`${plan.removeSecretKeys.length} credential entr(ies) from the local secret store`);
   }
