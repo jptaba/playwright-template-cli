@@ -65,3 +65,21 @@ export function firstWorthFixing(
   if (error) return error.code;
   return diagnostics.find((one) => one.level === 'warning')?.code ?? null;
 }
+
+/**
+ * The chip's actual `href`, given which page fixes the finding and which
+ * application the finding is about.
+ *
+ * `/users` and `/cases` need nothing extra — every page but this one already
+ * reads the application the top bar is scoped to, because that is the same
+ * selection driving everything else on screen. `/onboard` is the exception:
+ * it keeps its own picker, deliberately defaulted to blank on a plain visit
+ * so `npm run onboard` never greets a returning user with a different
+ * application read-only (item 6). A chip is not a plain visit — it already
+ * knows which application its finding belongs to — so it says so in the
+ * query string, which the page reads once and drops from the address bar
+ * rather than adopting as a new standing default.
+ */
+export function chipHref(page: FixPage, target: string): string {
+  return page === '/onboard' ? `/onboard?target=${encodeURIComponent(target)}` : page;
+}

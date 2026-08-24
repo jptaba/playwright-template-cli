@@ -102,6 +102,14 @@ collapsed group had been leaving two invisible links in the keyboard tab order.
 A phone-width budget that had been passing while the page overflowed was found
 and strengthened — it rendered a bar that never ships.
 
+**Run 94 was a scan and closed what it found: run 93's chip kept its old
+behaviour on one of its three destinations.** `/onboard` still opened blank
+when the chip named an application with a real finding — `/users` and
+`/cases` already read the top bar's shared selection, `/onboard` keeps its
+own picker and did not. A query string the page reads once and drops from the
+address bar closes the gap without relaxing item 6's guarantee that a plain
+visit still opens blank.
+
 **Run 92 closed item 73 and withdrew item 74.** The Stories page is scoped to
 the application whose specs cite each story — run 80's fix, applied where it had
 been missed. **Item 74 was not a defect**: `/api/cases` was always scoped and

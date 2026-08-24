@@ -995,6 +995,24 @@ function formSignature() {
   return JSON.stringify([snapshot.fields, snapshot.flags, snapshot.services]);
 }
 
+/*
+   A link that already named which application it meant — the health chip,
+   arriving to fix a finding on one in particular. Read once and dropped from
+   the address bar immediately: item 6's default (blank, "add one") still has
+   to govern a plain reload or a second visit, and a query string sitting in
+   the bar would otherwise re-force the same selection every time.
+*/
+function consumeTargetParam() {
+  let wanted = null;
+  try {
+    wanted = new URLSearchParams(location.search).get('target');
+  } catch (error) {
+    /* No URL to read is not a target to act on. */
+  }
+  if (wanted) history.replaceState(null, '', location.pathname);
+  return wanted;
+}
+
 async function loadState(keepSelection) {
   const asked = formSignature();
   const state = await post('/api/onboard/state', {});
@@ -1016,7 +1034,7 @@ async function loadState(keepSelection) {
   }
 
   const select = $('pick');
-  const wanted = keepSelection ? select.value : null;
+  const wanted = keepSelection ? select.value : consumeTargetParam();
   select.replaceChildren();
   const fresh = document.createElement('option');
   fresh.value = '';
@@ -1041,7 +1059,9 @@ async function loadState(keepSelection) {
      twice. A removal reloads too, and there the target is gone, so the fall
      through to the default is the right answer rather than a special case.
 
-     Otherwise: always "— New application —".
+     Otherwise: whatever a link that already knew the application asked for —
+     the health chip, landing on a specific finding — or "— New application —"
+     if nothing did.
 
      This used to fall back to the most recently onboarded application, which
      meant the command named \`npm run onboard\` greeted a returning user with
@@ -1049,7 +1069,9 @@ async function loadState(keepSelection) {
      Change its settings to edit". The page opened on the one thing it was not
      there to do. Onboarding something is why anybody runs this; the
      applications already on disk are one selection away and are not going
-     anywhere.
+     anywhere. A query string is a different case: it says a specific reason
+     for landing here rather than guessing one, so it is honoured once and
+     never remembered past this load.
   */
   const stillThere = wanted && applications.some((app) => app.name === wanted);
   select.value = stillThere ? wanted : '';

@@ -144,8 +144,14 @@ function fakeService(recorder: Recorder, page: () => string): DashboardService {
 export interface Harness {
   page: Page;
   recorder: Recorder;
-  /** Reload, so a test can assert what survives a navigation. */
-  reopen(): Promise<void>;
+  /**
+   * Reload, so a test can assert what survives a navigation.
+   *
+   * `query` is what a link into this page can carry — the health chip lands
+   * here with `?target=<name>`, which is otherwise indistinguishable from a
+   * plain visit.
+   */
+  reopen(query?: string): Promise<void>;
   /** The last body posted to a path, or undefined. */
   lastCall(path: string): Record<string, unknown> | undefined;
 }
@@ -257,8 +263,8 @@ export const test = base.extend<{ dashboard: Harness }>({
     const { port } = server.address() as AddressInfo;
     const url = `http://127.0.0.1:${port}/onboard`;
 
-    const open = async (): Promise<void> => {
-      await page.goto(url);
+    const open = async (query?: string): Promise<void> => {
+      await page.goto(query ? `${url}?${query}` : url);
       // The page's own first act. Waiting for it means no test races the
       // dropdown being populated.
       await page.waitForFunction(() => document.querySelectorAll('#pick option').length > 0);

@@ -191,6 +191,50 @@ test.describe('the picker, with applications onboarded', () => {
   });
 });
 
+test.describe('arriving already knowing which application — the health chip', () => {
+  /*
+     The chip in the top bar promises to route to "the page that fixes the
+     finding" (item 75). For most findings that page already reads the
+     application the bar is scoped to — but /onboard keeps its own picker,
+     defaulted to blank on every plain visit so `npm run onboard` never
+     greets a returning user with a different application (item 6). Without
+     this, the chip's own promise was false for every finding it sends here:
+     clicking it landed on a blank "add one" form, not the application whose
+     finding was being read.
+  */
+  test.beforeEach(async ({ dashboard }) => {
+    dashboard.recorder.applications = [
+      anApplication({ name: 'shop-two', environment: 'uat', baseURL: 'https://two.shop.test' }),
+      anApplication({ name: 'shop-one' }),
+    ];
+  });
+
+  test('a link naming an application opens straight on its settings', async ({ dashboard }) => {
+    await dashboard.reopen('target=shop-two');
+    const { page } = dashboard;
+    await expect(page.locator('#pick')).toHaveValue('shop-two');
+    await expect(page.locator('#baseURL')).toHaveValue('https://two.shop.test');
+  });
+
+  test('the query string is spent, not kept — a plain reload must still open blank', async ({
+    dashboard,
+  }) => {
+    await dashboard.reopen('target=shop-two');
+    const { page } = dashboard;
+    expect(page.url()).not.toContain('target=');
+
+    // item 6: a visit this page cannot tell apart from `npm run onboard`
+    // itself must still default to "add one", not whatever was last shown.
+    await dashboard.reopen();
+    await expect(page.locator('#pick')).toHaveValue('');
+  });
+
+  test('a name that names nothing falls back to the ordinary default', async ({ dashboard }) => {
+    await dashboard.reopen('target=no-such-application');
+    await expect(dashboard.page.locator('#pick')).toHaveValue('');
+  });
+});
+
 test.describe('editing an onboarded application', () => {
   test.beforeEach(async ({ dashboard }) => {
     dashboard.recorder.applications = [anApplication({ name: 'shop-one' })];

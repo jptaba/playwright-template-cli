@@ -83,7 +83,7 @@ import { PractiTestClient } from '../src/integrations/practitest/client';
 import { REOPEN_TRANSITIONS } from '../src/support/publish/payloads';
 import { diagnose, type TargetFacts } from '../src/support/onboarding/diagnose';
 import { planOffboard, type OffboardPlan } from '../src/support/onboarding/offboard';
-import { firstWorthFixing, whereToFix } from '../src/support/onboarding/where-to-fix';
+import { chipHref, firstWorthFixing, whereToFix } from '../src/support/onboarding/where-to-fix';
 import { packSpecTags } from './check-target';
 import { gatherFacts, removeTarget } from './offboard';
 import {
@@ -1192,7 +1192,7 @@ const healthRoutes: Route[] = [
         warnings: diagnostics.filter((one) => one.level === 'warning').length,
         parked,
         code: worst,
-        fixAt: worst ? whereToFix(worst) : '/onboard',
+        fixAt: chipHref(worst ? whereToFix(worst) : '/onboard', wanted),
       });
     },
   },
