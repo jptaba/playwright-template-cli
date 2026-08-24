@@ -1,5 +1,5 @@
 <!-- GENERATED FILE — DO NOT EDIT.
-     Source: docs/CONVENTIONS.md (sha256 460058f4e8ff492b)
+     Source: docs/CONVENTIONS.md (sha256 9117bd64747ebbc6)
      Regenerate: npm run instructions:build
      Verified in CI by: npm run instructions:check -->
 

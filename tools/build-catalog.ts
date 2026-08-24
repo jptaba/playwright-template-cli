@@ -129,7 +129,10 @@ function main(): number {
 
   if (check) {
     const committed = fs.existsSync(OUTPUT) ? fs.readFileSync(OUTPUT, 'utf8') : '';
-    if (committed === built) {
+    // Line endings are not content. The catalog is stored with LF and a
+    // Windows working tree may hold CRLF, so comparing raw bytes would answer
+    // for the checkout rather than for the words.
+    if (committed.replace(/\r\n/g, '\n') === built) {
       console.log('Capability catalog is current.');
       return 0;
     }

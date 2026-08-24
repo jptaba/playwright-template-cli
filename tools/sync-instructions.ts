@@ -18,6 +18,21 @@ import { REPO_ROOT } from '../src/support/paths';
 
 const SOURCE = path.join(REPO_ROOT, 'docs', 'CONVENTIONS.md');
 
+/**
+ * Line endings are not content.
+ *
+ * `.gitattributes` stores every text file here with LF, but a Windows working
+ * tree can legitimately hold CRLF — so hashing or comparing raw bytes makes
+ * this tool's answer depend on the checkout instead of on the words. It bit
+ * once, and silently: a build run against a CRLF working copy stamped a
+ * CRLF-derived hash into files git then stored as LF, so every LF checkout —
+ * CI included — reported all three as stale for ever, while
+ * `instructions:build` appeared to fix it locally and git normalised the fix
+ * back out again on the way in. Normalise first, and the hash is a property of
+ * the conventions rather than of the machine that last ran the generator.
+ */
+const normaliseEol = (text: string): string => text.replace(/\r\n/g, '\n');
+
 interface Client {
   /** Repo-relative output path. */
   file: string;
@@ -84,7 +99,7 @@ function main(): number {
     console.error(`Missing ${path.relative(REPO_ROOT, SOURCE)} — the single source of truth.`);
     return 2;
   }
-  const conventions = fs.readFileSync(SOURCE, 'utf8');
+  const conventions = normaliseEol(fs.readFileSync(SOURCE, 'utf8'));
   const hash = crypto.createHash('sha256').update(conventions).digest('hex').slice(0, 16);
 
   const stale: string[] = [];
@@ -93,12 +108,14 @@ function main(): number {
     const expected = render(client, conventions, hash);
     const actual = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : null;
 
+    const current = actual !== null && normaliseEol(actual) === expected;
+
     if (check) {
-      if (actual !== expected) stale.push(client.file);
+      if (!current) stale.push(client.file);
       continue;
     }
 
-    if (actual !== expected) {
+    if (!current) {
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.writeFileSync(target, expected, 'utf8');
       console.log(`wrote ${client.file}`);
