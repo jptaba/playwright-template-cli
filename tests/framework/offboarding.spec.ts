@@ -25,6 +25,7 @@ function facts(overrides: Partial<OffboardFacts> = {}): OffboardFacts {
       'qa/example-app/pools/workforce/standard/1',
     ],
     caseFiles: [],
+    storyFiles: [],
     // No draft by default — the presence of one is what each draft test states.
     draftName: null,
     storageStateFiles: ['acme-shop.standard.json', 'example-app.standard.json'],
@@ -229,6 +230,93 @@ test.describe('the cases a target owns', () => {
     });
     expect(plan.removeFiles.filter((file) => file.startsWith('cases/'))).toEqual([
       'cases/acme-shop/AC-1.yaml',
+    ]);
+  });
+});
+
+/**
+ * The seventh place, and the last one to get a directory.
+ *
+ * A story file names no application, so `stories/` was flat and the removal
+ * plan had nothing it could name: a target taken back out left every
+ * requirement it was onboarded to prove sitting on disk, still read by
+ * `hashes:check`, belonging to nothing at all. The same orphan as the case
+ * library and as a stored session, found the same way — by asking what a
+ * removal leaves behind rather than what it takes.
+ */
+test.describe('the stories the target was onboarded to prove', () => {
+  test('go with it, listed by name', () => {
+    const plan = planOffboard('acme-shop', {
+      ...facts(),
+      storyFiles: ['stories/acme-shop/FIN-2210.json', 'stories/acme-shop/FIN-2211.json'],
+    });
+
+    expect(plan.removeFiles).toContain('stories/acme-shop/FIN-2210.json');
+    expect(plan.removeFiles).toContain('stories/acme-shop/FIN-2211.json');
+    expect(plan.removeDirectories).toContain('stories/acme-shop');
+  });
+
+  test('a target with no stories leaves the directory alone', () => {
+    // Never `rm` a path that was not there — the same rule the case library
+    // gets, and for the same reason.
+    const plan = planOffboard('acme-shop', facts({ storyFiles: [] }));
+    expect(plan.removeDirectories).not.toContain('stories/acme-shop');
+  });
+
+  test('a pack deleted by hand does not strand them', () => {
+    /*
+       The branch that exists because "the pack being gone does not mean
+       nothing is left" was returning nothing but credentials and sessions.
+       Remove a pack by hand, or offboard twice, and the case library and the
+       stories stayed — for an application the repository no longer has.
+    */
+    const plan = planOffboard('ghost-app', {
+      ...facts(),
+      knownTargets: ['acme-shop'],
+      packExists: false,
+      packFiles: [],
+      caseFiles: ['cases/ghost-app/AC-1.yaml'],
+      storyFiles: ['stories/ghost-app/FIN-1.json'],
+    });
+
+    expect(plan.alreadyGone).toBe(true);
+    expect(plan.removeFiles).toEqual([
+      'cases/ghost-app/AC-1.yaml',
+      'stories/ghost-app/FIN-1.json',
+    ]);
+    expect(plan.removeDirectories).toEqual(['cases/ghost-app', 'stories/ghost-app']);
+  });
+
+  test('the confirmation counts each kind, rather than calling them all pack files', () => {
+    /*
+       The sentence a person reads before typing the target's name back. It
+       said "<n> file(s) under src/targets/<name>/ and its profile" for a
+       total that included the case library — so the one safeguard on a
+       destructive operation was describing the wrong thing.
+    */
+    const described = describeOffboard(
+      planOffboard('acme-shop', {
+        ...facts(),
+        packFiles: ['fixtures.ts', 'locators/sign-in.ts'],
+        caseFiles: ['cases/acme-shop/AC-1.yaml', 'cases/acme-shop/AC-2.yaml'],
+        storyFiles: ['stories/acme-shop/FIN-1.json'],
+      }),
+    ).join('\n');
+
+    // Two pack files plus the profile — and the cases and stories said
+    // separately rather than folded into that number.
+    expect(described).toContain('3 file(s) under src/targets/acme-shop/ and its profile');
+    expect(described).toContain('2 test case(s) from cases/acme-shop/');
+    expect(described).toContain('1 story file(s) from stories/acme-shop/');
+  });
+
+  test('another target’s stories are not this target’s to remove', () => {
+    const plan = planOffboard('acme-shop', {
+      ...facts(),
+      storyFiles: ['stories/acme-shop/FIN-2210.json'],
+    });
+    expect(plan.removeFiles.filter((file) => file.startsWith('stories/'))).toEqual([
+      'stories/acme-shop/FIN-2210.json',
     ]);
   });
 });

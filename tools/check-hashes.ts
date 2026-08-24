@@ -4,7 +4,7 @@ import path from 'node:path';
 import { REPO_ROOT } from '../src/support/paths';
 import { hashCase, loadCases } from '../src/support/cases/store';
 import { storyContentHash, type NormalisedStory } from '../src/support/cases/author';
-import { StoryValidationError, loadStories } from '../src/support/cases/stories';
+import { StoryValidationError, loadAllStories, looseStories } from '../src/support/cases/stories';
 
 /**
  * `npm run hashes:check` — traceability drift, both hops (§09, §22).
@@ -30,15 +30,31 @@ import { StoryValidationError, loadStories } from '../src/support/cases/stories'
  * `contentHash`, and reported all ten cases in the repository as derived from
  * changed stories — for four months, in a check that runs in CI.
  */
-function storiesByKey(): { stories: Map<string, NormalisedStory>; problem: string | null } {
+function storiesByKey(): { stories: Map<string, NormalisedStory>; problems: string[] } {
   const stories = new Map<string, NormalisedStory>();
+  const problems: string[] = [];
   try {
-    for (const story of loadStories()) stories.set(story.key, story);
+    for (const owned of loadAllStories()) stories.set(owned.story.key, owned.story);
   } catch (error) {
-    if (error instanceof StoryValidationError) return { stories, problem: error.message };
-    throw error;
+    if (!(error instanceof StoryValidationError)) throw error;
+    problems.push(error.message);
   }
-  return { stories, problem: null };
+
+  /*
+     A story file loose at the root of `stories/` belongs to no application,
+     so every tool that scopes by directory skips it in silence — which is the
+     defect the scoping was meant to end, wearing a new costume. Named here
+     rather than adopted: guessing an owner is what the flat directory did.
+  */
+  for (const name of looseStories()) {
+    problems.push(
+      `stories/${name} is not under an application directory, so nothing reads it. ` +
+        'Move it to stories/<app>/ — the directory is what says which application a story ' +
+        'was pulled for.',
+    );
+  }
+
+  return { stories, problems };
 }
 
 /** The `case-hash` annotation a generated spec carries. */
@@ -50,9 +66,8 @@ function specCaseHash(specPath: string): string | null {
 
 function main(): number {
   const cases = loadCases();
-  const { stories, problem: storyProblem } = storiesByKey();
-  const problems: string[] = [];
-  if (storyProblem) problems.push(storyProblem);
+  const { stories, problems: storyProblems } = storiesByKey();
+  const problems: string[] = [...storyProblems];
   const staleByStory = new Map<string, number>();
 
   for (const stored of cases) {

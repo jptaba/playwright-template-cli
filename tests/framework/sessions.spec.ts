@@ -115,6 +115,7 @@ test.describe('the removal plan', () => {
     untrackedPaths: [],
     secretKeys: [],
     caseFiles: [],
+    storyFiles: [],
     draftName: null,
     storageStateFiles: ['shop.standard.json'],
     pointsAtPlaceholderHost: false,

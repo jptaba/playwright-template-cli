@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+import { resolveTarget } from '../config/target';
 import { JiraClient } from '../src/integrations/jira/client';
 import { normaliseStory } from '../src/support/cases/author';
 import { saveStory } from '../src/support/cases/stories';
@@ -16,11 +17,18 @@ import { saveStory } from '../src/support/cases/stories';
  * makes the run reproducible and gives the content hash somewhere to live.
  */
 async function main(): Promise<number> {
-  const key = process.argv.slice(2).find((arg) => !arg.startsWith('-'));
+  const args = process.argv.slice(2);
+  const key = args.find((arg) => !arg.startsWith('-'));
   if (!key) {
-    console.error('Usage: npm run story:pull -- <ISSUE-KEY>');
+    console.error('Usage: npm run story:pull -- <ISSUE-KEY> [--target=<name>]');
     return 2;
   }
+
+  // Which application this story is being read for. It decides the directory,
+  // and the directory is the only thing on disk that says which application a
+  // story is about.
+  const targetArg = args.find((arg) => arg.startsWith('--target='))?.split('=')[1];
+  const target = targetArg ?? resolveTarget().name;
 
   const client = JiraClient.fromEnvironment();
   try {
@@ -43,7 +51,7 @@ async function main(): Promise<number> {
       acceptanceCriteria: issue.acceptanceCriteria,
     });
 
-    const file = saveStory(story);
+    const file = saveStory(story, target);
 
     console.log(`wrote ${file}`);
     console.log(`  ${issue.acceptanceCriteria.length} acceptance criteria`);

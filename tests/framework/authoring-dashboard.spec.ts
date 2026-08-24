@@ -53,8 +53,8 @@ function harness(overrides: Partial<AuthoringService> = {}, drafts: DraftedCase[
   const saved: NormalisedStory[] = [];
 
   const service: AuthoringService = {
-    storyScope: async () => ({ target: null, claims: new Map() }),
-    storedStories: () => [STORY],
+    storyScope: async () => ({ target: 'acme-shop', claims: new Map() }),
+    storedStories: () => [{ target: 'acme-shop', story: STORY }],
     jira: () => ({ configured: true }),
     fetchIssue: async () => ({
       key: 'FIN-2210',
@@ -62,9 +62,9 @@ function harness(overrides: Partial<AuthoringService> = {}, drafts: DraftedCase[
       description: STORY.description,
       acceptanceCriteria: STORY.acceptanceCriteria,
     }),
-    saveStory: (story) => {
+    saveStory: (story, target) => {
       saved.push(story);
-      return `stories/${story.key}.json`;
+      return `stories/${target}/${story.key}.json`;
     },
     targets: () => ['acme-shop'],
     model: async () => ({ identity: 'fake-author', draft: async () => drafts }),
@@ -152,12 +152,32 @@ test.describe('reading a story', () => {
 
     expect(response.status).toBe(200);
     expect(saved).toHaveLength(1);
-    expect(response.body.file).toBe('stories/FIN-2210.json');
+    // Under the application it was pulled for. The directory is the only
+    // thing on disk that says which application a story is about.
+    expect(response.body.file).toBe('stories/acme-shop/FIN-2210.json');
     const story = response.body.story as { criteria: Array<{ id: string }>; contentHash: string };
     // `AC-1` here has to be the same `AC-1` the prompt shows and the citation
     // check verifies, or every citation is off by one.
     expect(story.criteria.map((criterion) => criterion.id)).toEqual(['AC-1', 'AC-2']);
     expect(story.contentHash).toBe(STORY.contentHash);
+  });
+
+  test('with no application selected it refuses, rather than picking one', async () => {
+    /*
+       A story is read from Jira *for* an application, because that is the
+       directory it lands in. Adopting it into whichever application happened
+       to be first is the flat-directory defect with a new costume on, so the
+       page says what to do instead.
+    */
+    const { service, saved } = harness({
+      storyScope: async () => ({ target: null, claims: new Map() }),
+    });
+
+    const response = await call(service, '/api/stories/pull', { key: 'FIN-2210' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain('Select an application first');
+    expect(saved).toHaveLength(0);
   });
 });
 

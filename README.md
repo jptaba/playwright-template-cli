@@ -162,7 +162,7 @@ npm run verify              # what CI runs on every merge request
 npm run catalog:build       # ts-morph → docs/generated/catalog.md
 npm run instructions:build  # CONVENTIONS.md → CLAUDE.md / AGENTS.md / copilot
 npm run vault:check         # does a secret path resolve? (never prints values)
-npm run story:pull -- KEY   # Jira story → stories/*.json
+npm run story:pull -- KEY   # Jira story → stories/<app>/*.json
 npm run cases:author -- KEY # story → cases/*.yaml + coverage matrix
 npm run cases:gate          # reject cases too vague to automate
 npm run cases:push          # → PractiTest; dry run unless --publish

@@ -48,7 +48,7 @@ import { storiesPageContent } from '../src/support/ui/stories-page';
 import { collectCoverage, readSpecs } from '../src/support/cases/collect';
 import { storyClaims } from '../src/support/cases/story-scope';
 import { CaseValidationError, loadCases, saveCase } from '../src/support/cases/store';
-import { loadStories, saveStory } from '../src/support/cases/stories';
+import { loadAllStories, saveStory } from '../src/support/cases/stories';
 import { authoringRoutes, type AuthoringService } from '../src/support/cases/authoring';
 import type { CaseAuthorModel } from '../src/support/cases/author';
 import type {
@@ -1338,7 +1338,7 @@ const authoring: AuthoringService = {
      that silently stops being offered, and the person looking for it has no
      way to find out why. `loadStories` throws with the file and the field.
   */
-  storedStories: () => loadStories(),
+  storedStories: () => loadAllStories(),
 
   jira: () => {
     const baseURL = process.env.JIRA_BASE_URL;
@@ -1364,7 +1364,7 @@ const authoring: AuthoringService = {
     }
   },
 
-  saveStory: (story) => saveStory(story),
+  saveStory: (story, target) => saveStory(story, target),
 
   targets: existingTargets,
 

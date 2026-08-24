@@ -167,6 +167,22 @@ export const LIVE_EVENTS_PATH = process.env.LIVE_EVENTS_PATH ?? null;
 export const TRIAGE_RESULT_PATH = repoPath('triage-result.json');
 export const CASES_DIR = repoPath('cases');
 export const STORIES_DIR = repoPath('stories');
+
+/**
+ * Where one application's stories live.
+ *
+ * Scoped by directory, like `cases/<app>/`, because a story file says nothing
+ * about which application it is for and a flat directory therefore had no
+ * answer at all. The Stories page offered toolshop's catalogue and cart with
+ * `orangehrm` in the bar; `run-journey` reported "story TOOL-1 pulled from
+ * Jira" for whichever application asked; and `target:remove` left every story
+ * behind, because there was no directory for it to take.
+ *
+ * A story cited by two applications is still a real state — see
+ * `story-scope.ts`, which is what answers that. The directory says where it
+ * was pulled to, not who is allowed to prove it.
+ */
+export const storiesDirFor = (target: string): string => path.join(STORIES_DIR, target);
 export const REPORT_OUT_DIR = repoPath('report-out');
 export const RESULTS_DIR = repoPath('results');
 

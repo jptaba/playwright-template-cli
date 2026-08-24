@@ -74,7 +74,7 @@ test.describe('which stories an application should see', () => {
   ]);
 
   test('its own', () => {
-    expect(storyVisibleTo('TOOL-1', 'toolshop', claims)).toBe(true);
+    expect(storyVisibleTo('TOOL-1', 'toolshop', 'toolshop', claims)).toBe(true);
   });
 
   test('not another application’s — which is the whole finding', () => {
@@ -83,19 +83,25 @@ test.describe('which stories an application should see', () => {
        TOOL-1 to TOOL-5, a catalogue and a cart, on a page whose job is *what
        the work is meant to do*.
     */
-    expect(storyVisibleTo('TOOL-1', 'orangehrm', claims)).toBe(false);
-    expect(storyVisibleTo('OHRM-1', 'toolshop', claims)).toBe(false);
+    expect(storyVisibleTo('TOOL-1', 'toolshop', 'orangehrm', claims)).toBe(false);
+    expect(storyVisibleTo('OHRM-1', 'orangehrm', 'toolshop', claims)).toBe(false);
   });
 
-  test('one nobody cites is shown, because it may have just been pulled', () => {
+  test('one nobody cites yet is shown to the application it was pulled for', () => {
     /*
        The case that stops this fix breaking the feature. Pulling a story from
        Jira and then drafting cases from it is the workflow this page exists
        for, and at the moment it is pulled no spec cites it. Hiding it would
        have fixed the reported defect and removed the reason to open the page.
+
+       Citations alone could not answer for it, so the rule used to be "cited
+       by nobody, shown to everybody" — the original defect narrowed rather
+       than closed, with a freshly pulled story still appearing under every
+       application. The directory answers it: a story is pulled *for* one
+       application, and that is true before any spec exists.
     */
-    expect(storyVisibleTo('FIN-2210', 'toolshop', claims)).toBe(true);
-    expect(storyVisibleTo('FIN-2210', 'orangehrm', claims)).toBe(true);
+    expect(storyVisibleTo('FIN-2210', 'toolshop', 'toolshop', claims)).toBe(true);
+    expect(storyVisibleTo('FIN-2210', 'toolshop', 'orangehrm', claims)).toBe(false);
   });
 
   test('a story two applications cite is shown to both', () => {
@@ -104,22 +110,28 @@ test.describe('which stories an application should see', () => {
       spec('src/targets/saucedemo/tests/e2e/b.spec.ts', 'SHARED-1'),
     ]);
 
-    expect(storyVisibleTo('SHARED-1', 'toolshop', shared)).toBe(true);
-    expect(storyVisibleTo('SHARED-1', 'saucedemo', shared)).toBe(true);
-    expect(storyVisibleTo('SHARED-1', 'orangehrm', shared)).toBe(false);
+    // Pulled under toolshop, and saucedemo proves it too. One directory
+    // cannot express that, which is why the citations did not go away.
+    expect(storyVisibleTo('SHARED-1', 'toolshop', 'toolshop', shared)).toBe(true);
+    expect(storyVisibleTo('SHARED-1', 'toolshop', 'saucedemo', shared)).toBe(true);
+    expect(storyVisibleTo('SHARED-1', 'toolshop', 'orangehrm', shared)).toBe(false);
   });
 
   test('with nothing selected, everything is shown', () => {
     // The page is then making no claim about any application, and a list that
     // emptied itself would say the repository has no stories.
-    expect(storyVisibleTo('TOOL-1', null, claims)).toBe(true);
-    expect(storyVisibleTo('OHRM-1', null, claims)).toBe(true);
+    expect(storyVisibleTo('TOOL-1', 'toolshop', null, claims)).toBe(true);
+    expect(storyVisibleTo('OHRM-1', 'orangehrm', null, claims)).toBe(true);
   });
 
   test('the list keeps its order and drops only what belongs elsewhere', () => {
-    const stories = [{ key: 'TOOL-1' }, { key: 'FIN-2210' }, { key: 'OHRM-1' }];
+    const stories = [
+      { target: 'toolshop', story: { key: 'TOOL-1' } },
+      { target: 'orangehrm', story: { key: 'FIN-2210' } },
+      { target: 'orangehrm', story: { key: 'OHRM-1' } },
+    ];
 
-    expect(storiesVisibleTo(stories, 'orangehrm', claims).map((s) => s.key)).toEqual([
+    expect(storiesVisibleTo(stories, 'orangehrm', claims).map((s) => s.story.key)).toEqual([
       'FIN-2210',
       'OHRM-1',
     ]);

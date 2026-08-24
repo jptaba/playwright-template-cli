@@ -16,7 +16,7 @@ and is now fixed, and one open recommendation.
 | Specs | `src/targets/<app>/tests/` | directory | yes | — |
 | Vendored contract document | `src/targets/<app>/contracts/` | directory | yes | — |
 | Test cases | `cases/<app>/*.yaml` | directory **and** a `target:` field | no | **Should move** |
-| Stories | `stories/<KEY>.json` | nothing at all | no | **Stays — see below** |
+| Stories | `stories/<app>/<KEY>.json` | directory | no | **Done — see below** |
 | Credentials | `config/secrets.local.json`, keyed `qa/<app>/…` | key prefix | no | **Stays** |
 | Stored sessions | `.auth/<app>.<role>[.<n>].json` | filename | no | **Stays** |
 | Capability catalog | `docs/generated/catalog.md` | section headings | no | **Stays** |
@@ -54,7 +54,13 @@ span projects; triage clusters failures across them.
 
 ---
 
-## Why `stories/` is at the root
+## Why `stories/` is at the root, and why it no longer is
+
+**Resolved: option 2 was taken.** Stories live at `stories/<app>/<KEY>.json`.
+What follows is the argument as it stood, kept because the reasoning still
+governs the part that did *not* change — the citations.
+
+
 
 Because a story is not a test artifact. It is the **upstream requirement** —
 a Jira issue, normalised — and the binding to an application happens one step
@@ -88,6 +94,50 @@ Two honest options:
 **Recommendation: option 2**, done at the same time as moving cases. It is a
 path change plus an offboarding change, and it removes the last place where
 "which application is this about?" has no answer on disk.
+
+---
+
+### What actually happened
+
+Option 2, and ahead of the cases rather than with them, because the flat
+directory turned out to be costing more than tidiness.
+
+**`target:remove` was leaving every story behind.** The removal plan knew about
+the profile, the pack, the case library, the credentials, the sessions and the
+draft. It could not know about stories, because there was no directory to name
+— so a target taken back out left every requirement it was onboarded to prove
+sitting on disk, still read by `hashes:check`, belonging to nothing at all.
+Exactly the orphan that had already been found for stored sessions and then for
+the case library, in the one place nobody had looked.
+
+**And the derived scoping could not answer for a story nobody had cited yet.**
+`story-scope.ts` reads which application's specs cite a story, which is a real
+fact and stays. But at the moment a story is pulled from Jira no spec cites it,
+so the rule had to be *"cited by nobody, shown to everybody"* — the original
+defect narrowed rather than closed. A freshly pulled story still appeared under
+every application, which is the workflow the page exists for.
+
+So the two facts now answer different questions, and a story is shown when
+either says so:
+
+- **The directory** — which application a story was pulled *for*. True the
+  moment it lands, before any spec exists.
+- **The citations** — which suites actually *prove* it. A requirement two
+  applications both cover is a real state, and one directory cannot hold it.
+
+That is strictly narrower than what it replaced: nothing is now visible to an
+application that neither owns nor cites it.
+
+**The cost predicted above was real but small.** A story pulled under one
+application and proved by another is still visible to both, because the
+citation says so. What is lost is only the ability to have *no* owner, which
+was never a state anybody wanted.
+
+**One thing the move added, and it needs saying.** A story file loose at the
+root of `stories/` now belongs to no application, so every tool that scopes by
+directory skips it in silence — the same defect in a new costume.
+`hashes:check` reports those by name rather than adopting one, because guessing
+an owner is precisely what the flat directory did.
 
 ---
 

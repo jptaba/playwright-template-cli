@@ -52,6 +52,18 @@ export interface OffboardFacts {
    */
   caseFiles: string[];
   /**
+   * Story files under `stories/<target>/`, repo-relative.
+   *
+   * The seventh place, and the last one to get a directory. A story file names
+   * no application, so `stories/` was flat and this had nothing to remove:
+   * a target taken back out left every requirement it was onboarded to prove
+   * sitting on disk, still read by `hashes:check`, belonging to nothing.
+   *
+   * The same orphan as the case library, and as a stored session — found the
+   * same way, by asking what a removal leaves behind rather than what it takes.
+   */
+  storyFiles: string[];
+  /**
    * The target name the onboarding draft carries, or `null` when there is no
    * draft on disk.
    *
@@ -182,12 +194,26 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
   */
   const packGone = !facts.knownTargets.includes(target) && !facts.packExists;
   if (packGone) {
+    /*
+       And the paragraph above is true one directory over, which it did not
+       say. `cases/<target>/` and `stories/<target>/` outlive a pack deleted
+       by hand exactly as a credential does — so the branch that exists
+       *because* "the pack being gone does not mean nothing is left" was
+       itself returning empty and leaving both behind.
+    */
+    const orphanedFiles = [...facts.caseFiles, ...facts.storyFiles];
     const leftovers =
-      removeSecretKeys.length + removeStorageStates.length + (clearDraft ? 1 : 0);
+      orphanedFiles.length +
+      removeSecretKeys.length +
+      removeStorageStates.length +
+      (clearDraft ? 1 : 0);
     return {
       target,
-      removeFiles: [],
-      removeDirectories: [],
+      removeFiles: orphanedFiles,
+      removeDirectories: [
+        ...(facts.caseFiles.length > 0 ? [`cases/${target}`] : []),
+        ...(facts.storyFiles.length > 0 ? [`stories/${target}`] : []),
+      ],
       removeSecretKeys,
       removeStorageStates,
       clearDraft,
@@ -207,6 +233,7 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
     ...(facts.knownTargets.includes(target) ? [profile] : []),
     ...facts.packFiles.map((file) => `${packRoot}/${file}`),
     ...facts.caseFiles,
+    ...facts.storyFiles,
   ];
 
   /*
@@ -306,6 +333,7 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
     removeDirectories: [
       ...(facts.packExists ? [packRoot] : []),
       ...(facts.caseFiles.length > 0 ? [`cases/${target}`] : []),
+      ...(facts.storyFiles.length > 0 ? [`stories/${target}`] : []),
     ],
     removeSecretKeys,
     removeStorageStates,
@@ -365,9 +393,27 @@ export function isRemovable(plan: OffboardPlan): boolean {
 /** One line per thing that will happen, for a person about to say yes. */
 export function describeOffboard(plan: OffboardPlan): string[] {
   if (!hasAnythingToRemove(plan)) return [`Nothing to remove for '${plan.target}'.`];
+  /*
+     Counted per class, not as one total.
+
+     This said "<n> file(s) under src/targets/<name>/ and its profile" for
+     everything in `removeFiles`, and it stopped being true the moment the
+     case library joined that list — then again when the stories did. Somebody
+     reading the confirmation for the one destructive operation here was told
+     the pack was going and not told their test cases were. The number was
+     honest and the sentence was not, which is the worse of the two.
+  */
+  const under = (prefix: string): number =>
+    plan.removeFiles.filter((file) => file.startsWith(prefix)).length;
+  const cases = under(`cases/${plan.target}/`);
+  const stories = under(`stories/${plan.target}/`);
+  const packAndProfile = plan.removeFiles.length - cases - stories;
+
   const lines = plan.alreadyGone
     ? [`No profile or pack — they are already gone`]
-    : [`${plan.removeFiles.length} file(s) under src/targets/${plan.target}/ and its profile`];
+    : [`${packAndProfile} file(s) under src/targets/${plan.target}/ and its profile`];
+  if (cases > 0) lines.push(`${cases} test case(s) from cases/${plan.target}/`);
+  if (stories > 0) lines.push(`${stories} story file(s) from stories/${plan.target}/`);
   if (plan.removeSecretKeys.length > 0) {
     lines.push(`${plan.removeSecretKeys.length} credential entr(ies) from the local secret store`);
   }

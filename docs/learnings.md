@@ -1,5 +1,9 @@
 # What testing a real application taught the framework
 
+> **See also** — [Where an application's artifacts live](artifact-locality.md):
+> what a target leaves on disk, which of it moves with the target and which of
+> it deliberately does not, and why.
+
 The framework was built against a plan and proven against in-process fakes.
 Then it was pointed at a real, running application — `www.saucedemo.com` — and
 asked to do every kind of testing that target can honestly support.

@@ -88,6 +88,16 @@ export function gatherFacts(target: string): OffboardFacts {
     ? fs.readdirSync(casesDir).map((file) => `cases/${target}/${file}`)
     : [];
 
+  // Stories are scoped the same way and were left behind for longer, because
+  // a flat `stories/` gave the plan nothing it could name.
+  const storiesDir = path.join(REPO_ROOT, 'stories', target);
+  const storyFiles = fs.existsSync(storiesDir)
+    ? fs
+        .readdirSync(storiesDir)
+        .filter((file) => file.endsWith('.json'))
+        .map((file) => `stories/${target}/${file}`)
+    : [];
+
   return {
     knownTargets,
     packExists,
@@ -95,6 +105,7 @@ export function gatherFacts(target: string): OffboardFacts {
     secretKeys,
     storageStateFiles,
     caseFiles,
+    storyFiles,
     draftName: draftName(),
     pointsAtPlaceholderHost: pointsAtPlaceholderHost(target),
     untrackedPaths: untrackedPaths(),

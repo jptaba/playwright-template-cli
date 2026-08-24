@@ -4,7 +4,8 @@ import { REPO_ROOT, STORIES_DIR } from '../paths';
 import type { NormalisedStory } from './author';
 
 /**
- * Reading and writing `stories/<KEY>.json` — the upstream half of hop 1 (§09).
+ * Reading and writing `stories/<app>/<KEY>.json` — the upstream half of hop 1
+ * (§09).
  *
  * One module rather than four, which is the whole point of it existing. Four
  * tools read these files — `hashes:check`, `cases:author`, `story:pull` and the
@@ -18,6 +19,13 @@ import type { NormalisedStory } from './author';
  * So the shape is validated on the way in rather than cast to. A story missing
  * a field it is hashed over is a broken file, and saying so is the difference
  * between a diagnosable error and fifteen plausible-looking drift reports.
+ *
+ * The directory is per application for the same reason `cases/` is: a story
+ * file names no application, so "the stories" meant "every story on disk", and
+ * `target:remove` had nothing to remove. A story two applications both prove
+ * is still a real state — `story-scope.ts` answers that, from the specs that
+ * cite it. This says where a story was pulled to, which is a different question
+ * and the one nothing on disk could previously answer.
  */
 
 export class StoryValidationError extends Error {
@@ -31,12 +39,21 @@ export class StoryValidationError extends Error {
   }
 }
 
-export function storyPath(key: string, dir = STORIES_DIR): string {
-  return path.join(dir, `${key}.json`);
+/** A story, and the application whose directory it sits in. */
+export interface OwnedStory {
+  target: string;
+  story: NormalisedStory;
+}
+
+export function storyPath(key: string, target: string, root = STORIES_DIR): string {
+  return path.join(root, target, `${key}.json`);
 }
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+
+const describe = (value: unknown): string =>
+  value === undefined ? 'nothing' : value === null ? 'null' : `a ${typeof value}`;
 
 /** Parse and validate one story. Throws rather than defaulting a missing field. */
 export function parseStory(text: string, file = '<inline>'): NormalisedStory {
@@ -77,20 +94,12 @@ export function parseStory(text: string, file = '<inline>'): NormalisedStory {
   return story as unknown as NormalisedStory;
 }
 
-const describe = (value: unknown): string =>
-  value === undefined ? 'nothing' : value === null ? 'null' : `a ${typeof value}`;
-
-export function readStory(key: string, dir = STORIES_DIR): NormalisedStory {
-  const file = storyPath(key, dir);
-  return parseStory(fs.readFileSync(file, 'utf8'), path.relative(REPO_ROOT, file));
-}
-
-/** Every story on disk, sorted by key. Throws on the first unusable one. */
-export function loadStories(dir = STORIES_DIR): NormalisedStory[] {
+function readDir(dir: string): NormalisedStory[] {
   if (!fs.existsSync(dir)) return [];
   return fs
-    .readdirSync(dir)
-    .filter((name) => name.endsWith('.json'))
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+    .map((entry) => entry.name)
     .sort()
     .map((name) => {
       const file = path.join(dir, name);
@@ -98,10 +107,53 @@ export function loadStories(dir = STORIES_DIR): NormalisedStory[] {
     });
 }
 
-/** Write one story, and return its repo-relative path with forward slashes. */
-export function saveStory(story: NormalisedStory, dir = STORIES_DIR): string {
-  fs.mkdirSync(dir, { recursive: true });
-  const file = storyPath(story.key, dir);
+export function readStory(key: string, target: string, root = STORIES_DIR): NormalisedStory {
+  const file = storyPath(key, target, root);
+  return parseStory(fs.readFileSync(file, 'utf8'), path.relative(REPO_ROOT, file));
+}
+
+/** One application's stories, sorted by key. Throws on the first unusable one. */
+export function loadStories(target: string, root = STORIES_DIR): NormalisedStory[] {
+  return readDir(path.join(root, target));
+}
+
+/**
+ * Every story in the repository, each with the application it was pulled for.
+ *
+ * What `hashes:check` needs: drift is checked across all of them, because a
+ * case names its story by key and the key is unique repository-wide.
+ */
+export function loadAllStories(root = STORIES_DIR): OwnedStory[] {
+  if (!fs.existsSync(root)) return [];
+  return fs
+    .readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort()
+    .flatMap((target) => readDir(path.join(root, target)).map((story) => ({ target, story })));
+}
+
+/**
+ * Story files still sitting loose at the root of `stories/`.
+ *
+ * They belong to no application, so every tool that scopes by directory will
+ * skip them silently — which is the failure this scoping was meant to end, in
+ * a new costume. Reported rather than adopted: guessing an owner is what the
+ * flat directory did.
+ */
+export function looseStories(root = STORIES_DIR): string[] {
+  if (!fs.existsSync(root)) return [];
+  return fs
+    .readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+    .map((entry) => entry.name)
+    .sort();
+}
+
+/** Write one story into its application's directory, and return its repo path. */
+export function saveStory(story: NormalisedStory, target: string, root = STORIES_DIR): string {
+  const file = storyPath(story.key, target, root);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${JSON.stringify(story, null, 2)}\n`, 'utf8');
   return path.relative(REPO_ROOT, file).split(path.sep).join('/');
 }

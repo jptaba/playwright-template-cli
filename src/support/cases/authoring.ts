@@ -2,6 +2,7 @@ import { authorCases, criterionId, normaliseStory, type CaseAuthorModel, type Co
 import { gateCase, type GateFinding } from './gate';
 import { slugify } from './store';
 import { storiesVisibleTo } from './story-scope';
+import type { OwnedStory } from './stories';
 import type { CasePriority, CaseType, TestCase } from './schema';
 import { failure, json, type Route, type UiRequest, type UiResponse } from '../ui/router';
 
@@ -24,11 +25,12 @@ import { failure, json, type Route, type UiRequest, type UiResponse } from '../u
 
 /** Everything the outside world has to do for the authoring page. */
 export interface AuthoringService {
-  /** Stories already pulled and sitting in `stories/`. */
-  storedStories(): NormalisedStory[];
+  /** Stories already pulled, each with the application it was pulled for. */
+  storedStories(): OwnedStory[];
   /**
    * Which application is selected, and which applications' specs cite each
-   * story — the two facts `storyVisibleTo` needs. Item 73.
+   * story — the second of the two facts `storyVisibleTo` needs, the first
+   * being the directory a story sits in. Item 73.
    *
    * Supplied rather than computed here so this module stays free of the
    * filesystem, and required rather than optional so a new implementation has
@@ -47,7 +49,7 @@ export interface AuthoringService {
     acceptanceCriteria: string[];
   }>;
   /** Persist a pulled story. Returns its repo-relative path. */
-  saveStory(story: NormalisedStory): string;
+  saveStory(story: NormalisedStory, target: string): string;
   /** The applications a case may be drafted against. */
   targets(): string[];
   /** The case author. Built on demand: no credential is needed to open the page. */
@@ -206,7 +208,7 @@ async function authoringApi(request: UiRequest, service: AuthoringService): Prom
       const scope = await service.storyScope();
       const visible = storiesVisibleTo(service.storedStories(), scope.target, scope.claims);
       return json(200, {
-        stories: visible.map((story) => storyView(story, service)),
+        stories: visible.map((owned) => storyView(owned.story, service)),
         jira: service.jira(),
         targets: service.targets(),
         model: service.modelStatus(),
@@ -234,6 +236,21 @@ async function pull(key: string, service: AuthoringService): Promise<UiResponse>
     return failure(400, status.reason ?? 'Jira is not configured.');
   }
 
+  /*
+     A story is pulled *for* an application, because that is the directory it
+     lands in. Refused rather than guessed: adopting it into whichever
+     application happened to be first is the flat-directory defect with a new
+     costume on.
+  */
+  const scope = await service.storyScope();
+  if (!scope.target) {
+    return failure(
+      400,
+      'Select an application first. A story is read from Jira for one application, and its ' +
+        'directory under stories/ is what says which.',
+    );
+  }
+
   const issue = await service.fetchIssue(key);
 
   /*
@@ -253,7 +270,10 @@ async function pull(key: string, service: AuthoringService): Promise<UiResponse>
     acceptanceCriteria: issue.acceptanceCriteria,
   });
 
-  return json(200, { story: storyView(story, service), file: service.saveStory(story) });
+  return json(200, {
+    story: storyView(story, service),
+    file: service.saveStory(story, scope.target),
+  });
 }
 
 async function draft(
@@ -261,8 +281,9 @@ async function draft(
   target: string,
   service: AuthoringService,
 ): Promise<UiResponse> {
-  const story = service.storedStories().find((candidate) => candidate.key === key);
-  if (!story) return failure(400, `No story ${key} on disk. Read it from Jira first.`);
+  const owned = service.storedStories().find((candidate) => candidate.story.key === key);
+  if (!owned) return failure(400, `No story ${key} on disk. Read it from Jira first.`);
+  const story = owned.story;
 
   // The target names a directory under `cases/`. Anything not already a known
   // application is refused rather than created.

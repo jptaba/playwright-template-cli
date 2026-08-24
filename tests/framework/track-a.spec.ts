@@ -15,7 +15,9 @@ import {
 } from '../../src/support/cases/author';
 import {
   StoryValidationError,
+  loadAllStories,
   loadStories,
+  looseStories,
   parseStory,
   saveStory,
 } from '../../src/support/cases/stories';
@@ -247,14 +249,18 @@ test.describe('the story hash', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stories-'));
     try {
       const authored = normaliseStory(STORY);
-      saveStory(authored, dir);
+      saveStory(authored, 'demo', dir);
 
-      const loaded = loadStories(dir);
+      const loaded = loadStories('demo', dir);
       expect(loaded).toHaveLength(1);
 
       // What the checker recomputes, against what the author recorded.
       expect(loaded[0]!.contentHash).toBe(authored.contentHash);
       expect(storyContentHash(loaded[0]!)).toBe(authored.contentHash);
+
+      // And it lands under the application it was pulled for, which is the
+      // only thing on disk that says which application a story is about.
+      expect(loadAllStories(dir)).toEqual([{ target: 'demo', story: loaded[0] }]);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -275,11 +281,32 @@ test.describe('the story hash', () => {
     // Deliberately not asserting there are any: with no application onboarded
     // this repository has no stories, and a framework test that needs one
     // would be the suite coupling itself to whatever happens to be committed.
-    for (const story of loadStories()) {
+    for (const { story } of loadAllStories()) {
       expect(
         storyContentHash(story),
         `${story.key} no longer hashes to the value recorded in its own file`,
       ).toBe(story.contentHash);
+    }
+  });
+
+  test('a story left loose at the root is named, not adopted', () => {
+    /*
+       The scoping's own failure mode. A file directly under `stories/` belongs
+       to no application, so every tool that reads by directory skips it in
+       silence — which is the flat-directory defect wearing a new costume.
+       `hashes:check` reports these; guessing an owner is what the flat
+       directory did.
+    */
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stories-'));
+    try {
+      const authored = normaliseStory(STORY);
+      saveStory(authored, 'demo', dir);
+      fs.writeFileSync(path.join(dir, 'LOOSE-1.json'), JSON.stringify(authored), 'utf8');
+
+      expect(loadAllStories(dir).map((owned) => owned.story.key)).toEqual(['FIN-2210']);
+      expect(looseStories(dir)).toEqual(['LOOSE-1.json']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 });

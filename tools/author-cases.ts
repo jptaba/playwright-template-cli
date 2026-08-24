@@ -25,15 +25,20 @@ async function main(): Promise<number> {
     return 2;
   }
 
-  const storyFile = storyPath(key);
-  if (!fs.existsSync(storyFile)) {
-    console.error(`No ${path.relative(REPO_ROOT, storyFile)}. Run: npm run story:pull -- ${key}`);
-    return 2;
-  }
-  const story = readStory(key);
-
+  // The application first: a story lives in that application's directory, so
+  // there is no story to look for until we know which one is being drafted.
   const targetArg = args.find((arg) => arg.startsWith('--target='))?.split('=')[1];
   const target = targetArg ?? resolveTarget().name;
+
+  const storyFile = storyPath(key, target);
+  if (!fs.existsSync(storyFile)) {
+    console.error(
+      `No ${path.relative(REPO_ROOT, storyFile)}. ` +
+        `Run: npm run story:pull -- ${key} --target=${target}`,
+    );
+    return 2;
+  }
+  const story = readStory(key, target);
 
   const model = new AnthropicCaseAuthor();
   console.log(`Drafting cases for ${story.key} against target '${target}' using ${model.identity}…`);

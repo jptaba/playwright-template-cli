@@ -288,16 +288,19 @@ function authoringService(stories: number, criteriaEach: number, draftsEach: num
     storyScope: async () => ({ target: 'demo', claims: new Map() }),
     storedStories: () =>
       Array.from({ length: stories }, (_, index) => ({
-        key: `SHOP-${1000 + index}`,
-        summary: `a story about something a user needs to be able to do, number ${index}`,
-        description:
-          'As a customer I want to complete a purchase so that I receive the thing I paid for. ' +
-          'The current flow loses the basket when the session is refreshed.',
-        acceptanceCriteria: Array.from(
-          { length: criteriaEach },
-          (_, c) => `Given a basket with items, when the page is refreshed, criterion ${c} holds`,
-        ),
-        contentHash: `hash-${index}`,
+        target: 'demo',
+        story: {
+          key: `SHOP-${1000 + index}`,
+          summary: `a story about something a user needs to be able to do, number ${index}`,
+          description:
+            'As a customer I want to complete a purchase so that I receive the thing I paid for. ' +
+            'The current flow loses the basket when the session is refreshed.',
+          acceptanceCriteria: Array.from(
+            { length: criteriaEach },
+            (_, c) => `Given a basket with items, when the page is refreshed, criterion ${c} holds`,
+          ),
+          contentHash: `hash-${index}`,
+        },
       })),
     jira: () => ({ configured: true }),
     targets: () => ['demo'],
@@ -310,7 +313,7 @@ function authoringService(stories: number, criteriaEach: number, draftsEach: num
         speculative: index % 3 === 0,
       })),
     fetchIssue: () => Promise.reject(new Error('nothing here pulls from Jira')),
-    saveStory: () => 'stories/unused.yaml',
+    saveStory: () => 'stories/demo/unused.json',
     model: () => Promise.reject(new Error('nothing here drafts a case')),
     writeCase: () => ({ file: 'cases/demo/unused.yaml', replaced: false, yaml: '' }),
   };
