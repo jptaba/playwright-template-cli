@@ -152,6 +152,7 @@ const BODY = `
       its results on.
     </p>
     <ul class="files" id="rHistoryList"></ul>
+    <p class="muted" id="rHistoryElsewhere" hidden></p>
   </section>
 `;
 
@@ -168,10 +169,28 @@ const SCRIPT = `
    from a finished run — why did it fail, and send it on.
 */
 function loadHistory() {
-  post('/api/runs/history', {})
+  post('/api/runs/history', { target: TARGET_NAME })
     .then((data) => {
       const runs = data.runs || [];
-      if (runs.length === 0) return;
+      /*
+         An empty list still has something to say — item 80.
+
+         The list is scoped to the bar now, so "no finished runs" and "none for
+         this application, though there are four for others" are different
+         facts, and only the second one has a next step in it. Saying nothing
+         at all was how the unscoped list hid for so long.
+      */
+      const elsewhere = data.elsewhere || 0;
+      const note = $('rHistoryElsewhere');
+      if (elsewhere > 0) {
+        note.textContent =
+          elsewhere + ' finished run(s) belong to other applications. Switch in the bar to see them.';
+        note.hidden = false;
+      }
+      if (runs.length === 0) {
+        if (elsewhere > 0) $('rHistory').hidden = false;
+        return;
+      }
       const list = $('rHistoryList');
       list.replaceChildren();
       /*

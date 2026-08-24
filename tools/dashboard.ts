@@ -58,6 +58,7 @@ import type {
 import { credentialFromEnv } from '../src/support/env-credentials';
 import { JiraClient } from '../src/integrations/jira/client';
 import { pruneRuns, RunManager, RUNS_DIR } from '../src/support/runs/manager';
+import { scopeRuns } from '../src/support/runs/scope';
 import { triagePageContent } from '../src/support/ui/triage-page';
 import { triageRoutes, type TriageRunRef, type TriageService } from '../src/support/triage/dashboard';
 import { appendVerdict, readVerdicts } from '../src/support/triage/verdicts';
@@ -1233,7 +1234,10 @@ const runHistoryRoutes: Route[] = [
   {
     method: 'POST',
     path: '/api/runs/history',
-    handle: () => json(200, { runs: triage.runs() }),
+    handle: (request) => {
+      const body = (request.body ?? {}) as Record<string, unknown>;
+      return json(200, scopeRuns(triage.runs(), String(body.target ?? '')));
+    },
   },
 ];
 

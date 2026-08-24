@@ -209,7 +209,7 @@ let preview = null;
 const FIRST_DEFECTS = 10;
 
 async function loadRuns() {
-  const { runs } = await post('/api/publish/runs', {});
+  const { runs, elsewhere } = await post('/api/publish/runs', { target: TARGET_NAME });
   const select = $('pRun');
   select.replaceChildren();
   for (const run of runs) {
@@ -220,11 +220,17 @@ async function loadRuns() {
     select.append(option);
   }
   if (runs.length === 0) {
+    // Scoped to the bar — item 80. "None here" and "none anywhere" want
+    // different next steps.
     const option = document.createElement('option');
-    option.textContent = 'no run models on disk';
+    option.textContent =
+      elsewhere > 0 ? 'no runs for this application' : 'no run models on disk';
     option.disabled = true;
     select.append(option);
-    $('pStatus').textContent = 'Nothing to publish. Start a run first.';
+    $('pStatus').textContent =
+      elsewhere > 0
+        ? elsewhere + ' run(s) belong to other applications. Switch in the bar above to publish one.'
+        : 'Nothing to publish. Start a run first.';
     return false;
   }
   return true;

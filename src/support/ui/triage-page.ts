@@ -180,7 +180,7 @@ const ACTION_LABEL = {
 };
 
 async function loadRuns() {
-  const data = await post('/api/triage/runs', {});
+  const data = await post('/api/triage/runs', { target: TARGET_NAME });
   categories = data.categories;
 
   const select = $('tRun');
@@ -194,12 +194,21 @@ async function loadRuns() {
     select.append(option);
   }
   if (data.runs.length === 0) {
+    /*
+       Scoped to the bar — item 80. An empty list here used to mean "no runs
+       anywhere"; it can now also mean "none for this application", and those
+       want different next steps. Saying the wrong one sends somebody to start
+       a run they already have.
+    */
+    const elsewhere = data.elsewhere || 0;
     const option = document.createElement('option');
-    option.textContent = 'no run models on disk';
+    option.textContent = elsewhere > 0 ? 'no runs for this application' : 'no run models on disk';
     option.disabled = true;
     select.append(option);
     $('tStatus').textContent =
-      'Nothing to triage. Start a run from the Runs page, or run the suite from the command line.';
+      elsewhere > 0
+        ? elsewhere + ' run(s) belong to other applications. Switch in the bar above to triage one.'
+        : 'Nothing to triage. Start a run from the Runs page, or run the suite from the command line.';
     return false;
   }
 

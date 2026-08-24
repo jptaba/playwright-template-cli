@@ -10,6 +10,7 @@ import {
 } from './payloads';
 import { confirmationMatches } from '../onboarding/offboard';
 import { failure, json, type Route, type UiRequest, type UiResponse } from '../ui/router';
+import { scopeRuns } from '../runs/scope';
 import type { TriageReview } from '../triage/review';
 import type { TriageCategory } from '../triage/types';
 import type { RunResult, TestRecord } from '../reporters/run-result';
@@ -124,7 +125,8 @@ async function publishApi(request: UiRequest, service: PublishService): Promise<
 
   switch (request.path) {
     case '/api/publish/runs':
-      return json(200, { runs: service.runs() });
+      // Scoped to the bar — item 80.
+      return json(200, scopeRuns(service.runs(), String(body.target ?? '')));
     case '/api/publish/preview':
       return preview(runId, service);
     case '/api/publish/results':

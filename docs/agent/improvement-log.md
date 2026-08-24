@@ -6770,3 +6770,33 @@ Then the transition the whole feature rests on, proven directly: client connects
 - **The counter-switch is cheap and it is the whole difference between a finding and a hunch.** "Parabank sees toolshop's runs" has an innocent explanation until toolshop sees the identical list.
 - **Three symptoms, one cause, one item.** Filing `/runs`, `/triage` and `/publish` separately would have produced three fixes to the same missing argument — which is the shape runs 87 and 90 both warned about from the other direction.
 - **Starting from whatever was already selected was luck worth keeping.** Parabank is parked and has no runs of its own, which is precisely the state that makes an unscoped list obvious. Starting on toolshop, every row would have looked right.
+
+## 2026-08-23 · run 99 · The run list gets the target every record already carried
+
+**Picked:** item 80, `ready`, raised by run 98's scan. The owner left the one open decision to me.
+
+**The decision, and it was settled by looking rather than choosing.** Item 80 asked what to do with runs recorded under target `default` — show, hide, or group apart. Read the record on disk before deciding: `run-result.json` at the repository root, `"target": "default"`, `"environment": "local"`, id `local-mt6o0lyr` — that is what `npm run verify` writes, the **framework's own tests**, scoped to no application at all. So `default` is not an application and not a third case: it matches no application name, falls out of a plain equality rule, and appears under none. **Nothing to write down, which is the sign the rule is the right one.** A command-line run of a *real* application carries that application's name and still appears under it, which was the recovery path worth protecting.
+
+**One rule, three consumers.** `scopeRuns` in `src/support/runs/scope.ts` — all three routes call it, rather than three routes each growing a filter. That is this repository's most-repeated lesson from the other direction: runs 87, 90 and 93 each found a rule living in one consumer while its siblings kept the old behaviour.
+
+**`elsewhere` is returned rather than derived, and it is the half that makes this recoverable.** Scoping alone would have turned parabank's list into silence, and silence is how the unscoped list survived this long. "No finished runs" and "none for this application, though four belong to others" are different facts and only the second has a next step in it. All three pages say the second one now, each pointing at the bar.
+
+**Proven live, both directions, on the exact reproduction from run 98:**
+
+| | parabank | toolshop |
+|---|---|---|
+| `/runs` | 0 rows, section still shown, *"4 finished run(s) belong to other applications"* | its 3, and *"1 … belong to other applications"* — the `default` run, correctly excluded |
+| `/triage` | *"no runs for this application"*, **0 clusters**, and a next step | its 3 |
+| `/publish` | *"no runs for this application"* | its 3, status clear |
+
+The `/triage` line is the one that mattered. Before this it rendered toolshop's `20260816T164527-dl50` with two clusters under "needs judgement" while the bar read parabank.
+
+**Verify:** `npm run verify` passes, exit 0 — **1213 tests**, up from 1207. Six new.
+
+**Live suites:** not re-run; `src/support/`, `tools/` only — no target pack, no spec. Run 94's result stands.
+
+**Learned:**
+
+- **An open decision can be a question about the data rather than a matter of taste.** "Show, hide, or group" sounded like a product call and took one `cat` to answer: `default` is the framework testing itself, so every option except "it belongs to nobody" was wrong.
+- **Scoping without an explanation trades one silent wrong answer for another.** The first version filtered and left parabank with a hidden section. That is a quieter version of the same defect — the page still not saying what it knows.
+- **The counter-switch belongs in the fix, not just the scan.** Filtering to nothing passes any test that only checks the application with no data; the proof is that toolshop still sees its three, and it took one switch.

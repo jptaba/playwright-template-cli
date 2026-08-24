@@ -15,7 +15,6 @@ decide what to do.
 
 | # | Item | Status |
 |---|---|---|
-| 80 | The run list is unscoped on all three pages that show one | `ready` |
 | 68 | Two applications keep a worker cap that costs them, for a reason worth removing | `hypothesis` |
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
@@ -110,6 +109,15 @@ when the chip named an application with a real finding — `/users` and
 own picker and did not. A query string the page reads once and drops from the
 address bar closes the gap without relaxing item 6's guarantee that a plain
 visit still opens blank.
+
+**Run 99 closed item 80.** `/runs`, `/triage` and `/publish` all showed an
+unscoped run list; `/triage` was the sharp one, because it *defaults* to a run
+and invites verdicts, so a person triaging with parabank in the bar was ruling
+on toolshop's failures. `scopeRuns` filters on the target every record already
+carries, and returns `elsewhere` so an empty list can say *why* it is empty —
+"none here, four belong to others" has a next step in it and "no runs" does
+not. A run recorded as `default` is what `npm run verify` writes and belongs to
+no application, so it matches nothing and needed no special case.
 
 **Run 97 closed item 79, which is what made 78 work.** `main()` ended with an
 unconditional `open(url)`, so every scheduled run, headless check and loop
@@ -285,55 +293,6 @@ it already has. That is the line to hold: the dashboard should say more, not do
 more.
 
 ---
-
----
-
-### 80. The run list is unscoped on all three pages that show one — `ready`
-
-**Found in run 98's scan, driving one application at a time.** With **parabank**
-selected, `/runs` "Finished runs" lists four runs — one `default` and three
-`toolshop` — and **none of them are parabank's**. The same list is the run
-picker on `/triage` and on `/publish`.
-
-**The counter-check is what makes it certain rather than a fallback.** Switched
-to `toolshop`: **byte-identical list**. So this is not "parabank has no runs so
-it showed everything" — the list never had a target in it.
-
-**`/triage` is the sharp one, and it is worse than a long picker.** It does not
-merely offer another application's run, it **defaults to one and invites
-verdicts on it**: with parabank in the bar, the page renders toolshop's
-`20260816T164527-dl50` and its two clusters under "needs judgement". A person
-triaging there records a verdict against an application the bar says they are
-not looking at.
-
-**Evidenced at both ends, because run 92's lesson was that a route's answer is
-not the page's behaviour — here they agree, and both are unscoped:**
-
-| | |
-|---|---|
-| `src/support/ui/runs-page.ts:171` | `post('/api/runs/history', {})` |
-| `src/support/ui/triage-page.ts:183` | `post('/api/triage/runs', {})` |
-| `src/support/ui/publish-page.ts:212` | `post('/api/publish/runs', {})` |
-| `tools/dashboard.ts:1235` | `handle: () => json(200, { runs: triage.runs() })` |
-| `src/support/triage/dashboard.ts:63` | `json(200, { runs: service.runs(), … })` |
-| `src/support/publish/dashboard.ts:126` | `json(200, { runs: service.runs() })` |
-
-No target is sent and none is accepted. This is **not** item 74's shape, where
-the page passed a target and only my probe did not.
-
-**The data is already there, so this needs no migration.** The
-`/api/runs/history` payload carries `target` on every record — read off the
-wire: `{"id":"20260816T164527-dl50","target":"toolshop",…}`. Filtering is
-available today.
-
-**One decision belongs to whoever takes it**, and it is why this is not simply
-mechanical: runs recorded with target `default` — the ones `npm run verify`
-writes from the command line — belong to no onboarded application. Show them
-always, hide them, or group them apart. Everything else is passing the
-selection the other four pages already pass.
-
-**`/users` states the contract this breaks**, in its own copy: *"The
-application in the bar above decides. This is where its logins are kept."*
 
 ---
 

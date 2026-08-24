@@ -3,6 +3,7 @@ import { isTriageCategory, type HumanVerdict } from './verdicts';
 import { TRIAGE_CATEGORIES, type TriageVerdict } from './types';
 import { failure, json, type Route, type UiRequest, type UiResponse } from '../ui/router';
 import type { RunResult } from '../reporters/run-result';
+import { scopeRuns } from '../runs/scope';
 
 /**
  * The triage page's rules — §20, §08 phase 5.
@@ -60,8 +61,13 @@ function triageApi(request: UiRequest, service: TriageService): UiResponse {
   const body = (request.body ?? {}) as Record<string, unknown>;
 
   switch (request.path) {
-    case '/api/triage/runs':
-      return json(200, { runs: service.runs(), categories: TRIAGE_CATEGORIES });
+    case '/api/triage/runs': {
+      // Scoped to the bar — item 80. This page defaults to a run and invites
+      // verdicts on it, so an unscoped list records judgements against an
+      // application the operator is not looking at.
+      const scoped = scopeRuns(service.runs(), String(body.target ?? ''));
+      return json(200, { ...scoped, categories: TRIAGE_CATEGORIES });
+    }
 
     case '/api/triage/review': {
       const review = reviewFor(String(body.runId ?? '').trim(), service);
