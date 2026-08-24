@@ -19,4 +19,3 @@ assertions:
   - Every product has a price above 0
 priority: medium
 type: boundary
-caseHash: b896f6cf860437c6

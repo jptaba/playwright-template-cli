@@ -1,6 +1,15 @@
 import { expect, test } from '@playwright/test';
 import { gateCase, shouldEscalateToHuman } from '../../src/support/cases/gate';
-import { CaseValidationError, hashCase, parseCase, slugify } from '../../src/support/cases/store';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {
+  CaseValidationError,
+  hashCase,
+  parseCase,
+  recordPublishedHash,
+  slugify,
+} from '../../src/support/cases/store';
 import type { TestCase } from '../../src/support/cases/schema';
 
 const wellFormed: TestCase = {
@@ -144,5 +153,83 @@ assertionz: [oops]
   test('slugs are stable, lowercase and bounded', () => {
     expect(slugify('Checkout totals include tax')).toBe('checkout-totals-include-tax');
     expect(slugify('TC-4821 · Claim > limit!')).toBe('tc-4821-claim-limit');
+  });
+});
+
+
+/**
+ * The half of hop 2 that was missing, and the four months it cost.
+ *
+ * "Each artifact stores a hash of the one upstream, and a CI check flags
+ * anything whose upstream changed" — except publishing never wrote one back.
+ * `publishPayload` computed the hash, sent it to PractiTest and forgot it, so
+ * a case file recorded nothing about what it was published at.
+ *
+ * Which left `caseHash` as a field a hand-written case could simply contain.
+ * Ten of them did, with values never derived from their content, and
+ * `hashes:check` reported that as "the case was edited after its hash was
+ * recorded" in every CI run — an edit nobody had made, named as the one cause
+ * it was not.
+ */
+test.describe('recording the hash a case was published at', () => {
+  const scratch = (): { dir: string; file: string } => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cases-'));
+    return { dir, file: path.join(dir, 'a-case.yaml') };
+  };
+
+  test('writes the hash of the content it published, into the file it came from', () => {
+    const { dir, file } = scratch();
+    try {
+      const recorded = recordPublishedHash(file, wellFormed);
+
+      expect(recorded).toBe(hashCase(wellFormed));
+      const written = parseCase(fs.readFileSync(file, 'utf8'), file);
+      expect(written.caseHash).toBe(hashCase(wellFormed));
+      // And the rest of the case survives the rewrite intact.
+      expect(written.title).toBe(wellFormed.title);
+      expect(written.steps).toEqual(wellFormed.steps);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('rewrites the file it was given rather than deriving a name', () => {
+    /*
+       Going through `saveCase` would re-derive the filename from a slug, so a
+       re-publish after a title change would leave a second copy of the case
+       behind under the old name — two records of one case, which is the exact
+       thing case identity exists to prevent.
+    */
+    const { dir, file } = scratch();
+    try {
+      recordPublishedHash(file, { ...wellFormed, title: 'A completely different title' });
+      expect(fs.readdirSync(dir)).toEqual(['a-case.yaml']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('a case that was never published carries no hash to drift from', () => {
+    const { dir, file } = scratch();
+    try {
+      recordPublishedHash(file, wellFormed);
+      const withoutHash = fs
+        .readFileSync(file, 'utf8')
+        .split('\n')
+        .filter((line) => !line.startsWith('caseHash:'))
+        .join('\n');
+
+      /*
+         The honest state for a hand-written case, and what the ten fabricated
+         ones should always have been. The schema allows the field to be
+         absent, so `hashes:check` has nothing to compare and reports nothing.
+         Publishing is what earns it.
+      */
+      const parsed = parseCase(withoutHash, file);
+      expect(parsed.caseHash).toBeUndefined();
+      expect(parsed.title).toBe(wellFormed.title);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

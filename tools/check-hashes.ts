@@ -77,9 +77,22 @@ function main(): number {
     // Hop 2: has the case been edited since its hash was recorded?
     const current = hashCase(testCase);
     if (testCase.caseHash && testCase.caseHash !== current) {
+      /*
+         Two causes, and the check cannot tell them apart — so it says both.
+
+         It used to assert the first one, and the first one was wrong for every
+         case in this repository: ten hand-written files carried a `caseHash`
+         that had never been derived from their content, and the report called
+         that "edited after its hash was recorded" for months. A message that
+         names one cause confidently sends everybody looking for an edit that
+         never happened.
+      */
       problems.push(
-        `${file}: the case was edited after its hash was recorded ` +
-          `(${testCase.caseHash} → ${current}). Re-publish it, or restore the text.`,
+        `${file}: the case content does not hash to its recorded caseHash ` +
+          `(${testCase.caseHash} → ${current}). Either it was edited since it was published — ` +
+          're-publish it with `npm run cases:push -- --publish`, or restore the text — or the ' +
+          'hash was never derived from this content, in which case delete the `caseHash` line ' +
+          'and let publishing write it.',
       );
     }
 

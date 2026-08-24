@@ -22,4 +22,3 @@ assertions:
   - The account menu is shown in the navigation
 priority: critical
 type: positive
-caseHash: ef90cb2bc7f72edd

@@ -22,4 +22,3 @@ assertions:
   - The message "There are no products found." is displayed
 priority: medium
 type: negative
-caseHash: 143b846a063d8225

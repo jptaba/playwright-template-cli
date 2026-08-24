@@ -21,4 +21,3 @@ assertions:
   - Both return the same set of product names
 priority: high
 type: positive
-caseHash: fc9970328972b1cd

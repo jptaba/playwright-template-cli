@@ -19,4 +19,3 @@ assertions:
   - The cart holds no lines
 priority: high
 type: positive
-caseHash: 4318406bc932f39d

@@ -24,4 +24,3 @@ assertions:
   - The order total equals the sum of the line totals
 priority: critical
 type: positive
-caseHash: 243d70b3ed86a2f9

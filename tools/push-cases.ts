@@ -2,7 +2,7 @@
 import path from 'node:path';
 import { PractiTestClient } from '../src/integrations/practitest/client';
 import { decidePublish, publishPayload } from '../src/support/cases/publish';
-import { loadCases } from '../src/support/cases/store';
+import { loadCases, recordPublishedHash } from '../src/support/cases/store';
 import { REPO_ROOT } from '../src/support/paths';
 
 /**
@@ -50,7 +50,21 @@ async function main(): Promise<number> {
       } else if (decision.action === 'update') {
         await client.updateCase(decision.existingId!, publishPayload(stored.case));
         console.log(`    updated ${decision.existingId}`);
+      } else {
+        continue;
       }
+
+      /*
+         The half of hop 2 that was missing.
+
+         The payload carried `caseHash` to PractiTest and nothing wrote it back
+         here, so the local file never recorded what it was published at and
+         "has this case changed since?" had nothing to answer with. Written
+         only after the write succeeded: a hash recorded for a publish that
+         failed would claim a state PractiTest is not in.
+      */
+      const hash = recordPublishedHash(stored.file, stored.case);
+      console.log(`    recorded caseHash ${hash}`);
     }
   } finally {
     await client.dispose();

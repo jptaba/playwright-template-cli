@@ -96,6 +96,27 @@ export function saveCase(testCase: TestCase, slug: string): string {
 }
 
 /**
+ * Record, in the file the case came from, the hash it was just published at.
+ *
+ * Hop 2's premise is that each artifact stores a hash of the one upstream —
+ * and publishing never wrote one back. `publishPayload` computed the hash,
+ * sent it to PractiTest and forgot it, so the local file kept whatever it had
+ * and "has this case changed since it was published?" had nothing to compare
+ * against. A case written by hand could carry a `caseHash` nobody had ever
+ * derived from its content, and `hashes:check` would report that for months as
+ * an edit that never happened.
+ *
+ * Rewrites the file in place rather than going through `saveCase`, which
+ * derives a filename from a slug: re-deriving it here is how a re-publish
+ * leaves a second copy of a case behind under a slightly different name.
+ */
+export function recordPublishedHash(file: string, testCase: TestCase): string {
+  const hash = hashCase(testCase);
+  fs.writeFileSync(file, YAML.stringify({ ...testCase, caseHash: hash }, { lineWidth: 100 }), 'utf8');
+  return hash;
+}
+
+/**
  * Identity is the case's slug plus story key, so re-publishing updates a case
  * rather than creating a second one (§09).
  */

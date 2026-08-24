@@ -21,4 +21,3 @@ assertions:
   - Fewer products are shown than before the search
 priority: high
 type: positive
-caseHash: c013ec6507b98001
