@@ -19,6 +19,29 @@ decide what to do.
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
+**Run 102 was a scan and found nothing new on the dashboard — the first time a
+full sweep has come back clean since this file started tracking them.** All
+seven pages (Runs, Stories, Cases, Triage, Publish, Test users, Onboard) were
+driven headless via the accessibility tree and `get_page_text`, at desktop
+width, confirming run 101's Coverage-kinds fix on `/cases` holds against the
+live page. `npm run suites:live` reproduced run 101's headline exactly — 1
+application passing (saucedemo 6/6), 3 failing on the owner-accepted a11y reds
+(orangehrm 6/7, restful-booker 12/13, toolshop 21/22), 1 parked (parabank) —
+confirming nothing regressed.
+
+**`npm run triage:measure` was run across all five applications for the first
+time in one sitting, rather than one target at a time.** Every application now
+carries a triage-fixture — orangehrm's and parabank's existence had not been
+recorded here before, only toolshop's and saucedemo's were. Aggregated: **16
+agreed · 0 contradicted · 4 declined**, across 20 known-cause failures.
+Zero contradictions fleet-wide. The four declines are all previously-understood
+gaps, not new findings — saucedemo's two `application-defect` cases and one
+`timing-synchronisation` case still have no matching rule (recorded at item 11
+since run 12), and restful-booker's `test-data` case is the same: a cause the
+taxonomy names but `rules.ts` has never had a rule for. Nothing here changed
+`rules.ts`, so this is a trend point for item 11's standing measurement, not a
+fix.
+
 **Run 101 was a scan and closed what it found: the health chip's own routing
 promise did not hold for the one finding this repository actually carries.**
 `toolshop`'s sole live warning is `coverage-incomplete` (missing `@audit`,
@@ -424,14 +447,27 @@ suites are, not when a list is empty.
 
 **What is left:**
 
-- A `toolshop` triage-fixture. **Ranked below the real suites**, and run 39b is
-  the evidence: a fixture of deliberate failures is worth less than running the
-  suite that is meant to pass. Run 41 shipped the running half
-  (`npm run suites:live`), so this is now the smaller remaining piece.
-- **Only 1 of the 7 rules in `rules.ts` has ever been settled against ground
-  truth** (`transport-failure`). The other six have unit coverage on synthetic
-  message text and no ground truth at all. That is the measurement's real blind
-  spot and nobody had written it down before run 39b.
+- **Corrected in run 102: every onboarded application now carries a
+  triage-fixture**, not only toolshop. `targets/*/tests/triage-fixture/`
+  exists for all five (toolshop, saucedemo, restful-booker, orangehrm,
+  parabank) — this file had only ever recorded toolshop's and saucedemo's.
+  Measured together for the first time (`TARGET=<app> npm run
+  triage:measure`, once per application — the command takes one target at a
+  time): **16 agreed · 0 contradicted · 4 declined** over 20 known-cause
+  failures.
+- **4 of the 12 rules in `rules.ts` have now been settled against ground
+  truth** — `transport-failure`, `short-wait`, `locator-drift` and
+  `dependency-failure`, up from the 1 (`transport-failure`) run 39b found.
+  The other eight still have only unit coverage on synthetic message text and
+  no ground truth. `account-locked`, `server-error`, `sign-in-setup-failed`,
+  `accessibility-violation`, `all-failed-at-auth`, `contract-drift`,
+  `known-issue` and `api-only-failure` are the ones no fixture has ever
+  exercised — that is the measurement's real remaining blind spot.
+- The 4 declines are understood, not mysterious: saucedemo's `TF-5901`/`TF-5902`
+  (`application-defect`) and `TF-5903` (`timing-synchronisation`) and
+  restful-booker's `TF-RB-02` (`test-data`) name categories `rules.ts` has no
+  rule for at all. Declining correctly is the rules module doing its job, not a
+  shortfall — see the original diagnosis further up this item.
 
 ---
 

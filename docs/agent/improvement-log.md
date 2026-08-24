@@ -7113,3 +7113,89 @@ to keep this diff to the one mechanism that was actually broken.
   edit is a check against the old code.** Caught only because the mobile
   viewport width read back wrong for an unrelated reason and prompted a
   second look — restart before trusting any live verification after an edit.
+
+## 2026-08-24 · run 102 · A clean sweep, and the triage measurement widened to every application
+
+**Picked:** a scan. `open-items.md` still carried nothing `ready` — 68 and 11
+`hypothesis`, 49 `blocked` on credentials only the owner holds.
+
+**Method.** Started the dashboard headless (`npm run dashboard`, no terminal
+attached so no browser opened per item 79) and drove all seven pages —
+Runs, Stories, Cases, Triage, Publish, Test users, Onboard — through
+`get_page_text` and the accessibility tree, per the memory note that reading
+the running page beats reading `dashboard-page.ts`.
+
+**Found: nothing new.** This is the first scan since this file started
+tracking runs to come back with no defect to raise. `/cases` renders "Coverage
+kinds — 4 of 5" exactly as run 101 shipped it. `/triage`, `/publish`,
+`/stories` and `/users` all matched their last-recorded shape. `/onboard`
+still opens on "— New application —" (item 6) with steps 2–5 collapsed behind
+step 1 (item 18). The one thing worth naming so it is not re-investigated:
+`read_page`'s accessibility-tree dump (filter `all`) shows the DOM content of
+the collapsed steps 2–5 even though `get_page_text` (which respects rendered
+visibility) does not — this is very likely a property of the browser-automation
+tool reading past `inert`/collapsed CSS rather than a page defect, since the
+framework's own axe-based `a11y-scan-stability` suite is what actually
+speaks for screen-reader exposure and nothing here contradicts it. Recorded
+so a future run does not treat a raw `read_page` dump as a11y evidence on its
+own.
+
+**`npm run suites:live`.** Reproduced run 101's headline exactly: **1
+application passing, 3 failing, 1 parked.**
+
+| application | result |
+|---|---|
+| saucedemo | 6/6 passed |
+| toolshop | 21/22 — `TOOL-5-01` a11y, accepted red (item 62) |
+| orangehrm | 6/7 — `A11Y-001` a11y, accepted red |
+| restful-booker | 12/13 — `A11Y-001` a11y, accepted red |
+| parabank | parked (HTTP 500 on its own login/accounts pages) |
+
+Nothing regressed. The command's own non-zero exit on any failure is by
+design, not a run failure — see item 62's decision.
+
+**`npm run triage:measure`, run for the first time across every application
+in one sitting rather than one target at a time.** The command reads
+`TARGET`, so it was run five times (`TARGET=toolshop`, `=saucedemo`,
+`=restful-booker`, `=orangehrm`, `=parabank`). **Every application now carries
+a triage-fixture** — `targets/*/tests/triage-fixture/known-failures.spec.ts`
+exists for all five, which `open-items.md` had not recorded for orangehrm or
+parabank until this run.
+
+| application | agreed | contradicted | declined |
+|---|---|---|---|
+| toolshop | 4 | 0 | 0 |
+| saucedemo | 1 | 0 | 3 |
+| restful-booker | 3 | 0 | 1 |
+| orangehrm | 4 | 0 | 0 |
+| parabank | 4 | 0 | 0 |
+| **total** | **16** | **0** | **4** |
+
+**Zero contradictions across the whole fleet, 20 known-cause failures.** The
+four declines are all previously-diagnosed gaps rather than new findings:
+saucedemo's `TF-5901`/`TF-5902` (`application-defect`) and `TF-5903`
+(`timing-synchronisation`), and restful-booker's `TF-RB-02` (`test-data`) —
+categories `rules.ts` has never had a rule for. **4 of the 12 rules in
+`rules.ts` have now been settled against real ground truth** —
+`transport-failure`, `short-wait`, `locator-drift` and `dependency-failure` —
+up from the 1 (`transport-failure`) run 39b found. `open-items.md` item 11 is
+updated with the widened picture and the eight rules that still have no
+ground truth at all.
+
+**Verify:** not re-run in full — nothing in `src/`, `tools/`, `targets/` or
+`config/` changed, only these two docs. `npm run instructions:check` and
+`npm run catalog:check` are the only checks touching this diff's shape, run
+directly.
+
+**Learned:**
+
+- **A measurement command scoped to one `TARGET` at a time hides how far it
+  has actually spread.** Every prior triage-measure entry in this log reported
+  one application. Running it five times in one sitting is what surfaced that
+  orangehrm and parabank had fixtures nobody had written down, and that the
+  settled-rule count had quietly grown from 1 to 4 without a log entry ever
+  saying so.
+- **A clean scan is still a legitimate, useful run.** Six pages matching their
+  last-recorded shape and one small tooling caveat worth a sentence is not
+  nothing — it is the confirmation that run 101's fix holds under a second,
+  independent drive of the same page.
