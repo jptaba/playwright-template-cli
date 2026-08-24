@@ -1,9 +1,7 @@
 #!/usr/bin/env tsx
-import fs from 'node:fs';
-import path from 'node:path';
 import { JiraClient } from '../src/integrations/jira/client';
 import { normaliseStory } from '../src/support/cases/author';
-import { STORIES_DIR } from '../src/support/paths';
+import { saveStory } from '../src/support/cases/stories';
 
 /**
  * `npm run story:pull -- FIN-2210` — step A1 of §09.
@@ -45,11 +43,9 @@ async function main(): Promise<number> {
       acceptanceCriteria: issue.acceptanceCriteria,
     });
 
-    fs.mkdirSync(STORIES_DIR, { recursive: true });
-    const file = path.join(STORIES_DIR, `${key}.json`);
-    fs.writeFileSync(file, `${JSON.stringify(story, null, 2)}\n`, 'utf8');
+    const file = saveStory(story);
 
-    console.log(`wrote ${path.relative(process.cwd(), file)}`);
+    console.log(`wrote ${file}`);
     console.log(`  ${issue.acceptanceCriteria.length} acceptance criteria`);
     console.log(`  contentHash ${story.contentHash}`);
     return 0;

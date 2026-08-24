@@ -11,7 +11,6 @@ import {
   ONBOARDING_DRAFT_PATH,
   REPO_ROOT,
   RUN_RESULT_PATH,
-  STORIES_DIR,
   storageStatePath,
   TRIAGE_RESULT_PATH,
 } from '../src/support/paths';
@@ -49,8 +48,9 @@ import { storiesPageContent } from '../src/support/ui/stories-page';
 import { collectCoverage, readSpecs } from '../src/support/cases/collect';
 import { storyClaims } from '../src/support/cases/story-scope';
 import { CaseValidationError, loadCases, saveCase } from '../src/support/cases/store';
+import { loadStories, saveStory } from '../src/support/cases/stories';
 import { authoringRoutes, type AuthoringService } from '../src/support/cases/authoring';
-import type { CaseAuthorModel, NormalisedStory } from '../src/support/cases/author';
+import type { CaseAuthorModel } from '../src/support/cases/author';
 import type {
   AnthropicCaseAuthor as CaseAuthorClass,
   AuthoringUsage,
@@ -1333,27 +1333,12 @@ const authoring: AuthoringService = {
     claims: storyClaims(await readSpecs()),
   }),
 
-  storedStories: () => {
-    if (!fs.existsSync(STORIES_DIR)) return [];
-    return fs
-      .readdirSync(STORIES_DIR)
-      .filter((name) => name.endsWith('.json'))
-      .sort()
-      .map((name) => {
-        const file = path.join(STORIES_DIR, name);
-        try {
-          return JSON.parse(fs.readFileSync(file, 'utf8')) as NormalisedStory;
-        } catch (error) {
-          // Named rather than skipped: a story file that will not parse is a
-          // story that silently stops being offered, and the person looking
-          // for it has no way to find out why.
-          throw new Error(
-            `${path.relative(REPO_ROOT, file)} is not readable JSON: ` +
-              `${error instanceof Error ? error.message : String(error)}`,
-          );
-        }
-      });
-  },
+  /*
+     Named rather than skipped: a story file that will not parse is a story
+     that silently stops being offered, and the person looking for it has no
+     way to find out why. `loadStories` throws with the file and the field.
+  */
+  storedStories: () => loadStories(),
 
   jira: () => {
     const baseURL = process.env.JIRA_BASE_URL;
@@ -1379,12 +1364,7 @@ const authoring: AuthoringService = {
     }
   },
 
-  saveStory: (story) => {
-    fs.mkdirSync(STORIES_DIR, { recursive: true });
-    const file = path.join(STORIES_DIR, `${story.key}.json`);
-    fs.writeFileSync(file, `${JSON.stringify(story, null, 2)}\n`, 'utf8');
-    return path.relative(REPO_ROOT, file).split(path.sep).join('/');
-  },
+  saveStory: (story) => saveStory(story),
 
   targets: existingTargets,
 

@@ -1,14 +1,24 @@
 import { expect, test } from '@playwright/test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   authorCases,
   buildCoverage,
   normaliseStory,
   quoteIsVerbatim,
   renderCoverage,
+  storyContentHash,
   type CaseAuthorModel,
   type DraftedCase,
   type NormalisedStory,
 } from '../../src/support/cases/author';
+import {
+  StoryValidationError,
+  loadStories,
+  parseStory,
+  saveStory,
+} from '../../src/support/cases/stories';
 import { decidePublish, publishPayload } from '../../src/support/cases/publish';
 import type { TestCase } from '../../src/support/cases/schema';
 
@@ -203,5 +213,73 @@ test.describe('publishing cases', () => {
     }) as { 'custom-fields': Record<string, string> };
 
     expect(payload['custom-fields'].source).toBe('human-authored');
+  });
+});
+
+
+/**
+ * Hop 1's hash, from both ends.
+ *
+ * There were two definitions of it. `tools/check-hashes.ts` declared its own
+ * story shape with a `title` field, and a story file's field is `summary` —
+ * so it hashed an empty title, could never reproduce a recorded `contentHash`,
+ * and reported all ten cases in the repository as derived from stories that
+ * had changed. It ran that way in CI, and no edit to any story or case could
+ * have cleared it.
+ *
+ * A hash that disagrees looks exactly like drift, which is what the check
+ * exists to report — so the failure was indistinguishable from success at
+ * doing its job. That is why this is pinned from both sides rather than left
+ * to one shared function being obviously shared.
+ */
+test.describe('the story hash', () => {
+  const STORY = {
+    key: 'FIN-2210',
+    summary: 'Transfer money between two accounts',
+    description: 'A customer moves funds and both balances settle.',
+    acceptanceCriteria: [
+      'The source account is debited by the amount transferred.',
+      'The destination account is credited by the same amount.',
+    ],
+  };
+
+  test('the authoring side and the checking side agree, through a real file', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stories-'));
+    try {
+      const authored = normaliseStory(STORY);
+      saveStory(authored, dir);
+
+      const loaded = loadStories(dir);
+      expect(loaded).toHaveLength(1);
+
+      // What the checker recomputes, against what the author recorded.
+      expect(loaded[0]!.contentHash).toBe(authored.contentHash);
+      expect(storyContentHash(loaded[0]!)).toBe(authored.contentHash);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('a story that has lost a hashed field is refused, not hashed as empty', () => {
+    const { summary: _dropped, ...withoutSummary } = normaliseStory(STORY);
+
+    // Defaulting the missing field to '' is precisely what hid the original
+    // bug: it produced a confident hash for a story that cannot be hashed.
+    expect(() => parseStory(JSON.stringify(withoutSummary), 'broken.json')).toThrow(
+      StoryValidationError,
+    );
+    expect(() => parseStory(JSON.stringify(withoutSummary), 'broken.json')).toThrow(/summary/);
+  });
+
+  test('every committed story still verifies against its own recorded hash', () => {
+    // Deliberately not asserting there are any: with no application onboarded
+    // this repository has no stories, and a framework test that needs one
+    // would be the suite coupling itself to whatever happens to be committed.
+    for (const story of loadStories()) {
+      expect(
+        storyContentHash(story),
+        `${story.key} no longer hashes to the value recorded in its own file`,
+      ).toBe(story.contentHash);
+    }
   });
 });

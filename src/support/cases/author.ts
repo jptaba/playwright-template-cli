@@ -20,31 +20,45 @@ import type { CasePriority, CaseStep, CaseType, TestCase } from './schema';
  *     reading a list of cases that all look reasonable.
  */
 
-export interface NormalisedStory {
-  key: string;
+/** The fields a story's hash is computed over — nothing else affects it. */
+export interface StoryContent {
   summary: string;
   description: string;
   acceptanceCriteria: string[];
+}
+
+export interface NormalisedStory extends StoryContent {
+  key: string;
   /** Hash of the story's meaningful content, for drift detection (§09). */
   contentHash: string;
 }
 
-export function normaliseStory(story: {
-  key: string;
-  summary: string;
-  description: string;
-  acceptanceCriteria: string[];
-}): NormalisedStory {
-  return {
-    ...story,
-    contentHash: hashContent(
-      JSON.stringify({
-        title: story.summary,
-        description: story.description,
-        acceptanceCriteria: story.acceptanceCriteria,
-      }),
-    ),
-  };
+/**
+ * The hash both ends of traceability hop 1 must agree on.
+ *
+ * Exported, and the only definition, because there were two: `check-hashes`
+ * carried its own copy that read a `title` field off a story file whose field
+ * is `summary`. It therefore hashed an empty title, could never reproduce a
+ * recorded `contentHash`, and reported every case derived from every story as
+ * stale — permanently, and with no edit able to clear it.
+ *
+ * The JSON key stays `title` while the field is `summary`, which is exactly
+ * the mismatch that caused the bug and is exactly why it cannot be tidied up:
+ * every `contentHash` on disk was computed from this shape, and renaming the
+ * key would silently invalidate every case in the repository.
+ */
+export function storyContentHash(story: StoryContent): string {
+  return hashContent(
+    JSON.stringify({
+      title: story.summary,
+      description: story.description,
+      acceptanceCriteria: story.acceptanceCriteria,
+    }),
+  );
+}
+
+export function normaliseStory(story: StoryContent & { key: string }): NormalisedStory {
+  return { ...story, contentHash: storyContentHash(story) };
 }
 
 /** What the model is asked to return. Deliberately narrow. */

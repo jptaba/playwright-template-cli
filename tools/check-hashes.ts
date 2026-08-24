@@ -1,8 +1,10 @@
 #!/usr/bin/env tsx
 import fs from 'node:fs';
 import path from 'node:path';
-import { REPO_ROOT, STORIES_DIR } from '../src/support/paths';
-import { hashCase, hashContent, loadCases } from '../src/support/cases/store';
+import { REPO_ROOT } from '../src/support/paths';
+import { hashCase, loadCases } from '../src/support/cases/store';
+import { storyContentHash, type NormalisedStory } from '../src/support/cases/author';
+import { StoryValidationError, loadStories } from '../src/support/cases/stories';
 
 /**
  * `npm run hashes:check` — traceability drift, both hops (§09, §22).
@@ -19,31 +21,24 @@ import { hashCase, hashContent, loadCases } from '../src/support/cases/store';
  * claims to verify it.
  */
 
-interface Story {
-  key: string;
-  title?: string;
-  description?: string;
-  acceptanceCriteria?: string[];
-}
-
-function storyHash(story: Story): string {
-  return hashContent(
-    JSON.stringify({
-      title: story.title ?? '',
-      description: story.description ?? '',
-      acceptanceCriteria: story.acceptanceCriteria ?? [],
-    }),
-  );
-}
-
-function loadStories(): Map<string, Story> {
-  const stories = new Map<string, Story>();
-  if (!fs.existsSync(STORIES_DIR)) return stories;
-  for (const file of fs.readdirSync(STORIES_DIR).filter((name) => name.endsWith('.json'))) {
-    const story = JSON.parse(fs.readFileSync(path.join(STORIES_DIR, file), 'utf8')) as Story;
-    stories.set(story.key, story);
+/**
+ * The stories, by key — read through the shared store so this tool cannot
+ * disagree with the authoring side about what a story is or how it hashes.
+ *
+ * It carried its own copy of both, and the copy read a `title` field that a
+ * story file does not have. It hashed an empty title, never matched a recorded
+ * `contentHash`, and reported all ten cases in the repository as derived from
+ * changed stories — for four months, in a check that runs in CI.
+ */
+function storiesByKey(): { stories: Map<string, NormalisedStory>; problem: string | null } {
+  const stories = new Map<string, NormalisedStory>();
+  try {
+    for (const story of loadStories()) stories.set(story.key, story);
+  } catch (error) {
+    if (error instanceof StoryValidationError) return { stories, problem: error.message };
+    throw error;
   }
-  return stories;
+  return { stories, problem: null };
 }
 
 /** The `case-hash` annotation a generated spec carries. */
@@ -55,8 +50,9 @@ function specCaseHash(specPath: string): string | null {
 
 function main(): number {
   const cases = loadCases();
-  const stories = loadStories();
+  const { stories, problem: storyProblem } = storiesByKey();
   const problems: string[] = [];
+  if (storyProblem) problems.push(storyProblem);
   const staleByStory = new Map<string, number>();
 
   for (const stored of cases) {
@@ -92,7 +88,7 @@ function main(): number {
     if (testCase.source.type === 'jira-story') {
       const story = stories.get(testCase.source.key);
       if (story) {
-        const upstream = storyHash(story);
+        const upstream = storyContentHash(story);
         if (upstream !== testCase.source.contentHash) {
           staleByStory.set(testCase.source.key, (staleByStory.get(testCase.source.key) ?? 0) + 1);
         }

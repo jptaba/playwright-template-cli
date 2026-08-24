@@ -3,10 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { resolveTarget } from '../config/target';
 import { AnthropicCaseAuthor } from '../src/integrations/llm/case-author-model';
-import { authorCases, renderCoverage, type NormalisedStory } from '../src/support/cases/author';
+import { authorCases, renderCoverage } from '../src/support/cases/author';
+import { readStory, storyPath } from '../src/support/cases/stories';
 import { gateCase } from '../src/support/cases/gate';
 import { saveCase, slugify } from '../src/support/cases/store';
-import { REPO_ROOT, STORIES_DIR } from '../src/support/paths';
+import { REPO_ROOT } from '../src/support/paths';
 
 /**
  * `npm run cases:author -- FIN-2210` — steps A3 to A5 of §09.
@@ -24,12 +25,12 @@ async function main(): Promise<number> {
     return 2;
   }
 
-  const storyFile = path.join(STORIES_DIR, `${key}.json`);
+  const storyFile = storyPath(key);
   if (!fs.existsSync(storyFile)) {
     console.error(`No ${path.relative(REPO_ROOT, storyFile)}. Run: npm run story:pull -- ${key}`);
     return 2;
   }
-  const story = JSON.parse(fs.readFileSync(storyFile, 'utf8')) as NormalisedStory;
+  const story = readStory(key);
 
   const targetArg = args.find((arg) => arg.startsWith('--target='))?.split('=')[1];
   const target = targetArg ?? resolveTarget().name;
