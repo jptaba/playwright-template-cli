@@ -3,16 +3,6 @@ import { LocalSecretStore } from './local-store';
 import { VaultSecretStore } from '../vault/vault-store';
 import type { SecretStore } from './types';
 
-/**
- * Overridden by unit tests and by the `--fake-vault` tool flag so adapter
- * behaviour can be exercised without a Vault instance to stand up (§22).
- */
-let override: SecretStore | null = null;
-
-export function setSecretStoreOverride(store: SecretStore | null): void {
-  override = store;
-}
-
 export * from './types';
 export { LocalSecretStore } from './local-store';
 
@@ -22,7 +12,6 @@ export { LocalSecretStore } from './local-store';
  * critical path (§22).
  */
 export function createSecretStore(profile: TargetProfile): SecretStore {
-  if (override) return override;
   switch (profile.credentials.source) {
     case 'local':
       // Scoped to this profile's own credential root, so a local store can

@@ -15,13 +15,6 @@
  * Pure: this module defines and parses the vocabulary and touches nothing.
  */
 
-export type RunEventType =
-  | 'run-started'
-  | 'test-started'
-  | 'test-finished'
-  | 'run-finished'
-  | 'run-failed';
-
 export interface RunStartedEvent {
   type: 'run-started';
   at: number;

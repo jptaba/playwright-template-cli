@@ -511,11 +511,6 @@ export const SETUP_PAGES: readonly PageLink[] = DASHBOARD_PAGES.filter(
   (page) => page.group === 'Set up',
 );
 
-/** The steady state: Author, Execute, Report. What the rail shows. */
-export const RAIL_PAGES: readonly PageLink[] = DASHBOARD_PAGES.filter(
-  (page) => page.group !== 'Set up',
-);
-
 /**
  * Whether the page being rendered is inside this group.
  *

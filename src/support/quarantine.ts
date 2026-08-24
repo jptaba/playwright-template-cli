@@ -33,16 +33,6 @@ export function loadQuarantine(file = QUARANTINE_PATH): QuarantineEntry[] {
   return parsed.entries ?? [];
 }
 
-export function saveQuarantine(entries: QuarantineEntry[], file = QUARANTINE_PATH): void {
-  const body = {
-    _comment:
-      'Quarantined tests. Every entry needs a reason, a date and a named owner. The run ' +
-      'report shows this list with its age, so a forgotten entry is visible (§18).',
-    entries: [...entries].sort((a, b) => a.caseId.localeCompare(b.caseId)),
-  };
-  fs.writeFileSync(file, `${JSON.stringify(body, null, 2)}\n`, 'utf8');
-}
-
 export function isQuarantined(caseId: string | null, entries: QuarantineEntry[]): QuarantineEntry | null {
   if (!caseId) return null;
   return entries.find((entry) => entry.caseId === caseId) ?? null;

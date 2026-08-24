@@ -332,6 +332,33 @@ test.describe('the onboarding preflight', () => {
     expect(codes(found)).not.toContain('api-no-specs');
   });
 
+  test('a .gitkeep that has outlived its empty directory is reported', () => {
+    /*
+       The other half of the placeholder story. The checks above stop a
+       `.gitkeep` from *silencing* a capability warning; this one reports the
+       marker itself once the directory it was holding open has real files in
+       it. Left alone it is only untidy — which is exactly the reasoning that
+       let the first defect sit there, so it is a warning rather than nothing.
+    */
+    const found = diagnose(
+      profile(),
+      facts({ packFiles: [...HEALTHY_PACK, 'tests/e2e/.gitkeep', 'tests/api/.gitkeep'] }),
+    );
+
+    const stale = found.find((entry) => entry.code === 'gitkeep-outlived');
+    expect(stale, 'the doctor should name a .gitkeep beside real files').toBeTruthy();
+    expect(stale!.level).toBe('warning');
+    // `tests/e2e/` holds a spec; `tests/api/` holds only the marker, and a
+    // marker still doing its job must not be reported.
+    expect(stale!.message).toContain('tests/e2e/.gitkeep');
+    expect(stale!.message).not.toContain('tests/api/.gitkeep');
+  });
+
+  test('a healthy pack carrying no placeholders is not told about them', () => {
+    const found = diagnose(profile(), facts({ packFiles: HEALTHY_PACK }));
+    expect(codes(found)).not.toContain('gitkeep-outlived');
+  });
+
   test('a pack nobody has written specs for yet is told once, not per capability', () => {
     /*
        Every freshly scaffolded pack is in this state, and the dashboard's

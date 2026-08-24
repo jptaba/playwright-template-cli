@@ -96,10 +96,6 @@ export function containsSecret(text: string): boolean {
   return false;
 }
 
-export function registeredSecretCount(): number {
-  return registry.size;
-}
-
 /** Test-only. Never call this from framework code — it disarms the scrubber. */
 export function resetSecretRegistry(): void {
   registry.clear();

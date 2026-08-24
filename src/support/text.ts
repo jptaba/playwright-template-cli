@@ -14,8 +14,3 @@ const ANSI = /\[[0-9;]*[A-Za-z]/g;
 export function stripAnsi(text: string): string {
   return text.replace(ANSI, '');
 }
-
-/** Collapse whitespace and trim, for a value about to be used as a label. */
-export function singleLine(text: string, limit = 300): string {
-  return stripAnsi(text).replace(/\s+/g, ' ').trim().slice(0, limit);
-}

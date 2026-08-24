@@ -325,6 +325,35 @@ function checkPack(
     );
   }
 
+  /*
+     A `.gitkeep` in a directory that now holds real files.
+
+     The scaffolder writes one per empty test directory, because git cannot
+     track an empty directory and a pack missing `tests/api/` is a different
+     pack. It has no way to know when a directory stops being empty, so the
+     marker survives the first spec written into it — eight of them across the
+     five applications onboarded here, none of them doing anything.
+
+     Reported rather than pruned, because deleting a file in a pack is the
+     pack owner's call. Reported at all, because "harmless" is why nothing
+     ever noticed: the same reasoning left a `.gitkeep` satisfying three
+     capability checks that then validated nothing (`api-no-specs` above).
+  */
+  const stale = facts.packFiles.filter((file) => {
+    if (!file.endsWith('.gitkeep')) return false;
+    const dir = file.slice(0, file.length - '.gitkeep'.length);
+    return facts.packFiles.some((other) => other !== file && other.startsWith(dir));
+  });
+  if (stale.length > 0) {
+    warn(
+      'gitkeep-outlived',
+      `${stale.length} .gitkeep file(s) sit in directories that now hold real files: ` +
+        `${stale.join(', ')}.`,
+      'Delete them. A .gitkeep exists only to keep an empty directory in git, and a ' +
+        'directory with a spec in it is not empty.',
+    );
+  }
+
   if (startedWriting && !specsUnder('tests/triage-fixture')) {
     warn(
       'no-triage-fixture',

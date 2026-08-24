@@ -24,8 +24,6 @@ import {
  * different team's queue (§22).
  */
 
-export type VaultAuthMethod = 'jwt' | 'approle' | 'token';
-
 export interface VaultConfig {
   address: string;
   /** Enterprise namespaces prefix every API path (§17). */
