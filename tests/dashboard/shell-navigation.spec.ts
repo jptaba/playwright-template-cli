@@ -330,3 +330,69 @@ test.describe('set up, beside the switcher rather than in the rail', () => {
     );
   });
 });
+
+test.describe('telling the two halves of the bar apart', () => {
+  /*
+     Item 77. Item 75 put the set-up links at the end of the switcher's row and
+     stopped there, so the bar was nine elements at one size, one weight and
+     one colour, running "which application is this" straight into "go and
+     configure the set-up" with nothing between them.
+
+     Measured on the running page before this: .ctx-label, .ctx-env and both
+     .ctx-setup-links all computed to the same muted grey with no underline —
+     and the label read "Application" while the link 350px along read
+     "Applications".
+  */
+  test('a rule separates the switcher from the set-up links', async ({ page: p }) => {
+    const divider = p.locator('.ctx-divider');
+    await expect(divider).toHaveCount(1);
+
+    // Between them, not merely present: a rule on the wrong side groups the
+    // wrong things and reads as though set up were part of the switcher.
+    const rule = (await divider.boundingBox())!;
+    const pick = (await p.locator('.ctx-pick').boundingBox())!;
+    const setup = (await p.locator('.ctx-setup').boundingBox())!;
+
+    expect(rule.x).toBeGreaterThan(pick.x + pick.width);
+    expect(rule.x).toBeLessThan(setup.x);
+  });
+
+  test('it is decorative, so it is not read out as content', async ({ page: p }) => {
+    // The grouping is in the markup already — .ctx-setup wraps the pair. A
+    // screen reader needs that, not a vertical line.
+    await expect(p.locator('.ctx-divider')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  test('a bar with no switcher draws no rule, having nothing to separate', async ({ page: p }) => {
+    await p.setContent(page({ target: undefined }));
+
+    await expect(p.locator('.ctx-setup a[href="/onboard"]')).toBeVisible();
+    await expect(p.locator('.ctx-divider')).toHaveCount(0);
+  });
+
+  test('the set-up links look like links before anybody hovers them', async ({ page: p }) => {
+    /*
+       The defect this replaces: at rest these were styled exactly like the
+       captions beside them, and the only thing that said "control" was a
+       hover background — which a keyboard and a touchscreen never see.
+    */
+    const link = p.locator('.ctx-setup-link').first();
+    const decoration = await link.evaluate((el) => getComputedStyle(el).textDecorationLine);
+    expect(decoration).toContain('underline');
+
+    const label = p.locator('.ctx-label').first();
+    const [linkColour, labelColour] = await Promise.all([
+      link.evaluate((el) => getComputedStyle(el).color),
+      label.evaluate((el) => getComputedStyle(el).color),
+    ]);
+    expect(linkColour, 'a link that matches the caption beside it is not a link').not.toBe(
+      labelColour,
+    );
+  });
+
+  test('the label naming the switcher no longer echoes the link beside it', async ({ page: p }) => {
+    // "Application" and "Applications", same row, same grey, one letter apart.
+    await expect(p.locator('.ctx-label')).toHaveText('Application');
+    await expect(p.locator('.ctx-setup a[href="/onboard"]')).toHaveText('Onboarding');
+  });
+});

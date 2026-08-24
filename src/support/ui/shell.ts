@@ -168,7 +168,21 @@ export interface DashboardPageContent {
 export const DASHBOARD_PAGES: readonly PageLink[] = [
   {
     href: '/onboard',
-    label: 'Applications',
+    /*
+       "Onboarding", not "Applications" — the bar already says "Application".
+
+       Both sat in the same row, in the same muted grey, about 350px apart,
+       differing by one letter: a static label naming the switcher, and a link
+       to a different page. Measured on the running bar, nothing but the "s"
+       told them apart. This is also the word the page uses for itself — its
+       eyebrow reads "Onboarding" — so the link and its destination now agree,
+       which "Applications" never did either.
+
+       `/users` is deliberately left alone. It collides with nothing, and its
+       page is titled "Test users"; renaming the link would fix no defect and
+       introduce the mismatch this one just removed.
+    */
+    label: 'Onboarding',
     group: 'Set up',
     hint: 'Add one, or change what it declares',
   },
@@ -536,8 +550,20 @@ function topbar(
      control, and on any page rendered without a target context at all. Since
      the rail no longer carries them there is nowhere else to reach them from,
      so they are appended to the bar rather than to one branch of it.
+
+     The hairline between them is the whole point of item 77. Item 75 put two
+     links at the end of the switcher's own row and gave the reader nothing to
+     tell the two jobs apart: "which application is everything scoped to" and
+     "go and configure the set-up" were one flat run of nine elements at the
+     same size and weight. A rule is the cheapest thing that says "these
+     belong together and those do not", and it costs no height and no click.
+
+     Only when there is a switcher to separate *from*. A bar with no target
+     context renders the links alone, and a rule with nothing on one side of
+     it is a mark whose meaning the reader has to invent.
   */
-  const context = (!target ? '' : applicationSwitcher(target)) + setupLinks(current);
+  const switcher = target ? applicationSwitcher(target) : '';
+  const context = switcher + (switcher ? setupDivider() : '') + setupLinks(current);
 
   return (
     `\n    <div class="topbar">\n` +
@@ -609,11 +635,37 @@ function applicationSwitcher(target: TargetContext): string {
 }
 
 /**
+ * The rule between the switcher and the set-up links — item 77.
+ *
+ * Decorative, and `aria-hidden` because of it: the grouping it draws is
+ * already in the markup, where `.ctx-setup` wraps the two links and nothing
+ * else. A screen reader gets that structure without being read a vertical
+ * line, and the stylesheet drops the rule at the width where the bar wraps —
+ * a separator between two things that are no longer side by side points at
+ * nothing.
+ *
+ * Hiding it there is safe in the way item 75's mistake was not: that hid two
+ * *links*, and made Applications and Test users unreachable on a phone. This
+ * hides a mark that carries no destination.
+ */
+function setupDivider(): string {
+  return `<span class="ctx-divider" aria-hidden="true"></span>`;
+}
+
+/**
  * Onboarding and recovery, beside the switcher they are about — item 75.
  *
  * Plain links rather than a menu behind a button. There are two of them; a
  * disclosure would add a click and a state to the one part of the chrome that
  * is on every page, to save a few pixels that are already there.
+ *
+ * **They look like links now — item 77.** They were `--muted` with
+ * `text-decoration: none`, which is exactly the styling of the plain text
+ * labels beside them, so at rest nothing said either one was clickable; the
+ * only affordance was a background that appeared on hover, and a mouse is the
+ * one input that has to find a control before it can hover over it. The
+ * comment below is still right that they should be quieter than the switcher.
+ * Quieter than a control is not the same as indistinguishable from a caption.
  */
 function setupLinks(current: string): string {
   return (

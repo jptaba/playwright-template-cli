@@ -6651,3 +6651,35 @@ deleted.
 - **A promise made in one commit needs checking against every consumer it touches, not only the ones that already worked.** Run 93's own log said the chip "routes by cause… to the page that fixes the finding" and was right for two of three destinations, silently wrong for the third — the exact shape flagged four times in the preceding week's entries ("a rule living in one consumer while its siblings keep the old behaviour"), and it shipped because nothing had driven the third case yet.
 - **A blank-by-default picker (item 6) and a link that already knows the answer are not actually in tension**, once the second is spelled out as a one-shot query string consumed and discarded rather than adopted as a new standing default — the two behaviours coexist and neither one's existing test needed to change.
 - **Leftover `tools/dashboard.ts` processes are piling up on this machine** — dozens found running (`Get-CimInstance Win32_Process -Filter "Name='node.exe'"` filtered to `tools/dashboard.ts`), evidently one or more per prior run that were never stopped. Not cleaned up here — killing processes this run did not start is outside this fix's scope — but worth a look: either the loop needs to stop its own server before finishing, or the server needs to notice its parent is gone.
+
+## 2026-08-23 · run 95 · The top bar was nine elements and one visual rank
+
+**Picked:** the owner's observation, raised mid-session — *"The header with application and selection, followed by applications then test users are kind of off and it's really not that intuitive."* Raised as item 77.
+
+**Measured before touching anything**, because the standing rule is that reading the source produces confident wrong answers about this UI. The whole right-hand side of the bar — label, switcher, environment tag, health chip, two set-up links, three theme buttons — renders as **one flat run of nine elements**, no divider, no grouping. Computed styles said the rest: `.ctx-label`, `.ctx-env` and both `.ctx-setup-link`s were **the same `--muted` grey, same weight, no underline**. Two defects fall out of that, and they are different defects:
+
+- **A lexical collision.** `.ctx-label` reads *"Application"* and a link ~350px along the same row read *"Applications"* — same colour, same weight, one letter apart. Nothing but the "s" told a static caption from a link to another page.
+- **No affordance at rest.** The links' only sign of being clickable was a hover background. Hover is the one affordance a keyboard and a touchscreen never see, so at rest the two destinations in this bar were styled exactly like the captions naming the switcher.
+
+**Item 75 is the cause, and this is the other half of it.** That change was right that onboarding and recovery are not steady-state destinations, and it moved them out of the rail — then set them down at the end of the switcher's own row with nothing to say the two jobs are different. "Which application is everything scoped to" and "go and configure the set-up" became one undifferentiated row.
+
+**Three changes, one rank each.** A hairline `.ctx-divider` between the switcher cluster and the set-up cluster — rendered only when there *is* a switcher to separate from, `aria-hidden` because the grouping is already in the markup, and dropped at the 60rem wrap because a rule between two clusters that are no longer side by side points at nothing. The `/onboard` link renamed **"Applications" → "Onboarding"**. And `.ctx-setup-link` moved to `--ink-2` with a real underline.
+
+**Two things I recommended and then did not do, both on evidence:**
+
+- **No icons.** I had proposed icon + underline. The dashboard has **zero inline SVG and no icon font**, and `navigation()` carries an explicit principle — *"Labels are words. An icon rail looks tidier and costs a guess per icon"* — with a test enforcing it. Introducing the design system's first icon to solve an affordance problem that an underline already solves was the wrong trade.
+- **`/users` keeps its name.** I had proposed "Test users" → "Credentials". But `/users` is titled *and* eyebrowed **"Test users"**, so renaming only the link would have made it disagree with its own destination — introducing the exact mismatch this change removes from `/onboard`, whose page eyebrow is "Onboarding". And "Test users" collided with nothing; only "Applications" did. The rename is now scoped to the link that actually had the defect.
+
+**Proven by reverting.** All five new tests passed first time, which run 93's own lesson says is not yet evidence. Reverted the label, the divider and the CSS: **4 of the 5 go red**. The fifth is the negative case guarding the conditional — with no divider rendered anywhere it correctly stays green.
+
+**Driven live**, at three states rather than one. Dark 1280px: the divider lands at x=898, between the health chip ending at 890 and the links starting at 913, and the links compute to `#BEC9D1` against the label's `#8D9AA4`. **375px**: no overflow (`scrollWidth` 375 = viewport), divider `display: none`, both links still visible and reachable — item 75's own mistake was hiding *links* at this breakpoint, and a decorative rule is a different thing. **Light 1280px**: link contrast **8.84:1**, up from 5.3:1 as `--muted`; the divider is **3.29:1**, above the 3:1 floor WCAG 1.4.11 sets for non-text UI.
+
+**Verify:** `npm run verify` passes, exit 0 — **1195 tests**, up from 1190. Five new.
+
+**Live suites:** not re-run for this change and deliberately so — it touches `src/support/ui/` only, no target pack and no spec. The result recorded in run 94 earlier in this same session stands: 1 passing, 3 failing on the accepted-red accessibility specs, 1 parked.
+
+**Learned:**
+
+- **A change can be right about the problem and incomplete about the fix.** Item 75 correctly diagnosed that set up was not a daily destination and correctly moved it — and left it visually identical to the switcher it now sat inside. The follow-on defect was created by the fix, in the fix's own commit, and nothing caught it because no test had an opinion about visual rank.
+- **Check a rename against the destination's own name.** "Credentials" sounded better than "Test users" right up to reading what `/users` calls itself. A link that disagrees with its page is the defect being fixed here, one page over.
+- **A recommendation made from a mockup is a hypothesis.** Two of the three things I proposed changed on contact with the codebase — the icon against an existing principle, the second rename against the page's own title. The divider and the affordance, which came from *measured* computed styles rather than from taste, both survived intact.

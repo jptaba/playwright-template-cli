@@ -406,12 +406,48 @@ export const DASHBOARD_STYLES = `
      Quieter than the switcher, because they are reached occasionally and it
      is selected constantly.
   */
+  /*
+     The rule between "which application" and "go and configure it" — item 77.
+
+     Mid-grey in both themes on purpose: --rule is a hairline tuned to sit on a
+     card, and at #222E35 it is very nearly invisible against the dark bar.
+     A separator nobody can see is a separator that is not there.
+
+     It goes at the width where .ctx wraps, because a vertical rule between two
+     clusters that have stopped being side by side is a mark pointing at
+     nothing. Safe to drop only because it is decorative — item 75 hid two
+     links at this breakpoint and made both pages unreachable on a phone.
+  */
+  .ctx-divider {
+    flex: none; width: 1px; height: 1.15rem; background: var(--rule-strong);
+  }
+  @media (max-width: 60rem) { .ctx-divider { display: none; } }
+
   .ctx-setup { display: flex; align-items: center; gap: .1rem; margin-left: .35rem; }
+  /*
+     Underlined, and a step darker than the labels around them — item 77.
+
+     These were --muted with no underline, which is the styling of .ctx-label
+     and .ctx-env sitting inches away: at rest, the two destinations in this
+     bar were indistinguishable from the captions naming the switcher. The
+     hover background was the only thing that said "control", and hover is the
+     one affordance a keyboard and a touchscreen never see.
+
+     --ink-2 rather than --accent: quieter than the switcher is right, since
+     that is selected constantly and these are reached occasionally. An
+     underline is what carries "link" here, which is the job it has done since
+     the first hypertext and needs no colour to work.
+  */
   .ctx-setup-link {
-    font-size: .76rem; color: var(--muted); text-decoration: none;
+    font-size: .76rem; color: var(--ink-2);
+    text-decoration: underline; text-decoration-thickness: 1px;
+    text-underline-offset: 2px; text-decoration-color: var(--rule-strong);
     padding: .18rem .45rem; border-radius: 5px; white-space: nowrap;
   }
-  .ctx-setup-link:hover { background: var(--surface-2); color: var(--ink); }
+  .ctx-setup-link:hover {
+    background: var(--surface-2); color: var(--ink);
+    text-decoration-color: currentColor;
+  }
   /*
      They wrap; they never disappear. Hiding them below 60rem made Applications
      and Test users unreachable on a phone, which the navigation suite caught

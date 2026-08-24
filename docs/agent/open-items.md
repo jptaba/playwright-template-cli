@@ -110,6 +110,24 @@ own picker and did not. A query string the page reads once and drops from the
 address bar closes the gap without relaxing item 6's guarantee that a plain
 visit still opens blank.
 
+**Run 95 closed item 77, which is the other half of item 75.** The owner:
+*"The header with application and selection, followed by applications then
+test users are kind of off and it's really not that intuitive."* Measured on
+the running bar: nine elements in one flat row, and `.ctx-label`, `.ctx-env`
+and both set-up links computing to the **same `--muted` grey with no
+underline** — so a caption reading *"Application"* and a link reading
+*"Applications"* sat 350px apart in identical styling, and the links' only
+affordance was a hover background, which a keyboard and a touchscreen never
+see. A hairline divider, `"Applications"` → `"Onboarding"`, and a real
+underline at `--ink-2`.
+
+Two things recommended and then dropped on evidence, recorded so nobody
+re-proposes them: **no icons** (the dashboard has zero inline SVG and no icon
+font, and `navigation()` carries an explicit "labels are words" principle with
+a test enforcing it), and **`/users` keeps its name** (it is titled *and*
+eyebrowed "Test users", so renaming only the link would introduce the
+link-disagrees-with-its-page mismatch this change removes from `/onboard`).
+
 **Run 92 closed item 73 and withdrew item 74.** The Stories page is scoped to
 the application whose specs cite each story — run 80's fix, applied where it had
 been missed. **Item 74 was not a defect**: `/api/cases` was always scoped and
