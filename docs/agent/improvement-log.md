@@ -6742,3 +6742,31 @@ Then the transition the whole feature rests on, proven directly: client connects
 - **Two defects can hold each other up.** 78 was correct and inert; 79 was the reason. Neither log entry alone would have explained why the watchdog "did not work" — and the thing that connected them was tracing a socket to msedge, not reading either file.
 - **A default that needs remembering is not a default.** The callers that needed the browser suppressed are exactly the ones with nobody present to set a variable. `isTTY` is the fact that was already there.
 - **"Safe" filters can still be broad.** Killing only unconnected processes was the right rule and still took all 60, because process trees are not the unit the rule was written about.
+
+## 2026-08-23 · run 98 · Scan: the run list never had a target in it
+
+**Picked:** scan, at the owner's direction after items 78 and 79 landed. Nothing was `ready`.
+
+**Method, per the standing rule and the memory note:** drove the running dashboard one application at a time, starting from whatever was already selected — **parabank**, which is the parked one — and read rendered pages rather than calling routes.
+
+**Result: one finding, on three pages, and it is one defect rather than three.** With parabank in the bar, `/runs` "Finished runs" lists four runs — one `default`, three `toolshop`, **none parabank's**. The same list backs the run picker on `/triage` and `/publish`.
+
+**The counter-check is what makes it a finding rather than a guess.** Switched to `toolshop` and got a **byte-identical list**. So this is not "parabank has no runs, so it showed everything" — there was never a target in it. That check took one switch and is the thing run 92 said to always do.
+
+**`/triage` is the sharp case.** It does not merely *offer* another application's run, it **defaults to one and invites verdicts**: parabank in the bar, toolshop's `20260816T164527-dl50` on screen, two clusters under "needs judgement". A verdict recorded there is attached to an application the bar says you are not looking at.
+
+**Checked at both ends, because run 92's lesson is that a route's answer is not the page's behaviour.** Here they agree and both are unscoped: all three pages post `{}`, and all three routes call `service.runs()` with no target. That is the opposite of item 74, where the page *was* passing a target and only my probe was not — and the difference is exactly why the rendered page came first this time.
+
+**The data is already there**, read off the wire rather than assumed: `{"id":"20260816T164527-dl50","target":"toolshop",…}`. Every record carries its target, so a fix needs no migration.
+
+**What is correctly scoped, checked rather than presumed:** `/cases` (0 cases, 10 specs for parabank), `/stories` ("No stories pulled yet" — item 73's fix, and toolshop still sees its five), `/users` (`qa/parabank/pools/workforce/customer/1`, one slot). `/runs` also states the parking properly — reason, review date, and that a run is allowed and expected to fail.
+
+**Regression check on the same pass**, since items 77–79 all shipped today: the top bar renders its divider and its `Onboarding` / `Test users` links correctly across pages, the health chip reads `parked` with the reason and review date in its title, and it links to `/onboard?target=parabank` — item 78's query string, arriving from the page that raised it.
+
+**Verify:** not re-run; no code changed this run. Items 77–79's runs recorded 1195, 1200 and 1207 passing.
+
+**Learned:**
+
+- **The counter-switch is cheap and it is the whole difference between a finding and a hunch.** "Parabank sees toolshop's runs" has an innocent explanation until toolshop sees the identical list.
+- **Three symptoms, one cause, one item.** Filing `/runs`, `/triage` and `/publish` separately would have produced three fixes to the same missing argument — which is the shape runs 87 and 90 both warned about from the other direction.
+- **Starting from whatever was already selected was luck worth keeping.** Parabank is parked and has no runs of its own, which is precisely the state that makes an unscoped list obvious. Starting on toolshop, every row would have looked right.
