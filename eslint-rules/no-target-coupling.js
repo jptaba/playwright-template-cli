@@ -11,8 +11,8 @@ const { relPath, isFramework, targetNames, TARGET_PACK_ROOT } = require('./lib/p
  * a special case for the app it was written against, and the special case is
  * never noticed until the second application arrives.
  *
- * Target names are read from `config/targets/*.ts`, so adding an application
- * never means editing this rule.
+ * Target names are read from the directories under `targets/`, so adding an
+ * application never means editing this rule.
  *
  * The way to branch is a declared capability — `capabilities.mfa === 'none'`
  * says *what is true of the target*, and holds for every application that

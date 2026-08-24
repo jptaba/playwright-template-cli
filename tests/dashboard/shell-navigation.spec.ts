@@ -12,6 +12,23 @@ import { DASHBOARD_PAGES, renderPage } from '../../src/support/ui/shell';
  * look correct in the source and wrong on the screen.
  */
 
+/**
+ * The narrowest window this tool is held to.
+ *
+ * **Desktop-only, deliberately.** There is no mobile emulation anywhere in
+ * the framework — no `isMobile`, no `hasTouch`, no mobile device preset — and
+ * `playwright.config.ts` runs everything on `devices['Desktop Chrome']`. So
+ * the width worth defending is not a phone's, it is half of a 1440px laptop
+ * screen, which is what a split screen produces and the narrowest window
+ * anybody realistically gives a testing dashboard.
+ *
+ * Measured on the running page: the rail moves above the content from 960px
+ * (a 1920px monitor split in half) and the bar wraps to a second row here at
+ * 720px. Both are ordinary desktop situations, which is why the narrow-window
+ * rules in `tokens.ts` stay.
+ */
+const DESKTOP_FLOOR = 720;
+
 const page = (options: Partial<Parameters<typeof renderPage>[1]> = {}) =>
   renderPage(
     {
@@ -33,9 +50,9 @@ const page = (options: Partial<Parameters<typeof renderPage>[1]> = {}) =>
          With the list, so the bar renders the real control rather than the
          read-only label. Without it, `applicationSwitcher` takes its early
          branch and the bar is a short piece of text — narrow enough that the
-         phone-width overflow budget below could not fail. Item 75 added a
-         third child to `.ctx`, overflowed 375px on the running page, and this
-         suite stayed green.
+         overflow budget below could not fail. Item 75 added a third child to
+         `.ctx`, overflowed the bar on the running page, and this suite stayed
+         green.
       */
       target: {
         name: 'acme-shop',
@@ -166,22 +183,29 @@ test.describe('narrow windows', () => {
     /*
        All seven, five in the rail and two in the bar — "reachable" is the
        claim. Hiding the bar's pair below 60rem to save space made Applications
-       and Test users unreachable on a phone, and this caught it.
+       and Test users unreachable in a split-screen window, and this caught it.
     */
     for (const link of DASHBOARD_PAGES) {
       await expect(p.getByRole('link', { name: new RegExp(link.label) })).toBeVisible();
     }
   });
 
-  test('the bar does not overflow the viewport at phone width', async ({ page: p }) => {
+  test('the bar does not overflow the viewport at the narrowest desktop window', async ({
+    page: p,
+  }) => {
     /*
-       560px is where the rail moves. 375px is where .topbar-end itself needs
-       to wrap: the application switcher and the theme control are two flex
-       items inside it with no wrap of their own, so .topbar wrapping onto a
-       second row was not enough — that second row still had to fit both of
-       them side by side, and at a real phone width it could not.
+       DESKTOP_FLOOR, not a phone. This tool is desktop-only — there is no
+       mobile emulation anywhere in the framework and `playwright.config.ts`
+       uses `devices['Desktop Chrome']` exclusively — so the width worth
+       defending is the narrowest window somebody actually gives it: half of a
+       1440px laptop screen, which is what a split screen produces.
+
+       The budget itself is why this test exists rather than the width. Item
+       75 added a third child to `.ctx` and overflowed the bar on the running
+       page while this suite stayed green, so the assertion is that content
+       fits the window — cheap, and it has caught a real regression once.
     */
-    await p.setViewportSize({ width: 375, height: 812 });
+    await p.setViewportSize({ width: DESKTOP_FLOOR, height: 900 });
     const scrollWidth = await p.evaluate(() => document.documentElement.scrollWidth);
     const clientWidth = await p.evaluate(() => document.documentElement.clientWidth);
     expect(
@@ -190,12 +214,17 @@ test.describe('narrow windows', () => {
     ).toBeLessThanOrEqual(clientWidth);
   });
 
-  test('the switcher and the theme control stack there rather than collide', async ({ page: p }) => {
-    await p.setViewportSize({ width: 375, height: 812 });
-    const ctx = (await p.locator('.ctx').boundingBox())!;
-    const theme = (await p.locator('.theme').boundingBox())!;
-    expect(theme.y).toBeGreaterThanOrEqual(ctx.y + ctx.height - 1);
-  });
+  /*
+     There was a second test here asserting the switcher and the theme control
+     *stack* onto separate rows. That only ever became true at 375px, and it
+     was removed with the rest of the phone-width testing: measured at
+     DESKTOP_FLOOR the two sit side by side on the bar's second row with room
+     to spare, so re-pinning it to a desktop width would have meant asserting
+     something the page does not do.
+
+     Nothing is lost, because stacking was never the guarantee — not
+     overflowing was, and the budget above is what states it.
+  */
 });
 
 test('a window too short for chrome gives the room back', async ({ page: p }) => {
@@ -374,7 +403,7 @@ test.describe('telling the two halves of the bar apart', () => {
     /*
        The defect this replaces: at rest these were styled exactly like the
        captions beside them, and the only thing that said "control" was a
-       hover background — which a keyboard and a touchscreen never see.
+       hover background — which a keyboard never sees.
     */
     const link = p.locator('.ctx-setup-link').first();
     const decoration = await link.evaluate((el) => getComputedStyle(el).textDecorationLine);

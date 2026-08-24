@@ -12,8 +12,8 @@ function relPath(context) {
 }
 
 /**
- * Target names are discovered from `config/targets/*.ts` rather than listed
- * here, so adding a target never means editing a lint rule.
+ * Target names are discovered from the directories under `targets/` rather
+ * than listed here, so adding a target never means editing a lint rule.
  */
 function targetNames() {
   const dir = path.join(REPO_ROOT, TARGET_PACK_ROOT);

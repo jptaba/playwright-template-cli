@@ -1058,7 +1058,7 @@ export const saucedemo: TargetProfile = {
   suites: ['smoke', 'checkout', 'inventory'],
 };</code></pre>
 
-      <p>Two rules keep this honest. <code>baseURL</code> is read from the profile and nothing else — an ESLint rule (<code>no-hardcoded-urls</code>) fails any literal <code>http(s)://</code> outside <code>config/targets/</code>. And capabilities are consulted, not assumed: fixtures resolve against them, so <code>otp</code> on a <code>mfa: 'none'</code> target returns a provider that skips the test with a stated reason instead of hanging until timeout.</p>
+      <p>Two rules keep this honest. <code>baseURL</code> is read from the profile and nothing else — an ESLint rule (<code>no-hardcoded-urls</code>) fails any literal <code>http(s)://</code> outside <code>targets/</code>. And capabilities are consulted, not assumed: fixtures resolve against them, so <code>otp</code> on a <code>mfa: 'none'</code> target returns a provider that skips the test with a stated reason instead of hanging until timeout.</p>
 
       <div class="scroller">
         <table>
@@ -1343,7 +1343,7 @@ capabilities: {
             <tr><td>No <code>waitForTimeout</code></td><td class="mono">eslint: no-hard-waits</td></tr>
             <tr><td>Specs may not import <code>locators/</code></td><td class="mono">eslint: layer-boundaries</td></tr>
             <tr><td>One target may not import another's code</td><td class="mono">eslint: layer-boundaries</td></tr>
-            <tr><td>No URL or hostname literals outside <code>config/targets/</code></td><td class="mono">eslint: no-hardcoded-urls</td></tr>
+            <tr><td>No URL or hostname literals outside <code>targets/</code></td><td class="mono">eslint: no-hardcoded-urls</td></tr>
             <tr><td>No raw <code>request.*</code> or SQL literals in specs</td><td class="mono">eslint: typed-clients-only</td></tr>
             <tr><td>No <code>process.env</code> for credentials</td><td class="mono">eslint: secrets-via-fixture</td></tr>
             <tr><td>Every spec carries a PractiTest annotation<br /><span class="mono">except the contract project</span></td><td class="mono">eslint: require-case-id</td></tr>
@@ -2359,7 +2359,7 @@ JIRA_TLS      = NODE_EXTRA_CA_CERTS=&lt;internal root CA&gt;  # see section 17</
         <table>
           <thead><tr><th>Question</th><th>Answer</th><th>Consequence in this plan</th></tr></thead>
           <tbody>
-            <tr><td>Application under test</td><td><b>Configurable · saucedemo default</b><br /><span class="mono">TARGET → config/targets/*.ts</span></td><td>Base URL, credential source and a capability matrix per profile; no URL literals outside <code>config/targets/</code>; per-target locator, action and spec packs under <code>targets/</code>. Section 04.</td></tr>
+            <tr><td>Application under test</td><td><b>Configurable · saucedemo default</b><br /><span class="mono">TARGET → targets/*/profile.ts</span></td><td>Base URL, credential source and a capability matrix per profile; no URL literals outside <code>targets/</code>; per-target locator, action and spec packs under <code>targets/</code>. Section 04.</td></tr>
             <tr><td>Test scope</td><td><b>UI, mixed, API, contract</b><br /><span class="mono">DB read-only, last resort</span></td><td>Four Playwright projects; <code>actions/</code> gains <code>api/</code> and <code>db/</code> siblings at the same layer; assertions stay in specs. Assert through the UI, else the API, else the database. Section 05.</td></tr>
             <tr><td>Contract testing</td><td><b>Schema conformance, not Pact</b></td><td>Validation hook inside the shared HTTP client so every call is checked, plus a deliberate endpoint pass. Consumer-driven contracts are a development-team initiative and are explicitly out of scope here. Section 05.</td></tr>
             <tr><td>Environments</td><td><b>Real systems only</b></td><td>The framework provisions nothing — no service containers, no dev-mode Vault, no mail stand-in. The single container in the plan is the GitLab job image. Sections 04 and 16.</td></tr>

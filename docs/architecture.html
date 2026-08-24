@@ -351,7 +351,7 @@ footer .foot-name { color: var(--ink-2); font-weight: 600; display: block; margi
         <rect x="36" y="216" width="228" height="34" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
         <text x="150" y="237" text-anchor="middle">tools/</text>
         <rect x="36" y="276" width="228" height="46" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
-        <text x="150" y="296" text-anchor="middle">config/targets/</text>
+        <text x="150" y="296" text-anchor="middle">targets/&lt;app&gt;/profile.ts</text>
         <text x="150" y="312" text-anchor="middle" font-size="10.5" fill-opacity=".6">profiles — the only place a host lives</text>
       </g>
 
@@ -457,7 +457,7 @@ footer .foot-name { color: var(--ink-2); font-weight: 600; display: block; margi
       import a target pack and may not name one — <code>layer-boundaries</code>
       and <code>no-target-coupling</code> both fail the build for it. The core
       learns about an application only by <em>discovering</em> its profile in
-      <code>config/targets/</code>, which is why adding an application needs no
+      <code>targets/</code>, which is why adding an application needs no
       registration step and why deleting one leaves nothing behind.
     </figcaption>
   </figure>

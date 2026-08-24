@@ -25,7 +25,7 @@ const EXEMPT_PATHS = [
 ];
 
 /**
- * No URL or hostname literals outside `config/targets/` (§04).
+ * No URL or hostname literals outside a target's own profile (§04).
  *
  * The rule that keeps "the application under test is configuration" true. A
  * single `await page.goto('https://…')` in one spec is how a framework
@@ -38,9 +38,8 @@ module.exports = {
     schema: [],
     messages: {
       hardcodedUrl:
-        "Hardcoded host '{{host}}'. The application under test is configuration: put it in a " +
-        'target profile under config/targets/ and read it from the `target` fixture or ' +
-        'baseURL (§04).',
+        "Hardcoded host '{{host}}'. The application under test is configuration: put it in " +
+        'targets/<app>/profile.ts and read it from the `target` fixture or baseURL (§04).',
     },
   },
 

@@ -371,8 +371,8 @@ export const DASHBOARD_STYLES = `
   /*
      Wraps, for the reason item 25 recorded: .topbar-end wraps as a row inside
      the already-wrapping .topbar, so a flex container inside it that cannot
-     wrap pushes the whole page sideways at a phone width. Item 75 added a
-     third child here and reproduced exactly that at 375px.
+     wrap pushes the whole page sideways in a narrow window. Item 75 added a
+     third child here and reproduced exactly that.
   */
   .ctx {
     display: flex; flex-wrap: wrap; align-items: center;
@@ -416,7 +416,8 @@ export const DASHBOARD_STYLES = `
      It goes at the width where .ctx wraps, because a vertical rule between two
      clusters that have stopped being side by side is a mark pointing at
      nothing. Safe to drop only because it is decorative — item 75 hid two
-     links at this breakpoint and made both pages unreachable on a phone.
+     links at this breakpoint and made both pages unreachable in a narrow
+     window.
   */
   .ctx-divider {
     flex: none; width: 1px; height: 1.15rem; background: var(--rule-strong);
@@ -431,7 +432,7 @@ export const DASHBOARD_STYLES = `
      and .ctx-env sitting inches away: at rest, the two destinations in this
      bar were indistinguishable from the captions naming the switcher. The
      hover background was the only thing that said "control", and hover is the
-     one affordance a keyboard and a touchscreen never see.
+     one affordance a keyboard never sees.
 
      --ink-2 rather than --accent: quieter than the switcher is right, since
      that is selected constantly and these are reached occasionally. An
@@ -450,9 +451,9 @@ export const DASHBOARD_STYLES = `
   }
   /*
      They wrap; they never disappear. Hiding them below 60rem made Applications
-     and Test users unreachable on a phone, which the navigation suite caught
-     immediately — "every destination is still reachable there" is a rule this
-     bar already had, and item 25 is why the bar wraps at all.
+     and Test users unreachable in a narrow window, which the navigation suite
+     caught immediately — "every destination is still reachable there" is a
+     rule this bar already had, and item 25 is why the bar wraps at all.
   */
   @media (max-width: 60rem) {
     .ctx-setup { margin-left: 0; }
@@ -615,16 +616,16 @@ export const DASHBOARD_STYLES = `
     .content-row:has(.sidecar) { grid-template-columns: minmax(0, 1fr); }
     .sidecar { position: static; }
     /*
-       Three things in one row stops fitting somewhere around a phone. Wrapping
-       is the graceful end of that — the alternative is the theme control
-       hanging off the right edge, which is what it did before this rule.
+       Three things in one row stops fitting in a narrow window. Wrapping is
+       the graceful end of that — the alternative is the theme control hanging
+       off the right edge, which is what it did before this rule.
 
        Wrapping .topbar itself is not enough: .topbar-end holds the
        application switcher and the theme control as two flex items with no
-       wrap of their own, so on a real phone width (375px) their combined
-       content width (408px, measured) overflowed the viewport rather than
-       dropping to a second line — .topbar had wrapped, but its one remaining
-       child had nothing left to shrink into.
+       wrap of their own, so .topbar wrapping onto a second row still left
+       that row having to fit both side by side. Measured on the running page,
+       the bar goes to two rows at 720px — half a 1440px laptop screen, and
+       the narrowest window this desktop-only tool is held to.
     */
     .topbar { flex-wrap: wrap; row-gap: .4rem; }
     .topbar-end { flex-wrap: wrap; justify-content: flex-end; row-gap: .4rem; }

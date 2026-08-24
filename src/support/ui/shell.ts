@@ -640,8 +640,8 @@ function applicationSwitcher(target: TargetContext): string {
  * nothing.
  *
  * Hiding it there is safe in the way item 75's mistake was not: that hid two
- * *links*, and made Applications and Test users unreachable on a phone. This
- * hides a mark that carries no destination.
+ * *links*, and made Applications and Test users unreachable in a narrow
+ * window. This hides a mark that carries no destination.
  */
 function setupDivider(): string {
   return `<span class="ctx-divider" aria-hidden="true"></span>`;

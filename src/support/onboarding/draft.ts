@@ -159,7 +159,7 @@ export function draftHasContent(draft: OnboardingDraft): boolean {
  * One application already onboarded, as the dashboard shows it.
  *
  * Derived from the profile on disk rather than from a draft: once a target
- * exists, `config/targets/<name>.ts` is what is true about it, and a
+ * exists, `targets/<name>/profile.ts` is what is true about it, and a
  * remembered form would be a second, staler copy.
  */
 export interface OnboardedApp {

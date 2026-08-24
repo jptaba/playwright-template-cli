@@ -65,8 +65,8 @@ for (const [path, data] of [
 test('a narrow window is not made narrower still', async ({ pages }) => {
   /*
      The other half of a measure, and the way one usually goes wrong: a cap
-     stated in pixels wins on a phone too and leaves a strip of text up one
-     edge of a page that had no width to spare. In ch it only ever binds where
+     stated in pixels wins in a narrow window too and leaves a strip of text
+     up one edge of a page that had no width to spare. In ch it only ever binds where
      the column is wider than the measure — which 900px still is, so the number
      here has to be a window that is genuinely narrow.
   */

@@ -1134,7 +1134,7 @@ TARGET=&lt;app&gt; npx playwright test --project=setup:auth <span class="c"># pr
   <p>
     <code>--with=api,db,contracts,a11y</code> adds the optional layers; the api
     layer also needs <code>--api-url</code>. <strong>There is no registration
-    step</strong> — profiles are discovered from <code>config/targets/</code>,
+    step</strong> — profiles are discovered from <code>targets/</code>,
     so a new file is selectable the moment it lands. Nothing is ever
     overwritten.
   </p>
@@ -1235,7 +1235,7 @@ npm run target:remove -- --name=&lt;app&gt; --confirm=&lt;app&gt;   <span class=
 <section id="config" data-group="An application" data-title="Configuration">
   <div class="sec-head"><span class="sec-num">10</span><h2>The application under test is configuration</h2></div>
   <p class="standfirst">
-    Nothing outside <code>config/targets/</code> may name a host, and framework
+    Nothing outside <code>targets/</code> may name a host, and framework
     code branches on declared capabilities, never on a target name.
   </p>
 
@@ -1887,7 +1887,7 @@ npm run notify:email       <span class="c"># the digest</span></code></pre>
         <tr><td>Troubleshoot by editing a target's own artifacts</td><td><span class="pill wait">rule zero — review</span></td></tr>
         <tr><td><code>waitForTimeout</code>, <code>sleep</code>, or any fixed delay</td><td><code>no-hard-waits</code></td></tr>
         <tr><td>XPath; CSS without a justification comment</td><td><code>no-raw-locators</code></td></tr>
-        <tr><td>A URL or hostname literal outside <code>config/targets/</code></td><td><code>no-hardcoded-urls</code></td></tr>
+        <tr><td>A URL or hostname literal outside <code>targets/</code></td><td><code>no-hardcoded-urls</code></td></tr>
         <tr><td><code>process.env</code> for a credential</td><td><code>secrets-via-fixture</code></td></tr>
         <tr><td>An assertion inside an action</td><td><span class="pill wait">review</span></td></tr>
         <tr><td>An import from <code>locators/</code> inside a spec</td><td><code>layer-boundaries</code></td></tr>
