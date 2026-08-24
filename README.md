@@ -137,7 +137,7 @@ is a framework bug: the thing you need is a capability, not a special case.
 ## Layout
 
 ```
-config/targets/       one profile per application; the only place a host appears
+config/targets/       types.ts alone — the shape every profile is checked against
 eslint-rules/         the thirteen executable conventions, with tests
 src/fixtures/         L3 — the closed vocabulary a generated spec may use
 targets/<app>/        one directory per application: profile, pack, cases, stories

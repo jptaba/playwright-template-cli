@@ -252,7 +252,7 @@ export const RESULTS_DIR = repoPath('results');
  *
  * Beside the draft and the stored selection, and gitignored for the same
  * reason: an address is configuration, and *whose* Vault is a property of the
- * machine rather than of the application under test. `config/targets/` stays
- * free of anything machine-specific, which is the rule that decided this.
+ * machine rather than of the application under test. A profile stays free of
+ * anything machine-specific, which is the rule that decided this.
  */
 export const VAULT_CONNECTION_PATH = repoPath('.vault-connection.json');

@@ -613,9 +613,9 @@ const DRAFT_PATH = ONBOARDING_DRAFT_PATH;
  *
  * Beside the draft and for the same reasons: a fresh random port every run
  * makes `localStorage` a different origin each time, and this is scratch
- * rather than a record. It is deliberately **not** in `config/targets/` — a
- * profile describes the application, and which one somebody is looking at
- * describes the person.
+ * rather than a record. It is deliberately **not** in `targets/` — a profile
+ * describes the application, and which one somebody is looking at describes
+ * the person.
  */
 const SELECTION_PATH = path.join(REPO_ROOT, '.dashboard-selection.json');
 

@@ -64,7 +64,7 @@ export interface SelectionInputs {
  * 1. **The environment wins.** CI sets it, and a file somebody's laptop wrote
  *    must not override it — the same rule the Vault connection settings are
  *    heading for, and the reason the dashboard does not write to
- *    `config/targets/`.
+ *    `targets/<app>/profile.ts`.
  * 2. **Then the stored choice**, if that application still exists. It might
  *    not: offboarding removes profiles, and a selection outliving its target
  *    would scope every page to something that is gone.

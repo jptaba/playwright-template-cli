@@ -781,7 +781,7 @@ function checkParked(profile: TargetProfile, warn: Report): void {
         `"${profile.parked.reason}" — review by ${profile.parked.reviewBy}.`,
     expired
       ? 'Decide again. Either the reason still holds and the date moves, or it does not and ' +
-        `\`parked\` comes off config/targets/${profile.name}.ts.`
+        `\`parked\` comes off targets/${profile.name}/profile.ts.`
       : 'Nothing to fix. Run `npm run suites:live -- --target=' +
         `${profile.name}\` to check whether the reason still holds.`,
   );

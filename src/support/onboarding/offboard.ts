@@ -32,7 +32,7 @@ import { packRootFor, profilePathFor } from '../paths';
 import { describeOrphanedSessions, orphanedSessions } from './sessions';
 
 export interface OffboardFacts {
-  /** Targets with a profile in `config/targets/`. */
+  /** Targets with a profile at `targets/<name>/profile.ts`. */
   knownTargets: string[];
   /** True when `targets/<name>/` exists. */
   packExists: boolean;

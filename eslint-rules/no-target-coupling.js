@@ -23,9 +23,8 @@ module.exports = {
     type: 'problem',
     docs: { description: 'Framework code branches on capabilities, never on a target name.' },
     /**
-     * The names to treat as targets. Defaults to whatever is in
-     * `config/targets/`, which is what every real run uses — `eslint.config.js`
-     * passes nothing.
+     * The names to treat as targets. Defaults to whatever is in `targets/`,
+     * which is what every real run uses — `eslint.config.js` passes nothing.
      *
      * It exists for this rule's own tests. They previously asserted against
      * whichever application happened to be onboarded, so they proved nothing

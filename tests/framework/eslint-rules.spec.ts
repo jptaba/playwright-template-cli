@@ -503,7 +503,7 @@ test('auth-project-boundary stops a login spec inheriting a session', () => {
 
 test('no-target-coupling stops the framework growing a special case for one application', () => {
   /*
-     The names are supplied rather than discovered from `config/targets/`.
+     The names are supplied rather than discovered from `targets/`.
      Reading them from disk meant this test asserted against whichever
      application happened to be onboarded: it proved nothing in the state the
      repository ships in — no targets at all — and failed the moment somebody
