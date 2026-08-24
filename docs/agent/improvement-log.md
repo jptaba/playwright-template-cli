@@ -6683,3 +6683,36 @@ deleted.
 - **A change can be right about the problem and incomplete about the fix.** Item 75 correctly diagnosed that set up was not a daily destination and correctly moved it — and left it visually identical to the switcher it now sat inside. The follow-on defect was created by the fix, in the fix's own commit, and nothing caught it because no test had an opinion about visual rank.
 - **Check a rename against the destination's own name.** "Credentials" sounded better than "Test users" right up to reading what `/users` calls itself. A link that disagrees with its page is the defect being fixed here, one page over.
 - **A recommendation made from a mockup is a hypothesis.** Two of the three things I proposed changed on contact with the codebase — the icon against an existing principle, the second rename against the page's own title. The divider and the affordance, which came from *measured* computed styles rather than from taste, both survived intact.
+
+## 2026-08-23 · run 96 · Sixty dashboards, 5.4 GB, none of them serving anybody
+
+**Picked:** the finding runs 94 and 95 both flagged and neither acted on. Raised as item 78. Nothing in `open-items.md` is `ready`, so the alternative was a scan, and this was already scanned twice.
+
+**Measured first.** 60 live `tools/dashboard.ts` processes holding **5,412 MB**, oldest 15:17, newest 21:32 — about six hours of accumulation on one day. That is "actually broken", which the standing brief puts above UX work.
+
+**The cause, and `shutdown.ts` is the thing that made it findable.** A well-built teardown already exists and is wired to `SIGINT` and `SIGTERM` — Ctrl-C and an explicit kill. Neither is what happens when whatever launched a backgrounded dashboard simply goes away: on Windows no signal is delivered, so the process runs until reboot. Compounding it, the server binds **port 0**, so every invocation is a new server that knows nothing of the others and none of them ever collides or complains.
+
+**`idleWatcher` in `shutdown.ts`, routed through the existing `stopEverything`** so an idle exit closes browsers exactly the way Ctrl-C does rather than becoming a second teardown path — which is the mistake that file's own header warns about. Default 60 minutes, `DASHBOARD_IDLE_MINUTES=0` to opt out, and the window is printed on the startup line, because a server that leaves on its own must never be a mystery.
+
+**Two ways to get this wrong, both found by looking rather than reasoning, and both now tested:**
+
+- **"No recent request" is not idle.** The Runs page holds an `EventSource` open, so a page actively watching a run makes no new request for minutes. A watchdog counting requests would close the server underneath it. The test is zero *connections*.
+- **"Nobody watching" is not "nothing happening".** Start a run, close the tab: no socket, no request — and a browser driving a suite that `stopSync` would cancel. `runManager.active()` guards it, and the deadline restarts from the end of the run rather than the server leaving the instant the last one finishes. `active()` was extracted from `slotsFree()`, which already computed it.
+
+**The live proof corrected my own assumption, which is the entry.** Wired up and run against a real server with a 3-second window, it **did not exit**. Instrumented rather than guessed: `conns: 3`, settling to `conns: 1`. Traced the other end of the socket through `Get-NetTCPConnection` — **msedge**. The dashboard calls `open(url)` unconditionally on startup, so every one of those 60 servers also spawned a browser tab, and the tab was still holding the connection. The watchdog was **right to decline**; my test was wrong. So `getConnections() > 0` turns out to mean exactly "a browser has this page open", which is the semantics I wanted and had not proven.
+
+Then the transition the whole feature rests on, proven directly: client connects → `conns = 1`, watchdog holds off; client destroyed → count **lingers at 1 for about four seconds** through TCP teardown → reaches 0 → fires immediately. Irrelevant against a 60-minute window, and worth knowing it is not instant.
+
+**Also changed, because a fixed interval made the behaviour unobservable:** `IDLE_CHECK_MS` scales to the window rather than sitting at a minute. A short window could not be watched happen, and a thing nobody can watch happen is a thing nobody should trust.
+
+**Verify:** `npm run verify` passes, exit 0 — **1200 tests**, up from 1195. Five new.
+
+**Live suites:** not re-run; this touches `src/support/ui/`, `src/support/runs/` and `tools/` only — no target pack, no spec. Run 94's result stands.
+
+**Not done, and it is the next thing here.** `open(url)` is unconditional, so a scheduled or headless run spawns a browser window on somebody's desktop every time — 60 servers meant 60 tabs, and the tabs are why the servers looked busy. That wants a flag, and it is item 79 rather than scope creep on this one. The 60 existing orphans are still running; the watchdog only reaps the server it lives in.
+
+**Learned:**
+
+- **The feature not working was the feature working.** Ninety seconds from "the watchdog is broken" to "the watchdog is correct and my test was naive", and the only reason it was ninety seconds is that I instrumented the three conditions instead of reasoning about which one was false.
+- **Trace the socket, do not infer it.** `getConnections()` returning 1 on an untouched server is a mystery until `Get-NetTCPConnection` names msedge, and then it is obvious. The first `OwningProcess` lookup answered "node", which is the server's own end and tells you nothing — the remote port has to be looked up separately.
+- **A tool that starts an unbounded number of copies of itself will.** Port 0 is the right default for a local dev server and it removes every natural limit; nothing here noticed sixty until somebody counted.

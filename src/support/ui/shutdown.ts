@@ -44,6 +44,78 @@ export interface ShutdownOptions {
  * while the first is still closing must not start a second teardown, and must
  * not exit underneath the first one.
  */
+export interface IdleOptions {
+  /** Nothing happening for this long, and the server gives the machine back. */
+  idleMs: number;
+  /**
+   * Sockets open right now.
+   *
+   * Load-bearing, and the reason "no requests lately" is not the test on its
+   * own: the Runs page holds an `EventSource` open, so a page watching a run
+   * makes no new requests for minutes at a time while being very much in use.
+   * A watchdog counting requests would shut the server down underneath it.
+   */
+  connections: () => Promise<number>;
+  /**
+   * True while a run is in flight.
+   *
+   * The other way to get this wrong. Start a run, close the tab, and there is
+   * no connection and no request — but there is a browser driving a suite, and
+   * the teardown below cancels runs. Nobody watching is not the same as
+   * nothing happening.
+   */
+  busy: () => boolean;
+  /** What to do about it — the same teardown Ctrl-C runs. */
+  onIdle: () => void;
+  /** Injected so a test does not sit through the deadline. */
+  now?: () => number;
+}
+
+/**
+ * Give the machine back when nobody is using this — item 78.
+ *
+ * The dashboard binds port 0, so every invocation is a *new* server and none
+ * of them knows about the others. Nothing reaps them: `shutdownHandler` covers
+ * `SIGINT` and `SIGTERM`, which is Ctrl-C and an explicit kill, and neither is
+ * what happens when the thing that launched a backgrounded server simply goes
+ * away. On Windows no signal is delivered at all, so the server runs forever.
+ *
+ * Measured on this machine before this existed: **60 live dashboards holding
+ * 5.4 GB**, the oldest six hours old, every one of them serving nobody.
+ *
+ * Exposed as `check` rather than run off a timer internally so the deadline is
+ * testable without waiting for it — the same reason `shutdownHandler` injects
+ * `wait`.
+ */
+export function idleWatcher(options: IdleOptions): {
+  touch: () => void;
+  check: () => Promise<void>;
+} {
+  const now = options.now ?? (() => Date.now());
+  let last = now();
+  let fired = false;
+
+  return {
+    touch: () => {
+      last = now();
+    },
+    check: async () => {
+      if (fired) return;
+      if (options.busy()) {
+        /* A run in flight is activity, and it is also what would be destroyed.
+           Touching here means the deadline starts from when the run ends. */
+        last = now();
+        return;
+      }
+      if (now() - last < options.idleMs) return;
+      if ((await options.connections()) > 0) return;
+
+      fired = true;
+      options.onIdle();
+    },
+  };
+}
+
 export function shutdownHandler(options: ShutdownOptions): () => void {
   const graceMs = options.graceMs ?? 3_000;
   const wait =

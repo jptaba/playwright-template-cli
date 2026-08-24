@@ -99,7 +99,7 @@ import { registerSecretPayload } from '../src/support/redact';
 import type { ScaffoldOptions, ScaffoldPlan } from '../src/support/onboarding/scaffold';
 import { editProfileSource } from '../src/support/onboarding/edit-profile';
 import { closeOnFailure, launchBrowser } from '../src/support/ui/failures';
-import { shutdownHandler } from '../src/support/ui/shutdown';
+import { idleWatcher, shutdownHandler } from '../src/support/ui/shutdown';
 import {
   draftIsStale,
   EMPTY_DRAFT,
@@ -128,6 +128,27 @@ import type { TargetProfile } from '../config/targets/types';
  */
 
 const HOST = '127.0.0.1';
+
+/**
+ * How long a dashboard nobody is using waits before giving the machine back —
+ * item 78.
+ *
+ * An hour is deliberately generous. The cost of being wrong is one command to
+ * run again; the cost of never leaving was measured at 60 servers and 5.4 GB.
+ * `DASHBOARD_IDLE_MINUTES=0` switches it off for anybody who wants the old
+ * behaviour, which is the escape hatch rather than the default.
+ */
+const IDLE_MINUTES = Number(process.env.DASHBOARD_IDLE_MINUTES ?? 60);
+const IDLE_MS = Number.isFinite(IDLE_MINUTES) ? Math.max(0, IDLE_MINUTES) * 60_000 : 3_600_000;
+/**
+ * Often enough to be timely, rarely enough that it costs nothing to check.
+ *
+ * Scaled to the window rather than fixed at a minute: a fixed interval means a
+ * short window cannot be observed for up to a minute after it passes, which
+ * makes the behaviour untestable against a real server — and a thing nobody
+ * can watch happen is a thing nobody should trust.
+ */
+const IDLE_CHECK_MS = Math.max(250, Math.min(60_000, IDLE_MS));
 
 /**
  * Minted per run and required on every mutating request.
@@ -1753,7 +1774,26 @@ function openPath(): string {
 }
 
 function main(): void {
+  /*
+     Declared before the server so the request handler can touch it, and
+     reaching forward to `server` and `stopEverything`, both of which exist by
+     the time anything here is called.
+  */
+  const idle = idleWatcher({
+    idleMs: IDLE_MS,
+    connections: () =>
+      new Promise<number>((resolve) => {
+        server.getConnections((error, count) => resolve(error ? 1 : count));
+      }),
+    busy: () => runManager.active() > 0,
+    onIdle: () => {
+      console.log(`No one has used this dashboard for ${IDLE_MINUTES} minutes. Closing it.`);
+      stopEverything();
+    },
+  });
+
   const server = http.createServer((request, response) => {
+    idle.touch();
     void (async () => {
       try {
         const url = new URL(request.url ?? '/', `http://${request.headers.host ?? HOST}`);
@@ -1821,6 +1861,21 @@ function main(): void {
     process.on(signal, stopEverything);
   }
 
+  /*
+     And leave when nobody is here — item 78.
+
+     The two signals above are Ctrl-C and an explicit kill. Neither is what
+     happens when whatever launched a backgrounded dashboard goes away: on
+     Windows no signal is delivered, so the server runs until the machine is
+     rebooted. Because this binds port 0, every invocation is a *new* server
+     that knows nothing of the others, and they accumulate — measured at 60
+     of them holding 5.4 GB, the oldest six hours old, all serving nobody.
+
+     Through `stopEverything`, so an idle exit closes the browsers exactly the
+     way Ctrl-C does rather than becoming a second teardown path.
+  */
+  if (IDLE_MS > 0) setInterval(() => void idle.check(), IDLE_CHECK_MS).unref();
+
   server.listen(0, HOST, () => {
     const address = server.address();
     const port = typeof address === 'object' && address ? address.port : 0;
@@ -1846,7 +1901,14 @@ function main(): void {
     // Runs need this to post frames back, and it is only knowable now.
     runManager.setEndpoint(url, TOKEN);
     console.log(`\nOnboarding dashboard: ${url}`);
-    console.log('Bound to loopback only. Press Ctrl+C when the target is created.\n');
+    console.log('Bound to loopback only. Press Ctrl+C when the target is created.');
+    /* Said out loud, because a server that leaves on its own must never be a
+       mystery — and because this is the line that tells you how to stop it. */
+    console.log(
+      IDLE_MS > 0
+        ? `Closes itself after ${IDLE_MINUTES} idle minutes (DASHBOARD_IDLE_MINUTES=0 to stay up).\n`
+        : 'Stays up until stopped (DASHBOARD_IDLE_MINUTES=0).\n',
+    );
     open(url);
   });
 }

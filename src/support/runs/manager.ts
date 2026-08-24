@@ -71,8 +71,19 @@ export class RunManager {
       }));
   }
 
+  /**
+   * How many runs are in flight.
+   *
+   * Named because two callers want it for opposite reasons: `slotsFree` asks
+   * so it can refuse a third, and the idle watchdog asks so it never gives the
+   * machine back underneath a run whose page nobody happens to be looking at.
+   */
+  active(): number {
+    return activeRuns([...this.runs.values()].map((t) => t.record)).length;
+  }
+
   slotsFree(): number {
-    return Math.max(0, 2 - activeRuns([...this.runs.values()].map((t) => t.record)).length);
+    return Math.max(0, 2 - this.active());
   }
 
   /**

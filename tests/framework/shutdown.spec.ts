@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { shutdownHandler } from '../../src/support/ui/shutdown';
+import { idleWatcher, shutdownHandler } from '../../src/support/ui/shutdown';
 
 /**
  * Stopping the dashboard without leaving its browsers behind.
@@ -113,4 +113,105 @@ test('nothing to close is not a special case', async () => {
   let exited = false;
   shutdownHandler({ closeAsync: async () => undefined, exit: () => (exited = true) })();
   await expect.poll(() => exited).toBe(true);
+});
+
+// ---------------------------------------------------------------------------
+// Leaving when nobody is here — item 78
+// ---------------------------------------------------------------------------
+
+/**
+ * The dashboard binds port 0, so every invocation is a new server that knows
+ * nothing of the others, and `SIGINT`/`SIGTERM` do not fire when whatever
+ * launched a backgrounded one simply goes away. Measured before this existed:
+ * 60 live dashboards holding 5.4 GB, the oldest six hours old, serving nobody.
+ *
+ * The deadline is driven by a fake clock rather than waited out — the same
+ * reason the handler above injects `wait`.
+ */
+const anIdleWatcher = (over: Partial<Parameters<typeof idleWatcher>[0]> = {}) => {
+  const state = { clock: 0, idled: 0, sockets: 0, running: false };
+  const watcher = idleWatcher({
+    idleMs: 1_000,
+    now: () => state.clock,
+    connections: async () => state.sockets,
+    busy: () => state.running,
+    onIdle: () => (state.idled += 1),
+    ...over,
+  });
+  return { ...watcher, state };
+};
+
+test('a server nobody has touched gives the machine back', async () => {
+  const idle = anIdleWatcher();
+
+  idle.state.clock = 999;
+  await idle.check();
+  expect(idle.state.idled, 'not yet — the deadline has not passed').toBe(0);
+
+  idle.state.clock = 1_000;
+  await idle.check();
+  expect(idle.state.idled).toBe(1);
+});
+
+test('an open socket is somebody, even with no request for an hour', async () => {
+  /*
+     The Runs page holds an EventSource open, so a page watching a run makes no
+     new request for minutes while being very much in use. A watchdog counting
+     requests alone would close the server underneath it.
+  */
+  const idle = anIdleWatcher();
+  idle.state.sockets = 1;
+  idle.state.clock = 10_000;
+
+  await idle.check();
+  expect(idle.state.idled).toBe(0);
+
+  idle.state.sockets = 0;
+  await idle.check();
+  expect(idle.state.idled, 'and it leaves once the last page closes').toBe(1);
+});
+
+test('a run in flight is never cancelled because nobody was watching it', async () => {
+  // Start a run, close the tab: no socket and no request, but a browser is
+  // driving a suite — and the teardown this triggers cancels runs.
+  const idle = anIdleWatcher();
+  idle.state.running = true;
+  idle.state.clock = 10_000;
+
+  await idle.check();
+  expect(idle.state.idled).toBe(0);
+
+  // And the deadline restarts from the end of the run, rather than the server
+  // leaving the instant the last one finishes.
+  idle.state.running = false;
+  await idle.check();
+  expect(idle.state.idled).toBe(0);
+
+  idle.state.clock = 11_000;
+  await idle.check();
+  expect(idle.state.idled).toBe(1);
+});
+
+test('a request puts the deadline back', async () => {
+  const idle = anIdleWatcher();
+
+  idle.state.clock = 900;
+  idle.touch();
+  idle.state.clock = 1_800;
+  await idle.check();
+
+  expect(idle.state.idled, 'touched at 900, so the deadline is 1900').toBe(0);
+});
+
+test('it leaves once, however often it is checked afterwards', async () => {
+  // The teardown calls process.exit; a second one racing it is the shape
+  // `shutdownHandler` guards against, and this must not hand it the chance.
+  const idle = anIdleWatcher();
+  idle.state.clock = 10_000;
+
+  await idle.check();
+  await idle.check();
+  await idle.check();
+
+  expect(idle.state.idled).toBe(1);
 });
