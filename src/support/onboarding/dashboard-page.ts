@@ -494,8 +494,8 @@ ${overview([
   <details class="danger">
     <summary>Remove an application</summary>
     <p class="explain">
-      Removes the profile, the pack, the credential entries, the stored sessions, the cases
-      and the onboarding draft. Nothing else.
+      Removes the application&rsquo;s directory &mdash; profile, pack, cases, stories &mdash;
+      and its credential entries, stored sessions and draft. Nothing else.
     </p>
     <details class="more">
       <summary>Why removing one is a normal thing to do</summary>

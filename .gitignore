@@ -20,6 +20,10 @@ node_modules/
 # Accessibility snapshots written by @playwright/cli during exploration. They
 # contain rendered application content and are authoring scratch, not source.
 .playwright-cli/
+# The same, from the MCP server: page snapshots and console logs written while
+# a human drives a page interactively. Missing here meant a scan run left
+# untracked files behind, and lint failed on the seed spec it also writes.
+.playwright-mcp/
 blob-report/
 playwright-report/
 test-results/

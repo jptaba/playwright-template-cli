@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 
 /** Repository root, resolved from this file rather than from `process.cwd()`. */
@@ -167,6 +168,36 @@ export const LIVE_EVENTS_PATH = process.env.LIVE_EVENTS_PATH ?? null;
 export const TRIAGE_RESULT_PATH = repoPath('triage-result.json');
 /** The one root every application's committed artifacts live under. */
 export const TARGETS_ROOT = repoPath('targets');
+
+/**
+ * Every application with a profile on disk, in directory order.
+ *
+ * A listing, not a load: it answers "which applications does this repository
+ * have?" without requiring any of them to be valid, which is what the doctor
+ * and the offboarder need — a profile that will not compile is still an
+ * application somebody has to be able to remove.
+ *
+ * Written down once because it was written down four times, each as "the `.ts`
+ * files in the profile directory". When the profiles moved into their
+ * applications' own directories, two of the four kept filtering for `.ts`
+ * files in a directory that now holds only sub-directories, and quietly
+ * returned nothing: the dashboard decided no application was onboarded and
+ * opened on the onboarding form with five of them configured, and the
+ * offboarder reported "Known: (none)".
+ */
+export const onboardedTargetNames = (root = TARGETS_ROOT): string[] => {
+  if (!fs.existsSync(root)) return [];
+  return fs
+    .readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .filter((name) => fs.existsSync(path.join(root, name, 'profile.ts')))
+    .sort();
+};
+
+/** Where one application's profile is. */
+export const profileFileFor = (target: string, root = TARGETS_ROOT): string =>
+  path.join(root, target, 'profile.ts');
 
 /** Test cases, and the requirements they were derived from. */
 export const casesDirFor = (target: string): string =>

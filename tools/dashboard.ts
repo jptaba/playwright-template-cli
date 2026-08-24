@@ -8,6 +8,8 @@ import os from 'node:os';
 import {
   AUTH_DIR,
   casesDirFor,
+  onboardedTargetNames,
+  profileFileFor,
   ONBOARDING_DRAFT_PATH,
   REPO_ROOT,
   RUN_RESULT_PATH,
@@ -163,12 +165,7 @@ const IDLE_CHECK_MS = Math.max(250, Math.min(60_000, IDLE_MS));
 const TOKEN = crypto.randomBytes(24).toString('hex');
 
 function existingTargets(): string[] {
-  const directory = path.join(REPO_ROOT, 'targets');
-  if (!fs.existsSync(directory)) return [];
-  return fs
-    .readdirSync(directory)
-    .filter((file) => file.endsWith('.ts') && file !== 'types.ts')
-    .map((file) => file.replace(/\.ts$/, ''));
+  return onboardedTargetNames();
 }
 
 /** Which of a plan's files already exist. Nothing is ever overwritten. */
@@ -671,12 +668,9 @@ function readDraft(): OnboardingDraft {
  * to record it.
  */
 function onboarded(): OnboardedApp[] {
-  const directory = path.join(REPO_ROOT, 'targets');
-  if (!fs.existsSync(directory)) return [];
-
   const found: OnboardedApp[] = [];
   for (const name of existingTargets()) {
-    const file = path.join(directory, `${name}.ts`);
+    const file = profileFileFor(name);
     let profile: TargetProfile | undefined;
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -1351,7 +1345,7 @@ const authoring: AuthoringService = {
       reason:
         `Reading a story from Jira needs ${!baseURL ? 'JIRA_BASE_URL' : ''}` +
         `${!baseURL && !token ? ' and ' : ''}${!token ? 'JIRA_PAT' : ''}. ` +
-        'Stories already in stories/ can be drafted from without either.',
+        'Stories already under targets/<app>/stories/ can be drafted from without either.',
     };
   },
 

@@ -235,9 +235,19 @@ export function planOffboard(rawName: string, facts: OffboardFacts): OffboardPla
      the pack directory. They are listed separately in the facts so the
      confirmation can count them by kind, not so they can be removed twice.
   */
+  /*
+     De-duplicated, because the profile is inside the pack directory now and
+     the walk that produced `packFiles` therefore already found it. Listed
+     twice, it appeared twice in the plan a person reads before agreeing to a
+     deletion, and inflated the count by one — 36 files for a pack holding 35.
+     Kept as an explicit entry as well, so a profile that somehow escaped the
+     walk is still named rather than silently missed.
+  */
   const removeFiles = [
-    ...(facts.knownTargets.includes(target) ? [profile] : []),
-    ...facts.packFiles.map((file) => `${packRoot}/${file}`),
+    ...new Set([
+      ...(facts.knownTargets.includes(target) ? [profile] : []),
+      ...facts.packFiles.map((file) => `${packRoot}/${file}`),
+    ]),
   ];
 
   /*

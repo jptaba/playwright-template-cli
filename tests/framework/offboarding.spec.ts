@@ -197,6 +197,27 @@ test.describe('the confirmation', () => {
   });
 });
 
+test('the profile is listed once, not twice, now that it lives in the pack', () => {
+  /*
+     Found by driving the removal panel rather than by a test, because every
+     fixture here invented its own `packFiles` and none of them included the
+     profile — which the real walk does, since the profile moved inside the
+     application's directory. So the plan named `targets/toolshop/profile.ts`
+     twice and offered to remove "36 file(s)" from a pack holding 35.
+
+     A duplicate in a list somebody reads before agreeing to a deletion is not
+     cosmetic: it is the one screen where the count is the safeguard.
+  */
+  const plan = planOffboard('acme-shop', {
+    ...facts(),
+    packFiles: ['profile.ts', 'fixtures.ts', 'locators/sign-in.ts'],
+  });
+
+  const profiles = plan.removeFiles.filter((file) => file.endsWith('/profile.ts'));
+  expect(profiles).toEqual(['targets/acme-shop/profile.ts']);
+  expect(plan.removeFiles).toHaveLength(3);
+});
+
 test.describe('the cases and stories a target owns', () => {
   /*
      Cases carry `target:` in their own body and stories carry nothing at all,

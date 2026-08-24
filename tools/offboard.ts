@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { ONBOARDING_DRAFT_PATH, REPO_ROOT } from '../src/support/paths';
+import { ONBOARDING_DRAFT_PATH, REPO_ROOT, onboardedTargetNames } from '../src/support/paths';
 import {
   PRIVATE_STORE_FILE,
   SHARED_STORE_FILE,
@@ -41,13 +41,7 @@ Options:
   --keep-secrets     leave config/secrets.local.json alone`;
 
 export function gatherFacts(target: string): OffboardFacts {
-  const targetsDir = path.join(REPO_ROOT, 'targets');
-  const knownTargets = fs.existsSync(targetsDir)
-    ? fs
-        .readdirSync(targetsDir)
-        .filter((file) => file.endsWith('.ts') && file !== 'types.ts')
-        .map((file) => file.replace(/\.ts$/, ''))
-    : [];
+  const knownTargets = onboardedTargetNames();
 
   const packRoot = path.join(REPO_ROOT, 'targets', target);
   const packFiles: string[] = [];
