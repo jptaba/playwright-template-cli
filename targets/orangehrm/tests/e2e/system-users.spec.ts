@@ -85,19 +85,30 @@ test(
     await users.open(authedPage);
     const before = await users.read(authedPage);
 
+    /*
+       One existing username, not the aggregate total. `before.total` is the
+       whole shared demo's user count, and this suite's own OHRM-2-01 and
+       OHRM-3-01 create and remove users on that same list concurrently — so
+       "the same total again" compares two different moments of data this
+       spec did not create, and a neighbour's write between the two reads
+       fails an idempotency spec for a reason that has nothing to do with
+       resetting a filter. Whether one specific already-listed user
+       reappears after the round trip carries none of that: it is wrong only
+       if that exact record vanished in the window, not if the list's size
+       moved at all.
+    */
+    const marker = before.usernames[0]!;
+
     await users.searchByUsername(authedPage, 'zzzqqqxxx-no-such-user');
     await users.reset(authedPage);
     const afterOnce = await users.read(authedPage);
 
-    /*
-       Filtering and clearing is a round trip, and the count is what proves it
-       round-tripped. Asserting only "there are rows again" would pass on a
-       list that came back narrowed.
-    */
-    expect(afterOnce.total, 'clearing the filter did not restore the full list').toBe(before.total);
+    expect(afterOnce.usernames, 'clearing the filter did not restore the full list').toContain(
+      marker,
+    );
 
     // And again: clearing an already-clear filter changes nothing.
     await users.reset(authedPage);
-    expect((await users.read(authedPage)).total).toBe(before.total);
+    expect((await users.read(authedPage)).usernames).toContain(marker);
   },
 );

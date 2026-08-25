@@ -66,31 +66,43 @@ test(
   },
   async ({ authedPage, rooms, roomsApi, testData }) => {
     const room = testData.room();
+    /*
+       A second room this spec owns, standing in for "everything else on the
+       list" — the total room count is not, because it is the whole shared
+       demo's count and this suite's own other specs add and remove rooms on
+       that same list concurrently. A canary answers the actual concern
+       stated below without racing anyone: it proves the second removal did
+       not reach past `room`, using a record only this test can delete.
+    */
+    const canary = testData.room({ type: 'Double' });
 
     await rooms.open(authedPage);
 
     try {
       await rooms.add(authedPage, room);
-      const before = (await roomsApi.all()).length;
+      await rooms.add(authedPage, canary);
 
       await rooms.remove(authedPage, room.name);
       await rooms.remove(authedPage, room.name);
 
       /*
-         The point of an idempotency check is the *count*, not the absence.
-         "It is gone" passes whether the second removal did nothing or deleted
-         somebody else's room — and on a shared demo the second is a real
-         possibility, since the delete control is addressed by position within
-         its row.
+         The point of an idempotency check is more than absence. "It is gone"
+         passes whether the second removal did nothing or deleted somebody
+         else's room — and on a shared demo the second is a real possibility,
+         since the delete control is addressed by position within its row.
+         The canary is what proves it did not: a room this spec created and
+         never asked to remove, still there after the second call.
       */
       const after = await roomsApi.all();
-      expect(after.map((listed) => listed.roomName)).not.toContain(room.name);
+      const names = after.map((listed) => listed.roomName);
+      expect(names, 'removing the room twice left it behind').not.toContain(room.name);
       expect(
-        after.length,
-        'removing the same room twice removed more than the one room',
-      ).toBe(before - 1);
+        names,
+        'removing the same room twice also removed a different one',
+      ).toContain(canary.name);
     } finally {
       await rooms.remove(authedPage, room.name);
+      await rooms.remove(authedPage, canary.name);
     }
   },
 );

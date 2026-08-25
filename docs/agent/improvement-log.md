@@ -7199,3 +7199,105 @@ directly.
   last-recorded shape and one small tooling caveat worth a sentence is not
   nothing — it is the confirmation that run 101's fix holds under a second,
   independent drive of the same page.
+
+## 2026-08-24 · run 103 · Item 68's diagnosis was half stale, and the two real offenders were unnamed
+
+**Picked:** nothing was `ready` — 68 and 11 `hypothesis`, 49 `blocked` on
+credentials only the owner holds. Run 102 had just done a full clean dashboard
+sweep, so re-driving all seven pages again would have been the same evidence a
+second time. Turned to item 68 instead: it is the one `hypothesis` with a
+concrete, checkable claim about code, rather than a standing objective.
+
+**The claim did not survive being checked against the files it named.** Item
+68 proposed two suite-side fixes and said both were "known and unexercised."
+Reading `orangehrm/fixtures.ts:54`, `restful-booker/fixtures.ts:61-68` and
+`src/fixtures/base.ts:222` showed fix #2 — a per-worker namespace — already
+shipped: `run.unique(prefix)` builds `` `${prefix}-${RUN_ID}-w${workerIndex}-${++counter}` ``
+and every `testData` builder in both packs already routes through it. And the
+item's own example for fix #1 was wrong: `OHRM-3-01`
+(`system-user-lifecycle.spec.ts:101-105`) already narrows with
+`searchByUsername` before asserting anything, and `git log --follow` shows it
+has read that way since the spec was written on 2026-08-19 (`49285c0`) — a
+commit that predates run 85, where item 68 was raised. The item was
+misdiagnosing a file that had never had the problem it named.
+
+**Reading the rest of both packs' specs (six files, all of them) found the two
+that actually still do it, which the item had never named:**
+
+- `OHRM-1-03 · Clearing the filter restores the full list @idempotency`
+  (`targets/orangehrm/tests/e2e/system-users.spec.ts`) compared `before.total`
+  — the whole shared demo's user count — against a second read after a
+  search/reset round trip. `OHRM-2-01` and `OHRM-3-01` create and remove users
+  on that same list in parallel workers throughout a live run, so the
+  comparison is between two different moments of data this spec does not own.
+- `RB-3-02 · Removing a room twice removes one room @idempotency`
+  (`targets/restful-booker/tests/e2e/rooms-lifecycle.spec.ts`) compared
+  `(await roomsApi.all()).length` before and after a double-remove, against
+  the same shared room list every other `restful-booker` spec mutates
+  concurrently.
+
+**Fixed both, without weakening either claim or touching either file's stated
+design.** `system-users.spec.ts`'s own docblock commits to staying read-only —
+"a spec must not assert on data it did not create" — so `OHRM-1-03` was not
+given a canary record. It now asserts that one specific already-listed
+username (`before.usernames[0]`, the same "derive, never transcribe" move
+`OHRM-1-01` already makes) reappears after the round trip, rather than that
+the aggregate total matches exactly. That assertion is wrong only if that one
+record is deleted in the exact window between the two reads — not if the
+list's size moves at all, which is what an unrelated worker's create or
+delete does constantly.
+
+`RB-3-02` gained a canary room the spec creates and never removes, and now
+asserts the canary is still listed after the double-remove, which is what
+actually answers the concern the file's own comment already named — that the
+delete control addresses by position within its row, so a second identical
+click could take a neighbour instead of doing nothing. A total-length
+comparison could not distinguish "the second click deleted a room I don't own"
+from "a concurrent worker legitimately removed its own room in the same
+window"; the canary can, because only this test can make it disappear.
+
+**Proven against the real deployments, not only in the rewritten assertions'
+own logic.** `TARGET=orangehrm npx playwright test --project=e2e --grep
+OHRM-1-03` and `TARGET=restful-booker npx playwright test --project=e2e --grep
+RB-3-02` both green individually. `npm run suites:live` at each application's
+existing (capped) worker count: **orangehrm 6/7, restful-booker 12/13**, both
+failing only on item 62's accepted a11y red — no regression from the rewrite,
+and toolshop/saucedemo/parabank unchanged from run 102's headline.
+
+**Verify:** `npm run verify` passes — 1247 tests (unchanged; both edits are
+inside existing specs, no new test added). `npm run instructions:check` and
+`npm run catalog:check` both clean.
+
+**Not done, on purpose.** The worker cap on both applications is untouched.
+Item 68's own ordering — "do not start this by lifting the cap" — still
+applies, and now applies more honestly: step 1 ("make the assertions
+worker-safe") was believed done and was not; it is now actually done, as far
+as a full read of both packs can show. Whether these two fixes are in fact
+what run 85 and run 100 saw fail at width is still unproven — that needs the
+suite run wide against two real public demos more than once, which is real
+load on someone else's site and is exactly the judgement call item 68's last
+paragraph was already flagging. Left `hypothesis`, not promoted to `ready`,
+for that reason.
+
+**Push.** `git push -u origin agent/2026-08-24-worker-safe-list-assertions`,
+then `git checkout main && git merge --ff-only … && git push origin main`.
+`git rev-parse --short main origin/main` confirmed the same commit after the
+push — recorded here rather than assumed.
+
+**Learned:**
+
+- **A backlog item's own diagnosis is a claim about the code when it was
+  written, not a fact about the code now.** Half of item 68's cited evidence
+  had been overtaken by other work (the per-worker namespace shipped as
+  general fixture plumbing; `OHRM-3-01` was fixed as part of run 69/70's
+  "finish orangehrm's five kinds" work) without item 68 ever being revisited.
+  `git log --follow` on the exact file a hypothesis names is cheap and would
+  have caught this before any code was touched.
+- **"Assert on what you created" and "assert on the full list" can look
+  identical in a diff until you ask what happens under a concurrent write.**
+  Both broken specs read as careful, deliberate tests on their own — RB-3-02's
+  own comment even names the correct concern (position-addressed deletes)
+  while asserting the wrong thing to prove it wasn't happening. The tell was
+  not the code's tone, it was tracing exactly which two reads a `total`/
+  `.length` comparison spans and asking what else touches that number in
+  between.

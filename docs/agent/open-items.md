@@ -19,6 +19,16 @@ decide what to do.
 | 49 | Point the notifications at a real Teams channel and Outlook relay | `blocked` |
 | 11 | A repeatable learn-fix-optimise loop over a full run | `hypothesis` |
 
+**Run 103 read every spec in `orangehrm` and `restful-booker` end to end
+against item 68, rather than trusting the item's own description.** Half of
+what it credited as unexercised was already shipped — per-worker namespacing
+via `run.unique`, and `OHRM-3-01` already narrows by username. The two specs
+that actually still compared a shared demo's full-list count across two
+points in time (`OHRM-1-03`, `RB-3-02`) are fixed, each without weakening
+what it proves or touching its file's stated design. Both live suites still
+show only item 62's accepted a11y red. The worker cap itself is untouched —
+see item 68 for why lifting it is still a separate, judgement-weighted step.
+
 **Run 102 was a scan and found nothing new on the dashboard — the first time a
 full sweep has come back clean since this file started tracking them.** All
 seven pages (Runs, Stories, Cases, Triage, Publish, Test users, Onboard) were
@@ -375,24 +385,74 @@ more.
 worker** and both earned that cap honestly — they failed at wider settings on
 specs asserting what a global list contains.
 
-But the cap is a blunt answer to a narrow problem. Neither failure was about
-sharing an identity; both were about two workers mutating one list. The
-suite-side fixes are known and unexercised here:
+**Run 103 re-checked both packs' entire spec surface against the running
+code, not against this item's own description, and found the description was
+half wrong.** Fix #2 (per-worker namespacing) was **already shipped** —
+`run.unique(prefix)` (`src/fixtures/base.ts:222`) builds every generated name
+as `` `${prefix}-${RUN_ID}-w${workerIndex}-${++counter}` ``, and both packs'
+`testData` builders already route every created name through it
+(`targets/restful-booker/fixtures.ts:61-68`,
+`targets/orangehrm/fixtures.ts:54`) — so two workers cannot collide on a
+generated name today. And fix #1's own example was stale: `OHRM-3-01`
+(`targets/orangehrm/tests/e2e/system-user-lifecycle.spec.ts:101-105`) already
+narrows with `searchByUsername(authedPage, username)` before asserting
+anything, and has since the spec was written (2026-08-19, commit `49285c0`,
+unchanged since) — it was never the file this item's diagnosis pointed at.
 
-1. **Scope every list assertion to what the spec created.** `run.runId` already
-   tags created records, and `orangehrm`'s filter specs half do this already —
-   `OHRM-1-01` narrows by username and passes at five workers, while
-   `OHRM-3-01` asserts on the unfiltered list and does not.
-2. **Give the fixture data a per-worker namespace**, so two workers cannot
-   generate colliding names.
+**Reading every spec in both packs turned up the two that actually still do
+it, which this item had not named:**
 
-**Do not start this by lifting the cap.** The order is: make the assertions
-worker-safe, prove it at width, *then* lift. Reversed, it is run 85 again.
+- `OHRM-1-03 · Clearing the filter restores the full list @idempotency`
+  (`targets/orangehrm/tests/e2e/system-users.spec.ts`, was line 97) compared
+  `before.total` — the whole shared demo's user count — against a second read
+  taken after a search/reset round trip. `OHRM-2-01` and `OHRM-3-01` create and
+  remove users on that same list, in parallel workers, throughout a live run.
+- `RB-3-02 · Removing a room twice removes one room @idempotency`
+  (`targets/restful-booker/tests/e2e/rooms-lifecycle.spec.ts`, was line
+  74–91) compared `(await roomsApi.all()).length` before and after a
+  double-remove, against the same shared room list every other
+  `restful-booker` spec mutates concurrently.
 
-**Worth weighing against the cost.** One worker is slow but correct, and these
-are vendor demos where the room and user lists are shared with strangers
-anyway. The honest question is whether the wall-clock saved is worth rewriting
-specs that currently read cleanly — which is a judgement, not a measurement.
+Both are now fixed, on `agent/2026-08-24-worker-safe-list-assertions`, without
+touching either file's stated design:
+
+- `OHRM-1-03` stays read-only (the file's own docblock commits to that, to
+  avoid mutating a shared demo) — fixed by asserting that one specific
+  already-listed username (`before.usernames[0]`) reappears after the round
+  trip, instead of that the aggregate total matches. Wrong only if that one
+  record is deleted in the exact window, not if the list's size moves at all.
+- `RB-3-02` gains a canary room the spec creates and never removes, and asserts
+  the canary is still listed after the double-remove — proving the second
+  `remove` call did not reach past its own room (the position-addressed delete
+  control the file's comment already worried about) without needing the
+  total list length at all.
+
+Proven individually against the real deployments
+(`TARGET=orangehrm npx playwright test --project=e2e --grep OHRM-1-03`,
+`TARGET=restful-booker npx playwright test --project=e2e --grep RB-3-02` —
+both green), and `npm run suites:live` at each application's normal
+(capped) worker count shows no regression: orangehrm 6/7, restful-booker
+12/13, both failing only on item 62's accepted a11y red.
+
+**Still not done, and this is the part the cost/benefit judgement in the
+original text was actually about:** the cap has not been lifted, and proving
+these two fixes hold *at width* — the failure mode run 85 and run 100 both
+saw — needs the suite actually run wide against the real demos, more than
+once, which is real load on two public sites. That is future work for
+whoever takes this next, now that step 1 ("make the assertions worker-safe")
+is honestly complete rather than believed complete. **Do not start that by
+lifting the cap either** — run it wide without the config change first
+(`npx playwright test --project=e2e` with `PWTEST_WORKERS` or an explicit
+`--workers=`, cap still in the profile) to see whether these two fixes were
+in fact what run 85 and run 100 were seeing, before touching
+`sharedIdentitySafe`.
+
+**Worth weighing against the cost, still.** One worker is slow but correct,
+and these are vendor demos where the room and user lists are shared with
+strangers anyway. The honest question is whether the wall-clock saved is
+worth the risk of hammering a public demo at width to prove it — which is a
+judgement, not a measurement, and is why this stays `hypothesis` rather than
+`ready` even with both known assertions now fixed.
 
 ---
 
