@@ -118,6 +118,33 @@ export function recordPublishedHash(file: string, testCase: TestCase): string {
 }
 
 /**
+ * Record, in the case, which spec now automates it and at which version.
+ *
+ * **The same omission `recordPublishedHash` was written for, one hop later.**
+ * `check-hashes` asks "does the spec still implement this version of the case?"
+ * only `if (testCase.specPath)` — so a generator that writes a `case-hash` into
+ * the spec and nothing back into the case leaves that question with nothing to
+ * compare against, and the drift check passes on a spec that has silently
+ * fallen behind. Caught by editing a case and watching `hashes:check` report
+ * nothing.
+ *
+ * Rewrites in place rather than going through `saveCase`, for the reason above:
+ * re-deriving the filename from a slug is how a second copy of a case appears.
+ */
+export function recordGeneratedSpec(file: string, testCase: TestCase, specPath: string): string {
+  const hash = hashCase(testCase);
+  fs.writeFileSync(
+    file,
+    YAML.stringify(
+      { ...testCase, caseHash: hash, specPath: specPath.replace(/\\/g, '/') },
+      { lineWidth: 100 },
+    ),
+    'utf8',
+  );
+  return hash;
+}
+
+/**
  * Identity is the case's slug plus story key, so re-publishing updates a case
  * rather than creating a second one (§09).
  */

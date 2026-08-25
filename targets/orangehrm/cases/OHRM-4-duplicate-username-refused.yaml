@@ -1,0 +1,26 @@
+id: OHRM-4-01
+target: orangehrm
+source:
+  type: human
+  key: OHRM-4
+  contentHash: ""
+  authoredBy: null
+coversAC:
+  - OHRM-4-AC1
+acQuoted: A username that is already in use is refused, and the form says so.
+title: A username that is already taken is refused
+preconditions:
+  - An administrator is signed in
+  - A system user already exists with a known username
+steps:
+  - action: Open the system user list
+    expected: The list is shown with its record count
+  - action: Add a system user with a username that is already in use
+    expected: The form refuses to save and reports that the username is taken
+assertions:
+  - The second user is not saved
+  - The form states that the username is already in use
+priority: medium
+type: negative
+caseHash: 91f9f2cd7dd75925
+specPath: targets/orangehrm/tests/e2e/a-username-that-is-already-taken-is-refused.spec.ts

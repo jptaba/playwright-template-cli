@@ -1,0 +1,23 @@
+id: OHRM-5-01
+target: orangehrm
+source:
+  type: human
+  key: OHRM-5
+  contentHash: ''
+  authoredBy: null
+coversAC:
+  - OHRM-5-AC1
+acQuoted: A user created with the ESS role is listed with that role against their name.
+title: A user created with the ESS role is listed with that role
+preconditions:
+  - An administrator is signed in
+steps:
+  - action: Add a system user with the ESS role
+    expected: The user is saved
+  - action: Find the new user in the system user list
+    expected: The row shows the role ESS against that username
+assertions:
+  - The created user appears in the list
+  - The role shown against that user is ESS
+priority: medium
+type: positive

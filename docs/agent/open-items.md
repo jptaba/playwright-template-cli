@@ -1,9 +1,27 @@
 # Open items
 
-**The live worklist.** Everything here is unfinished. Finished items and the
-reasoning behind them stay in [`backlog.md`](backlog.md), which is now an
-archive of 30 items and is read for *why a thing was done*, not for what to do
-next.
+> ## ⚠ Parked. The live worklist moved on 2026-08-25.
+>
+> **[`spec-generation.md`](spec-generation.md) is what to work on now** — a case
+> becomes a hardened Playwright spec, at the owner's direction. Phase 1 (draft,
+> verify, pre-flight, render) has shipped; phases 2 and 3 are `ready`.
+>
+> The three items below are **parked, not deleted**:
+>
+> | # | Why it is parked |
+> |---|---|
+> | 68 | `hypothesis`, and its two suite-side fixes landed on 2026-08-24 (run 103). The cap itself needs a wide run against two public demos, which is a judgement about load on somebody else's site. |
+> | 49 | `blocked` on credentials only the owner can supply. Nothing an agent can move. |
+> | 11 | Never a task — a standing objective, and `spec-generation.md` **serves** it: a spec hardened by a triage-gated repair loop is "learned, fixed and optimised until it is bulletproof", applied at authoring time. |
+>
+> The working agreement in [`backlog.md`](backlog.md) — how a run starts,
+> branching, pushing, rule zero — is unchanged and still binding for every run.
+> Read the rest of this file for the recorded state of the dashboard work and
+> the decisions behind it; it is still the record, just no longer the queue.
+
+**The former live worklist.** Finished items and the reasoning behind them stay
+in [`backlog.md`](backlog.md), which is now an archive of 30 items and is read
+for *why a thing was done*, not for what to do next.
 
 Split out on 2026-08-18, after `backlog.md` passed 1,900 lines and the four
 items that were actually open were spread across it.

@@ -278,9 +278,32 @@ export const users = {
    * reseeds on its own schedule rather than ours, and a run that left a user
    * behind every time would slowly become the reason somebody else's spec
    * fails.
+   *
+   * **Establishes its own precondition, rather than trusting the caller to be
+   * on the list** — the same lesson `read` records above, which this verb had
+   * not learned. It went straight to `searchByUsername`, which fills the filter
+   * and clicks Search; on any page that is not the list there is no Search
+   * button, so cleanup died as a 15-second timeout attributed to the step that
+   * was tidying up rather than to the state it was tidying up from. A spec
+   * whose `add` was *refused* is left on the add-user form, which is exactly
+   * when a negative case reaches its `finally` — so the one shape that could
+   * not clean up was the one that most needed to.
+   *
+   * **Navigates only when it has to.** This runs in a `finally` on every spec
+   * that creates a user, and an unconditional `goto` puts a full page load into
+   * each of them against a shared demo that is already slow. Sampling whether
+   * the Search control is on screen is immediate — it asks where the page is
+   * now, rather than waiting for it to become somewhere — so the common case,
+   * where the caller is already on the list, costs nothing.
    */
   async remove(page: Page, username: string): Promise<void> {
     await test.step(`Remove the system user "${username}"`, async () => {
+      const onTheList = await userLocators
+        .search(page)
+        .isVisible()
+        .catch(() => false);
+      if (!onTheList) await users.open(page);
+
       await users.searchByUsername(page, username);
       const row = userLocators.rowFor(page, username);
       if ((await row.count()) === 0) return;
