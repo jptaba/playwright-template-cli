@@ -199,8 +199,40 @@ test.describe('the IR shape', () => {
     ...goodPlan,
   };
 
-  test('accepts a well-formed draft', () => {
-    expect(verifyIr(ir, testCase, vocabulary)).toEqual([]);
+  /*
+     Nothing blocks, but an `established` precondition met by a call the journey
+     happens to make is still *implicit* arrangement, and phase 2 exists to end
+     that. The warning is the nudge toward a stated seed.
+  */
+  test('accepts a well-formed draft, warning that its arrangement is implicit', () => {
+    const findings = verifyIr(ir, testCase, vocabulary);
+    expect(findings.filter((finding) => finding.severity === 'blocker')).toEqual([]);
+    expect(findings.map((finding) => finding.check)).toEqual(['precondition-implicitly-established']);
+  });
+
+  test('a draft that states its seed has nothing to report at all', () => {
+    const seeded: SpecIR = {
+      ...ir,
+      seed: [
+        {
+          establishes: 2,
+          call: {
+            verb: 'users.add',
+            bind: 'existing',
+            args: [{ of: 'object', fields: { username: { of: 'ref', name: 'username' } } }],
+          },
+          undo: { verb: 'users.remove', args: [{ of: 'ref', name: 'username' }] },
+          guard: {
+            subject: { of: 'path', base: 'existing', path: ['saved'] },
+            message: 'the user this case needs was not created',
+            matcher: 'toBe',
+            expected: { of: 'literal', value: true },
+            proves: [],
+          },
+        },
+      ],
+    };
+    expect(verifyIr(seeded, testCase, vocabulary)).toEqual([]);
   });
 
   test('renders property shorthand rather than username: username', () => {
@@ -271,6 +303,110 @@ test.describe('the IR shape', () => {
 
   test('reports the verbs it calls in order, cleanup included', () => {
     expect(irFacts(ir).verbs).toEqual(['users.open', 'users.add', 'users.remove']);
+  });
+
+  test.describe('seeding the data a precondition needs', () => {
+    const seed = {
+      establishes: 2,
+      call: {
+        verb: 'users.add',
+        bind: 'existing',
+        args: [{ of: 'object' as const, fields: { username: { of: 'ref' as const, name: 'username' } } }],
+      },
+      undo: { verb: 'users.remove', args: [{ of: 'ref' as const, name: 'username' }] },
+    };
+    const seeded: SpecIR = { ...ir, seed: [seed] };
+
+    test('renders the arrangement inside the try, ahead of the journey', () => {
+      const body = renderIrBody(seeded);
+      expect(body).toContain('try {');
+      expect(body.indexOf('const existing = await users.add')).toBeLessThan(
+        body.indexOf('const second = await users.add'),
+      );
+      expect(body.indexOf('try {')).toBeLessThan(body.indexOf('const existing = await users.add'));
+    });
+
+    /*
+       Undone even when the journey fails — which is the reason the seed goes
+       inside the try rather than beside the navigation.
+    */
+    test('undoes the seed first in the finally, so a failed journey still tidies up', () => {
+      const body = renderIrBody(seeded);
+      const finallyBlock = body.slice(body.indexOf('} finally {'));
+      expect(finallyBlock).toContain('await users.remove(authedPage, username);');
+    });
+
+    test('undoes several seeds in reverse, since a later one may depend on an earlier', () => {
+      const two: SpecIR = {
+        ...ir,
+        seed: [
+          { ...seed, establishes: 1, undo: { verb: 'users.remove', args: [{ of: 'literal', value: 'first' }] } },
+          { ...seed, undo: { verb: 'users.remove', args: [{ of: 'literal', value: 'second' }] } },
+        ],
+      };
+      const finallyBlock = renderIrBody(two).slice(renderIrBody(two).indexOf('} finally {'));
+      expect(finallyBlock.indexOf("'second'")).toBeLessThan(finallyBlock.indexOf("'first'"));
+    });
+
+    test('a seed that creates data and never removes it is a warning, not silence', () => {
+      const leaking: SpecIR = { ...ir, seed: [{ establishes: 2, call: seed.call }] };
+      const finding = verifyIr(leaking, testCase, vocabulary).find(
+        (entry) => entry.check === 'seed-not-undone',
+      )!;
+      expect(finding.severity).toBe('warning');
+    });
+
+    test('saying why nothing needs undoing satisfies it', () => {
+      const noted: SpecIR = {
+        ...ir,
+        seed: [{ establishes: 2, call: seed.call, undoNote: 'the demo reseeds nightly' }],
+      };
+      expect(checks(verifyIr(noted, testCase, vocabulary))).not.toContain('seed-not-undone');
+    });
+
+    /*
+       The important one. A guard proving a case assertion would mean the spec
+       satisfied its own claim with its own arrangement — it would hold however
+       the application behaved.
+    */
+    test('refuses a seed guard that claims to prove a case assertion', () => {
+      const cheating: SpecIR = {
+        ...ir,
+        seed: [
+          {
+            ...seed,
+            guard: {
+              subject: { of: 'path', base: 'existing', path: ['saved'] },
+              message: 'arranged',
+              matcher: 'toBe',
+              expected: { of: 'literal', value: true },
+              proves: [1],
+            },
+          },
+        ],
+      };
+      const finding = verifyIr(cheating, testCase, vocabulary).find(
+        (entry) => entry.check === 'seed-guard-proves-claim',
+      )!;
+      expect(finding.severity).toBe('blocker');
+    });
+
+    test('refuses a seed arranging a precondition the case does not state', () => {
+      const wrong: SpecIR = { ...ir, seed: [{ ...seed, establishes: 9 }] };
+      expect(checks(verifyIr(wrong, testCase, vocabulary))).toContain('seed-out-of-range');
+    });
+
+    /*
+       Separating journey verbs from everything the spec does is what stops the
+       arrangement standing in for the step. Both adds are real calls; only one
+       of them is the journey.
+    */
+    test('keeps the journey verbs separate from the arrangement', () => {
+      const facts = irFacts(seeded);
+      expect(facts.verbs).toContain('users.add');
+      expect(facts.journeyVerbs).toEqual(['users.open', 'users.add']);
+      expect(facts.journeyVerbs!.length).toBeLessThan(facts.verbs.length);
+    });
   });
 });
 

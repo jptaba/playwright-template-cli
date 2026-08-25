@@ -3,7 +3,7 @@ import { expect, test } from '../../fixtures';
 /**
  * A username that is already taken is refused
  *
- * **Generated from targets/orangehrm/cases/OHRM-4-duplicate-username-refused.yaml by draft:draft-ohrm-4-ir.json.**
+ * **Generated from targets/orangehrm/cases/OHRM-4-duplicate-username-refused.yaml by draft:draft-ohrm-4-seeded.json.**
  * The case is the oracle; this file is the automation of it. Edit the case and
  * regenerate rather than editing here — `npm run hashes:check` reports a spec
  * whose case has moved on, and a hand-edit is invisible to it.
@@ -34,13 +34,18 @@ test(
     await users.open(authedPage);
 
     try {
-      const first = await users.add(authedPage, {
+      // The data this case says must already exist, created by the spec that
+      // asserts about it — never assumed to be sitting there.
+      const existing = await users.add(authedPage, {
         username,
         password: 'Pas5wrd',
         role: 'ESS',
         status: 'Enabled',
       });
-      expect(first.saved, `the first user was not created: ${first.errors.join(', ')}`).toBe(true);
+      expect(
+        existing.saved,
+        `the user this case needs could not be created: ${existing.errors.join(', ')}`,
+      ).toBe(true);
 
       const second = await users.add(authedPage, {
         username,

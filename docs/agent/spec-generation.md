@@ -159,7 +159,7 @@ reaches for `page.locator`.
 |---|---|---|
 | 0 | Case quality gate | **done** — `gateCase`, pre-existing |
 | 1 | Draft, verify, pre-flight, render | **done** — this branch |
-| 2 | Data: preconditions → a seeding plan | `ready` |
+| 2 | Data: preconditions → a seeding plan | **done** |
 | 3 | Run, triage, gated repair loop | **done** |
 | 4 | Stability: green in both conditions before commit | **done** |
 | 5 | The real model (`AnthropicSpecAuthor`) | `blocked` — needs `ANTHROPIC_API_KEY` |
@@ -266,26 +266,61 @@ which line arranges precondition 2.
 
 ---
 
-### Phase 2 — data: preconditions become a seeding plan · `ready`
+### Phase 2 — data: preconditions become a seeding plan · `done`
 
-Today a precondition is *classified* (`fixture` / `established` / `assumed`) and
-nothing acts on it. `assumed` is the interesting one: it is a warning, and the
-owner's ask says *"the data it needs, seed the data if need"*.
+The owner's *"the data it needs, seed the data if need"*.
 
-**Scope.** An `established` precondition names a verb. Extend the plan so it can
-name a verb **plus arguments**, and render those calls into an arrange block
-ahead of the journey — so the spec creates what it needs rather than the draft
-happening to include it inline. Then `assumed` becomes a genuine last resort
-rather than the path of least effort.
+**The gap this closed.** An `established` precondition named a verb, and the
+check asked only whether that verb was called *somewhere*. So arrangement and
+journey were indistinguishable, and a draft satisfied a precondition by accident
+whenever the journey happened to touch the same verb — which is exactly what
+`OHRM-4-01` did, with its first `users.add` doing double duty.
 
-**Do not** build a general fixtures/factory system. Test data is created through
-the API or the UI so caches and derived state stay consistent (§"API, contract
-and database work"), and `run.runId` already tags everything for cleanup. The
-vocabulary for seeding is the pack's own verbs.
+`SpecIR.seed[]` now states it: which precondition the call arranges, how to undo
+it, and an optional guard that the arrangement worked. Rendered **inside the
+`try`, ahead of the journey**, so anything seeded is undone even when the journey
+fails; undos run first in the `finally`, in reverse, because a later seed may
+depend on an earlier one.
 
-**Open question for the implementer:** whether cleanup for seeded data is
-inferred (every `established` call gets a matching removal) or stated. Inferring
-is tidier and wrong the moment a verb has no inverse. Prefer stated.
+Test data still goes in through the pack's own verbs — §"API, contract and
+database work" — so a seed is an ordinary `IrCall`. No factory system was built
+and none should be.
+
+**The open question is answered: undo is stated, never inferred.** Deriving a
+removal from a creation is wrong the moment a verb has no inverse, and it fails
+silently when it is wrong. A seed with neither `undo` nor `undoNote` is a
+*warning* — real data does sometimes have no inverse, and refusing outright
+would push people to write a removal that does not work.
+
+**Three checks worth knowing about:**
+
+- `seed-guard-proves-claim` — **blocker.** A guard may prove no case assertion.
+  A spec that satisfied its own claim with its own arrangement would hold
+  however the application behaved: the same oracle collapse `repair.ts` guards,
+  arriving from a different direction.
+- `precondition-implicitly-established` — **warning**, when an `established`
+  precondition has no seed behind it. Nothing breaks; the arrangement is simply
+  implicit, which is what this phase exists to end.
+- `DraftFacts.journeyVerbs` separates what the journey does from everything the
+  spec does, so **a seed can no longer satisfy the journey's order check**.
+  Before this, a step mapped to `users.add` was matched by the *arrangement's*
+  add — the call happened, in the right order, and the journey never performed
+  the step.
+
+#### Proven
+
+`OHRM-4-01` regenerated from a seeded draft, hardened live: green on attempt 1,
+then **3/3 alone and 2/2 in its suite**, 16670–19786ms, spread **1.13×** —
+tighter than the 1.46× the unseeded version measured. The committed spec is now
+the seeded one, and it reads the way the case does: arrangement, then journey.
+
+#### Known limitation, stated rather than discovered later
+
+`claimsUnchanged` compares rendered text, so **renaming a binding reads as a
+changed claim** — `first.saved` to `existing.saved` would be refused during a
+repair. That is deliberate strictness on the safety-critical check rather than
+an oversight: a repair has no business renaming things, and the failure mode of
+being too lax here is silent.
 
 ### Phase 3 — run, triage, gated repair · `done`
 

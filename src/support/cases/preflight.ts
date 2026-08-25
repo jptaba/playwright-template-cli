@@ -73,6 +73,17 @@ export interface DraftFacts {
    * add again" is the whole of this repository's duplicate-username case.
    */
   verbs: string[];
+  /**
+   * The subset the *journey* performs — setup and steps, never arrangement.
+   *
+   * The journey check matches greedily against this rather than against
+   * everything the spec does, because a seed sharing a verb with a step would
+   * otherwise satisfy it: the call happened, in the right order, and the
+   * journey still never performed the step. Optional, and falls back to
+   * `verbs`, because the free-TypeScript shape has no structural seed block to
+   * separate out.
+   */
+  journeyVerbs?: string[];
 }
 
 /** The plan a draft must carry alongside its body, whichever shape it is. */
@@ -267,6 +278,9 @@ export function verifyJourney(
     ];
   }
 
+  // The journey is judged against what the journey does, not against the
+  // arrangement that preceded it. See `DraftFacts.journeyVerbs`.
+  const performed = facts.journeyVerbs ?? facts.verbs;
   const mapped = new Map(journey.map((entry) => [entry.step, entry]));
   testCase.steps.forEach((step, index) => {
     if (!mapped.has(index + 1)) {
@@ -304,7 +318,7 @@ export function verifyJourney(
       );
     }
     for (const call of entry.calls) {
-      if (!facts.verbs.includes(call)) {
+      if (!performed.includes(call)) {
         findings.push(
           finding(
             'step-cites-uncalled-verb',
@@ -330,12 +344,12 @@ export function verifyJourney(
   let cursor = 0;
   for (const entry of ordered) {
     if (entry.calls.length === 0) continue;
-    const at = facts.verbs.findIndex(
+    const at = performed.findIndex(
       (verb, index) => index >= cursor && entry.calls.includes(verb),
     );
     if (at === -1) {
       // Already reported as uncalled if it is nowhere; only order is news here.
-      if (entry.calls.some((call) => facts.verbs.includes(call))) {
+      if (entry.calls.some((call) => performed.includes(call))) {
         findings.push(
           finding(
             'journey-out-of-order',

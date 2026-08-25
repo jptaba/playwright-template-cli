@@ -105,6 +105,49 @@ export interface IrStep {
   assertions?: IrAssertion[];
 }
 
+/**
+ * Data the spec creates because a precondition needs it to exist — phase 2.
+ *
+ * Before this, an `established` precondition named a verb and nothing rendered
+ * anything: the check asked only whether that verb was called *somewhere*, so
+ * arrangement and journey were indistinguishable and a draft satisfied the
+ * precondition by accident whenever the journey happened to touch the same
+ * verb. Naming the call and rendering it into its own block is what makes
+ * `assumed` a genuine last resort rather than the path of least effort.
+ *
+ * **Test data is created through the pack's own verbs**, never a factory or a
+ * direct write — §"API, contract and database work" is explicit that data goes
+ * in through the API or the UI so caches, events and derived state stay
+ * consistent. So a seed is an ordinary `IrCall`; the only new thing is *why* it
+ * is being made.
+ */
+export interface IrSeed {
+  /** 1-based index into the case's `preconditions` that this arranges. */
+  establishes: number;
+  call: IrCall;
+  /**
+   * How to undo it. **Stated, never inferred.**
+   *
+   * The tempting shortcut is to derive a removal from the creation — every
+   * `add` gets a `remove`. It is wrong the moment a verb has no inverse, and it
+   * fails silently when it is wrong, which is the worst combination. Saying it
+   * costs one line and can be checked.
+   */
+  undo?: IrCall;
+  /** Why nothing needs undoing, when `undo` is absent. */
+  undoNote?: string;
+  /**
+   * An assertion that the arrangement actually worked.
+   *
+   * Worth having for the reason `users.remove` taught: a silent setup failure
+   * surfaces later as a confusing journey failure pointing at the wrong thing.
+   * **It may prove no case assertion** — a guard checks that the spec's own
+   * arrangement succeeded, and a spec that proved its claim with its own
+   * arrangement would be proving nothing at all.
+   */
+  guard?: IrAssertion;
+}
+
 export interface SpecIR extends SpecPlan {
   kind: 'spec-ir';
   title: string;
@@ -116,6 +159,14 @@ export interface SpecIR extends SpecPlan {
   given?: IrBinding[];
   /** Navigation and preparation, before the `try` so a failure here is not a cleanup failure. */
   setup?: IrCall[];
+  /**
+   * Data the preconditions need, created by the spec — phase 2.
+   *
+   * Rendered *inside* the `try`, ahead of the journey, so that anything seeded
+   * is undone even when the journey fails. Its undos run first in the
+   * `finally`, in reverse, because a later seed may depend on an earlier one.
+   */
+  seed?: IrSeed[];
   /** The journey and its assertions — `act` and `assert`. */
   steps: IrStep[];
   /** Rendered into a `finally`, so a shared demo is tidied whichever assertion failed. */
@@ -233,14 +284,35 @@ export function renderIrBody(ir: SpecIR): string {
   for (const call of ir.setup ?? []) lines.push(renderCall(call, page));
   if ((ir.setup ?? []).length > 0) lines.push('');
 
+  const seeds = ir.seed ?? [];
   const journey: string[] = [];
+
+  if (seeds.length > 0) {
+    journey.push('// The data this case says must already exist, created by the spec that');
+    journey.push('// asserts about it — never assumed to be sitting there.');
+    for (const seed of seeds) {
+      journey.push(renderCall(seed.call, page));
+      if (seed.guard) journey.push(renderAssertion(seed.guard));
+    }
+    journey.push('');
+  }
+
   ir.steps.forEach((step, index) => {
     journey.push(renderCall(step.call, page));
     for (const assertion of step.assertions ?? []) journey.push(renderAssertion(assertion));
     if (index < ir.steps.length - 1) journey.push('');
   });
 
-  const cleanup = ir.cleanup ?? [];
+  /*
+     Undos run before any other cleanup and in reverse, because a later seed may
+     depend on an earlier one — the same reason a stack unwinds the way it does.
+  */
+  const undos = seeds
+    .filter((seed) => seed.undo)
+    .reverse()
+    .map((seed) => renderCall(seed.undo!, page));
+  const cleanup = [...undos, ...(ir.cleanup ?? []).map((call) => renderCall(call, page))];
+
   if (cleanup.length === 0) {
     lines.push(...journey);
   } else {
@@ -249,10 +321,7 @@ export function renderIrBody(ir: SpecIR): string {
     lines.push('} finally {');
     lines.push(
       ...indent(
-        [
-          '// A shared demo must not keep this run\'s records, whichever assertion failed.',
-          ...cleanup.map((call) => renderCall(call, page)),
-        ],
+        ["// A shared demo must not keep this run's records, whichever assertion failed.", ...cleanup],
         1,
       ),
     );
@@ -264,7 +333,19 @@ export function renderIrBody(ir: SpecIR): string {
 
 /** The `given` builders are not catalog verbs, so they are not checked as such. */
 function callsIn(ir: SpecIR): IrCall[] {
-  return [...(ir.setup ?? []), ...ir.steps.map((step) => step.call), ...(ir.cleanup ?? [])];
+  const seeds = ir.seed ?? [];
+  return [
+    ...(ir.setup ?? []),
+    ...seeds.map((seed) => seed.call),
+    ...seeds.flatMap((seed) => (seed.undo ? [seed.undo] : [])),
+    ...ir.steps.map((step) => step.call),
+    ...(ir.cleanup ?? []),
+  ];
+}
+
+/** Only what the journey itself does, in order — never the arrangement. */
+function journeyCallsIn(ir: SpecIR): IrCall[] {
+  return [...(ir.setup ?? []), ...ir.steps.map((step) => step.call)];
 }
 
 /**
@@ -277,7 +358,17 @@ function callsIn(ir: SpecIR): IrCall[] {
  * `finally` should be visible rather than silently satisfying the check.
  */
 export function irFacts(ir: SpecIR): DraftFacts {
-  return { fixtures: ir.fixtures, verbs: callsIn(ir).map((call) => call.verb) };
+  return {
+    fixtures: ir.fixtures,
+    verbs: callsIn(ir).map((call) => call.verb),
+    /*
+       Separated from `verbs` so a seed cannot satisfy the journey's order
+       check. Without this a case step mapped to `users.add` would be matched
+       by the *arrangement's* add — the call happened, in the right order, and
+       the journey still never performed the step.
+    */
+    journeyVerbs: journeyCallsIn(ir).map((call) => call.verb),
+  };
 }
 
 export function verifyIr(ir: SpecIR, testCase: TestCase, vocabulary: Vocabulary): SpecFinding[] {
@@ -317,6 +408,71 @@ export function verifyIr(ir: SpecIR, testCase: TestCase, vocabulary: Vocabulary)
         'blocker',
         `the draft calls ${call.verb}(), which is not in the catalog`,
         'add the action deliberately, or return needs-vocabulary instead of inventing it',
+      );
+    }
+  }
+
+  for (const seed of ir.seed ?? []) {
+    const precondition = testCase.preconditions[seed.establishes - 1];
+    if (!precondition) {
+      add(
+        'seed-out-of-range',
+        'blocker',
+        `a seed claims to arrange precondition ${seed.establishes}, and the case has ` +
+          `${testCase.preconditions.length}`,
+        'arrange a precondition the case actually states',
+      );
+    }
+
+    /*
+       A guard proving a case assertion would mean the spec satisfied its own
+       claim with its own arrangement — the claim would hold however the
+       application behaved, which is the same oracle collapse `repair.ts` guards
+       against, arriving from a different direction.
+    */
+    if (seed.guard && seed.guard.proves.length > 0) {
+      add(
+        'seed-guard-proves-claim',
+        'blocker',
+        `the guard on the seed for precondition ${seed.establishes} claims to prove case ` +
+          `assertion(s) ${seed.guard.proves.join(', ')}`,
+        'a guard checks that the arrangement worked — it proves nothing about the behaviour ' +
+          'under test, so leave `proves` empty',
+      );
+    }
+
+    /*
+       A warning rather than a blocker: some data genuinely has no inverse, and
+       refusing outright would push people to write a removal that does not
+       work. But never silent — these applications are shared demos, and the
+       accumulation is somebody else's failure later.
+    */
+    if (!seed.undo && !seed.undoNote) {
+      add(
+        'seed-not-undone',
+        'warning',
+        `the seed for precondition ${seed.establishes} creates data and nothing removes it`,
+        'give it an undo, or say in undoNote why nothing is needed',
+      );
+    }
+  }
+
+  /*
+     An `established` precondition with no seed behind it still passes — the
+     verb is called somewhere — but the arrangement is then implicit, and
+     implicit arrangement is what phase 2 exists to end. Said as a warning so
+     drafts written before seeding existed still verify.
+  */
+  const seeded = new Set((ir.seed ?? []).map((seed) => seed.establishes));
+  for (const entry of ir.preconditions ?? []) {
+    if (entry.how === 'established' && !seeded.has(entry.precondition)) {
+      add(
+        'precondition-implicitly-established',
+        'warning',
+        `precondition ${entry.precondition} is established by ${entry.by}() somewhere in the ` +
+          'spec rather than by a stated seed',
+        'move the arranging call into `seed` so the data this case needs is created on purpose ' +
+          'rather than as a side effect of the journey',
       );
     }
   }
@@ -362,7 +518,11 @@ export function verifyIr(ir: SpecIR, testCase: TestCase, vocabulary: Vocabulary)
     if (value.of === 'object') Object.values(value.fields).forEach(walk);
   };
   for (const call of callsIn(ir)) (call.args ?? []).forEach(walk);
-  for (const assertion of assertions) {
+  // Seed guards read bindings too, so they count toward what must be bound.
+  for (const assertion of [
+    ...assertions,
+    ...(ir.seed ?? []).flatMap((seed) => (seed.guard ? [seed.guard] : [])),
+  ]) {
     walk(assertion.subject);
     walk(assertion.expected);
     if (assertion.detail) walk(assertion.detail);
