@@ -16,6 +16,13 @@ import {
   shouldContinue,
   type RepairAttempt,
 } from '../src/support/cases/repair';
+import {
+  STABILITY_BASIS,
+  assessStability,
+  nextArm,
+  type StabilityReport,
+  type StabilityRun,
+} from '../src/support/cases/stability';
 import { clusterFailures } from '../src/support/triage/cluster';
 import { classifyByRule } from '../src/support/triage/rules';
 import type { RunResult, TestRecord } from '../src/support/reporters/run-result';
@@ -67,13 +74,31 @@ interface RunOutcome {
   passed: boolean;
   failure: { test: TestRecord; error: string; failedStep: string | null } | null;
   ranAtAll: boolean;
+  durationMs: number;
 }
 
-/** Run just this spec, and read the run model rather than parsing console output. */
-function runSpec(target: string, specPath: string, resultPath: string): RunOutcome {
+/**
+ * Run the spec, and read the run model rather than parsing console output.
+ *
+ * `scope: 'suite'` drops the file filter so the spec runs inside its own
+ * application's e2e project, at that target's worker width — which is the
+ * contention it will actually meet, and the arm item 67 says a measurement in
+ * isolation does not stand in for.
+ */
+function runSpec(
+  target: string,
+  specPath: string,
+  resultPath: string,
+  scope: 'spec' | 'suite' = 'spec',
+): RunOutcome {
   const result = spawnSync(
     'npx',
-    ['playwright', 'test', '--project=e2e', specPath.replace(/\\/g, '/')],
+    [
+      'playwright',
+      'test',
+      '--project=e2e',
+      ...(scope === 'spec' ? [specPath.replace(/\\/g, '/')] : []),
+    ],
     {
       cwd: REPO_ROOT,
       // RUN_RESULT_PATH keeps this off the repository's own run-result.json,
@@ -88,20 +113,29 @@ function runSpec(target: string, specPath: string, resultPath: string): RunOutco
   if (!fs.existsSync(resultPath)) {
     console.error(result.stdout?.slice(-2000) ?? '');
     console.error(result.stderr?.slice(-2000) ?? '');
-    return { passed: false, failure: null, ranAtAll: false };
+    return { passed: false, failure: null, ranAtAll: false, durationMs: 0 };
   }
 
   const run = JSON.parse(fs.readFileSync(resultPath, 'utf8')) as RunResult;
+  /*
+     Ours specifically, by filename. In the suite arm the run contains every
+     other spec of the application too, and "did the suite pass" is a different
+     and much weaker question than "did this spec pass while the suite ran".
+  */
   const mine = run.tests.filter((test) => test.file.replace(/\\/g, '/').endsWith(
     specPath.replace(/\\/g, '/').split('/').slice(-1)[0]!,
   ));
   const failed = mine.find((test) => test.outcome === 'unexpected');
+  const durationMs = mine.reduce((total, test) => total + test.durationMs, 0);
 
-  if (!failed) return { passed: mine.length > 0, failure: null, ranAtAll: mine.length > 0 };
+  if (!failed) {
+    return { passed: mine.length > 0, failure: null, ranAtAll: mine.length > 0, durationMs };
+  }
 
   return {
     passed: false,
     ranAtAll: true,
+    durationMs,
     failure: {
       test: failed,
       error: failed.error?.message ?? 'the run recorded a failure with no message',
@@ -110,13 +144,72 @@ function runSpec(target: string, specPath: string, resultPath: string): RunOutco
   };
 }
 
+/**
+ * The stability stage: repeat it, and repeat it where it will actually live.
+ *
+ * Stops at the first failure rather than completing the schedule — the
+ * remaining passes cost minutes and cannot change the verdict, and the report
+ * says how far it got so an unfinished measurement is never read as a pass.
+ */
+function measureStability(target: string, specPath: string, resultPath: string): StabilityReport {
+  const runs: StabilityRun[] = [];
+  console.log(`\n── stability ── ${STABILITY_BASIS}\n`);
+
+  for (let arm = nextArm(runs); arm !== null; arm = nextArm(runs)) {
+    const underLoad = arm === 'under-load';
+    const label = underLoad ? "in its application's suite" : 'alone';
+    process.stdout.write(`  pass ${runs.length + 1} ${label}… `);
+
+    const outcome = runSpec(target, specPath, resultPath, underLoad ? 'suite' : 'spec');
+    runs.push({
+      attempt: runs.length + 1,
+      passed: outcome.passed,
+      durationMs: outcome.durationMs,
+      underLoad,
+      error: outcome.failure?.error ?? null,
+    });
+    console.log(outcome.passed ? `green (${outcome.durationMs}ms)` : 'RED');
+  }
+
+  return assessStability(runs);
+}
+
+function renderStability(report: StabilityReport): void {
+  console.log(
+    `\n  alone: ${report.aloneGreen}/${report.aloneRun} green · ` +
+      `in its suite: ${report.loadGreen}/${report.loadRun} green`,
+  );
+  console.log(
+    `  duration: ${report.durations.minMs}–${report.durations.maxMs}ms ` +
+      `(median ${report.durations.medianMs}ms, spread ${report.durations.spread}×)`,
+  );
+
+  for (const finding of report.findings) {
+    console.log(`\n  [${finding.severity}] ${finding.check}: ${finding.detail}`);
+    console.log(`      → ${finding.remedy}`);
+  }
+
+  /*
+     The two failures are diagnosed differently on purpose. "Flaky" is the word
+     that stops people looking, and green-alone-red-in-its-suite has a specific
+     cause and a specific fix that a wait will not provide.
+  */
+  if (report.contentionSensitive) {
+    console.log('\n  This spec works and its neighbours are what break it. That is a finding');
+    console.log('  about what it asserts on, not about timing.');
+  }
+}
+
 async function main(): Promise<number> {
   const args = process.argv.slice(2);
   const reference = args.find((arg) => !arg.startsWith('-'));
   const drafts = args.find((arg) => arg.startsWith('--draft='))?.split('=')[1]?.split(',') ?? [];
+  const skipStability = args.includes('--no-stability');
 
   if (!reference || drafts.length === 0) {
-    console.error('Usage: npm run spec:harden -- <CASE-ID> --draft=a.json[,b.json] [--target=]');
+    console.error(
+      'Usage: npm run spec:harden -- <CASE-ID> --draft=a.json[,b.json] [--target=] [--no-stability]',
+    );
     return 2;
   }
 
@@ -259,14 +352,30 @@ async function main(): Promise<number> {
   console.log(`\n═══ ${outcome} after ${attempts.length} attempt(s) ═══`);
 
   switch (outcome) {
-    case 'passed':
-      if (specPath) {
-        recordGeneratedSpec(stored.file, stored.case, specPath);
-        console.log(`${specPath} is on disk and green. Recorded specPath in the case.`);
-        console.log('Next: npm run lint && npx tsc --noEmit, then decide whether it is stable');
-        console.log('enough to commit — one green run is not hardened (phase 4).');
+    case 'passed': {
+      if (!specPath) return 0;
+      recordGeneratedSpec(stored.file, stored.case, specPath);
+      console.log(`${specPath} is on disk and green.`);
+
+      if (skipStability) {
+        console.log('\nStability was skipped. One green run is not hardened — re-run without');
+        console.log('--no-stability before trusting this spec.');
+        return 0;
       }
+
+      const report = measureStability(target, specPath, resultPath);
+      renderStability(report);
+      fs.rmSync(resultPath, { force: true });
+
+      if (!report.stable) {
+        console.log('\nNot hardened. The spec is on disk so the evidence is inspectable, but it');
+        console.log('should not be committed as it stands.');
+        return 1;
+      }
+
+      console.log('\nHardened. Next: npm run lint && npx tsc --noEmit, then commit.');
       return 0;
+    }
     case 'defect-found':
       console.log('The spec is finished and it works: it caught a real defect on its first outing.');
       console.log('That is a success of authoring, not a failure of it. Commit it with a declared');

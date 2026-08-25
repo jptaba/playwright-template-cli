@@ -47,7 +47,8 @@ Jira story ──▶ case ──▶ [PRE-FLIGHT] ──▶ draft ──▶ verif
                                                     │                │
                                         repair (gated) ──────────────┘
                                                     │
-                                          stable N runs → commit
+                                                    ▼
+                                    stability: 3× alone, 2× in its suite
                                                     │
                                                     ▼
                                        DETERMINISTIC EXECUTION
@@ -160,7 +161,7 @@ reaches for `page.locator`.
 | 1 | Draft, verify, pre-flight, render | **done** — this branch |
 | 2 | Data: preconditions → a seeding plan | `ready` |
 | 3 | Run, triage, gated repair loop | **done** |
-| 4 | Stability: N consecutive green before commit | `ready` |
+| 4 | Stability: green in both conditions before commit | **done** |
 | 5 | The real model (`AnthropicSpecAuthor`) | `blocked` — needs `ANTHROPIC_API_KEY` |
 | 6 | Dashboard surface | `hypothesis` |
 
@@ -351,20 +352,53 @@ drafts from disk and therefore cannot respond to a failure it was shown — so t
 model actually fixing something. That needs phase 5. What *is* proven live is
 the more important half: the loop declining to repair when it must not.
 
-### Phase 4 — stability before commit · `ready`
+### Phase 4 — stability before commit · `done`
 
+Runs automatically at the end of `spec:harden` once the repair loop goes green.
+`--no-stability` skips it, and says so rather than staying quiet.
 
-A spec that passed once is not hardened. `FLAKE_MINIMUM_RUNS` and
-`src/support/quarantine.ts` already encode this repository's view that a rate
-needs a threshold before it means anything.
+**Repetition alone is the wrong instrument, and that is the design.** Item 67 is
+the record: three applications measured **5/5 green**, the cap was lifted on the
+strength of it, and two then failed on the specs asserting what a shared list
+contains. Running a generated spec five times alone and calling it hardened
+would be that mistake one layer down.
 
-**Evidence it matters, from phase 1:** the generated spec failed one live run
-and passed the next, on a byte-identical body — 35.4s versus 16.7s against a
-slow public demo. A one-run gate would have called that a bad spec.
+So two arms, as `pool:measure` does:
 
-**Open question:** N, and whether the runs must be spread rather than
-consecutive. Contention is the variable that matters, so N runs back to back on
-an idle machine may prove less than two under load.
+| Arm | Passes | Asks |
+|---|---|---|
+| **Alone** | 3 | is the spec deterministic at all? |
+| **In its own suite** | 2 | does it hold under the contention it will actually meet? |
+
+Five in total, because `FLAKE_MINIMUM_RUNS` is already this repository's answer
+to *how many runs before a rate means anything* — a gate using a different
+number would be making a second, unstated claim about the same question. The
+**split** is item 67's lesson. The suite arm drops the file filter so the spec
+runs inside its application's `e2e` project at that target's worker width, and
+the report asks whether **this spec** passed, not whether the suite did.
+
+**Green alone and red in its suite gets its own diagnosis**, and is deliberately
+not called flaky: it is a spec asserting on state its own neighbours change —
+§"State the suite does not own" — and the remedy is to scope the assertion to
+what the spec created, not to add a wait. "Flaky" is the word that stops people
+looking.
+
+**Duration spread is reported, never gated.** Phase 1 saw the same spec run
+16.7s and then 35.4s; it passed both times and was one slow day from not
+passing. A slowest-to-median ratio at or above 2× is a warning.
+
+**Stops at the first failure** rather than completing the schedule — the
+remaining passes cost minutes and cannot change the verdict. `stability-unmeasured`
+is a *warning* so an unfinished measurement is never read as a pass, which is the
+distinction `quarantine.ts` names its own minimum for.
+
+#### Proven
+
+Live, on `orangehrm`, in one command: repair loop green on attempt 1, then
+**3/3 alone and 2/2 in its suite** — 15943–24376ms, median 16732ms, spread
+1.46×, under the warning threshold. The spec written by that run was
+byte-identical to the committed one. Plus 15 framework tests covering both
+arms, both failure diagnoses, the duration summary and the schedule.
 
 ### Phase 5 — the real model · `blocked`
 
