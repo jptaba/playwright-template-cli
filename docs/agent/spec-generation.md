@@ -92,7 +92,34 @@ to `searchByUsername`, which needs the list page, so a spec whose `add` was
 Changing `toBe(false)` to `toBe(true)` because OrangeHRM accepted the duplicate
 would not have been — that is a defect report.
 
-### 3. Repair is gated on the triage category.
+### 3. Hardening triage and production triage share every mechanism and answer different questions.
+
+**The owner's distinction, 2026-08-25**, and it is load-bearing:
+
+> the triage in preflight vs the triage in the actual run should be different
+> but could share the same logic or functions but it's intent are different
+
+| | Production triage | Hardening triage |
+|---|---|---|
+| Asks | *what broke, and who owns it?* | *is this spec finished yet?* |
+| A failure is | unexpected — a red build | expected — a normal step in authoring |
+| Audience | a team, the report, PractiTest, Teams | the repair loop, then one reviewer |
+| Routed by | `RecommendedAction` — file-defect, heal, fix-test | `RepairAct` — repair, retry, stop |
+
+`clusterFailures` and `classifyByRule` are called **unchanged**, and a category
+means what it means everywhere else. What differs is only the policy laid over
+the verdict — which is why `repair.ts` holds a table and no rules of its own. A
+second classifier tuned for authoring would drift from the one a run is judged
+by, and a spec would then be hardened against a different idea of what a failure
+is than the suite it is about to join.
+
+The clearest case is `application-defect`. In production it means *file a defect,
+tell the team, the build is red*. In hardening it means **the spec is finished
+and it works** — it caught a real defect on its first outing. Same verdict,
+opposite conclusions; the right end state there is a spec committed with a
+declared `known-failure` annotation, not a repair.
+
+### 4. Repair is gated on the triage category.
 
 The machinery already exists (`triage:cluster`, `triage:rules`, the taxonomy).
 The gate is the category:
@@ -107,17 +134,17 @@ Without this gate a repair-until-green loop eventually "fixes" a real defect
 into silence, which §"A defect in the application is a failure, and it stays
 one" forbids outright.
 
-### 4. Checks are enforced in code, never requested in a prompt.
+### 5. Checks are enforced in code, never requested in a prompt.
 
 `authorCases`'s rule. A model cannot be trusted to enforce its own citation
 rules — so every claim it makes is verified against the artifact.
 
-### 5. Nothing is published. Git is the staging area.
+### 6. Nothing is published. Git is the staging area.
 
 `cases:author` writes for review and publishes nothing. A generated spec is
 code, which makes that more important, not less.
 
-### 6. A missing verb is a design question, not a workaround.
+### 7. A missing verb is a design question, not a workaround.
 
 §"When the vocabulary is missing". The generator returns `needs-vocabulary`
 naming the action somebody must write. It never invents a helper and never
@@ -132,8 +159,8 @@ reaches for `page.locator`.
 | 0 | Case quality gate | **done** — `gateCase`, pre-existing |
 | 1 | Draft, verify, pre-flight, render | **done** — this branch |
 | 2 | Data: preconditions → a seeding plan | `ready` |
-| 3 | Run, triage, gated repair loop | `ready` |
-| 4 | Stability: N consecutive green before commit | `hypothesis` |
+| 3 | Run, triage, gated repair loop | **done** |
+| 4 | Stability: N consecutive green before commit | `ready` |
 | 5 | The real model (`AnthropicSpecAuthor`) | `blocked` — needs `ANTHROPIC_API_KEY` |
 | 6 | Dashboard surface | `hypothesis` |
 
@@ -259,32 +286,73 @@ vocabulary for seeding is the pack's own verbs.
 inferred (every `established` call gets a matching removal) or stated. Inferring
 is tidier and wrong the moment a verb has no inverse. Prefer stated.
 
-### Phase 3 — run, triage, gated repair · `ready`
+### Phase 3 — run, triage, gated repair · `done`
 
-The loop the owner asked for. **Invariants 2 and 3 govern it entirely.**
+`npm run spec:harden -- <CASE-ID> --draft=a.json[,b.json…]`
+
+Generate → write → run → triage → gate → repair → repeat. **Invariants 2, 3 and
+4 govern it entirely.**
+
+**Two guards, both mechanical.**
+
+1. **The hardening policy decides whether a repair is permitted**, from the
+   category the *shared* classifier produced. All twelve categories have a
+   stated decision; the four that live in the spec (`locator-drift`,
+   `test-data`, `test-logic-defect`, `timing-synchronisation`) are the only ones
+   repaired.
+2. **The claims are frozen.** `extractClaims` reduces a rendered body to its
+   `subject|matcher(expected)` list — dropping the failure message, which is
+   diagnostic and may be improved — and a repair whose claim list differs in any
+   way is refused before it reaches disk.
+
+**Why the second guard is not redundant, proven rather than argued.** A draft
+that "repairs" the failure by flipping `.toBe(false)` to `.toBe(true)` **passes
+every phase-1 check** — real verbs, real fixtures, correct journey, both case
+assertions cited, `publishable: true`. Phase 1 cannot see it, because from its
+point of view nothing is wrong. Only the comparison against the previous draft
+catches it:
 
 ```
-write → run → triage → repair (if and only if the category allows) → run …
+[blocker] repair-changed-claims: expectation 2 was `second.saved|.toBe(false)`
+          and the repair made it `second.saved|.toBe(true)`
 ```
 
-**Scope.** A command that generates, writes to a scratch location, runs just
-that spec, and on failure clusters and classifies it with the existing triage
-modules. `application-defect` stops the loop and reports. Everything else feeds
-the model **the triage verdict and the error**, never the application's state,
-and asks for a repaired draft.
+**`MAX_REPAIR_ATTEMPTS = 3`**, deliberately more than the static gate's 1. A
+static gate hands the model the complete problem on the first reply; a run hands
+it one failure at a time, and fixing a precondition can legitimately reveal a
+wait, which reveals a missing seed. Three covers that chain and is far too few to
+grind toward green by attrition.
 
-**Bounded.** `MAX_SPEC_RETRIES = 1` is right for a static gate, for the reason
-`gate.ts:145-151` records — *"a model that keeps rewriting until it satisfies a
-checker will eventually satisfy it by inventing the missing specifics."* A
-run-repair loop earns more than one, but not many; pick a number, state it, and
-log every attempt so the transcript is reviewable.
+**`RUN_RESULT_PATH`** is redirected to a scratch file, so hardening never
+clobbers the `run-result.json` the report, triage and publish stages read.
 
-**The hard part, and it must not be skipped:** distinguishing *the spec is
-wrong* from *the application is broken* is exactly what triage does and exactly
-where this can do harm. A repair that follows an `application-defect` verdict is
-the failure mode this whole document exists to prevent.
+#### Proven
 
-### Phase 4 — stability before commit · `hypothesis`
+- **Pass path, live:** the loop generated, wrote, ran and passed `OHRM-4-01`
+  against the real orangehrm demo, then recorded `specPath` in the case. The
+  regenerated file was **byte-identical** to the committed one — `git status`
+  clean afterwards.
+- **Escalate path, live:** a draft with an option the form does not offer
+  (`status: 'Active'`) — a flaw pre-flight cannot see, since every verb is real,
+  every step mapped and the order correct — failed live with a 15s locator
+  timeout, triaged to **no verdict**, and the loop **stopped rather than
+  guessing**. That is `locator-drift`'s own documented reasoning holding: an
+  ambiguous timeout is *either* a moved control *or* a control missing because
+  something upstream is broken, and nothing in the text says which.
+- **Claims guard:** proven against the real generated artifacts, plus 25
+  framework tests covering every category, every way a claim can move
+  (flipped, dropped, added, loosened, re-subjected) and every way the loop ends.
+
+#### Not proven, and stated rather than implied
+
+**A live repair→pass cycle has not been observed.** The stand-in model reads
+drafts from disk and therefore cannot respond to a failure it was shown — so the
+`repair` disposition is exercised by tests and by the policy table, not yet by a
+model actually fixing something. That needs phase 5. What *is* proven live is
+the more important half: the loop declining to repair when it must not.
+
+### Phase 4 — stability before commit · `ready`
+
 
 A spec that passed once is not hardened. `FLAKE_MINIMUM_RUNS` and
 `src/support/quarantine.ts` already encode this repository's view that a rate

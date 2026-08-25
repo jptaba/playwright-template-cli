@@ -35,6 +35,7 @@
     "story:pull": "tsx tools/pull-story.ts",
     "cases:author": "tsx tools/author-cases.ts",
     "spec:author": "tsx tools/author-spec.ts",
+    "spec:harden": "tsx tools/harden-spec.ts",
     "jira:issue": "tsx tools/jira-cli.ts",
     "vault:check": "tsx tools/vault-check.ts",
     "report:normalise": "tsx tools/normalise-report.ts",
