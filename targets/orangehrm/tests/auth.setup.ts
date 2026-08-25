@@ -39,7 +39,7 @@ setup('Establish a session for each role', async ({ browser, target, secrets }) 
     const password = credentials.password;
     if (!username || !password) {
       throw new Error(
-        `Credential payload for role '${role}' is missing username or password. ` +
+        `Credential payload for role '${role}' (account ${index}) is missing username or password. ` +
           `Present fields: ${Object.keys(credentials).join(', ') || '(none)'}.`,
       );
     }
@@ -61,18 +61,35 @@ setup('Establish a session for each role', async ({ browser, target, secrets }) 
       */
       const established = await expect
         .poll(() => signIn.isSignedIn(page), {
-          message: `Sign-in for role '${role}' did not establish a session`,
+          message: `Sign-in for role '${role}' (account ${index}) did not establish a session`,
         })
         .toBe(true)
         .then(() => true)
         .catch(async (error: unknown) => {
           const reported = await signIn.readError(page);
+          /*
+             Report the fact; do not name the cause.
+
+             This used to assert "check the signed-in locator rather than the
+             credential", and that sentence is wrong about half the time it is
+             printed. It sent somebody to a locator that was correct while the
+             application was transiently refusing to complete a sign-in at all —
+             the same failure `check-hashes` records: a message naming one cause
+             confidently sends everybody looking for the wrong thing.
+
+             Where the browser ended up separates the two cases, and nothing
+             else on the page does.
+          */
+          const landedOn = page.url();
           throw new Error(
-            `Sign-in for role '${role}' did not establish a session.` +
+            `Sign-in for role '${role}' (account ${index}) did not establish a session.` +
               (reported
                 ? `\nThe application said: "${reported}"`
-                : '\nThe form reported no error, so the credential was accepted but no session ' +
-                  'marker appeared — check the signed-in locator rather than the credential.') +
+                : `\nThe form reported no error, and the browser is at ${landedOn}.` +
+                  '\n· Still on the sign-in page means the application never completed it: the ' +
+                  'credential may be refused silently, or the service may be failing. Try it by ' +
+                  'hand before changing anything here.' +
+                  '\n· Anywhere else means the sign-in worked and signedInMarker is what is wrong.') +
               `\n\n${error instanceof Error ? error.message : String(error)}`,
           );
         });

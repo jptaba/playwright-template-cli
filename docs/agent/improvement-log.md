@@ -7301,3 +7301,92 @@ push — recorded here rather than assumed.
   not the code's tone, it was tracing exactly which two reads a `total`/
   `.length` comparison spans and asking what else touches that number in
   between.
+
+## 2026-08-25 · run 107 · The toolshop red was transient, and chasing it found the diagnostic was wrong
+
+**Picked:** `toolshop`'s `setup:auth` failure, seen during run 106's
+`suites:live` — 14/22 with *"Sign-in for role 'customer' established no
+session"*, which is not the accepted a11y red. It outranked new capability by
+the standing brief: a broken sign-in on an onboarded application.
+
+**It was transient, and saying so plainly is most of the entry.** It failed
+consistently across three runs including Playwright's own retries, then passed
+30 minutes later with nothing in the repository changed, and has passed every
+time since. `practicesoftwaretesting.com` was answering HTTP 200 throughout, so
+the demo was up and something behind its sign-in was not. **Not a regression,
+and nothing in the framework caused it** — confirmed by stashing the working
+tree and reproducing the failure on clean `HEAD`.
+
+**What the investigation actually found is better, and it is a framework
+defect.** The failure message said:
+
+> The form reported no error, so the credential was accepted but no session
+> marker appeared — **check the signed-in locator rather than the credential.**
+
+So that is what I checked. Driven live: the credential resolves from
+`secrets.local.json` (no toolshop entry in the private file), sign-in reaches
+`/account`, `[data-test="nav-menu"]` is present exactly once, and the marker
+becomes visible **933ms and 902ms** after the click across two measured
+attempts. `testIdAttribute` is set globally in `playwright.config.ts` so
+`setup:auth` gets it too. Every clause of the advice was wrong, and it cost the
+first half of this run.
+
+That is the same failure `check-hashes` already records about itself — *"a
+message that names one cause confidently sends everybody looking for an edit
+that never happened"*. **The message should report the fact, not name the
+cause**, and there is a decisive one available for free: where the browser
+ended up. Still on the sign-in page means the application never completed it;
+anywhere else means the sign-in worked and `signedInMarker` is what is wrong.
+Nothing else on the page separates those two.
+
+**Second defect, found while confirming the first.** `toolshop`'s
+`auth.setup.ts` differed from the other four packs, which all shared one hash.
+Diffed: toolshop's copy was **better** — it named which pooled account failed
+(`(account ${index})`), where the template and four packs named only the role.
+On a target with `poolSize: 3` that leaves three candidates and the account is
+the thing you need to reproduce it.
+
+**A pack improving past its template is invisible to the tool built to catch
+drift.** `target:upgrade` reported the file as "differs", which is its healthy
+majority state — its own report says so, and deliberately: *"a tool that framed
+those as drift to be corrected would be arguing for undoing the work."* Correct
+in general, and it means an improvement made in a pack can never travel back to
+the template on its own.
+
+**Fixed, in the template, both ways round.** `AUTH_SETUP` in
+`src/support/onboarding/scaffold.ts` absorbed toolshop's account index and
+replaced the asserted cause with the URL fact, then all five packs were
+regenerated from it through `planScaffold`/`optionsFromProfile` rather than
+hand-edited. `toolshop` went from *0 files match the current templates* to *1*,
+and `auth.setup.ts` no longer appears in the drift report for any application.
+
+**And the mechanism that should have caught it**, which is the part rule zero
+actually asks for: `tests/framework/auth-setup-drift.spec.ts` holds every pack's
+`auth.setup.ts` to the template. That file is the one scaffolded artifact with
+**no application-specific content at all** — it loops the profile's roles, calls
+the pack's own `signIn`, writes storage states — so unlike locators or actions
+it should never legitimately diverge. The test says so, and says in its own
+failure message to fix the template and regenerate rather than the pack.
+
+**Verify:** `npm run verify` passes — **1347 tests**, up from 1338 (9 new).
+`setup:auth` re-run live on `toolshop` (13.2s) and `saucedemo` (1.1s), both
+green with the regenerated file.
+
+**Live suites:** unchanged at the accepted baseline — **1 passing, 3 failing, 1
+parked**, every failure being item 62's accepted a11y red. `toolshop` back to
+**21/22**.
+
+**Learned:**
+
+- **A confident diagnostic is worse than a vague one when it is wrong**, because
+  it is *obeyed*. This one named the single thing that was fine and I spent four
+  probes confirming it. The repository already knew this — `check-hashes` has
+  the lesson written down — and the knowledge had not reached the neighbouring
+  template.
+- **"It failed and now it passes" is a finding, not a non-result.** Stashing and
+  reproducing on clean `HEAD` is what turns "probably not mine" into evidence,
+  and it takes one command.
+- **Drift tooling built to expect packs to be worse cannot see a pack that is
+  better.** Every mechanism here assumes the template leads and the pack
+  follows; when that reversed, nothing said so for as long as toolshop has
+  carried the better message.
