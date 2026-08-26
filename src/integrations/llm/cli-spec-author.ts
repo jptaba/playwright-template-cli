@@ -57,7 +57,23 @@ export interface CliSpecAuthorOptions {
   run?: (prompt: string) => { stdout: string; stderr: string; status: number | null };
 }
 
-const DEFAULT_COMMAND = ['claude', '-p', '--output-format', 'json'];
+/**
+ * The default, and the `--model` on it is load-bearing rather than a
+ * preference.
+ *
+ * Left unset, `claude -p` chose **Haiku**, and it produced a draft that did not
+ * compile on three consecutive live runs of the full loop — inventing
+ * `testData.newUser`, then `testData.systemUser`, then passing a `record()`
+ * builder where a `NewUser` belongs. Every one was caught, so nothing broken
+ * reached a pack; the cost was the whole attempt budget, every time.
+ *
+ * Authoring a spec is not a cheap-model task. It has to hold a case, a closed
+ * vocabulary with signatures, a JSON schema and four invariants in mind at
+ * once, and the failure mode of getting it slightly wrong is a draft that looks
+ * right. `SPEC_AUTHOR_CLI` overrides the whole command for anyone who wants a
+ * different one — or a different tool entirely.
+ */
+const DEFAULT_COMMAND = ['claude', '-p', '--output-format', 'json', '--model', 'sonnet'];
 
 export class CliSpecAuthor implements SpecAuthorModel {
   readonly identity: string;

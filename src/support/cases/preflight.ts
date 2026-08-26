@@ -203,6 +203,32 @@ export function verifyPreconditions(
           );
           break;
         }
+        /*
+           Two causes, and they were reported as one.
+
+           "The spec never calls it" is true of a verb that was never called and
+           of a *name that is not a verb*, and it sends somebody looking for a
+           missing call either way. Seen live: a draft wrote
+           `by: "users.add (seed)"` — annotating the name — and the spec called
+           `users.add` perfectly well. The message said the spec never called
+           it, which was the one thing that was not wrong.
+
+           Same failure as the sign-in diagnostic this repository fixed a day
+           earlier, and the same remedy: say which of the two it is.
+        */
+        if (!vocabulary.verbs.includes(entry.by)) {
+          findings.push(
+            finding(
+              'precondition-unknown-verb',
+              'blocker',
+              `precondition ${entry.precondition} names "${entry.by}", which is not a verb in ` +
+                `${vocabulary.target}'s catalog`,
+              'name the verb exactly as the catalog publishes it, with nothing appended — ' +
+                'e.g. "users.add", not "users.add (seed)"',
+            ),
+          );
+          break;
+        }
         if (!called.has(entry.by)) {
           findings.push(
             finding(

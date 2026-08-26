@@ -181,7 +181,12 @@ export const SPEC_IR_SCHEMA: Record<string, unknown> = {
         properties: {
           precondition: { type: 'integer' },
           how: { enum: ['fixture', 'established', 'assumed', 'unsatisfiable'] },
-          by: { type: 'string', description: 'Fixture name, or the verb that establishes it.' },
+          by: {
+            type: 'string',
+            description:
+              'The fixture name, or the verb that establishes it — exactly as listed above, ' +
+              'with nothing appended. "users.add", never "users.add (seed)".',
+          },
           note: { type: 'string' },
         },
       },
