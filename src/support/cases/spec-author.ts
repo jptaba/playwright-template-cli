@@ -2,6 +2,7 @@ import path from 'node:path';
 import { hashCase, slugify } from './store';
 import type { TestCase } from './schema';
 import { irAssertionGaps, irFacts, irShell, verifyIr, type SpecIR } from './spec-ir';
+import { typecheckSpec } from './typecheck';
 import {
   renderPlanComment,
   verifyPreflight,
@@ -430,6 +431,15 @@ export async function authorSpec(
   model: SpecAuthorModel,
   vocabulary: Vocabulary,
   casePath: string,
+  /**
+   * Typecheck the rendered spec before calling it verified.
+   *
+   * Off by default so the framework's own tests can author against synthetic
+   * vocabularies that no tsconfig knows about. **Every real caller turns it
+   * on**, and should: without it "verified" means the draft used real verb
+   * *names*, which is a much smaller claim than it sounds.
+   */
+  options: { typecheck?: boolean } = {},
 ): Promise<SpecAuthoringResult> {
   const request: SpecRequest = { case: testCase, vocabulary };
   const draft = await model.draft(request);
@@ -488,9 +498,20 @@ export async function authorSpec(
     plan: draft,
   });
 
+  const specPath = specPathFor(testCase, shell, slugify(testCase.title));
+
+  /*
+     Last, and only when nothing else already blocks: the compiler is the
+     expensive check and the most authoritative one, so there is no sense
+     running it over a draft that invented a fixture.
+  */
+  if (options.typecheck && findings.every((finding) => finding.severity !== 'blocker')) {
+    findings.push(...typecheckSpec(specPath, source));
+  }
+
   return {
     source,
-    specPath: specPathFor(testCase, shell, slugify(testCase.title)),
+    specPath,
     refusal: null,
     findings,
     gaps,

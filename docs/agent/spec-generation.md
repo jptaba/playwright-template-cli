@@ -162,7 +162,7 @@ reaches for `page.locator`.
 | 2 | Data: preconditions → a seeding plan | **done** |
 | 3 | Run, triage, gated repair loop | **done** |
 | 4 | Stability: green in both conditions before commit | **done** |
-| 5 | The real model (`AnthropicSpecAuthor`) | `blocked` — needs `ANTHROPIC_API_KEY` |
+| 5 | A real model, without an API account | **done** — `spec:request`, or `--model=cli` |
 | 6 | Dashboard surface | `hypothesis` |
 
 ---
@@ -435,16 +435,71 @@ Live, on `orangehrm`, in one command: repair loop green on attempt 1, then
 byte-identical to the committed one. Plus 15 framework tests covering both
 arms, both failure diagnoses, the duration summary and the schedule.
 
-### Phase 5 — the real model · `blocked`
+### Phase 5 — a real model, without an API account · `done`
 
-`AnthropicSpecAuthor implements SpecAuthorModel`, mirroring
-`AnthropicCaseAuthor`: schema-constrained completion, no tools, no browser, no
-filesystem. The IR is already a JSON schema, so `output_config.format` takes it
-almost directly.
+**The premise was wrong.** This was `blocked` on `ANTHROPIC_API_KEY`, because
+`AnthropicCaseAuthor` calls the Anthropic API — which bills a **separate API
+account**, not a Claude Pro subscription and not a Copilot one. Most people
+driving this hold the latter. Requiring the former was a coupling, not a
+prerequisite.
 
-**Blocked only on a key** — no `ANTHROPIC_API_KEY` on this machine. Everything
-around it is built and tested against a draft-on-disk model, which is the right
-order: the harness is what makes a model's output safe to accept.
+Two paths now, one interface, no vendor in either:
+
+**`npm run spec:request -- <CASE-ID> [--out=<file>]`** writes the whole request
+— case, vocabulary with signatures, IR schema, rules — to one file. Hand it to
+any agent (Claude Code, Copilot, a chat window, a colleague), feed the JSON back
+through `spec:author --draft=`. **This is not the lesser option**: `spec:author`
+verifies a draft identically however it arrived, so an adapter only saves
+copying two files.
+
+**`--model=cli`** drives an agent CLI already installed. `SPEC_AUTHOR_CLI`
+chooses it (default `claude -p --output-format json`) and
+`SPEC_AUTHOR_CLI_RESULT` says which field carries the reply — the one thing that
+genuinely differs between tools, so **Copilot drops in by changing an
+environment variable**.
+
+Two mechanics worth keeping: the prompt goes in on **stdin**, because a request
+carrying a vocabulary and a schema is ~14KB and Windows refuses a command line
+past ~8KB; and the CLI runs in an **empty scratch directory**.
+
+#### On isolating the model, measured rather than assumed
+
+Invariant 1 says the author must not read the running system. A locally-run
+agent CLI **cannot be made to obey that**, and this was tested rather than
+hoped: on `claude` 2.1.220, `--disallowed-tools "Bash Read ..."` was routed
+around via a shell-capable tool the deny list did not name, and an empty
+`--allowed-tools` was ignored outright. Both times it read the file.
+
+The scratch directory removes the *convenience* of looking, not the ability. The
+guarantee stays where the design always put it: **every claim is checked against
+the case before anything is written.** `authorCases` said so from the start — *"a
+model cannot be trusted to enforce its own citation rules, so the verification
+happens after the reply."* A harness built on that premise does not need a
+sandbox, and should not pretend to have one.
+
+#### What the first real draft exposed
+
+**`tsc` was called the authority everywhere in this document and was never
+actually run.** The pipeline printed "Verified" and wrote the file, advising the
+caller to typecheck afterwards. The gap was invisible for four phases because
+every draft until now was hand-written, and a person drafting reads the real
+signatures while doing it.
+
+The first draft a real model produced had **six type errors**: `users.add`
+called without `role` or `status`, `.error` where the result carries `errors`,
+`.count` where it carries `total`. Every one is a verb that **exists**, used
+with a shape it does not have — precisely the class the vocabulary check cannot
+see, because the *name* was right. It was written to disk.
+
+`src/support/cases/typecheck.ts` closes it: the rendered spec is compiled in
+memory against the real project, last and only when nothing else already blocks.
+The same draft is now refused with seven blockers and nothing reaches the pack.
+
+**Also seen, and not fixable by a checker:** the draft seeded `'ohrm401user'`
+and then asserted about `'ohrm4-01-taken'` — two different usernames, so it was
+not testing a duplicate at all. It typechecks; it is simply not the case. That
+is what the human review step and phase 3's run loop are for, and it is a good
+argument against ever making either optional.
 
 ### Phase 6 — dashboard surface · `hypothesis`
 

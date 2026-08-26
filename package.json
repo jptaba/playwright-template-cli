@@ -34,6 +34,7 @@
     "cases:push": "tsx tools/push-cases.ts",
     "story:pull": "tsx tools/pull-story.ts",
     "cases:author": "tsx tools/author-cases.ts",
+    "spec:request": "tsx tools/request-spec.ts",
     "spec:author": "tsx tools/author-spec.ts",
     "spec:harden": "tsx tools/harden-spec.ts",
     "jira:issue": "tsx tools/jira-cli.ts",

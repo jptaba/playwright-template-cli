@@ -11,6 +11,7 @@ import {
   type SpecDraft,
   type SpecRequest,
 } from '../src/support/cases/spec-author';
+import { CliSpecAuthor } from '../src/integrations/llm/cli-spec-author';
 import { REPO_ROOT } from '../src/support/paths';
 
 /**
@@ -51,10 +52,17 @@ async function main(): Promise<number> {
   const args = process.argv.slice(2);
   const reference = args.find((arg) => !arg.startsWith('-'));
   const draftFile = args.find((arg) => arg.startsWith('--draft='))?.split('=')[1];
+  const useCli = args.includes('--model=cli');
   const write = args.includes('--write');
 
-  if (!reference || !draftFile) {
-    console.error('Usage: npm run spec:author -- <CASE-ID> --draft=<file.json> [--target=] [--write]');
+  if (!reference || (!draftFile && !useCli)) {
+    console.error(
+      'Usage: npm run spec:author -- <CASE-ID> (--draft=<file.json> | --model=cli) [--target=] [--write]',
+    );
+    console.error(
+      '\n--draft= takes a reply from any agent. Get the prompt with: npm run spec:request',
+    );
+    console.error('--model=cli drives an agent CLI you already have (SPEC_AUTHOR_CLI to choose it).');
     return 2;
   }
 
@@ -91,14 +99,16 @@ async function main(): Promise<number> {
   }
 
   const vocabulary = vocabularyFor(target);
-  const model = new JsonDraftAuthor(draftFile);
+  const model: SpecAuthorModel = useCli ? new CliSpecAuthor() : new JsonDraftAuthor(draftFile!);
   console.log(
     `Authoring a spec for ${stored.case.id ?? stored.case.source.key} against '${target}' ` +
       `using ${model.identity}\n` +
       `  vocabulary: ${vocabulary.verbs.length} verbs, ${vocabulary.fixtures.length} fixtures`,
   );
 
-  const result = await authorSpec(stored.case, model, vocabulary, stored.file);
+  const result = await authorSpec(stored.case, model, vocabulary, stored.file, {
+    typecheck: true,
+  });
 
   if (result.refusal) {
     console.log('\nNo spec was written — the pack cannot express this case.\n');

@@ -247,7 +247,7 @@ async function main(): Promise<number> {
     const attempt = attempts.length + 1;
     console.log(`── attempt ${attempt} ─────────────────────────────`);
 
-    const authored = await authorSpec(stored.case, model, vocabulary, stored.file);
+    const authored = await authorSpec(stored.case, model, vocabulary, stored.file, { typecheck: true });
     if (authored.refusal) {
       console.log('  the pack cannot express this case:');
       for (const missing of authored.refusal.missing) console.log(`    missing verb: ${missing.verb}`);
