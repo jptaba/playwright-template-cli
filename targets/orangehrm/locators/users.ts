@@ -113,6 +113,23 @@ export const userLocators = {
   // locator-justification: the message has no role and is the only handle on it.
   fieldErrors: (page: Page): Locator => page.locator('.oxd-input-field-error-message'),
 
+  /**
+   * The message against **one** field, rather than all of them.
+   *
+   * `fieldErrors` answers "what did the form object to", which is the right
+   * question for a boundary spec reading the application's stated rule. It is
+   * the wrong question for a spec claiming *this field* was refused: with two
+   * fields in error it returns both, and a spec asserting the username was
+   * rejected would pass on a form complaining only about the password.
+   *
+   * Scoped through the same input group the field itself resolves by, because
+   * this application associates neither label nor message with its input — the
+   * group is the only thing that puts the three together.
+   */
+  fieldErrorFor: (page: Page, label: string): Locator =>
+    // locator-justification: the message has no role and is not associated with its field.
+    inputGroup(page, label).locator('.oxd-input-field-error-message'),
+
   /** The row for one username, so it can be acted on. */
   rowFor: (page: Page, username: string): Locator =>
     userLocators.rows(page).filter({ hasText: username }),

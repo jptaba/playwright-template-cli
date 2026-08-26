@@ -3,7 +3,7 @@ import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import { buildRepairRequest, buildSpecRequest, renderSpecRequest } from '../../support/cases/spec-prompt';
-import { vocabularyEntries } from '../../support/cases/vocabulary';
+import { vocabularyEntries, vocabularyTypes } from '../../support/cases/vocabulary';
 import type {
   SpecAuthorModel,
   SpecDraft,
@@ -92,7 +92,7 @@ export class CliSpecAuthor implements SpecAuthorModel {
   }
 
   async draft(request: SpecRequest): Promise<SpecDraft> {
-    const entries = vocabularyEntries(request.vocabulary.target);
+    const entries = { ...vocabularyEntries(request.vocabulary.target), shapes: vocabularyTypes(request.vocabulary.target) };
     const prompt = renderSpecRequest(
       buildSpecRequest(request.case, entries, request.vocabulary.target),
     );
@@ -110,7 +110,7 @@ export class CliSpecAuthor implements SpecAuthorModel {
    * refused later at more cost than including a few thousand tokens here.
    */
   async repair(request: SpecRepairContext): Promise<SpecDraft> {
-    const entries = vocabularyEntries(request.vocabulary.target);
+    const entries = { ...vocabularyEntries(request.vocabulary.target), shapes: vocabularyTypes(request.vocabulary.target) };
     const original = renderSpecRequest(
       buildSpecRequest(request.case, entries, request.vocabulary.target),
     );

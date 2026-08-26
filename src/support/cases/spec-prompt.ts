@@ -272,7 +272,7 @@ const REFUSAL_SHAPE = `{ "kind": "needs-vocabulary",
 
 export function buildSpecRequest(
   testCase: TestCase,
-  vocabulary: { fixtures: CatalogEntry[]; verbs: CatalogEntry[] },
+  vocabulary: { fixtures: CatalogEntry[]; verbs: CatalogEntry[]; shapes?: string[] },
   target: string,
 ): SpecRequestBundle {
   const user = [
@@ -282,6 +282,21 @@ export function buildSpecRequest(
     '',
     renderVocabulary(vocabulary.fixtures, vocabulary.verbs),
     '',
+    /*
+       The shapes, without which a verb's signature is half a sentence. A draft
+       told `users.add(page, user: NewUser) => Promise<UserSaveResult>` and
+       nothing more will guess the fields — `.error` for `errors`, `.count` for
+       `total` — and every guess costs an attempt the compiler then rejects.
+    */
+    ...(vocabulary.shapes?.length
+      ? [
+          'The shapes those signatures refer to. Match them exactly — these are',
+          'the fields, and there are no others:',
+          '',
+          ...vocabulary.shapes,
+          '',
+        ]
+      : []),
     'Return ONE JSON object and nothing else — no prose, no code fences.',
     'Either a spec, matching the schema supplied with this request, or the refusal:',
     '',

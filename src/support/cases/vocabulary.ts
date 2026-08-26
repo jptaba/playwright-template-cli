@@ -59,6 +59,57 @@ export function vocabularyEntries(target: string): {
   return { fixtures, verbs };
 }
 
+/**
+ * The shapes the verbs take and return, rendered for a prompt.
+ *
+ * **The gap behind most of the type errors a real model produced.** The
+ * catalog publishes `users.add: (page, user: NewUser) => Promise<UserSaveResult>`
+ * and then says nothing whatever about what a `NewUser` or a `UserSaveResult`
+ * *is*. So a draft knows the verb exists, knows it returns something with a
+ * name, and guesses the fields: `.error` for `errors`, `.count` for `total`,
+ * a two-field object where four are required. Every one of those was caught by
+ * the compiler, and every one cost an attempt that need not have been spent.
+ *
+ * Interfaces only, and only the pack's own. Framework types are reachable
+ * through fixtures whose signatures already name them, and pulling in the
+ * transitive closure of Playwright's types would bury the four shapes that
+ * actually matter.
+ */
+export function vocabularyTypes(target: string): string[] {
+  const project = loadProject();
+  const targetRoot = path.join(REPO_ROOT, 'targets', target);
+  const shapes: string[] = [];
+  const seen = new Set<string>();
+
+  for (const layer of ['actions', 'api', 'db'] as const) {
+    const dir = path.join(targetRoot, layer);
+    if (!fs.existsSync(dir)) continue;
+
+    for (const file of fs.readdirSync(dir).filter((name) => name.endsWith('.ts')).sort()) {
+      const source = project.getSourceFile(path.join(dir, file));
+      if (!source) continue;
+
+      for (const declaration of source.getInterfaces()) {
+        if (!declaration.isExported()) continue;
+        const name = declaration.getName();
+        if (seen.has(name)) continue;
+        seen.add(name);
+
+        const members = [
+          ...declaration.getProperties().map((member) => {
+            const optional = member.hasQuestionToken() ? '?' : '';
+            return `  ${member.getName()}${optional}: ${member.getType().getText(member)};`;
+          }),
+          ...declaration.getMethods().map((method) => `  ${method.getName()}(…);`),
+        ];
+        if (members.length > 0) shapes.push(`interface ${name} {\n${members.join('\n')}\n}`);
+      }
+    }
+  }
+
+  return shapes;
+}
+
 function loadProject(): Project {
   return new Project({
     tsConfigFilePath: path.join(REPO_ROOT, 'tsconfig.json'),

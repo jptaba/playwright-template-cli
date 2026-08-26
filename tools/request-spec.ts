@@ -4,7 +4,7 @@ import path from 'node:path';
 import { resolveTarget } from '../config/target';
 import { loadCases } from '../src/support/cases/store';
 import { gateCase } from '../src/support/cases/gate';
-import { vocabularyEntries } from '../src/support/cases/vocabulary';
+import { vocabularyEntries, vocabularyTypes } from '../src/support/cases/vocabulary';
 import { buildSpecRequest, renderSpecRequest } from '../src/support/cases/spec-prompt';
 import { REPO_ROOT } from '../src/support/paths';
 
@@ -69,7 +69,7 @@ async function main(): Promise<number> {
     console.log(`      → ${finding.remedy}`);
   }
 
-  const entries = vocabularyEntries(target);
+  const entries = { ...vocabularyEntries(target), shapes: vocabularyTypes(target) };
   const prompt = renderSpecRequest(buildSpecRequest(stored.case, entries, target));
 
   const out = args.find((arg) => arg.startsWith('--out='))?.split('=')[1];

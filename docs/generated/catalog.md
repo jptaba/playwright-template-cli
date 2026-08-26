@@ -39,6 +39,7 @@ _Added on top of the framework fixtures when TARGET=orangehrm._
 | Name | Signature | What it does |
 |---|---|---|
 | `testData.username` | `() => string` | A login name for a user this suite is about to create. |
+| `testData.newUser` | `(overrides?: Partial<NewUser>) => NewUser` | A complete system user, ready to hand to `users.add`. |
 | `signIn` | `named actions — see the table below` | Signing in, and reading what the form reported. |
 | `users` | `named actions — see the table below` | Searching the system user list — the administrator journey. |
 | `testData` | `OrangehrmTestData` | Builders for the data a spec needs. |
@@ -58,6 +59,7 @@ _L2 UI vocabulary. Composes locators, returns data, asserts nothing._
 | `users.read` | `(page: Page) => Promise<UserSearch>` | What the list currently shows. |
 | `users.reset` | `(page: Page) => Promise<void>` | Clear the filters, so a later search is not narrowed by an earlier one. |
 | `users.add` | `(page: Page, user: NewUser) => Promise<UserSaveResult>` | Add a system user, and return what the form did about it. |
+| `users.fieldError` | `(page: Page, field: string) => Promise<string \| null>` | What the form said about **one** field, or null when it said nothing. |
 | `users.remove` | `(page: Page, username: string) => Promise<void>` | Remove a system user, by the name it was created with. |
 
 ## Fixtures — parabank

@@ -272,6 +272,25 @@ export const users = {
   },
 
   /**
+   * What the form said about **one** field, or null when it said nothing.
+   *
+   * `add` already returns every message the form produced, which is what a
+   * boundary spec wants — it reads the application's own stated rule out of
+   * them. This is for the narrower claim: *this field* was refused, and here is
+   * what it was told. A spec asserting the username was rejected should not be
+   * satisfied by a form complaining about the password.
+   *
+   * `isVisible()` rather than a wait, for the reason `signIn.isSignedIn`
+   * records: this is asked after a *successful* save too, where the honest
+   * answer is "nothing" and waiting fifteen seconds for it is a waste.
+   */
+  async fieldError(page: Page, field: string): Promise<string | null> {
+    const message = userLocators.fieldErrorFor(page, field);
+    if (!(await message.isVisible())) return null;
+    return (await message.textContent())?.trim() ?? null;
+  },
+
+  /**
    * Remove a system user, by the name it was created with.
    *
    * Everything this suite creates gets cleaned up: this demo is shared, it

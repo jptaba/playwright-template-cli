@@ -1,6 +1,6 @@
 import { test as framework } from '../../src/fixtures/base';
 import { signIn } from './actions/sign-in';
-import { users } from './actions/users';
+import { users, type NewUser } from './actions/users';
 
 /**
  * L3 — the one import a spec makes.
@@ -23,6 +23,21 @@ export interface OrangehrmTestData {
    * unique.
    */
   username(): string;
+
+  /**
+   * A complete system user, ready to hand to `users.add`.
+   *
+   * Every spec in this pack was writing the same four-field object by hand,
+   * which is data stated four times rather than intent stated once — and the
+   * two that vary (`OHRM-2-01`'s password, and whichever role a case is about)
+   * are exactly what `overrides` is for.
+   *
+   * The username is generated, never passed in by default: it has to be unique
+   * per call or two workers collide on a name this application requires to be
+   * unique, and a caller who supplies a literal has opted out of that
+   * deliberately.
+   */
+  newUser(overrides?: Partial<NewUser>): NewUser;
 }
 
 export interface OrangehrmFixtures {
@@ -47,6 +62,15 @@ export const test = framework.extend<OrangehrmFixtures>({
       // refuses a username it considers invalid, and that is a different
       // refusal from the one OHRM-2-01 is about.
       username: () => run.unique('qa-user').toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+      newUser: (overrides = {}) => ({
+        username: run.unique('qa-user').toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+        // The shortest password this application accepts, so a spec that does
+        // not care about the password rule is not silently testing it.
+        password: 'Pas5wrd',
+        role: 'ESS',
+        status: 'Enabled',
+        ...overrides,
+      }),
     });
   },
 });
