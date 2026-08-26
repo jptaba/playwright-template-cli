@@ -16,11 +16,11 @@ steps:
   - action: Open the system user list
     expected: The list is shown with its record count
   - action: Add a system user with a username that is already in use
-    expected: The form refuses to save and reports that the username is taken
+    expected: The form refuses to save and reports "Already exists" against the username
 assertions:
   - The second user is not saved
-  - The form states that the username is already in use
+  - The form reports exactly "Already exists" against the username field
 priority: medium
 type: negative
-caseHash: 91f9f2cd7dd75925
+caseHash: 8ca0155461d4d4cd
 specPath: targets/orangehrm/tests/e2e/a-username-that-is-already-taken-is-refused.spec.ts

@@ -269,10 +269,35 @@ async function main(): Promise<number> {
        result a repair — a new spec that happens to be the second one written,
        with no relationship to what actually went wrong.
     */
-    const authored = await authorSpec(stored.case, model, vocabulary, stored.file, {
-      typecheck: true,
-      repair: pendingRepair ?? undefined,
-    });
+    /*
+       A model that throws must not take the transcript with it. Seen live: the
+       CLI exited 1 on attempt 2 with nothing on stderr, the exception escaped
+       the loop, and everything attempt 1 had established went to a stack trace.
+       The attempts so far are the evidence somebody needs to decide what to do
+       next, and they are worth more than the exception is.
+    */
+    let authored: Awaited<ReturnType<typeof authorSpec>>;
+    try {
+      authored = await authorSpec(stored.case, model, vocabulary, stored.file, {
+        typecheck: true,
+        repair: pendingRepair ?? undefined,
+      });
+    } catch (error) {
+      console.log(`  ${model.identity} failed to answer:`);
+      console.log(`    ${error instanceof Error ? error.message : String(error)}`);
+      attempts.push({
+        attempt,
+        passed: false,
+        category: null,
+        disposition: {
+          act: 'stop',
+          why: 'the model did not answer, so there is no draft to judge',
+        },
+        error: error instanceof Error ? error.message : String(error),
+        refusals: [],
+      });
+      break;
+    }
     if (pendingRepair) console.log('  revised the previous draft against the failure');
     pendingRepair = null;
 

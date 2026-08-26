@@ -25,7 +25,7 @@ test(
     annotation: [
       { type: 'practitest', description: 'OHRM-4-01' },
       { type: 'case', description: 'targets/orangehrm/cases/OHRM-4-duplicate-username-refused.yaml' },
-      { type: 'case-hash', description: '91f9f2cd7dd75925' },
+      { type: 'case-hash', description: '8ca0155461d4d4cd' },
     ],
   },
   async ({ authedPage, users, testData }) => {
@@ -56,8 +56,8 @@ test(
       expect(second.saved, 'a username already in use was accepted a second time').toBe(false);
       expect(
         second.errors.join(' '),
-        'the form refused without saying the username was taken',
-      ).toMatch(/already exists/i);
+        'the form did not report "Already exists" against the username',
+      ).toMatch(/Already exists/i);
     } finally {
       // A shared demo must not keep this run's records, whichever assertion failed.
       await users.remove(authedPage, username);

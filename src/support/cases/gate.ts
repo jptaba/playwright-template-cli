@@ -101,6 +101,58 @@ export function gateCase(testCase: TestCase): GateResult {
         'replace it with a checkable statement — a number, a message, a state',
       );
     }
+
+    /*
+       An assertion about what the application *says*, that does not say what.
+
+       This is the gap that generation made visible, and it is a case defect
+       rather than an authoring one. §"Locators" already states the rule for
+       bounds — "the bound is read from the application, never written down
+       here" — and a message is the same kind of fact: OHRM-2-01 quotes
+       "Should have at least 7 characters" for exactly this reason.
+
+       Watched live: a case asserting "the form states that the username is
+       already in use" produced a spec asserting `toContain('already in use')`.
+       The application says **"Already exists"**. The author could not have
+       known — a spec author is forbidden from reading the running application,
+       precisely so its current behaviour cannot become the oracle — so it
+       guessed, and a guessed message is a test that fails for the wrong reason.
+
+       A **warning**, not a blocker, for the reason `precondition-assumed` is:
+       "an error is shown" is a legitimate claim about presence rather than
+       content, and refusing it outright would teach people to invent a quote,
+       which is worse than the gap.
+    */
+    /*
+       Narrowed twice against the real cases in this repository, and both
+       corrections are the same lesson: **a warning that fires on a correct
+       assertion teaches people to ignore the check**, which costs more than
+       the gap it was added for.
+
+       It first matched `shows`/`displays` and warned about *"No product cards
+       are shown"* — elements being absent, which quotes nothing because there
+       is nothing to quote. It then matched `reports` and warned about *"The
+       reported total is at least as large as…"*, where `reported` is an
+       adjective on a number.
+
+       So: only words that unambiguously introduce *wording a human reads* — a
+       verb of saying, or a noun that is itself a piece of text. `reports` and
+       `warns` are deliberately absent despite being real speech verbs, because
+       in these cases they modified quantities more often than messages.
+       Precision over recall: this one has to be worth reading every time.
+    */
+    const SPEAKS = /\b(says?|said|states?|stated|message|banner|alert|notification|toast)\b/i;
+    const QUOTED = /["'“”‘’].+?["'“”‘’]|\/.+?\//;
+    if (SPEAKS.test(assertion) && !QUOTED.test(assertion)) {
+      add(
+        'unquoted-message',
+        'warning',
+        `assertion ${index + 1} says the application reports something, without saying what: ` +
+          `"${assertion}"`,
+        'quote the application\'s own words, read off the running system — whoever automates ' +
+          'this cannot look, so an unquoted message gets guessed',
+      );
+    }
   });
 
   // 4. Concrete input data somewhere in the case.

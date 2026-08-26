@@ -160,8 +160,21 @@ export class CliSpecAuthor implements SpecAuthorModel {
         );
       }
       if (result.status !== 0) {
+        /*
+           stdout as well as stderr, and that is not belt-and-braces. Seen
+           live: the CLI exited 1 mid-loop having written *nothing* to stderr,
+           so the loop reported `exited 1` and no reason at all. An agent CLI
+           that reports structurally puts its failure in the JSON on stdout —
+           where an empty stderr would otherwise throw it away.
+        */
+        const stderr = (result.stderr ?? '').trim();
+        const stdout = (result.stdout ?? '').trim();
         throw new Error(
-          `${this.identity} exited ${result.status}.\n${(result.stderr ?? '').slice(0, 600)}`,
+          `${this.identity} exited ${result.status}.` +
+            (stderr ? `\nstderr: ${stderr.slice(0, 600)}` : '') +
+            (stdout ? `\nstdout: ${stdout.slice(0, 600)}` : '') +
+            (!stderr && !stdout ? '\nIt printed nothing. A timeout or a dropped session looks ' +
+              'like this; the prompt is unchanged, so running again is a reasonable first move.' : ''),
         );
       }
       return extract(result.stdout, this.resultPath);

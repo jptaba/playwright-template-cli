@@ -233,3 +233,79 @@ test.describe('recording the hash a case was published at', () => {
     }
   });
 });
+
+/**
+ * A case that says the application *reports* something, without saying what.
+ *
+ * The gap generation made visible, and it is a case defect rather than an
+ * authoring one. A spec author is forbidden from reading the running
+ * application — precisely so its current behaviour cannot become the oracle —
+ * so an unquoted message is a message that gets **guessed**. Watched live: a
+ * case asserting "the form states that the username is already in use"
+ * produced `toContain('already in use')` against an application that says
+ * **"Already exists"**.
+ *
+ * §"Locators" already states the rule for bounds — read them from the
+ * application, never write one down — and OHRM-2-01 quotes "Should have at
+ * least 7 characters" for exactly this reason. A message is the same kind of
+ * fact.
+ */
+test.describe('the unquoted-message warning', () => {
+  const withAssertions = (assertions: string[]): TestCase => ({
+    ...wellFormed,
+    assertions,
+  });
+
+  const checks = (testCase: TestCase): string[] =>
+    gateCase(testCase).findings.map((finding) => finding.check);
+
+  test('warns when a case says the form states something and does not say what', () => {
+    const result = gateCase(withAssertions(['The form states that the username is taken']));
+    expect(result.findings.map((finding) => finding.check)).toContain('unquoted-message');
+    // A warning, never a blocker: "an error is shown" is a legitimate claim
+    // about presence, and refusing it would teach people to invent a quote.
+    expect(result.passed).toBe(true);
+  });
+
+  test('is satisfied by the application\'s own words', () => {
+    expect(checks(withAssertions(['The form reports exactly "Already exists"']))).not.toContain(
+      'unquoted-message',
+    );
+  });
+
+  test('accepts a regular expression as a quotation too', () => {
+    expect(checks(withAssertions(['The banner matches /already exists/i']))).not.toContain(
+      'unquoted-message',
+    );
+  });
+
+  /*
+     Both corrections made against the real cases in this repository. A warning
+     that fires on a correct assertion teaches people to ignore the check.
+  */
+  test('does not fire on elements being absent, which quote nothing', () => {
+    expect(checks(withAssertions(['No product cards are shown']))).not.toContain(
+      'unquoted-message',
+    );
+  });
+
+  test('does not fire on a number that happens to be reported', () => {
+    expect(
+      checks(withAssertions(['The reported total is at least as large as the page count'])),
+    ).not.toContain('unquoted-message');
+  });
+
+  test('stays quiet across every case this repository actually holds', () => {
+    // Swept live when the rule landed: 12 cases, 5 packs, zero warnings. This
+    // pins the property rather than the sweep.
+    for (const assertion of [
+      'No session is established',
+      'The sign-in form is still on screen',
+      'Tax equals 8% of the subtotal',
+      'The cart badge shows 2',
+      'The second user is not saved',
+    ]) {
+      expect(checks(withAssertions([assertion])), assertion).not.toContain('unquoted-message');
+    }
+  });
+});

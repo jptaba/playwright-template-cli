@@ -58,6 +58,17 @@ async function main(): Promise<number> {
     return 1;
   }
 
+  /*
+     Warnings too, and this is the half that was invisible. A passing gate
+     printed nothing, so `unquoted-message` — a case saying the application
+     reports something without saying what — reached the author silently and
+     was guessed at. A warning nobody is shown is not a warning.
+  */
+  for (const finding of gate.findings.filter((entry) => entry.severity === 'warning')) {
+    console.log(`  [warning] ${finding.check}: ${finding.detail}`);
+    console.log(`      → ${finding.remedy}`);
+  }
+
   const entries = vocabularyEntries(target);
   const prompt = renderSpecRequest(buildSpecRequest(stored.case, entries, target));
 
