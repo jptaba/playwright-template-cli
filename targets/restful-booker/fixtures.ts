@@ -15,8 +15,6 @@ import { roomsApi } from './api/rooms';
  * whole discipline — the value is in what a model *cannot* choose.
  */
 export interface RestfulBookerTestData {
-  /** Unique per call, so parallel workers never collide on a record. */
-  record(overrides?: Partial<{ reference: string }>): { reference: string };
   /**
    * A room this run owns.
    *
@@ -56,9 +54,8 @@ export const test = framework.extend<RestfulBookerFixtures>({
   },
   testData: async ({ run }, use) => {
     await use({
-      // Tagged with the run id so everything created can be cleaned up, and so
-      // an orphan can be traced back to the run that left it.
-      record: (overrides = {}) => ({ reference: run.unique('REC'), ...overrides }),
+      // Named through the run id so everything created can be cleaned up, and
+      // so a room left behind by a run that died can be traced back to it.
       room: (overrides = {}) => ({
         name: run.unique('qa'),
         type: 'Single',

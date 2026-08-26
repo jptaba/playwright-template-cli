@@ -1127,3 +1127,56 @@ test.describe('a spec the scaffolder wrote is not somebody having started', () =
     expect([...SCAFFOLDED_SPECS].sort()).toEqual(written.sort());
   });
 });
+
+/**
+ * The scaffold ships no placeholder vocabulary.
+ *
+ * `*TestData` used to arrive carrying a generic
+ * `record(overrides?): { reference: string }`. **No spec in any of the five
+ * applications ever called it** — and it was not harmless, because
+ * `docs/generated/catalog.md` published it as a real builder. A spec author
+ * looking for a way to make test data found something plausible and generic
+ * and reached for it, passing `record({ username })` where the verb wanted a
+ * fully-formed user. Three attempts of one hardening loop went that way in a
+ * single sitting.
+ *
+ * An empty surface cannot be chosen by mistake. A placeholder that looks like
+ * vocabulary can, which makes it worse than nothing — and the catalog's whole
+ * claim is that everything in it is something a spec may reach for.
+ */
+test.describe('the scaffolded data builders', () => {
+  const fixtures = (): string =>
+    planScaffold({ name: 'new-app', baseURL: 'https://app.new-app.test' }).files.find((file) =>
+      file.path.endsWith('/fixtures.ts'),
+    )!.contents;
+
+  /*
+     Comments stripped first, deliberately. The template *explains* what it
+     removed and why, quoting the old `record(...)` signature to do it — and a
+     check that could not tell prose from code would forbid the explanation
+     along with the thing it explains.
+  */
+  const code = (): string =>
+    fixtures()
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '');
+
+  test('ship no generic record builder for anyone to reach for', () => {
+    expect(code()).not.toMatch(/\brecord\s*[(:]/);
+    expect(code()).not.toContain("run.unique('REC')");
+  });
+
+  test('start empty, and say what belongs there instead', () => {
+    const source = fixtures();
+    expect(source).toContain('export interface NewAppTestData {');
+    expect(source).toContain('Empty on purpose');
+    // The thing an author actually needs to know when they add one.
+    expect(source).toContain('run.unique');
+  });
+
+  test('still wire testData into the fixtures, so adding one needs no plumbing', () => {
+    const source = fixtures();
+    expect(source).toContain('testData: NewAppTestData;');
+    expect(source).toContain('testData: async ({ run }, use)');
+  });
+});

@@ -14,8 +14,6 @@ import { banking } from './actions/accounts';
  * whole discipline — the value is in what a model *cannot* choose.
  */
 export interface ParabankTestData {
-  /** Unique per call, so parallel workers never collide on a record. */
-  record(overrides?: Partial<{ reference: string }>): { reference: string };
   /**
    * A small transfer amount this worker alone will use.
    *
@@ -56,9 +54,6 @@ export const test = framework.extend<ParabankFixtures>({
   },
   testData: async ({ run }, use) => {
     await use({
-      // Tagged with the run id so everything created can be cleaned up, and so
-      // an orphan can be traced back to the run that left it.
-      record: (overrides = {}) => ({ reference: run.unique('REC'), ...overrides }),
       // Small on purpose: these move real money on a demo everybody shares.
       transferAmount: () => `1.${String(10 + (run.parallelIndex % 80)).padStart(2, '0')}`,
     });

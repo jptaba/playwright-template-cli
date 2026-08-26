@@ -847,9 +847,27 @@ import { signIn } from './actions/sign-in';
  * Keep the surface small. Resisting a fixture that only one spec wants is the
  * whole discipline — the value is in what a model *cannot* choose.
  */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ${pascal}TestData {
-  /** Unique per call, so parallel workers never collide on a record. */
-  record(overrides?: Partial<{ reference: string }>): { reference: string };
+  /*
+     Empty on purpose, and this is the one place in the scaffold where that is
+     the right starting point.
+
+     It used to ship a generic \`record(overrides?): { reference: string }\`.
+     No spec in any application ever called it — checked across all five. What
+     it did do was appear in \`docs/generated/catalog.md\` as a real builder, so
+     a spec author looking for a way to construct test data found something
+     plausible and generic and reached for it, passing \`record({ username })\`
+     where the verb wanted a fully-formed user. Three attempts of a hardening
+     loop went that way in one sitting.
+
+     A placeholder that looks like vocabulary is worse than no placeholder: an
+     empty surface cannot be chosen by mistake, and it says plainly that this
+     application has no builders yet.
+
+     Add them as specs need them, and build every value through
+     \`run.unique(prefix)\` so two workers cannot collide on a name.
+  */
 }
 
 export interface ${pascal}Fixtures {
@@ -863,12 +881,12 @@ export const test = framework.extend<${pascal}Fixtures>({
   signIn: async ({}, use) => {
     await use(signIn);
   },
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   testData: async ({ run }, use) => {
-    await use({
-      // Tagged with the run id so everything created can be cleaned up, and so
-      // an orphan can be traced back to the run that left it.
-      record: (overrides = {}) => ({ reference: run.unique('REC'), ...overrides }),
-    });
+    // Builders go here as specs need them. \`run.unique(prefix)\` carries the run
+    // id and the worker index, so a record left behind by a run that died can
+    // be traced back to it, and two workers never collide on a name.
+    await use({});
   },
 });
 

@@ -15,15 +15,13 @@ import { checkout } from './actions/checkout';
  * whole discipline — the value is in what a model *cannot* choose.
  */
 export interface SaucedemoTestData {
-  /** Unique per call, so parallel workers never collide on a record. */
-  record(overrides?: Partial<{ reference: string }>): { reference: string };
   /**
    * Delivery details for checkout's first step.
    *
    * A builder rather than three literals in a spec: the form takes three
    * fields and every checkout spec needs all three, so a spec that wrote them
    * out would be stating data rather than intent. Unique per call for the same
-   * reason `record` is.
+   * reason every generated value here is.
    */
   customer(): { firstName: string; lastName: string; postalCode: string };
 }
@@ -51,9 +49,6 @@ export const test = framework.extend<SaucedemoFixtures>({
   },
   testData: async ({ run }, use) => {
     await use({
-      // Tagged with the run id so everything created can be cleaned up, and so
-      // an orphan can be traced back to the run that left it.
-      record: (overrides = {}) => ({ reference: run.unique('REC'), ...overrides }),
       customer: () => ({
         firstName: 'Casey',
         lastName: run.unique('Tester'),

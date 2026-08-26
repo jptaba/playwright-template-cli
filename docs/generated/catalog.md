@@ -38,7 +38,6 @@ _Added on top of the framework fixtures when TARGET=orangehrm._
 
 | Name | Signature | What it does |
 |---|---|---|
-| `testData.record` | `(overrides?: Partial<{ reference: string; }>) => { reference: string; }` | Unique per call, so parallel workers never collide on a record. |
 | `testData.username` | `() => string` | A login name for a user this suite is about to create. |
 | `signIn` | `named actions — see the table below` | Signing in, and reading what the form reported. |
 | `users` | `named actions — see the table below` | Searching the system user list — the administrator journey. |
@@ -67,7 +66,6 @@ _Added on top of the framework fixtures when TARGET=parabank._
 
 | Name | Signature | What it does |
 |---|---|---|
-| `testData.record` | `(overrides?: Partial<{ reference: string; }>) => { reference: string; }` | Unique per call, so parallel workers never collide on a record. |
 | `testData.transferAmount` | `() => string` | A small transfer amount this worker alone will use. |
 | `signIn` | `named actions — see the table below` | Signing in, and reading what the form reported. |
 | `banking` | `named actions — see the table below` | Accounts, and moving money between two of them. |
@@ -104,7 +102,6 @@ _Added on top of the framework fixtures when TARGET=restful-booker._
 
 | Name | Signature | What it does |
 |---|---|---|
-| `testData.record` | `(overrides?: Partial<{ reference: string; }>) => { reference: string; }` | Unique per call, so parallel workers never collide on a record. |
 | `testData.room` | `(overrides?: Partial<NewRoom>) => NewRoom` | A room this run owns. |
 | `signIn` | `named actions — see the table below` | Signing in, and reading what the form reported. |
 | `rooms` | `named actions — see the table below` | Administering rooms: the journey this application exists for. |
@@ -144,7 +141,6 @@ _Added on top of the framework fixtures when TARGET=saucedemo._
 
 | Name | Signature | What it does |
 |---|---|---|
-| `testData.record` | `(overrides?: Partial<{ reference: string; }>) => { reference: string; }` | Unique per call, so parallel workers never collide on a record. |
 | `testData.customer` | `() => { firstName: string; lastName: string; postalCode: string; }` | Delivery details for checkout's first step. |
 | `signIn` | `named actions — see the table below` | Signing in, and reading what the form reported. |
 | `inventory` | `named actions — see the table below` | Browsing the product listing and the cart it feeds. |

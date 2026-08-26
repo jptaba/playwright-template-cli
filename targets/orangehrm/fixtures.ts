@@ -14,8 +14,6 @@ import { users } from './actions/users';
  * whole discipline — the value is in what a model *cannot* choose.
  */
 export interface OrangehrmTestData {
-  /** Unique per call, so parallel workers never collide on a record. */
-  record(overrides?: Partial<{ reference: string }>): { reference: string };
   /**
    * A login name for a user this suite is about to create.
    *
@@ -45,9 +43,6 @@ export const test = framework.extend<OrangehrmFixtures>({
   },
   testData: async ({ run }, use) => {
     await use({
-      // Tagged with the run id so everything created can be cleaned up, and so
-      // an orphan can be traced back to the run that left it.
-      record: (overrides = {}) => ({ reference: run.unique('REC'), ...overrides }),
       // Lower case and no punctuation beyond the dash: this application
       // refuses a username it considers invalid, and that is a different
       // refusal from the one OHRM-2-01 is about.
