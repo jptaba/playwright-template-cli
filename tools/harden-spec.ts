@@ -6,9 +6,16 @@ import { resolveTarget } from '../config/target';
 import { loadCases, recordGeneratedSpec } from '../src/support/cases/store';
 import { gateCase } from '../src/support/cases/gate';
 import { vocabularyFor } from '../src/support/cases/vocabulary';
-import { authorSpec, type SpecAuthorModel, type SpecDraft, type SpecRequest } from '../src/support/cases/spec-author';
+import {
+  authorSpec,
+  type SpecAuthorModel,
+  type SpecDraft,
+  type SpecRepairContext,
+  type SpecRequest,
+} from '../src/support/cases/spec-author';
 import {
   MAX_REPAIR_ATTEMPTS,
+  MAX_STATIC_REPAIRS,
   NO_VERDICT,
   claimsUnchanged,
   dispositionFor,
@@ -23,6 +30,7 @@ import {
   type StabilityReport,
   type StabilityRun,
 } from '../src/support/cases/stability';
+import { CliSpecAuthor } from '../src/integrations/llm/cli-spec-author';
 import { clusterFailures } from '../src/support/triage/cluster';
 import { classifyByRule } from '../src/support/triage/rules';
 import type { RunResult, TestRecord } from '../src/support/reporters/run-result';
@@ -205,11 +213,17 @@ async function main(): Promise<number> {
   const reference = args.find((arg) => !arg.startsWith('-'));
   const drafts = args.find((arg) => arg.startsWith('--draft='))?.split('=')[1]?.split(',') ?? [];
   const skipStability = args.includes('--no-stability');
+  const useCli = args.includes('--model=cli');
 
-  if (!reference || drafts.length === 0) {
+  if (!reference || (drafts.length === 0 && !useCli)) {
     console.error(
-      'Usage: npm run spec:harden -- <CASE-ID> --draft=a.json[,b.json] [--target=] [--no-stability]',
+      'Usage: npm run spec:harden -- <CASE-ID> (--draft=a.json[,b.json] | --model=cli) ' +
+        '[--target=] [--no-stability]',
     );
+    console.error(
+      '\n--model=cli is what makes the repair loop real: a stand-in reading drafts from disk',
+    );
+    console.error('cannot respond to the failure it was shown.');
     return 2;
   }
 
@@ -233,12 +247,14 @@ async function main(): Promise<number> {
   }
 
   const vocabulary = vocabularyFor(target);
-  const model = new SequenceDraftAuthor(drafts);
+  const model: SpecAuthorModel = useCli ? new CliSpecAuthor() : new SequenceDraftAuthor(drafts);
   const resultPath = path.join(REPO_ROOT, '.hardening-run.json');
 
   const attempts: RepairAttempt[] = [];
   let specPath: string | null = null;
   let previousSource: string | null = null;
+  let pendingRepair: SpecRepairContext | null = null;
+  let staticRepairs = 0;
 
   console.log(`Hardening ${stored.case.id ?? stored.case.source.key} on '${target}'`);
   console.log(`  at most ${MAX_REPAIR_ATTEMPTS} repair attempt(s); claims are frozen throughout\n`);
@@ -247,7 +263,19 @@ async function main(): Promise<number> {
     const attempt = attempts.length + 1;
     console.log(`── attempt ${attempt} ─────────────────────────────`);
 
-    const authored = await authorSpec(stored.case, model, vocabulary, stored.file, { typecheck: true });
+    /*
+       A repair, not a re-draft, once there is a failure to respond to. Without
+       this the loop would ask for a fresh draft each attempt and call the
+       result a repair — a new spec that happens to be the second one written,
+       with no relationship to what actually went wrong.
+    */
+    const authored = await authorSpec(stored.case, model, vocabulary, stored.file, {
+      typecheck: true,
+      repair: pendingRepair ?? undefined,
+    });
+    if (pendingRepair) console.log('  revised the previous draft against the failure');
+    pendingRepair = null;
+
     if (authored.refusal) {
       console.log('  the pack cannot express this case:');
       for (const missing of authored.refusal.missing) console.log(`    missing verb: ${missing.verb}`);
@@ -258,15 +286,46 @@ async function main(): Promise<number> {
     if (blockers.length > 0) {
       console.log('  the draft did not verify, so it was never run:');
       for (const found of blockers) console.log(`    [blocker] ${found.check}: ${found.detail}`);
+
+      /*
+         Hand them straight back, and note that this needs no triage gate. A
+         verification failure is *oracle-free* — no compile error and no
+         coverage gap can be resolved by changing what the spec claims, so
+         there is nothing here for a repair to corrupt. That is the design's own
+         rule ("iterate against the compiler, never against a test result"),
+         and until now the loop obeyed only the second half of it: it gave up on
+         a draft that a single round of type errors would have fixed.
+      */
+      const canRetry = Boolean(model.repair) && staticRepairs < MAX_STATIC_REPAIRS;
       attempts.push({
         attempt,
         passed: false,
         category: null,
-        disposition: NO_VERDICT,
+        disposition: canRetry
+          ? { act: 'repair', why: 'the draft did not verify, and fixing that cannot change a claim' }
+          : NO_VERDICT,
         error: null,
         refusals: blockers,
+        refusalKind: 'verification',
       });
-      break;
+
+      if (!canRetry) {
+        if (!model.repair) {
+          console.log(`  (${model.identity} cannot take a repair — use --model=cli)`);
+        } else {
+          console.log(`  (${MAX_STATIC_REPAIRS} verification repair(s) already spent)`);
+        }
+        break;
+      }
+
+      staticRepairs += 1;
+      pendingRepair = {
+        case: stored.case,
+        vocabulary,
+        previousSource: authored.source!,
+        reason: { kind: 'verification', findings: blockers },
+      };
+      continue;
     }
 
     /*
@@ -287,6 +346,7 @@ async function main(): Promise<number> {
           disposition: NO_VERDICT,
           error: null,
           refusals: changed,
+          refusalKind: 'claims',
         });
         break;
       }
@@ -341,8 +401,30 @@ async function main(): Promise<number> {
       refusals: [],
     });
 
-    if (disposition.act !== 'stop' && model.exhausted && drafts.length > 1) {
-      console.log('  (no further draft supplied — the stand-in model has nothing left to try)');
+    /*
+       Hand the failure forward, but only when the gate permits a repair and the
+       model can actually take one. A model with no `repair` is not a broken
+       model — the draft-on-disk stand-in has no way to respond to a failure —
+       so say so and stop, rather than re-drafting and calling that a repair.
+    */
+    if (disposition.act === 'repair') {
+      if (model.repair) {
+        pendingRepair = {
+          case: stored.case,
+          vocabulary,
+          previousSource: previousSource!,
+          reason: {
+            kind: 'run',
+            category: verdict!.category,
+            summary: verdict!.summary,
+            error: outcome.failure!.error,
+            failedStep: outcome.failure!.failedStep,
+          },
+        };
+      } else {
+        console.log(`  (${model.identity} cannot take a repair — use --model=cli, or supply`);
+        console.log('   another --draft= for the stand-in to try next)');
+      }
     }
   }
 
@@ -382,6 +464,12 @@ async function main(): Promise<number> {
       console.log("`known-failure` annotation stating what the failure should contain, rather than");
       console.log('repairing it — §"A defect in the application is a failure, and it stays one".');
       return 0;
+    case 'unverifiable':
+      console.log('The draft never compiled or never passed the checks, so it was never run.');
+      console.log('Nothing was written. The blockers above are the whole of it — each one names');
+      console.log('a verb used with a shape the catalog does not publish, or a claim that does');
+      console.log('not hold.');
+      return 1;
     case 'refused-repair':
       console.log('A repair tried to change what the spec claims and was refused before it ran.');
       console.log('If the claim is genuinely wrong, the case is wrong — fix the case, not the spec.');

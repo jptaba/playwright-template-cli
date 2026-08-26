@@ -2,9 +2,14 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
-import { buildSpecRequest, renderSpecRequest } from '../../support/cases/spec-prompt';
+import { buildRepairRequest, buildSpecRequest, renderSpecRequest } from '../../support/cases/spec-prompt';
 import { vocabularyEntries } from '../../support/cases/vocabulary';
-import type { SpecAuthorModel, SpecDraft, SpecRequest } from '../../support/cases/spec-author';
+import type {
+  SpecAuthorModel,
+  SpecDraft,
+  SpecRepairContext,
+  SpecRequest,
+} from '../../support/cases/spec-author';
 
 /**
  * A spec author that drives an agent CLI already installed on this machine.
@@ -78,6 +83,30 @@ export class CliSpecAuthor implements SpecAuthorModel {
 
     const reply = this.invoke(prompt);
     return parseDraft(reply);
+  }
+
+  /**
+   * Revise a draft that failed when run.
+   *
+   * The original request goes in again ahead of the failure, because a repair
+   * still has to satisfy the case — a model shown only an error will happily
+   * fix the error and lose an assertion doing it, and losing an assertion is
+   * refused later at more cost than including a few thousand tokens here.
+   */
+  async repair(request: SpecRepairContext): Promise<SpecDraft> {
+    const entries = vocabularyEntries(request.vocabulary.target);
+    const original = renderSpecRequest(
+      buildSpecRequest(request.case, entries, request.vocabulary.target),
+    );
+    const prompt = [
+      original,
+      '',
+      '--- THIS IS A REPAIR ---',
+      '',
+      buildRepairRequest(request.previousSource, request.reason),
+    ].join('\n');
+
+    return parseDraft(this.invoke(prompt));
   }
 
   private invoke(prompt: string): string {

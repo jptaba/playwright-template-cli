@@ -133,6 +133,42 @@ export interface SpecRequest {
 export interface SpecAuthorModel {
   readonly identity: string;
   draft(request: SpecRequest): Promise<SpecDraft>;
+  /**
+   * Revise a draft that failed when it was run — phase 3's loop.
+   *
+   * Optional, because a model that cannot see a failure is still a perfectly
+   * good author: the draft-on-disk stand-in has no way to respond to one, and
+   * `spec:author` never needs this at all. A loop that finds it absent says so
+   * and stops rather than re-drafting from scratch and calling that a repair.
+   */
+  repair?(request: SpecRepairContext): Promise<SpecDraft>;
+}
+
+/**
+ * What a repair is shown. Never the application's current state — see `repair.ts`.
+ *
+ * **Two kinds, and the difference is who is allowed to decide.** A
+ * `verification` repair answers the compiler and the checkers: it is
+ * *oracle-free*, because no compile error can be fixed by changing what the
+ * spec claims, so it needs no gate beyond an attempt limit. A `run` repair
+ * answers a failing test, and that one is dangerous — it is permitted only for
+ * the triage categories `repair.ts` allows, and its reply is compared against
+ * the previous claims before it is accepted.
+ */
+export interface SpecRepairContext {
+  case: TestCase;
+  vocabulary: Vocabulary;
+  /** The rendered spec that failed, so the reply is a revision not a rewrite. */
+  previousSource: string;
+  reason:
+    | { kind: 'verification'; findings: SpecFinding[] }
+    | {
+        kind: 'run';
+        category: string;
+        summary: string;
+        error: string;
+        failedStep: string | null;
+      };
 }
 
 /** A finding names the gap rather than scoring, as `gate.ts` does. */
@@ -439,10 +475,19 @@ export async function authorSpec(
    * on**, and should: without it "verified" means the draft used real verb
    * *names*, which is a much smaller claim than it sounds.
    */
-  options: { typecheck?: boolean } = {},
+  options: { typecheck?: boolean; repair?: SpecRepairContext } = {},
 ): Promise<SpecAuthoringResult> {
   const request: SpecRequest = { case: testCase, vocabulary };
-  const draft = await model.draft(request);
+  /*
+     A repair goes through the identical pipeline — same checks, same renderer,
+     same refusal to write while a blocker stands. Only where the draft came
+     from differs, and a repaired draft has one extra gate on top of these
+     (`claimsUnchanged`), applied by the caller that holds the previous source.
+  */
+  const draft =
+    options.repair && model.repair
+      ? await model.repair(options.repair)
+      : await model.draft(request);
 
   if (draft.kind === 'needs-vocabulary') {
     return {

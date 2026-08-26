@@ -290,6 +290,92 @@ export function buildSpecRequest(
 }
 
 /**
+ * The repair request: the draft that failed, why, and what may not move.
+ *
+ * **The constraint is repeated here and enforced regardless.** A prompt saying
+ * "do not change the assertions" is worth having — it is how the model spends
+ * its attention on the right thing — but it is not the guarantee.
+ * `claimsUnchanged` compares the rendered claims before and after and refuses
+ * the repair outright if any moved, so a model that ignores this paragraph
+ * cannot get past it.
+ *
+ * What the model is *not* given is equally deliberate: no screenshot, no DOM, no
+ * page content. It sees the error the run produced and the triage verdict, which
+ * is what a person debugging sees in a CI log — not the application's current
+ * contents, which is where a new assertion would come from.
+ */
+export function buildRepairRequest(
+  previousSource: string,
+  reason:
+    | { kind: 'verification'; findings: Array<{ check: string; detail: string; remedy: string }> }
+    | { kind: 'run'; category: string; summary: string; error: string; failedStep: string | null },
+): string {
+  const opening =
+    reason.kind === 'verification'
+      ? [
+          'The spec you wrote did not pass the checks, so it was never run. Fix it.',
+          '',
+          'THE SPEC AS WRITTEN:',
+          '',
+          previousSource,
+          '',
+          'WHAT IS WRONG WITH IT:',
+          '',
+          ...reason.findings.map(
+            (finding) => `  · ${finding.check}: ${finding.detail}\n      → ${finding.remedy}`,
+          ),
+          '',
+          'Most of these are a verb used with a shape it does not have. Re-read the',
+          'signatures in the vocabulary above and match them exactly — the argument',
+          'objects and the fields on what each verb returns.',
+          '',
+        ]
+      : [
+          'The spec you wrote was run and it failed. Repair it.',
+          '',
+          'THE SPEC AS WRITTEN:',
+          '',
+          previousSource,
+          '',
+          'WHAT HAPPENED:',
+          `  triage category: ${reason.category}`,
+          `  summary: ${reason.summary}`,
+          reason.failedStep
+            ? `  failed at step: ${reason.failedStep}`
+            : '  failed step: not recorded',
+          '',
+          '  error:',
+          reason.error
+            .split('\n')
+            .slice(0, 40)
+            .map((line) => `    ${line}`)
+            .join('\n'),
+          '',
+        ];
+
+  return [
+    ...opening,
+    'RULES FOR A REPAIR — the first one is absolute:',
+    '',
+    '1. THE ASSERTIONS DO NOT MOVE. Every expectation keeps its subject, its',
+    '   matcher and its expected value exactly as they are, and the "proves"',
+    '   arrays stay identical. Change how the spec reaches them — the setup, a',
+    '   seed, a wait, a verb used wrongly — never what it claims. A repair that',
+    '   edits an assertion to agree with the application turns a real defect into',
+    '   a green test, and it is refused automatically, so it wastes the attempt.',
+    '   If the only possible fix is a different claim, the case is wrong: return',
+    '   the refusal shape and say so instead.',
+    '',
+    '2. Do not rename bindings. The check that guards rule 1 compares rendered',
+    '   text, so a rename reads as a changed claim and is refused.',
+    '',
+    '3. Same vocabulary as before. Same shape of reply — one JSON object.',
+    '',
+    'Return the complete repaired draft, not a diff.',
+  ].join('\n');
+}
+
+/**
  * The whole request as one piece of text, for an agent that takes a prompt and
  * not a system/user pair — which is most of the ways somebody will actually run
  * this, including a CLI and a person pasting into a chat window.

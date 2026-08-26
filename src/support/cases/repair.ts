@@ -199,6 +199,23 @@ export const NO_VERDICT: RepairDisposition = {
  */
 export const MAX_REPAIR_ATTEMPTS = 3;
 
+/**
+ * How many times a draft that failed *verification* may be handed back.
+ *
+ * Counted separately from `MAX_REPAIR_ATTEMPTS`, and lower, because the two
+ * repairs are different in kind. A verification failure is oracle-free — no
+ * compile error is fixable by changing what the spec claims — so retrying is
+ * safe in a way a run repair is not, and it needs no triage gate.
+ *
+ * But it is bounded at two for `gate.ts`'s reason, which does apply here: a
+ * model that keeps rewriting until a checker stops complaining will eventually
+ * satisfy the checker rather than the case. The first reply gets the complete
+ * list of problems, so a model that cannot fix them in two passes is not going
+ * to find the answer on the fifth — it is going to find something that
+ * compiles.
+ */
+export const MAX_STATIC_REPAIRS = 2;
+
 /** What a repair is told. Deliberately not the application's current state. */
 export interface RepairRequest {
   case: TestCase;
@@ -227,8 +244,18 @@ export interface RepairAttempt {
   category: TriageCategory | null;
   disposition: RepairDisposition;
   error: string | null;
-  /** Findings that refused the repaired draft, when any did. */
+  /** Findings that stopped this attempt, when any did. */
   refusals: SpecFinding[];
+  /**
+   * Which kind of stop it was, and the distinction is not cosmetic.
+   *
+   * `verification` means the draft never ran — it did not compile, or it broke
+   * a checker. `claims` means a repair tried to change what the spec asserts
+   * and was refused. Both fill `refusals`, and reporting the first as the
+   * second tells somebody a repair rewrote their assertions when nothing of the
+   * kind happened. Observed doing exactly that on its first live run.
+   */
+  refusalKind?: 'verification' | 'claims';
 }
 
 /* ------------------------------------------------------------------ claims */
@@ -391,13 +418,16 @@ export type HardeningOutcome =
   | 'defect-found'
   | 'escalated'
   | 'exhausted'
+  | 'unverifiable'
   | 'refused-repair';
 
 export function outcomeOf(attempts: RepairAttempt[]): HardeningOutcome {
   const last = attempts.at(-1);
   if (!last) return 'escalated';
   if (last.passed) return 'passed';
-  if (last.refusals.length > 0) return 'refused-repair';
+  if (last.refusals.length > 0) {
+    return last.refusalKind === 'claims' ? 'refused-repair' : 'unverifiable';
+  }
   if (last.disposition.finding) return 'defect-found';
   if (last.disposition.act === 'stop') return 'escalated';
   return 'exhausted';

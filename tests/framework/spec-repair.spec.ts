@@ -225,11 +225,22 @@ test.describe('when the loop stops', () => {
     expect(outcomeOf([attempt({ disposition: dispositionFor({ category: 'case-defect' }) })])).toBe(
       'escalated',
     );
-    expect(
-      outcomeOf([
-        attempt({ refusals: [{ check: 'repair-changed-claims', severity: 'blocker', detail: '', remedy: '' }] }),
-      ]),
-    ).toBe('refused-repair');
+    /*
+       The two stops that both fill `refusals` and mean opposite things. Run
+       live, the loop reported a draft that never compiled as "a repair tried to
+       change what the spec claims" — telling somebody their assertions were
+       rewritten when nothing of the kind had happened.
+    */
+    const refusal = { check: 'x', severity: 'blocker' as const, detail: '', remedy: '' };
+    expect(outcomeOf([attempt({ refusals: [refusal], refusalKind: 'claims' })])).toBe(
+      'refused-repair',
+    );
+    expect(outcomeOf([attempt({ refusals: [refusal], refusalKind: 'verification' })])).toBe(
+      'unverifiable',
+    );
+    // Unstated is the safer reading: a draft that did not verify is the common
+    // case, and claiming a repair rewrote the assertions is the worse error.
+    expect(outcomeOf([attempt({ refusals: [refusal] })])).toBe('unverifiable');
     expect(
       outcomeOf(
         Array.from({ length: MAX_REPAIR_ATTEMPTS }, () =>

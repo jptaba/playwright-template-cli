@@ -154,14 +154,50 @@ export function readVocabulary(file: SourceFile): CatalogEntry[] {
 export function readFixtureInterfaces(file: SourceFile, names: RegExp): CatalogEntry[] {
   const entries: CatalogEntry[] = [];
 
+  /*
+     Which fixture each interface is the *type of*, so a member can be published
+     under the name a spec actually writes. `OrangehrmTestData` is reached as
+     `testData`, and an entry called bare `username` would be a name nothing in
+     a spec can say.
+  */
+  const fixtureOfType = new Map<string, string>();
+  for (const declaration of file.getInterfaces()) {
+    if (!declaration.isExported()) continue;
+    for (const member of declaration.getProperties()) {
+      fixtureOfType.set(member.getType().getText(member), member.getName());
+      fixtureOfType.set(shortType(member.getType()), member.getName());
+    }
+  }
+
   for (const declaration of file.getInterfaces()) {
     if (!declaration.isExported() || !names.test(declaration.getName())) continue;
+    const prefix = fixtureOfType.get(declaration.getName());
+    const qualify = (name: string): string => (prefix ? `${prefix}.${name}` : name);
+
     for (const member of declaration.getProperties()) {
       const type = shortType(member.getType());
       entries.push({
-        name: member.getName(),
+        name: qualify(member.getName()),
         signature: type.startsWith('{') ? 'named actions — see the table below' : type,
         doc: firstDocLine(member.getJsDocs()[0]?.getInnerText()),
+      });
+    }
+
+    /*
+       **Methods, which were being dropped entirely.** `getProperties()` returns
+       property signatures and nothing else, so an interface declaring its
+       surface as methods — which every `*TestData` in this repository does —
+       was published as a bare type name with no members at all. The catalog
+       says it is "everything a spec is allowed to reach for", and a reader
+       could not learn `testData.username()` from it; a model given the same
+       document guessed `testData.newUser` and `testData.systemUser` on two
+       consecutive attempts before the loop ran out of them.
+    */
+    for (const method of declaration.getMethods()) {
+      entries.push({
+        name: qualify(method.getName()),
+        signature: signatureOf(method.getParameters(), method.getReturnType()),
+        doc: firstDocLine(method.getJsDocs()[0]?.getInnerText()),
       });
     }
   }
